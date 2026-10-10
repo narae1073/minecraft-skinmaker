@@ -61,6 +61,34 @@ def bottom_bands(face: FaceBox, image_size: tuple[int, int], expand: float = 1.5
     return out
 
 
+def frame_lower_bands(face: FaceBox, image_size: tuple[int, int]) -> list[FaceBox]:
+    """프레임 하부 1/3의 하의 후보. 얼굴 비례 밴드가 MISSING일 때의 cascade용.
+
+    전신에서 얼굴 비례 밴드는 상의만 재측정하므로(바지가 아니라 셔츠),
+    프레임 하단을 직접 본다. 얼굴이 하부 1/3까지 내려오면(상반신·클로즈업)
+    보이는 하의가 없으므로 빈 리스트를 돌려줘 MISSING을 유지한다.
+    """
+    img_w, img_h = image_size
+    lower_top = img_h * 2 // 3
+    if face.bottom >= lower_top:
+        return []
+    region_h = img_h - lower_top
+    band_h = region_h // 2
+    if band_h < 4:
+        return []
+    inset = int(face.w * 0.15)
+    left = min(max(0, face.x + inset), img_w - 1)
+    usable_w = min(face.w - 2 * inset, img_w - left)
+    if usable_w < 4:
+        return []
+    out = []
+    for i in range(2):
+        box = clip_to(FaceBox(left, lower_top + i * band_h, usable_w, band_h), (img_w, img_h))
+        if box is not None:
+            out.append(box)
+    return out
+
+
 def white_balance_gain(region_rgb, ref=SKIN_REF) -> tuple[tuple[float, float, float], bool]:
     """피부 크로마를 기준 앵커로 삼는 색온도 보정.
 
@@ -291,6 +319,12 @@ def extract(photo: PhotoInput, patterned: bool = False, bins: int = CLUSTER_BINS
         bottom_boxes = bottom_bands(photo.face, photo.image.size)
     top = _from_bands(arr, shirt_boxes, top_pick, (), bins)
     bottom = _from_bands(arr, bottom_boxes, "mode", (), bins)
+    if pose is None and _bottom_needs_fallback(bottom, bg):
+        # cascade: 얼굴 비례 밴드가 옷을 못 잡으면 프레임 하부를 본다.
+        # pose 경로는 건드리지 않는다 (mediapipe 격리 중이라 항상 None).
+        retry = _from_bands(arr, frame_lower_bands(photo.face, photo.image.size), "mode", (), bins)
+        if not retry.missing and not _matches_background(retry, bg):
+            bottom = retry
 
     def _chroma_of(sample: ColorSample):
         if sample.missing:
@@ -537,3 +571,23 @@ def _from_bands(
     if not samples:
         return MISSING
     return max(samples, key=lambda s: s.share * (s.pixels**0.5))
+
+
+def _matches_background(sample: ColorSample, bg) -> bool:
+    """밴드 측정값이 배경 크로마면 옷을 못 잡은 것이다 (배경만 봄)."""
+    if sample.missing or bg is None:
+        return False
+    return (
+        chroma_distance(
+            np.asarray(sample.rgb, dtype=np.float32) / 255.0,
+            np.asarray(bg, dtype=np.float32),
+        )
+        <= CHROMA_TOL
+    )
+
+
+def _bottom_needs_fallback(bottom: ColorSample, bg) -> bool:
+    """하의 cascade 발동 조건. 밴드가 비어 `_from_bands`가 MISSING을
+    돌려줬거나, 배경만 재측정한 경우다. 의상 측정에 크로마 탈락을
+    넣지 않으므로(갈색 셔츠 회귀 금지) 호출부에서 비교한다."""
+    return bottom.missing or _matches_background(bottom, bg)

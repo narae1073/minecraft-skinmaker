@@ -175,7 +175,51 @@ def test_bottom_bands_inset_sides():
     assert all(b.x > 0 and b.right < 300 for b in bands)
 
 
+def test_frame_lower_bands_cover_lower_frame():
+    face = Q.FaceBox(228, 95, 30, 37)
+    bands = C.frame_lower_bands(face, (548, 342))
+    assert bands, "전신에서 하부 밴드가 비지 않아야 한다"
+    assert all(b.y >= face.bottom for b in bands)
+    assert bands[-1].bottom <= 342
+
+
 # --- extract -------------------------------------------------------------
+
+def test_bottom_falls_back_to_lower_frame():
+    img = Image.new("RGB", (400, 600), (200, 200, 200))
+    px = img.load()
+    for y in range(400, 600):
+        for x in range(140, 260):
+            px[x, y] = (30, 50, 150)  # 하부 바지색
+    face = Q.FaceBox(170, 60, 60, 75)
+    for y in range(60, 135):
+        for x in range(170, 230):
+            px[x, y] = (204, 161, 140)  # 피부 앵커 (WB≈1)
+    photo = Q.PhotoInput("t.jpg", img, face, Q.Quality(0.9, face.area, 120.0, 400.0, 110.0, True), ())
+    observed = C.extract(photo)
+    assert not observed.bottom.missing
+    assert C.chroma_distance(
+        C.np.asarray(observed.bottom.rgb, dtype=C.np.float32) / 255.0,
+        C.np.asarray((30, 50, 150), dtype=C.np.float32) / 255.0,
+    ) <= C.CHROMA_TOL
+
+
+def test_bust_photo_keeps_bottom_missing():
+    img = Image.new("RGB", (512, 512), (180, 150, 140))
+    face = Q.FaceBox(212, 198, 135, 191)
+    photo = Q.PhotoInput("t.jpg", img, face, Q.Quality(0.9, face.area, 120.0, 400.0, 110.0, True), ())
+    observed = C.extract(photo)
+    assert observed.bottom.missing
+
+
+def test_short_bottom_len_resolves_to_shorts():
+    from skinmaker import attributes as A
+    from skinmaker import render as R
+    from skinmaker.colors import CoverEstimate
+    attrs = A.Attributes({**A.DEFAULTS, "bottom_garment": "pants"}, None)
+    obs = C.extract(photo())  # 기존 helper: cover=None
+    assert R.resolve_bottom(attrs, obs) == "pants"
+
 
 def test_extract_returns_missing_when_no_face():
     p = Q.PhotoInput("t.jpg", Image.new("RGB", (100, 100)), None, None, ())
