@@ -1,0 +1,184 @@
+import React, { useState } from 'react';
+import Skin3DViewer from './components/Skin3DViewer';
+import './App.css';
+
+function App() {
+  const [file, setFile] = useState(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const [fileError, setFileError] = useState(false);
+  const [skins, setSkins] = useState([]);
+
+  // 사이드바 및 스킨 기록 관련 상태
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [skinHistory, setSkinHistory] = useState([]); // 누적 스킨 보관
+  const [selectedSkins, setSelectedSkins] = useState([]); // 삭제를 위해 선택된 스킨의 인덱스 배열
+
+  const handleFileChange = (e) => {
+    const selectedFile = e.target.files[0];
+    
+    if (selectedFile) {
+      if (!selectedFile.type.startsWith('image/')) {
+        setFileError(true);
+        setFile(null);
+        e.target.value = '';
+        
+        setTimeout(() => {
+          setFileError(false);
+        }, 2500);
+        return;
+      }
+      setFile(selectedFile);
+    }
+  };
+
+  const handleGenerate = async () => {
+    if (!file) {
+      alert('사진을 선택해주세요!');
+      return;
+    }
+
+    setIsLoading(true);
+    setSkins([]);
+
+    const formData = new FormData();
+    formData.append('file', file);
+
+    try {
+      const response = await fetch('/api/v1/generate-skin', {
+        method: 'POST',
+        body: formData,
+      });
+
+      if (!response.ok) throw new Error('서버 오류');
+
+      const data = await response.json();
+      if (data.status === 'success') {
+        setSkins(data.data.skins);
+        // 스킨 생성이 완료되면 기존 기록(skinHistory) 뒤에 새 스킨들을 추가
+        setSkinHistory(prev => [...prev, ...data.data.skins]);
+      }
+    } catch (error) {
+      console.error(error);
+      alert('스킨 생성 중 오류가 발생했습니다.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // 체크박스 선택 토글 기능
+  const handleToggleSelect = (index) => {
+    if (selectedSkins.includes(index)) {
+      setSelectedSkins(prev => prev.filter(i => i !== index));
+    } else {
+      setSelectedSkins(prev => [...prev, index]);
+    }
+  };
+
+  // 선택된 스킨 삭제 기능
+  const handleDeleteSelected = () => {
+    if (selectedSkins.length === 0) {
+      alert('삭제할 스킨을 먼저 선택해주세요.');
+      return;
+    }
+    // 선택되지 않은 인덱스의 스킨들만 남김
+    setSkinHistory(prev => prev.filter((_, idx) => !selectedSkins.includes(idx)));
+    setSelectedSkins([]); // 선택 상태 초기화
+  };
+
+  return (
+    <>
+      {/* 화면 왼쪽 상단: 목록 열기 버튼 */}
+      <button className="sidebar-toggle-btn" onClick={() => setIsSidebarOpen(true)}>
+        ☰ 스킨 목록
+      </button>
+
+      {/* 왼쪽 사이드바 (목록 창) */}
+      <div className={`sidebar ${isSidebarOpen ? 'open' : ''}`}>
+        <div className="sidebar-header">
+          <h3>생성된 스킨 목록</h3>
+          <button className="close-btn" onClick={() => setIsSidebarOpen(false)}>✕</button>
+        </div>
+        
+        <div className="sidebar-actions">
+          <button className="delete-btn" onClick={handleDeleteSelected}>선택 파일 지우기</button>
+        </div>
+
+        <div className="sidebar-content">
+          {skinHistory.length === 0 ? (
+            <p className="empty-msg">아직 생성된 스킨이 없습니다.</p>
+          ) : (
+            <ul className="skin-list">
+              {skinHistory.map((skinUrl, index) => (
+                <li key={index} className="skin-list-item">
+                  <input 
+                    type="checkbox" 
+                    className="skin-checkbox"
+                    checked={selectedSkins.includes(index)} 
+                    onChange={() => handleToggleSelect(index)} 
+                  />
+                  {/* 스킨 썸네일 (64x64 이미지를 픽셀 깨짐 없이 보여줌) */}
+                  <img src={skinUrl} alt={`스킨 ${index + 1}`} className="skin-thumbnail" />
+                  <a href={skinUrl} download={`skin_${index + 1}.png`} className="sidebar-download-link">
+                    스킨 {index + 1} 
+                  </a>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      </div>
+
+      {/* 에러 및 로딩 오버레이 */}
+      {fileError && (
+        <div className="loading-overlay" onClick={() => setFileError(false)}>
+          <h2>파일 오류!</h2>
+          <p>사진 파일을 첨부해주세요!</p>
+        </div>
+      )}
+
+      {isLoading && (
+        <div className="loading-overlay">
+          <div className="spinner"></div>
+          <h2>로딩중</h2>
+          <p>스킨을 만들고 있어요!</p>
+        </div>
+      )}
+
+      {/* 메인 화면 컨테이너 */}
+      <div className="container">
+        <h1>마인크래프트 세계로 들어가보자!</h1>
+        <p>당신의 전신 사진을 첨부해주세요!</p>
+        
+        <div className="upload-section">
+          <input type="file" accept="image/jpeg, image/png" onChange={handleFileChange} />
+          <button onClick={handleGenerate} disabled={isLoading} className="generate-btn">
+            {isLoading ? '생성 중...' : '스킨 변환하기'} 
+          </button>
+        </div>
+
+        {skins.length > 0 && (
+          <div className="result-section">
+            <h2>생성된 64×64 스킨 후보 3종</h2> 
+            <div className="viewer-grid">
+              {skins.map((skinUrl, index) => (
+                <div key={index} className="skin-card">
+                  <h3>후보 {index + 1}</h3>
+                  <Skin3DViewer skinUrl={skinUrl} />
+                  <a href={skinUrl} download={`skin_option_${index + 1}.png`} className="download-btn">
+                    스킨 다운로드
+                  </a>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        <footer className="footer">
+          &copy; 2026 몬태규. All rights reserved.
+        </footer>
+      </div>
+    </>
+  );
+}
+
+export default App;
