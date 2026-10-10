@@ -50,13 +50,20 @@ class ModelCrop:
         return clip_to(FaceBox(x0, y0, max(0, x1 - x0), max(0, y1 - y0)), size)
 
 
-def model_region(face: FaceBox, size: tuple[int, int], up: float = 0.9, down: float = 4.0, side: float = 0.9) -> FaceBox:
+def model_region(face: FaceBox, size: tuple[int, int], up: float = 1.25, down: float = 4.0, side: float = 1.7) -> FaceBox:
     """얼굴 + 어깨 + 상의 + 하의가 들어가는 세로 크롭.
 
     하단은 이미지 하단에 닿을 만큼 내린다: 전신(작은 얼굴)에서는 고정
     down=4.0 으로는 다리가 잘린다 (messi5: 크롭 하단 280 < 이미지 342).
     초상화에서는 고정 down 만으로 이미 프레임을 넘기므로 clip_to 가
     잘라 기존과 동일하다.
+
+    side/up 확장 (2026-10-11, B1 실측 — images12 600x400, face(216,148,59,76)):
+    옆팔꿈치가 face.x+2.7fw, 올린 손끝이 face.y-1.2fh 지점. 기존 side=0.9·
+    up=0.9 는 앉은 구도의 옆옷(하의)과 손을 잘라 VLM 이 bottom=none 을 답했다.
+    side=1.7(up=1.25) 로 곱늘어도 768/1536 다운스케일 예산이라 토큰은 그대로,
+    소실 대상만 작아진다. 대가: 기존 초상화 크롭 폭 2.8fw → 4.4fw (고정
+    테스트는 새 수치로 갱신. 실측 A-B 로 하락 없음을 확인한다).
     """
     img_w, img_h = size
     need = (img_h - face.bottom) / face.h if face.h > 0 else down

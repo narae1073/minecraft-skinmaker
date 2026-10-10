@@ -253,9 +253,12 @@ def test_portrait_crop_unchanged_and_fullbody_gets_more_pixels():
     full_img = photo((1000, 1600), Q.FaceBox(450, 150, 80, 100))
     assert C.framing(portrait_img) == "portrait"
     assert C.framing(full_img) == "fullbody"
-    # 초상화: down=4.0 만으로 프레임을 넘기므로 기존과 동일한 영역
+    # B1(2026-10-11) side=1.7/up=1.25: 앉은 구도의 옆옷·손이 잘리지 않게 확장.
+    # 초상화도 동일 상수라 (1000x1000, face 200x250) 크롭은 이렇게 나온다:
+    # x = 300 - 1.7*200 = -40 → 0, right = 300+200+340 = 840,
+    # y = 200 - 1.25*250 = -112 → 0, bottom = 200+250*6.25 > 1000 → 1000.
     clipped = Q.clip_to(C.model_region(portrait_img.face, (1000, 1000)), (1000, 1000))
-    assert clipped == Q.FaceBox(120, 0, 560, 1000)
+    assert clipped == Q.FaceBox(0, 0, 840, 1000)
     portrait = C.prepare(portrait_img)
     full = C.prepare(full_img)
     assert portrait is not None and full is not None
@@ -540,3 +543,16 @@ def test_openrouter_request_structure():
     assert "Authorization" in t.session.calls[0][1]
     assert "X-Title" in t.session.calls[0][1]
 
+
+
+# --- B1: mid-프레임 크롭 폭·상단 확장 (앉은/올려다닌 팔) ------------------------
+# 실측 (2026-10-11, images12 600x400, face(216,148,59,76)): 옆팔꿈치 x≈375
+# (= face.x+2.7fw), 손가락 끝 y≈57 (= face.y-1.2fh). 기존 side=0.9/up=0.9 는
+# 둘 다 잘랐다 ("양옆이 잘렸다" 고정10 원인 기록).
+
+def test_mid_frame_crop_covers_akimbo_arms_and_hands():
+    face = Q.FaceBox(216, 148, 59, 76)
+    region = C.model_region(face, (600, 400))
+    assert region.x <= face.x - 1.5 * face.w      # 반대쪽 어깨·소매
+    assert region.right >= face.x + 2.5 * face.w  # 옆팔꿈치가 들어온다
+    assert region.y <= face.y - 1.1 * face.h      # 올린 손끝
