@@ -118,9 +118,34 @@ def detect_face(image: Image.Image, score_min: float = DETECT_SCORE_MIN) -> Face
     _n, faces = model.detect(rgb)
     if faces is None or len(faces) == 0:
         return None
-    best = max(faces, key=lambda f: float(f[-1]))
-    x, y, fw, fh = (int(round(float(v))) for v in best[:4])
-    return FaceBox(x, y, fw, fh)
+    dets = [(float(f[-1]), *(float(v) for v in f[:4])) for f in faces]
+    return select_face([(s, int(round(x)), int(round(y)), int(round(w)), int(round(h))) for s, x, y, w, h in dets], (w, h))
+
+
+FACE_NEAR_TIE = 0.90  # 면적이 최대의 90% 이상이면 동급으로 보고 중앙 거리로 가른다
+
+
+def select_face(detections, image_size: tuple[int, int]) -> FaceBox | None:
+    """검출 여러 개 중 주인공 얼굴 하나.
+
+    점수는 0.85~0.92 로 뭉쳐 정보가 없다 (최고 점수는 화면 가장자리 행인을
+    고르기도 했다). 크기가 주된 신호다: 가장 큰 얼굴이 주인공일 가능성이 높다.
+    면적이 거의 같으면(90% 이상) 화면 중앙에 가까운 쪽을 고른다 (가족사진).
+    detections: (score, x, y, w, h) 시퀀스.
+    """
+    if not detections:
+        return None
+    max_area = max(w * h for _s, _x, _y, w, h in detections)
+    near = [d for d in detections if d[3] * d[4] >= FACE_NEAR_TIE * max_area]
+    img_w, img_h = image_size
+    cx, cy = img_w / 2.0, img_h / 2.0
+
+    def center_dist(d) -> float:
+        _s, x, y, w, h = d
+        return (x + w / 2.0 - cx) ** 2 + (y + h / 2.0 - cy) ** 2
+
+    _s, x, y, w, h = min(near, key=lambda d: (center_dist(d), -d[3] * d[4]))
+    return FaceBox(int(x), int(y), int(w), int(h))
 
 
 def crop(image: Image.Image, box: FaceBox) -> np.ndarray:

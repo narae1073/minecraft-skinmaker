@@ -245,3 +245,30 @@ def test_flags_small_face_in_wide_shot():
     result = Q.inspect(FIXTURES / "messi5.jpg")
     assert not result.rejected
     assert "small" in result.degrade
+
+
+# --- 얼굴 선택 (검출 여러 개) --------------------------------------------
+# 점수는 0.85~0.92 로 뭉쳐 있어 정보가 없다. 크기가 주된 신호다.
+# images31: 점수 최고(0.89)는 화면 가장자리 행인 32x39, 주인공은 44x56.
+# premium: 두 얼굴이 거의 같은 크기면 화면 중앙에 가까운 쪽이 주인공이다.
+
+def test_select_face_prefers_largest_over_highest_score():
+    dets = [(0.89, 377, 237, 32, 39), (0.85, 187, 176, 44, 56)]
+    got = Q.select_face(dets, (415, 740))
+    assert (got.x, got.y, got.w, got.h) == (187, 176, 44, 56)
+
+
+def test_select_face_near_tie_prefers_center():
+    # 두 얼굴 면적이 거의 같다. 중앙(1500,1000) 에 가까운 쪽(아버지)을 고른다.
+    dets = [(0.92, 2040, 940, 129, 187), (0.92, 1601, 476, 128, 180)]
+    got = Q.select_face(dets, (3000, 2000))
+    assert (got.x, got.y) == (1601, 476)
+
+
+def test_select_face_single_detection_unchanged():
+    got = Q.select_face([(0.8, 10, 20, 29, 37)], (420, 280))
+    assert (got.x, got.y, got.w, got.h) == (10, 20, 29, 37)
+
+
+def test_select_face_none_when_empty():
+    assert Q.select_face([], (100, 100)) is None
