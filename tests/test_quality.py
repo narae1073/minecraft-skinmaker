@@ -115,9 +115,16 @@ def test_skin_region_avoids_eyes_and_mouth():
     face = Q.FaceBox(100, 100, 100, 100)
     r = Q.skin_region(face)
     assert (r.x, r.right) == (120, 180)
-    assert r.y == 155 and r.bottom == 183
+    assert r.y == 155 and r.bottom == 175
     assert r.y >= face.y + int(face.h * 0.55)
     assert r.bottom <= face.bottom
+
+
+def test_skin_region_avoids_mouth():
+    face = Q.FaceBox(212, 198, 135, 191)
+    r = Q.skin_region(face)
+    assert r.bottom <= face.y + int(face.h * 0.75)
+    assert r.y >= face.y + int(face.h * 0.50)
 
 
 def test_hair_region_extends_beyond_face_box():

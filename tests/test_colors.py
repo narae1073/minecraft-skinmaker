@@ -10,6 +10,9 @@ from PIL import Image
 
 from skinmaker import colors as C
 from skinmaker import quality as Q
+from skinmaker import attributes as A
+from skinmaker import render as R
+from skinmaker import validate as V
 
 FACE = Q.FaceBox(200, 150, 120, 160)
 
@@ -381,3 +384,28 @@ def test_hair_falls_back_without_bbox():
     p = photo()  # 기존 helper (단일톤 배경)
     got = C.extract(p)
     assert got.hair.hex == "#3a2a1c" or not got.hair.confident
+
+
+def test_lipstick_does_not_clip_white_balance():
+    # 편차 기록: brief 원안(입술 75~85%)은 중앙값 오염이 28%라
+    # pre-fix 에도 wb_confident True 가 나와 RED 가 안 된다 (중앙값은
+    # 50% 미만 오염에 robust). RED 재현을 위해 입술을 68~85%로
+    # 그린다.旧 영역(55~83%)의 과반이 오염돼 pre-fix FAIL,
+    # 新 영역(55~75%)에서는 35%라 median 이 버텨 PASS 여야 한다.
+    img = Image.new("RGB", (512, 512), (200, 170, 155))
+    px = img.load()
+    for y in range(198 + int(191 * 0.68), 198 + int(191 * 0.85)):
+        for x in range(212, 347):
+            px[x, y] = (200, 30, 40)  # 입술
+    face = Q.FaceBox(212, 198, 135, 191)
+    p = Q.PhotoInput("t.jpg", img, face, Q.Quality(0.9, face.area, 120.0, 400.0, 110.0, True), ())
+    observed = C.extract(p)
+    assert observed.wb_confident, observed.wb_gain
+
+
+def test_skinlike_top_renders_deterministically():
+    p = photo()  # 단일톤: top과 skin이 같은 색
+    observed = C.extract(p)
+    assert observed.top_skinlike is True
+    canvas = R.render(observed, A.EMPTY, ())
+    assert V.validate_image(canvas.image, "classic") == []

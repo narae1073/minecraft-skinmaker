@@ -196,10 +196,12 @@ def skin_region(face: FaceBox) -> FaceBox:
     """볼·코 영역. 눈(얼굴 높이의 45~55%)과 입(75~85%)을 피한다.
 
     얼굴 박스를 통째로 쓰면 눈 흰자국과 속눈썹이 중앙값을 끌어간다.
+    하단은 75%에서 끊는다. 입술(붉은색)은 WB 앵커의 R 중앙값을
+    밀어 올려 게인을 클립 하한까지 몰아가므로 볼·코만 쓴다.
     """
     x = int(face.w * 0.20)
     top = int(face.h * 0.55)
-    return FaceBox(face.x + x, face.y + top, int(face.w * 0.60), int(face.h * 0.28))
+    return FaceBox(face.x + x, face.y + top, int(face.w * 0.60), int(face.h * 0.20))
 
 
 def hair_region(face: FaceBox, up: float = 0.35, top: float = 0.45, out: float = 0.10) -> FaceBox:
