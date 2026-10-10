@@ -48,8 +48,14 @@ class ModelCrop:
         return clip_to(FaceBox(x0, y0, max(0, x1 - x0), max(0, y1 - y0)), size)
 
 
-def model_region(face: FaceBox, size: tuple[int, int], up: float = 0.9, down: float = 2.2, side: float = 0.9) -> FaceBox:
-    """얼굴 + 어깨 + 상의가 들어가는 세로 크롭."""
+def model_region(face: FaceBox, size: tuple[int, int], up: float = 0.9, down: float = 4.0, side: float = 0.9) -> FaceBox:
+    """얼굴 + 어깨 + 상의 + 골반이 들어가는 세로 크롭.
+
+    down=2.2 시절에는 크롭이 가슴에서 잘려 VLM 이 하의를 못 보고
+    전신 청바지도 bottom=none 확신으로 답했다. 4.0 으로 내리니
+    jeans/jeans/pants 3장이 전부 정답. 초상 사진은 이미지 하단에
+    걸려 잘리므로 기존과 동일하다.
+    """
     img_w, img_h = size
     x = int(face.w * side)
     return FaceBox(

@@ -222,6 +222,13 @@ def test_model_region_includes_shoulders():
     assert r.x < face.x and r.right > face.right
 
 
+def test_model_region_reaches_hips_for_full_body():
+    """전신샷에서 크롭이 골반까지 내려가야 하의가 보인다 (청바지→none 회귀)."""
+    face = Q.FaceBox(270, 93, 61, 86)
+    r = C.model_region(face, (600, 900))
+    assert r.bottom >= face.bottom + int(face.h * 3.5)
+
+
 def test_prepare_returns_none_without_face():
     p = Q.PhotoInput("t.jpg", Image.new("RGB", (100, 100)), None, None, ())
     assert C.prepare(p) is None
