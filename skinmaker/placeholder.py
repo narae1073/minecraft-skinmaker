@@ -82,12 +82,7 @@ def build_placeholder(
                 for v in range(LEG_END_ROW + 1, f.h):
                     c.put(part, face_name, u, v, shade(SHOE, FACE_SHADE[face_name]))
 
-    for face_name in c.layout.part("head", 1).faces:
-        if face_name == "front":
-            for u in range(8):
-                for v in (0, 1):
-                    c.put("head", "front", u, v, hair_c, 1)
-        else:
-            c.fill_face("head", face_name, hair_c, 1)
-
+    # HEAD ACC.(head layer=1, 영역 (32,0,32,16))는 기본 투명 유지.
+    # 모자/헬멧/안경/귀/3D 오버레이 머리카락 전용. 기본 머리카락은
+    # 반드시 HEAD(layer=0)에만 그린다. 더미는 악세서리 없으므로 비운다.
     return c

@@ -20,6 +20,15 @@ LIMB_FACE_ORDER = ("front", "right", "back", "left", "top", "bottom")
 
 PART_LAYERS = (0, 1)
 
+# HEAD / HEAD ACC. 레이어 규칙 (S3 렌더 불변식).
+# 기본 HEAD(layer=0, 영역 (0,0,32,16)): 얼굴(눈·코·입) + 기본 머리카락(앞·옆·뒤·정수리).
+# HEAD ACC.(layer=1, 영역 (32,0,32,16)): 기본 투명. 모자/헬멧/안경/귀/3D 오버레이 머리카락만.
+# 머리카락 텍스처는 무조건 HEAD(layer=0)에만 할당한다. S3 렌더러는 이 상수를 쓴다.
+HEAD_HAIR_LAYER = 0
+HEAD_ACCESSORY_LAYER = 1
+HEAD_BASE_REGION = (0, 0, 32, 16)
+HEAD_OVERLAY_REGION = (32, 0, 32, 16)
+
 
 @dataclass(frozen=True)
 class Face:
