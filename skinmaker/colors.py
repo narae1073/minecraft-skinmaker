@@ -62,10 +62,12 @@ def bottom_bands(face: FaceBox, image_size: tuple[int, int], expand: float = 1.5
 
 
 def frame_lower_bands(face: FaceBox, image_size: tuple[int, int]) -> list[FaceBox]:
-    """프레임 하부 1/3의 하의 후보. 얼굴 비례 밴드가 MISSING일 때의 cascade용.
+    """프레임 하부 1/3의 하의 후보. 하의 cascade 재시도용.
 
-    전신에서 얼굴 비례 밴드는 상의만 재측정하므로(바지가 아니라 셔츠),
-    프레임 하단을 직접 본다. 얼굴이 하부 1/3까지 내려오면(상반신·클로즈업)
+    발동 조건 3가지: 얼굴 비례 밴드가 (a) MISSING이거나, (b) 배경만
+    재측정했거나, (c) 상의를 그대로 재측정했을 때(bottom ≈ top).
+    전신에서 얼굴 비례 밴드는 바지가 아니라 셔츠를 보기 때문이다.
+    얼굴이 하부 1/3까지 내려오면(상반신·클로즈업)
     보이는 하의가 없으므로 빈 리스트를 돌려줘 MISSING을 유지한다.
     """
     img_w, img_h = image_size
@@ -319,7 +321,7 @@ def extract(photo: PhotoInput, patterned: bool = False, bins: int = CLUSTER_BINS
         bottom_boxes = bottom_bands(photo.face, photo.image.size)
     top = _from_bands(arr, shirt_boxes, top_pick, (), bins)
     bottom = _from_bands(arr, bottom_boxes, "mode", (), bins)
-    if pose is None and _bottom_needs_fallback(bottom, bg):
+    if pose is None and _bottom_needs_fallback(bottom, top, bg):
         # cascade: 얼굴 비례 밴드가 옷을 못 잡으면 프레임 하부를 본다.
         # pose 경로는 건드리지 않는다 (mediapipe 격리 중이라 항상 None).
         retry = _from_bands(arr, frame_lower_bands(photo.face, photo.image.size), "mode", (), bins)
@@ -586,8 +588,20 @@ def _matches_background(sample: ColorSample, bg) -> bool:
     )
 
 
-def _bottom_needs_fallback(bottom: ColorSample, bg) -> bool:
-    """하의 cascade 발동 조건. 밴드가 비어 `_from_bands`가 MISSING을
-    돌려줬거나, 배경만 재측정한 경우다. 의상 측정에 크로마 탈락을
-    넣지 않으므로(갈색 셔츠 회귀 금지) 호출부에서 비교한다."""
-    return bottom.missing or _matches_background(bottom, bg)
+def _bottom_needs_fallback(bottom: ColorSample, top: ColorSample, bg) -> bool:
+    """하의 cascade 발동 조건 3가지. (a) 밴드가 비어 `_from_bands`가
+    MISSING을 돌려줬거나, (b) 배경만 재측정했거나, (c) 상의를 그대로
+    재측정했을 때(bottom ≈ top, 전신의 primary 케이스).
+    의상 측정에 크로마 탈락을 넣지 않으므로(갈색 셔츠 회귀 금지)
+    호출부에서 비교한다."""
+    if bottom.missing or _matches_background(bottom, bg):
+        return True
+    if top.missing:
+        return False
+    return (
+        chroma_distance(
+            np.asarray(bottom.rgb, dtype=np.float32),
+            np.asarray(top.rgb, dtype=np.float32),
+        )
+        <= CHROMA_TOL
+    )
