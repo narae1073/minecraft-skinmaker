@@ -357,3 +357,27 @@ def test_runner_up_rejects_close_hue():
     primary = C.dominant_color(px)
     assert C.runner_up(px, primary).missing
     assert not C.MISSING.confident
+
+
+def test_hair_read_from_bbox_when_given():
+    img = Image.new("RGB", (400, 500), (30, 30, 30))
+    px = img.load()
+    for y in range(0, 60):
+        for x in range(150, 250):
+            px[x, y] = (150, 90, 40)  # bbox 안 헤어색
+    face = Q.FaceBox(150, 100, 100, 130)
+    # 피부 앵커가 없으면 WB 게인이 발동해 헤어색이 밀린다. 실제 사진처럼
+    # skin_region(볼·코)에 기준 피부를 깔아 WB≈1로 고정한다.
+    for y in range(171, 207):
+        for x in range(170, 230):
+            px[x, y] = (204, 161, 141)
+    p = Q.PhotoInput("t.jpg", img, face, Q.Quality(0.9, face.area, 120.0, 400.0, 110.0, True), ())
+    got = C.extract(p, hair_bbox=Q.FaceBox(150, 0, 100, 60))
+    assert not got.hair.missing and got.hair.confident
+    assert got.hair.hex == "#965a28"
+
+
+def test_hair_falls_back_without_bbox():
+    p = photo()  # 기존 helper (단일톤 배경)
+    got = C.extract(p)
+    assert got.hair.hex == "#3a2a1c" or not got.hair.confident

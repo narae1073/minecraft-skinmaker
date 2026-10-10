@@ -262,10 +262,16 @@ def _crop_pixels(arr: np.ndarray, box: FaceBox) -> np.ndarray | None:
     return patch.reshape(-1, 3).astype(np.float32)
 
 
-def extract(photo: PhotoInput, patterned: bool = False, bins: int = CLUSTER_BINS) -> ObservedColors:
+def extract(
+    photo: PhotoInput,
+    patterned: bool = False,
+    bins: int = CLUSTER_BINS,
+    hair_bbox: FaceBox | None = None,
+) -> ObservedColors:
     """사진 한 장에서 색 4개를 읽는다.
 
     patterned=True 는 상이가 줄무늬/체크임을 S2 에서 확인됐을 때만 쓴다.
+    hair_bbox 가 있으면 헤어를 얼굴 기하 대신 그 영역에서 읽는다 (S2 VLM grounding).
     """
     if photo.face is None:
         return _empty()
@@ -297,9 +303,18 @@ def extract(photo: PhotoInput, patterned: bool = False, bins: int = CLUSTER_BINS
     # 상/하의 밴드는 몸통 면적이라 픽셀 수가 충분하면 측정을 시도한다.
     # 전신샷(얼굴 30px + 유니폼 수백 px)에서 신호를 버리지 않기 위함.
     # 픽셀 부족이면 _from_bands가 MISSING을, 점유율 미달이면 render가 기본값을 쓴다.
-    hair = MISSING if tiny else dominant_color(
-        _region_pixels(arr, hair_region(photo.face), LIGHT_PERCENTILE["hair"]), bins=bins, reject=tuple(hair_reject)
-    )
+    # 단, S2 hair_bbox가 있으면 블랭크를 우회한다. 블랭크 이유는 "작은 얼굴의
+    # hair_region이 배경이라 답이 없다"인데, 명시 bbox는 별개 영역이라 이유가
+    # 안 통한다 (전신샷이 정작 이 경로의 주 고객이다). reject·점유율 판정은
+    # 그대로라 쓰레기 bbox는 MISSING/저점유율로 가서 render 기본값이 받는다.
+    if hair_bbox is not None:
+        hair = dominant_color(
+            _region_pixels(arr, hair_bbox, LIGHT_PERCENTILE["hair"]), bins=bins, reject=tuple(hair_reject)
+        )
+    else:
+        hair = MISSING if tiny else dominant_color(
+            _region_pixels(arr, hair_region(photo.face), LIGHT_PERCENTILE["hair"]), bins=bins, reject=tuple(hair_reject)
+        )
 
     top_pick = "saturated" if patterned else "mode"
     pose = getattr(photo, "pose", None)

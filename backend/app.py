@@ -79,7 +79,7 @@ async def generate_skin(file: UploadFile = File(...)):
     result = classify(photo, transport)
     if not result.ok:
         fail(*classify_error_status(result.error or ""))
-    observed = extract(photo)
+    observed = extract(photo, hair_bbox=result.hair_bbox_px)
     candidates = build(observed, result, photo.degrade)
     if not candidates or not all(c.ok for c in candidates):
         fail(500, "render_failed", "렌더 검증 실패. 같은 사진으로 다시 시도해주세요.")

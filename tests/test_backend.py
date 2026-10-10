@@ -20,6 +20,20 @@ GOOD = {
 
 PHOTO = Path(__file__).resolve().parent.parent / "out" / "s0_photos" / "messi5.jpg"
 
+# hair_bbox 배선용 픽스처. messi5+GOOD([200,50,800,600]) 조합은 brief 초안이었으나
+# 실측 불가: messi5의 머리카락이 짙고 작아 어떤 박스로도 점유율 0.18을 못 넘긴다
+# (최대 0.09). 대신 7f18 사진의 실측 확신 헤어 박스(239,46,30,45)를 쓴다.
+# 정규화 bbox [557,65,676,128]은 back_to_original 왕복이 정확히 일치한다.
+PHOTO_HAIR = Path(__file__).resolve().parent.parent / "out" / "s0_photos" / "7f18cb16d51f6228b635d23c18772c05.jpg"
+GOOD_HAIR = {
+    "top_garment": "tee",
+    "bottom_garment": "shorts",
+    "pattern": "plain",
+    "sleeve_len": "short",
+    "hair_length": "medium",
+    "hair_bbox": [557, 65, 676, 128],
+}
+
 
 def client(first=None, second=None):
     first = first or GOOD
@@ -83,3 +97,22 @@ def test_rate_limit_maps_to_503():
         r = TestClient(A.app).post("/api/v1/generate-skin", files={"file": ("m.jpg", f, "image/jpeg")})
     assert r.status_code == 503
     assert r.json()["detail"]["code"] == "overloaded"
+
+
+def test_generate_uses_hair_bbox_for_crown():
+    # brief 초안의 `crown != (58,42,28,255)`는 틀렸다. 정수리는 FACE_SHADE[top]
+    # 1.12가 적용되므로 배선 전 정수리는 (82,68,55,255)다. 그 값과 다르면 배선됨.
+    from PIL import Image as PILImage
+
+    from skinmaker.canvas import rgba, shade
+    from skinmaker.render import DEFAULT_HAIR, FACE_SHADE
+
+    with PHOTO_HAIR.open("rb") as f:
+        r = client(GOOD_HAIR, None).post("/api/v1/generate-skin", files={"file": ("h.jpg", f, "image/jpeg")})
+    assert r.status_code == 200, r.text
+    url = r.json()["data"]["skins"][0]
+    img = PILImage.open(A.STATIC_DIR / Path(url).name).convert("RGBA")
+    crown = img.getpixel((8, 0))  # head top 면 (0,0) = 스킨 (8,0)
+    default_crown = shade(rgba(DEFAULT_HAIR), FACE_SHADE["top"])
+    assert crown != default_crown
+    assert crown == shade(rgba("#32241b"), FACE_SHADE["top"])

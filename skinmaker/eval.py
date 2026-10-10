@@ -21,7 +21,7 @@ from .attributes import EMPTY
 from .canvas import shade
 from .colors import ObservedColors, extract
 from .measure import SUFFIXES
-from .quality import PhotoInput, inspect
+from .quality import FaceBox, PhotoInput, inspect
 from .render import FACE_SHADE, effective_pattern, render, resolve_colors
 from .validate import validate_image
 
@@ -40,6 +40,19 @@ class EvalRow:
 
 def expected_pixel(observed: ObservedColors, key: str, face: str) -> tuple:
     return shade(resolve_colors(observed)[key], FACE_SHADE[face])
+
+
+def parse_hair_box(text: str) -> FaceBox:
+    """`--hair-box "x,y,w,h"` 고정 주입 박스. VLM 없이 eval을 재현할 때 쓴다."""
+    try:
+        nums = [int(v) for v in text.split(",")]
+    except ValueError:
+        raise ValueError(f"--hair-box 형식 오류: {text!r} (x,y,w,h 정수 4개)")
+    if len(nums) != 4 or min(nums) < 0:
+        raise ValueError(f"--hair-box 형식 오류: {text!r} (x,y,w,h 정수 4개, 전부 0 이상)")
+    if nums[2] < 2 or nums[3] < 2:
+        raise ValueError(f"--hair-box가 너무 작다: {text!r}")
+    return FaceBox(*nums)
 
 
 def evaluate(photo: PhotoInput, observed: ObservedColors, model: str = "classic") -> EvalRow:
@@ -97,6 +110,8 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("target", help="이미지 파일 또는 폴더")
     parser.add_argument("--model", choices=("classic", "slim"), default="classic")
     parser.add_argument("--show", type=int, default=20)
+    parser.add_argument("--hair-box", type=parse_hair_box, default=None,
+                        help='고정 헤어 박스 주입 "x,y,w,h" (VLM 없이 bbox 경로 재현)')
     args = parser.parse_args(argv)
 
     target = Path(args.target)
@@ -110,7 +125,7 @@ def main(argv: list[str] | None = None) -> int:
         except Exception as exc:
             print(f"SKIP {p.name}: {type(exc).__name__} {exc}")
             continue
-        rows.append(evaluate(photo, extract(photo), args.model))
+        rows.append(evaluate(photo, extract(photo, hair_bbox=args.hair_box), args.model))
     print(report(rows, args.show))
     return 0
 
