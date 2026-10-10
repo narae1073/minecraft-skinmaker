@@ -8,10 +8,16 @@ from __future__ import annotations
 import os
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Any
 
 import cv2
 import numpy as np
 from PIL import Image
+
+try:
+    import pillow_avif  # noqa: F401  (AVIF 읽기 등록. 없으면 해당 형식만 건너뜀)
+except ImportError:
+    pass
 
 DETECT_SCORE_MIN = 0.60
 FACE_PX_SMALL = 48
@@ -69,6 +75,7 @@ class PhotoInput:
     face: FaceBox | None
     quality: Quality | None
     degrade: tuple[str, ...]
+    pose: Any = None
 
     @property
     def rejected(self) -> bool:
@@ -159,9 +166,16 @@ def inspect(path: str | Path, score_min: float = DETECT_SCORE_MIN) -> PhotoInput
         image = im.convert("RGB")
         face = detect_face(image, score_min)
         if face is None:
-            return PhotoInput(str(p), image, None, None, ())
+            return PhotoInput(str(p), image, None, None, (), None)
         quality = measure_quality(image, face)
-    return PhotoInput(str(p), image, face, quality, plan_degradation(quality))
+    degrade = plan_degradation(quality)
+    try:
+        from .pose import detect_pose
+
+        pose = detect_pose(image)
+    except Exception:
+        pose = None
+    return PhotoInput(str(p), image, face, quality, degrade, pose)
 
 
 def clip_to(box: FaceBox, size: tuple[int, int]) -> FaceBox | None:

@@ -11,7 +11,7 @@ from pathlib import Path
 
 from .quality import PhotoInput, inspect
 
-SUFFIXES = (".jpg", ".jpeg", ".png", ".webp", ".bmp", ".heic")
+SUFFIXES = (".jpg", ".jpeg", ".png", ".webp", ".bmp", ".heic", ".avif")
 
 
 def collect(folder: Path) -> list[Path]:
