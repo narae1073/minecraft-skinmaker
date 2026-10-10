@@ -58,6 +58,21 @@ def _hex_or(hex_value: str, fallback: str) -> Color:
         return rgba(fallback)
 
 
+def bottom_usable(sample, plausible: bool) -> bool:
+    """하의 측정을 렌더에 쓸지. 폴백 정책:
+
+    - 결측이면 기본값 (쓸 것이 없다).
+    - 확신이 있으면 측정값 (기존 규칙).
+    - 확신이 없어도 그럴듯하면(피부·배경이 아니면) 측정값을 쓴다.
+      기본값 #3c4450 은 청색 계열 고정값이라 측정이 없을 때 편향이 크다.
+      측정이 피부·배경이 아니면 그 측정이 기본값보다 나을 가능성이 높다.
+    - 확신도 없고 그럴듯하지도 않으면 (피부·배경을 잰 것이면) 기본값.
+    """
+    if sample.missing:
+        return False
+    return sample.confident or plausible
+
+
 def resolve_colors(observed: ObservedColors) -> dict[str, Color]:
     # 점유율 낮으면(점유율 미달) 측정값이 아니라 기본값으로. 2%짜리 배경색을
     # 머리카락으로 칠하는 일을 막는다. 같은 그림을 보수적으로 그리는 원칙.
@@ -72,7 +87,7 @@ def resolve_colors(observed: ObservedColors) -> dict[str, Color]:
         "hair": pick(observed.hair, DEFAULT_HAIR),
         "top": top,
         "top_alt": _hex_or(observed.top_alt.hex, DEFAULT_TOP) if not observed.top_alt.missing else shade(top, 0.72),
-        "bottom": pick(observed.bottom, DEFAULT_BOTTOM),
+        "bottom": _hex_or(observed.bottom.hex, DEFAULT_BOTTOM) if bottom_usable(observed.bottom, observed.bottom_plausible) else rgba(DEFAULT_BOTTOM),
     }
 
 

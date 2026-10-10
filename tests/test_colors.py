@@ -231,6 +231,74 @@ def test_bottom_falls_back_when_bands_remeasure_shirt():
     ) <= C.CHROMA_TOL
 
 
+def test_dark_neutral_garment_is_not_background_on_gray_backdrop():
+    """크로마만 보면 짙은 무채색 바지와 회색 배경이 같아 보인다.
+
+    istockphoto: 청바지 #374047 (luma 63) 이 배경 크로마와 0.05 차이라 배경으로
+    탈락했다. 휘도까지 봐야 배경(luma 178) 과 구별된다.
+    """
+    bg_chroma = (1 / 3, 1 / 3, 1 / 3)
+    bg_luma = 178.0
+    jeans = C.ColorSample("#374047", 0.65, True, (55, 64, 71), 1716)
+    assert C._matches_background(jeans, bg_chroma, bg_luma) is False
+
+
+def test_light_gray_backdrop_sample_is_still_background():
+    bg_chroma = (1 / 3, 1 / 3, 1 / 3)
+    floor = C.ColorSample("#c6c8c7", 0.51, True, (198, 200, 199), 403)
+    assert C._matches_background(floor, bg_chroma, 186.0) is True
+
+
+def test_bottom_recovers_trousers_when_frame_strip_hits_gap_between_legs():
+    """전신 + 다리 사이 틈. 프레임 하부 중앙 띠가 바닥(틈)만 보면 cascade 가
+    배경으로 탈락시키고, 하의를 못 찾아 상의 흰색이 하의로 남았다 (images10).
+    다리 영역 전경 마스크로 짙은 바지색을 얻어야 한다.
+    """
+    W, H = 240, 350
+    bg = (200, 200, 200)
+    img = Image.new("RGB", (W, H), bg)
+    px = img.load()
+    for y in range(80, 200):  # 흰 셔츠: 상의·얼굴 밴드가 같은 흰색을 본다
+        for x in range(60, 180):
+            px[x, y] = (255, 255, 255)
+    for y in range(200, 300):  # 짙은 바지 두 다리 (중앙 틈 x 110~130)
+        for x in list(range(60, 110)) + list(range(131, 180)):
+            px[x, y] = (60, 60, 64)
+    for y in range(300, 320):  # 신발
+        for x in list(range(60, 110)) + list(range(131, 180)):
+            px[x, y] = (20, 20, 20)
+    face = Q.FaceBox(108, 30, 24, 30)
+    p = Q.PhotoInput("t.jpg", img, face, Q.Quality(0.9, face.area, 120.0, 400.0, 110.0, True), ())
+    observed = C.extract(p)
+    assert not observed.bottom.missing
+    assert C.chroma_distance(
+        C.np.asarray(observed.bottom.rgb, dtype=C.np.float32) / 255.0,
+        C.np.asarray((60, 60, 64), dtype=C.np.float32) / 255.0,
+    ) <= C.CHROMA_TOL
+    assert observed.bottom.rgb[0] < 120  # 흰색(상의)이 아니다
+
+
+def test_mask_fallback_bottom_is_marked_unconfident():
+    """전경 마스크는 마지막 수단의 추정이다. 확신값으로 내보내지 않는다."""
+    W, H = 240, 350
+    img = Image.new("RGB", (W, H), (200, 200, 200))
+    px = img.load()
+    for y in range(80, 200):
+        for x in range(60, 180):
+            px[x, y] = (255, 255, 255)
+    for y in range(200, 300):
+        for x in list(range(60, 110)) + list(range(131, 180)):
+            px[x, y] = (60, 60, 64)
+    for y in range(300, 320):
+        for x in list(range(60, 110)) + list(range(131, 180)):
+            px[x, y] = (20, 20, 20)
+    face = Q.FaceBox(108, 30, 24, 30)
+    p = Q.PhotoInput("t.jpg", img, face, Q.Quality(0.9, face.area, 120.0, 400.0, 110.0, True), ())
+    observed = C.extract(p)
+    assert observed.bottom.rgb[0] < 120  # 마스크 경로를 탔다
+    assert observed.bottom.confident is False
+
+
 def test_bust_photo_keeps_bottom_missing():
     img = Image.new("RGB", (512, 512), (180, 150, 140))
     face = Q.FaceBox(212, 198, 135, 191)
@@ -256,6 +324,26 @@ def test_extract_returns_missing_when_no_face():
     o = C.extract(p)
     assert all(c.missing for c in (o.skin, o.hair, o.top, o.bottom))
     assert o.wb_gain == (1.0, 1.0, 1.0)
+
+
+def test_extract_skips_wb_gain_that_clips():
+    """게인이 클립되면(확신 없음) 보정을 적용하지 않는다.
+
+    전신샷 흰 셔츠 + 작고 붉게 치우친 피부 앵커면 R 게인이 하한(1/1.25)에
+    걸린다. 클립된 게인을 그대로 적용하면 중립 흰색이 민트색으로 이동한다
+    (R×0.8). 확신 없는 게인은 identity 로 둔다.
+    """
+    img = Image.new("RGB", (600, 700), (255, 255, 255))
+    px = img.load()
+    sr = Q.skin_region(FACE)
+    for y in range(sr.y, sr.bottom):
+        for x in range(sr.x, sr.right):
+            px[x, y] = (170, 106, 94)  # R 게인을 하한에 걸리게 하는 앵커
+    o = C.extract(photo(image=img))
+    assert o.wb_confident is False
+    assert o.wb_gain == (1.0, 1.0, 1.0)
+    assert not o.top.missing
+    assert abs(o.top.rgb[0] - o.top.rgb[2]) < 20  # 흰색 유지 (민트 아님)
 
 
 def test_extract_skips_only_hair_when_small_flag():
@@ -409,3 +497,111 @@ def test_skinlike_top_renders_deterministically():
     assert observed.top_skinlike is True
     canvas = R.render(observed, A.EMPTY, ())
     assert V.validate_image(canvas.image, "classic") == []
+
+
+# --- 하네스 범주화 (bottom_eval.categorize) -------------------------------
+
+def _cat(hex_str: str) -> str:
+    from skinmaker.bottom_eval import categorize
+    rgb = tuple(int(hex_str[i : i + 2], 16) for i in (1, 3, 5))
+    return categorize(C.ColorSample(hex_str, 1.0, True, rgb, 100))
+
+
+@pytest.mark.parametrize(
+    "hex_str, expected",
+    [
+        ("#010b18", "dark"),     # 거의 검정 (채도 비율 0.96 이어도 어둡다)
+        ("#383a3e", "dark"),     # 짙은 회색 바지
+        ("#374047", "blue"),     # 짙은 데님 (B-R 0.057)
+        ("#c6ddf5", "blue"),     # 옅은 청색
+        ("#f59096", "colored"),  # 분홍 바지
+        ("#ebe3cd", "light"),    # 밝은 베이지/흰색
+        ("#8e8a6a", "colored"),  # 올리브 계열 채도
+        ("#9a9a9a", "mid"),      # 중간 회색
+    ],
+)
+def test_harness_categorize_known_colors(hex_str, expected):
+    assert _cat(hex_str) == expected
+
+
+def test_harness_categorize_missing_is_missing():
+    from skinmaker.bottom_eval import categorize
+    assert categorize(C.MISSING) == "missing"
+
+
+# --- 렌더 폴백 정책 (하의) ----------------------------------------------
+# 규칙: 측정이 있고 (확신이 있거나 또는 그럴듯하면) 측정을 쓴다.
+#       결측이거나 (확신 없음 AND 그럴듯하지 않음) 이면 기본값.
+# "그럴듯함" = 피부색이 아니고 배경색이 아니다 (다른 것을 잰 것이 아니다).
+
+def _obs(bottom, plausible):
+    return C.ObservedColors(
+        C.MISSING, C.MISSING, C.MISSING, bottom,
+        (1.0, 1.0, 1.0), False, (0.0, 0.0, 0.0),
+        bottom_plausible=plausible,
+    )
+
+
+def _sample(hex_str, confident):
+    rgb = tuple(int(hex_str[i : i + 2], 16) for i in (1, 3, 5))
+    return C.ColorSample(hex_str, 0.5, confident, rgb, 500)
+
+
+def test_policy_uses_confident_sample():
+    assert R.bottom_usable(_sample("#383a3e", True), plausible=False) is True
+
+
+def test_policy_uses_unconfident_plausible_sample():
+    assert R.bottom_usable(_sample("#383a3e", False), plausible=True) is True
+
+
+def test_policy_falls_back_for_unconfident_implausible_sample():
+    assert R.bottom_usable(_sample("#e0ac69", False), plausible=False) is False
+
+
+def test_policy_falls_back_for_missing():
+    assert R.bottom_usable(C.MISSING, plausible=True) is False
+
+
+def test_resolve_colors_uses_unconfident_plausible_bottom():
+    colors = R.resolve_colors(_obs(_sample("#383a3e", False), plausible=True))
+    assert colors["bottom"][:3] == (56, 58, 62)
+
+
+def test_resolve_colors_defaults_unconfident_implausible_bottom():
+    colors = R.resolve_colors(_obs(_sample("#e0ac69", False), plausible=False))
+    assert colors["bottom"][:3] == (60, 68, 80)
+
+
+def test_bottom_plausibility_rejects_backdrop_colored_bottom():
+    """하의 측정이 배경색이면 옷이 아니라 배경을 잰 것이다."""
+    img = Image.new("RGB", (400, 600), (200, 200, 200))  # 전체가 배경색
+    face = Q.FaceBox(170, 60, 60, 75)
+    p = Q.PhotoInput("t.jpg", img, face, Q.Quality(0.9, face.area, 120.0, 400.0, 110.0, True), ())
+    observed = C.extract(p)
+    assert observed.bottom_plausible is False
+
+
+def test_bottom_plausibility_keeps_bare_skin_measurement():
+    """맨다리를 잰 값은 피부색이 맞다. 그럴듯하지 않다고 기본값으로 바꾸지 않는다."""
+    img = Image.new("RGB", (400, 600), (200, 200, 200))  # 회색 배경
+    px = img.load()
+    for y in range(260, 560):  # 맨다리 (피부색), 배경과 다르다
+        for x in range(170, 230):
+            px[x, y] = (204, 161, 141)
+    face = Q.FaceBox(170, 60, 60, 75)
+    p = Q.PhotoInput("t.jpg", img, face, Q.Quality(0.9, face.area, 120.0, 400.0, 110.0, True), ())
+    observed = C.extract(p)
+    assert observed.bottom_plausible is True
+
+
+def test_bottom_plausibility_accepts_trousers():
+    img = Image.new("RGB", (240, 350), (200, 200, 200))
+    px = img.load()
+    for y in range(200, 300):
+        for x in list(range(60, 110)) + list(range(131, 180)):
+            px[x, y] = (60, 60, 64)
+    face = Q.FaceBox(108, 30, 24, 30)
+    p = Q.PhotoInput("t.jpg", img, face, Q.Quality(0.9, face.area, 120.0, 400.0, 110.0, True), ())
+    observed = C.extract(p)
+    assert observed.bottom_plausible is True

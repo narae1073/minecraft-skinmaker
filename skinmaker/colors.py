@@ -6,7 +6,7 @@
 from __future__ import annotations
 
 from collections.abc import Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 
 import cv2
 import numpy as np
@@ -24,6 +24,12 @@ CLUSTER_BINS = 6
 MIN_SHARE = 0.18
 SAT_FLOOR = 0.28
 CHROMA_TOL = 0.11
+BG_LUMA_TOL = 25.0
+LOWER_BODY_WINDOW = (0.75, 0.85)  # 이미지 높이 비율. 무릎~발목 (신발 위, 상의 아래)
+LOWER_BODY_HALF_W = 1.5  # 얼굴 폭 배수. 두 다리 + 틈을 덮는다
+LOWER_BODY_FG_MIN = 0.20  # 전경 픽셀이 이보다 적으면 측정 포기
+WB_APPLY_CLIPPED = False  # 평가 하네스 A/B 토글. True 면 클립된 WB 게인도 적용 (F1 이전 동작)
+LOWER_BODY_MASK_ENABLED = True  # 평가 하네스의 A/B 토글. 운영 경로는 항상 True
 LIGHT_PERCENTILE = {"skin": 40.0, "hair": 30.0, "top": 20.0, "bottom": 20.0}
 
 
@@ -209,6 +215,7 @@ class ObservedColors:
     top_alt: ColorSample = MISSING
     stripe: str = "plain"
     cover: CoverEstimate | None = None
+    bottom_plausible: bool = True  # 하의 측정이 피부도 배경도 아니다 (렌더 폴백 정책 입력)
 
     @property
     def top_confident(self) -> bool:
@@ -283,7 +290,11 @@ def extract(
         return _empty()
 
     gain, wb_ok = white_balance_gain(face_pixels)
-    arr = apply_gain(rgb, gain)
+    # 클립된 게인(wb_ok=False)은 적용하지 않는다. 앵커가 작거나 붉게 치우치면
+    # 과도한 게인이 중립색까지 밀어 흰 셔츠를 민트로 만든다 (images10). 확신
+    # 없는 게인은 identity 로 두고 raw 를 유지한다.
+    applied = gain if (wb_ok or WB_APPLY_CLIPPED) else (1.0, 1.0, 1.0)
+    arr = apply_gain(rgb, applied)
 
     skin = dominant_color(_region_pixels(arr, skin_region(photo.face), LIGHT_PERCENTILE["skin"]), bins=bins)
     skin_chroma = chromaticity(np.asarray(skin.rgb, dtype=np.float32) / 255.0) if not skin.missing else (0.0, 0.0, 0.0)
@@ -296,6 +307,7 @@ def extract(
     if not skin.missing:
         hair_reject.append(skin_chroma)
     bg = background_chroma(arr)
+    bg_luma = background_luma(arr)
     if bg is not None:
         hair_reject.append(bg)
 
@@ -336,12 +348,23 @@ def extract(
         bottom_boxes = bottom_bands(photo.face, photo.image.size)
     top = _from_bands(arr, shirt_boxes, top_pick, (), bins)
     bottom = _from_bands(arr, bottom_boxes, "mode", (), bins)
-    if pose is None and _bottom_needs_fallback(bottom, top, bg):
+    if pose is None and _bottom_needs_fallback(bottom, top, bg, bg_luma):
         # cascade: 얼굴 비례 밴드가 옷을 못 잡으면 프레임 하부를 본다.
         # pose 경로는 건드리지 않는다 (mediapipe 격리 중이라 항상 None).
-        retry = _from_bands(arr, frame_lower_bands(photo.face, photo.image.size), "mode", (), bins)
-        if not retry.missing and not _matches_background(retry, bg):
+        lower = frame_lower_bands(photo.face, photo.image.size)
+        retry = _from_bands(arr, lower, "mode", (), bins)
+        if not retry.missing and not _matches_background(retry, bg, bg_luma):
             bottom = retry
+        elif lower:
+            # 띠가 다리 사이 틈이나 바닥만 봤다. 다리 영역의 전경(배경과 휘도가 다른
+            # 픽셀)에서 다시 잡는다. 마지막 수단이라 띠 결과가 있으면 건드리지 않는다.
+            masked = (
+                lower_body_sample(arr, photo.face, photo.image.size, bg_luma)
+                if LOWER_BODY_MASK_ENABLED
+                else MISSING
+            )
+            if not masked.missing:
+                bottom = masked
 
     def _chroma_of(sample: ColorSample):
         if sample.missing:
@@ -372,7 +395,22 @@ def extract(
         _chroma_of(bottom),
     )
 
-    return ObservedColors(skin, hair, top, bottom, gain, wb_ok, skin_chroma, top_alt, stripe, cover)
+    return ObservedColors(
+        skin, hair, top, bottom, applied, wb_ok, skin_chroma, top_alt, stripe, cover,
+        bottom_plausible=_bottom_plausible(bottom, bg, bg_luma),
+    )
+
+
+def _bottom_plausible(bottom: ColorSample, bg, bg_luma: float | None) -> bool:
+    """하의 측정이 하의 색일 수 있는가. 배경이면 옷이 아니라 배경을 잰 것이다.
+
+    피부색 판정은 넣지 않는다. 맨다리를 잰 값을 기본 청회색으로 바꾸면 오히려 틀린다
+    (맨다리는 피부색이 맞다). 베이지·카키 바지도 피부와 크로마가 같아 탈락시키면
+    정답을 잃는다 (라벨 59장에서 3건 손실, 이득 0).
+    """
+    if bottom.missing:
+        return False
+    return not _matches_background(bottom, bg, bg_luma)
 
 
 def _empty() -> "ObservedColors":
@@ -590,26 +628,74 @@ def _from_bands(
     return max(samples, key=lambda s: s.share * (s.pixels**0.5))
 
 
-def _matches_background(sample: ColorSample, bg) -> bool:
-    """밴드 측정값이 배경 크로마면 옷을 못 잡은 것이다 (배경만 봄)."""
+def background_luma(arr: np.ndarray, frame: int = BACKGROUND_FRAME) -> float | None:
+    """테두리 프레임의 중앙값 휘도 (0-255). 배경 판정의 휘도 축."""
+    h, w = arr.shape[:2]
+    if h < frame * 2 + 4 or w < frame * 2 + 4:
+        return None
+    border = np.concatenate(
+        [
+            arr[:frame].reshape(-1, 3),
+            arr[h - frame :].reshape(-1, 3),
+            arr[:, :frame].reshape(-1, 3),
+            arr[:, w - frame :].reshape(-1, 3),
+        ]
+    ).astype(np.float32)
+    return float(np.median(border @ np.asarray(LUMA, dtype=np.float32))) * 255.0
+
+
+def lower_body_sample(arr: np.ndarray, face: FaceBox, image_size: tuple[int, int], bg_luma: float | None) -> ColorSample:
+    """다리 영역 전경 마스크의 최빈색. 배경과 휘도가 다른 픽셀만 본다.
+
+    얼굴 중심 열을 가운데 두고 무릎~발목 높이만 자른다. 상의 아래쪽 경계를
+    넘지 않으므로 상의 색이 섞이지 않는다 (상의가 같은 열에 있어도 창 밖이다).
+    """
+    if bg_luma is None:
+        return MISSING
+    img_w, img_h = image_size
+    lo, hi = LOWER_BODY_WINDOW
+    cx = face.x + face.w // 2
+    hw = int(face.w * LOWER_BODY_HALF_W)
+    box = clip_to(FaceBox(cx - hw, int(img_h * lo), 2 * hw, int(img_h * (hi - lo))), (img_w, img_h))
+    if box is None:
+        return MISSING
+    sub = arr[box.y : box.bottom, box.x : box.right].reshape(-1, 3).astype(np.float32)
+    lum = sub @ np.asarray(LUMA, dtype=np.float32) * 255.0
+    fg = sub[np.abs(lum - bg_luma) > BG_LUMA_TOL]
+    if fg.shape[0] < LOWER_BODY_FG_MIN * sub.shape[0]:
+        return MISSING
+    # 마지막 수단의 추정. 점유율이 높아도 확신값으로 내보내지 않는다 (downstream 이 안다).
+    return replace(dominant_color(fg, bins=CLUSTER_BINS), confident=False)
+
+
+def _matches_background(sample: ColorSample, bg, bg_luma: float | None = None) -> bool:
+    """밴드 측정값이 배경이면 옷을 못 잡은 것이다 (배경만 봄).
+
+    크로마만 보면 짙은 무채색 옷(청바지·슬랙스)이 회색 배경과 구별되지 않는다.
+    bg_luma 가 주어지면 휘도도 맞아야 배경으로 본다.
+    """
     if sample.missing or bg is None:
         return False
-    return (
+    if (
         chroma_distance(
             np.asarray(sample.rgb, dtype=np.float32) / 255.0,
             np.asarray(bg, dtype=np.float32),
         )
-        <= CHROMA_TOL
-    )
+        > CHROMA_TOL
+    ):
+        return False
+    if bg_luma is not None and abs(luma(np.asarray(sample.rgb, dtype=np.float32)) - bg_luma) > BG_LUMA_TOL:
+        return False
+    return True
 
 
-def _bottom_needs_fallback(bottom: ColorSample, top: ColorSample, bg) -> bool:
+def _bottom_needs_fallback(bottom: ColorSample, top: ColorSample, bg, bg_luma: float | None = None) -> bool:
     """하의 cascade 발동 조건 3가지. (a) 밴드가 비어 `_from_bands`가
     MISSING을 돌려줬거나, (b) 배경만 재측정했거나, (c) 상의를 그대로
     재측정했을 때(bottom ≈ top, 전신의 primary 케이스).
     의상 측정에 크로마 탈락을 넣지 않으므로(갈색 셔츠 회귀 금지)
     호출부에서 비교한다."""
-    if bottom.missing or _matches_background(bottom, bg):
+    if bottom.missing or _matches_background(bottom, bg, bg_luma):
         return True
     if top.missing:
         return False

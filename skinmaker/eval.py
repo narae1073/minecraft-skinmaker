@@ -112,7 +112,13 @@ def evaluate(photo: PhotoInput, observed: ObservedColors, model: str = "classic"
     fell = []
     for key, dflt in defaults.items():
         sample = getattr(observed, key)
-        if sample.missing or not sample.confident:
+        if key == "bottom":
+            from .render import bottom_usable
+
+            usable = bottom_usable(sample, observed.bottom_plausible)
+        else:
+            usable = not (sample.missing or not sample.confident)
+        if not usable:
             fell.append(key)
     row.fell_back = tuple(fell)
     return row
