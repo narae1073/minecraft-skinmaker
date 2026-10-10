@@ -6,3 +6,4 @@ __pycache__/
 assets/*.onnx
 assets/*.task*
 .env
+plans.txt
