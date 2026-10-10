@@ -78,7 +78,32 @@ def test_eval_accepts_fixed_hair_box():
     assert "hair" not in rows[0].fell_back
 
 
-def test_eval_main_accepts_hair_box_flag(tmp_path):
-    blank = tmp_path / "blank.png"
-    Image.new("RGB", (200, 200), (30, 60, 90)).save(blank)
-    assert E.main([str(blank), "--hair-box", "10,10,50,50"]) == 0
+def test_eval_main_accepts_hair_box_flag(monkeypatch):
+    # faceless synthetic 이미지로는 photo.rejected 조기 반환이라 --hair-box 배선을
+    # 검증 못 한다. 실측 얼굴 사진 + extract 스파이로 bbox 도착을 고정한다.
+    photo_path = Path(__file__).resolve().parent.parent / "out" / "s0_photos" / "7f18cb16d51f6228b635d23c18772c05.jpg"
+    seen = {}
+    orig_extract = E.extract
+
+    def spy(photo, *args, **kwargs):
+        seen["hair_bbox"] = kwargs.get("hair_bbox", args[0] if args else None)
+        return orig_extract(photo, *args, **kwargs)
+
+    monkeypatch.setattr(E, "extract", spy)
+    assert E.main([str(photo_path), "--hair-box", "239,46,30,45"]) == 0
+    assert seen.get("hair_bbox") == Q.FaceBox(239, 46, 30, 45)
+
+
+def test_eval_main_skips_extract_failure_and_continues(tmp_path, monkeypatch, capsys):
+    for name, color in (("a.png", (30, 60, 90)), ("b.png", (60, 90, 30))):
+        Image.new("RGB", (200, 200), color).save(tmp_path / name)
+    orig_extract = E.extract
+
+    def flaky(photo, *args, **kwargs):
+        if photo.path.endswith("a.png"):
+            raise RuntimeError("boom")
+        return orig_extract(photo, *args, **kwargs)
+
+    monkeypatch.setattr(E, "extract", flaky)
+    assert E.main([str(tmp_path), "--hair-box", "10,10,50,50"]) == 0
+    assert "SKIP a.png" in capsys.readouterr().out

@@ -125,7 +125,11 @@ def main(argv: list[str] | None = None) -> int:
         except Exception as exc:
             print(f"SKIP {p.name}: {type(exc).__name__} {exc}")
             continue
-        rows.append(evaluate(photo, extract(photo, hair_bbox=args.hair_box), args.model))
+        try:
+            rows.append(evaluate(photo, extract(photo, hair_bbox=args.hair_box), args.model))
+        except Exception as exc:
+            print(f"SKIP {p.name}: {type(exc).__name__} {exc}")
+            continue
     print(report(rows, args.show))
     return 0
 

@@ -101,10 +101,16 @@ def test_rate_limit_maps_to_503():
 
 def test_generate_uses_hair_bbox_for_crown():
     # brief 초안의 `crown != (58,42,28,255)`는 틀렸다. 정수리는 FACE_SHADE[top]
-    # 1.12가 적용되므로 배선 전 정수리는 (82,68,55,255)다. 그 값과 다르면 배선됨.
+    # 1.12가 적용되므로 배선 전 정수리는 shade(DEFAULT_HAIR)다. 그 값과 다르면 배선됨.
+    # 기대 crown은 하드코딩 hex가 아니라 같은 입력(같은 사진+같은 classify bbox)으로
+    # extract를 재실행해 구한다. WB·클러스터 문턱 재조정에도 깨지지 않는다.
     from PIL import Image as PILImage
 
     from skinmaker.canvas import rgba, shade
+    from skinmaker.classify import classify
+    from skinmaker.colors import extract
+    from skinmaker.eval import expected_pixel
+    from skinmaker.quality import inspect
     from skinmaker.render import DEFAULT_HAIR, FACE_SHADE
 
     with PHOTO_HAIR.open("rb") as f:
@@ -115,4 +121,10 @@ def test_generate_uses_hair_bbox_for_crown():
     crown = img.getpixel((8, 0))  # head top 면 (0,0) = 스킨 (8,0)
     default_crown = shade(rgba(DEFAULT_HAIR), FACE_SHADE["top"])
     assert crown != default_crown
-    assert crown == shade(rgba("#32241b"), FACE_SHADE["top"])
+
+    photo = inspect(str(PHOTO_HAIR))
+    result = classify(photo, MockTransport(first=GOOD_HAIR))
+    assert result.ok and result.hair_bbox_px is not None
+    observed = extract(photo, hair_bbox=result.hair_bbox_px)
+    assert observed.hair.confident  # 픽스처 변별력 가드: retune으로 미달이 되면 여기서 loudly 실패
+    assert crown == expected_pixel(observed, "hair", "top")
