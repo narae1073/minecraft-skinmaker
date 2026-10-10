@@ -167,6 +167,18 @@ def test_vlm_pattern_wins_over_measurement():
     assert canvas.image.getpixel((f.x + 0, f.y + 6)) != canvas.image.getpixel((f.x + 2, f.y + 6))
 
 
+def test_vlm_plain_vetoes_measured_stripes():
+    """확신된 plain 은 측정 줄무늬를 끈다. 겹쳐 입은 두 벌을 줄무늬로 착각하는 경우."""
+    obs = observed(top="#632214")
+    alt = sample("#67726f")
+    obs2 = C.ObservedColors(obs.skin, obs.hair, obs.top, obs.bottom,
+                            obs.wb_gain, obs.wb_confident, obs.skin_chroma, alt, "vertical_stripe")
+    canvas = R.render(obs2, attrs(pattern="plain"), (), "classic")
+    f = get_layout("classic").face("body", "front", 0)
+    cols = {canvas.image.getpixel((f.x + u, f.y + 6))[:3] for u in range(f.w)}
+    assert len(cols) == 1
+
+
 def test_shorts_renders_skin_between_pants_and_shoe():
     canvas = R.render(observed(), attrs(bottom_garment="shorts"), (), "classic")
     f = get_layout("classic").face("r_leg", "front", 0)

@@ -114,7 +114,20 @@ def effective_pattern(pattern: str, observed: ObservedColors, attrs: Attributes,
     측정 줄무늬가 있으면 그걸 쓴다 (VLM 미연결 시 resemblance 직결).
     측정은 degrade를 안 본다: 방향 테스트·점유율이 자체 신뢰도라서
     얼굴이 작아도 몸통 픽셀이 충분하면(메시 7056px) 통과한다.
+
+    VLM 확신 plain 은 측정 줄무늬를 끈다. 측정은 "두 색+방향"만 보므로
+    겹쳐 입은 두 벌(자켓+원피스)을 줄무늬로 착각한다. 크롭 전체를 본
+    VLM 의 plain 확신이 있으면 그쪽이 맞다.
     """
+    vlm_says_plain = (
+        pattern == "plain"
+        and "pattern" not in attrs.coerced
+        and "pattern" not in attrs.missing
+        and observed.top_confident
+        and not any(d in degrade for d in CONSERVATIVE_DEGRADE)
+    )
+    if vlm_says_plain:
+        return "plain"
     vlm_confident = (
         pattern != "plain"
         and "pattern" not in attrs.coerced
