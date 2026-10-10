@@ -1,4 +1,6 @@
 .venv/
+.worktrees/
+.superpowers/
 out/
 __pycache__/
 .pytest_cache/
