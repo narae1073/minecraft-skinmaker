@@ -27,6 +27,8 @@ from .quality import FaceBox, PhotoInput, clip_to
 from .vlm import Transport
 
 MODEL_MAX_PX = 768
+FULLBODY_MAX_PX = 1536
+FRAMING_FULLBODY_MAX_RATIO = 0.12
 
 
 @dataclass(frozen=True)
@@ -49,26 +51,46 @@ class ModelCrop:
 
 
 def model_region(face: FaceBox, size: tuple[int, int], up: float = 0.9, down: float = 4.0, side: float = 0.9) -> FaceBox:
-    """얼굴 + 어깨 + 상의 + 골반이 들어가는 세로 크롭.
+    """얼굴 + 어깨 + 상의 + 하의가 들어가는 세로 크롭.
 
-    down=2.2 시절에는 크롭이 가슴에서 잘려 VLM 이 하의를 못 보고
-    전신 청바지도 bottom=none 확신으로 답했다. 4.0 으로 내리니
-    jeans/jeans/pants 3장이 전부 정답. 초상 사진은 이미지 하단에
-    걸려 잘리므로 기존과 동일하다.
+    하단은 이미지 하단에 닿을 만큼 내린다: 전신(작은 얼굴)에서는 고정
+    down=4.0 으로는 다리가 잘린다 (messi5: 크롭 하단 280 < 이미지 342).
+    초상화에서는 고정 down 만으로 이미 프레임을 넘기므로 clip_to 가
+    잘라 기존과 동일하다.
     """
     img_w, img_h = size
+    need = (img_h - face.bottom) / face.h if face.h > 0 else down
+    down_eff = max(down, need)
     x = int(face.w * side)
     return FaceBox(
         face.x - x,
         face.y - int(face.h * up),
         face.w + 2 * x,
-        int(face.h * (up + 1 + down)),
+        int(face.h * (up + 1 + down_eff)),
     )
 
 
-def prepare(photo: PhotoInput, max_px: int = MODEL_MAX_PX) -> ModelCrop | None:
+def framing(photo: PhotoInput) -> str:
+    """구도 판정. 얼굴이 작으면 전신으로 보고 고해상도로 전송한다."""
+    if photo.face is None:
+        return "portrait"
+    img_w, img_h = photo.image.size
+    if img_h <= 0:
+        return "portrait"
+    if photo.face.h / img_h < FRAMING_FULLBODY_MAX_RATIO:
+        return "fullbody"
+    return "portrait"
+
+
+def prepare(photo: PhotoInput, max_px: int | None = None) -> ModelCrop | None:
+    """max_px=None 이면 프레이밍으로 자동 선택 (전신 1536 / 초상 768).
+
+    명시값이 오면 그대로 쓴다. 호출부(backend, s4)는 손대지 않는다.
+    """
     if photo.face is None:
         return None
+    if max_px is None:
+        max_px = FULLBODY_MAX_PX if framing(photo) == "fullbody" else MODEL_MAX_PX
     region = clip_to(model_region(photo.face, photo.image.size), photo.image.size)
     if region is None or region.w < 16 or region.h < 16:
         return None
@@ -102,7 +124,7 @@ def classify(
     photo: PhotoInput,
     transport: Transport,
     double_check: bool = True,
-    prepare_max_px: int = MODEL_MAX_PX,
+    prepare_max_px: int | None = None,
 ) -> Classification:
     crop = prepare(photo, prepare_max_px)
     if crop is None:

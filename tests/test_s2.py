@@ -229,6 +229,46 @@ def test_model_region_reaches_hips_for_full_body():
     assert r.bottom >= face.bottom + int(face.h * 3.5)
 
 
+def test_model_region_reaches_image_bottom_for_fullbody():
+    """전신(messi5)에서 크롭 하단이 이미지 하단에 닿아야 다리가 보인다."""
+    face = Q.FaceBox(228, 95, 30, 37)
+    region = C.model_region(face, (548, 342))
+    clipped = Q.clip_to(region, (548, 342))
+    assert clipped is not None
+    assert clipped.bottom == 342
+    assert clipped.w > face.w * 2  # 양팔이 들어올 폭
+
+
+def test_portrait_crop_unchanged_and_fullbody_gets_more_pixels():
+    """초상화는 기존 크롭·768px 그대로, 전신은 이미지 하단까지 + 고해상도.
+
+    (brief 초안의 (548,342) 치수로는 크롭이 이미지 자체를 넘을 수 없어
+    max>768 을 만족할 수 없으므로, 실제 전신 사진 치수로 적응.
+    의도는 동일: 프레이밍별 차등 해상도.)
+    """
+    portrait_img = photo((1000, 1000), Q.FaceBox(300, 200, 200, 250))
+    full_img = photo((1000, 1600), Q.FaceBox(450, 150, 80, 100))
+    assert C.framing(portrait_img) == "portrait"
+    assert C.framing(full_img) == "fullbody"
+    # 초상화: down=4.0 만으로 프레임을 넘기므로 기존과 동일한 영역
+    clipped = Q.clip_to(C.model_region(portrait_img.face, (1000, 1000)), (1000, 1000))
+    assert clipped == Q.FaceBox(120, 0, 560, 1000)
+    portrait = C.prepare(portrait_img)
+    full = C.prepare(full_img)
+    assert portrait is not None and full is not None
+    assert max(portrait.image.size) <= 768
+    assert max(full.image.size) > 768  # 전신 고해상도
+    assert Q.clip_to(C.model_region(full_img.face, (1000, 1600)), (1000, 1600)).bottom == 1600
+
+
+def test_framing_boundary_and_no_face():
+    """경계 face_h/img_h=0.12 는 portrait, 미만은 fullbody, 얼굴 없음은 portrait."""
+    assert C.framing(photo((1000, 1000), Q.FaceBox(0, 0, 120, 120))) == "portrait"
+    assert C.framing(photo((1000, 1000), Q.FaceBox(0, 0, 119, 119))) == "fullbody"
+    noface = Q.PhotoInput("t.jpg", Image.new("RGB", (100, 100)), None, None, ())
+    assert C.framing(noface) == "portrait"
+
+
 def test_prepare_returns_none_without_face():
     p = Q.PhotoInput("t.jpg", Image.new("RGB", (100, 100)), None, None, ())
     assert C.prepare(p) is None
