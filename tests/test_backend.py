@@ -4,6 +4,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
+import pytest
 from fastapi.testclient import TestClient
 
 import backend.app as A
@@ -48,6 +49,7 @@ def test_health_ok():
     assert r.json()["status"] == "ok"
 
 
+@pytest.mark.skipif(not PHOTO.exists(), reason="픽스처 없음(out/ 미포함 클론)")
 def test_generate_returns_three_urls():
     second = dict(GOOD, sleeve_len="long", hair_length="long")
     with PHOTO.open("rb") as f:
@@ -83,6 +85,7 @@ def test_no_face_reports_422_with_message(tmp_path):
     assert "얼굴" in body["message"]
 
 
+@pytest.mark.skipif(not PHOTO.exists(), reason="픽스처 없음(out/ 미포함 클론)")
 def test_classify_failure_maps_to_502():
     A.make_transport = lambda: MockTransport(fail=True)
     with PHOTO.open("rb") as f:
@@ -91,6 +94,7 @@ def test_classify_failure_maps_to_502():
     assert r.json()["detail"]["code"] == "classify_failed"
 
 
+@pytest.mark.skipif(not PHOTO.exists(), reason="픽스처 없음(out/ 미포함 클론)")
 def test_rate_limit_maps_to_503():
     A.make_transport = lambda: MockTransport(fail=True, error="HTTP 429: quota")
     with PHOTO.open("rb") as f:
@@ -99,6 +103,7 @@ def test_rate_limit_maps_to_503():
     assert r.json()["detail"]["code"] == "overloaded"
 
 
+@pytest.mark.skipif(not PHOTO_HAIR.exists(), reason="픽스처 없음(out/ 미포함 클론)")
 def test_generate_uses_hair_bbox_for_crown():
     # brief 초안의 `crown != (58,42,28,255)`는 틀렸다. 정수리는 FACE_SHADE[top]
     # 1.12가 적용되므로 배선 전 정수리는 shade(DEFAULT_HAIR)다. 그 값과 다르면 배선됨.

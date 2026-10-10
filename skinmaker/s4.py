@@ -50,7 +50,7 @@ def run(args) -> int:
             print(f"{p.name:34s} FAIL {result.error}")
             failures += 1
             continue
-        observed = extract(photo, patterned=args.patterned)
+        observed = extract(photo, patterned=args.patterned, hair_bbox=result.hair_bbox_px if result.ok else None)
         candidates = build(observed, result, photo.degrade, args.skin)
         print(f"{p.name:34s} 후보 {len(candidates)}  {summarize(result.attributes, result.uncertain)}")
         for c in candidates:

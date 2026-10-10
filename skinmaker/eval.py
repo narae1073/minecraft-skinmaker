@@ -19,7 +19,6 @@ from pathlib import Path
 
 from .attributes import EMPTY
 from .canvas import shade
-from .classify import framing
 from .colors import ObservedColors, extract
 from .measure import SUFFIXES
 from .quality import FaceBox, PhotoInput, inspect
@@ -40,16 +39,42 @@ class EvalRow:
     framing: str = "-"
 
 
-# classify.framing() 라벨 → 리포트 밴드. framing()은 2값(fullbody/portrait,
-# 경계 0.12)이라 mid 밴드는 비어 있다. mid는 설계 문서의 비율 밴드
-# (full<0.10/mid/portrait≥0.20, 고정 세트 선정용)와 헤더를 맞추기 위한 예약.
-_BAND_OF = {"fullbody": "full", "mid": "mid", "portrait": "portrait"}
+# 리포트 밴드는 face_h/img_h 비율에서 직접 잰다 (고정 세트 선정 컷과 동일:
+# full<0.10 / mid<0.20 / portrait≥0.20. docs/superpowers/specs/fixed10.txt 헤더 참조).
+# classify.framing()의 0.12 2값 판정은 해상도 선택용으로만 쓰고 리포트에는 쓰지 않는다.
+REPORT_FULL_MAX = 0.10
+REPORT_MID_MAX = 0.20
 _BANDS = ("full", "mid", "portrait")
 _FALLBACK_KEYS = ("bottom", "hair", "skin", "top")
 
 
+def report_band(photo: PhotoInput) -> str:
+    """고정 세트와 같은 컷으로 구도 밴드를 돌려준다. 얼굴 없으면 "-" (거절 행)."""
+    face = photo.face
+    if face is None:
+        return "-"
+    _w, img_h = photo.image.size
+    if img_h <= 0:
+        return "-"
+    ratio = face.h / img_h
+    if ratio < REPORT_FULL_MAX:
+        return "full"
+    if ratio < REPORT_MID_MAX:
+        return "mid"
+    return "portrait"
+
+
 def expected_pixel(observed: ObservedColors, key: str, face: str) -> tuple:
     return shade(resolve_colors(observed)[key], FACE_SHADE[face])
+
+
+# --hair-box는 배선 확인용이다. 전 사진에 같은 고정 박스를 주입하므로
+# 크기·구도가 다른 사진들에는 맞지 않아 <50% 기준의 증거가 될 수 없다.
+# 그 기준에는 per-photo 박스(진짜 VLM 출력)가 필요하다. 동작 변경 없음.
+HAIR_BOX_HELP = (
+    '고정 헤어 박스 주입 "x,y,w,h" (배선 확인용. 전 사진 공통 박스라 '
+    "<50%% 기준 증거가 안 됨. per-photo 박스는 VLM 출력 필요)"
+)
 
 
 def parse_hair_box(text: str) -> FaceBox:
@@ -70,7 +95,7 @@ def evaluate(photo: PhotoInput, observed: ObservedColors, model: str = "classic"
                   rejected=photo.rejected, degrade=photo.degrade)
     if photo.rejected:
         return row
-    row.framing = framing(photo)
+    row.framing = report_band(photo)
     canvas = render(observed, EMPTY, photo.degrade, model)
     row.valid = validate_image(canvas.image, model) == []
     row.crown = canvas.get("head", "top", 0, 0) == expected_pixel(observed, "hair", "top")
@@ -110,7 +135,7 @@ def report(rows: list[EvalRow], show: int = 20) -> str:
         lines.append("  fallback: " + "  ".join(f"{k}={v}" for k, v in sorted(all_fell.items())))
         lines.append("  framing별 fallback:")
         for band in _BANDS:
-            members = [r for r in ok if _BAND_OF.get(r.framing) == band]
+            members = [r for r in ok if r.framing == band]
             if not members:
                 lines.append(f"    {band}: n=0")
                 continue
@@ -130,8 +155,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("target", help="이미지 파일 또는 폴더")
     parser.add_argument("--model", choices=("classic", "slim"), default="classic")
     parser.add_argument("--show", type=int, default=20)
-    parser.add_argument("--hair-box", type=parse_hair_box, default=None,
-                        help='고정 헤어 박스 주입 "x,y,w,h" (VLM 없이 bbox 경로 재현)')
+    parser.add_argument("--hair-box", type=parse_hair_box, default=None, help=HAIR_BOX_HELP)
     args = parser.parse_args(argv)
 
     target = Path(args.target)

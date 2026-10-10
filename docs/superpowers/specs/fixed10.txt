@@ -5,6 +5,8 @@
 # deviation from brief: brief says out/fixed10.txt, but out/ is a shared
 # git-ignored symlink; recorded here (committed, reviewable) instead.
 # format: <band> <face_h/img_h> <filename>
+# report cuts (eval.report_band, same values): full <0.10 / mid <0.20 / portrait ≥0.20.
+# classify.framing()의 0.12 2값 판정은 해상도 선택용이며 리포트 밴드와 다르다.
 full 0.0541 images31.jpeg
 full 0.0857 images10.jpeg
 full 0.0931 istockphoto-1660422184-612x612.jpg

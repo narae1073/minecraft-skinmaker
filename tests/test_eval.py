@@ -4,11 +4,14 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
+import pytest
 from PIL import Image
 
 from skinmaker import eval as E
 from skinmaker import quality as Q
 from skinmaker.colors import extract
+
+FLAG_PHOTO = Path(__file__).resolve().parent.parent / "out" / "s0_photos" / "7f18cb16d51f6228b635d23c18772c05.jpg"
 
 
 def photo():
@@ -51,13 +54,47 @@ def test_report_breaks_down_by_framing():
 def test_report_fallback_per_framing_band():
     rows = [
         E.EvalRow("f.jpg", valid=True, crown=True, cheek=True, torso="match",
-                  framing="fullbody", fell_back=("hair",)),
+                  framing="full", fell_back=("hair",)),
+        E.EvalRow("m.jpg", valid=True, crown=True, cheek=True, torso="match",
+                  framing="mid", fell_back=("hair", "bottom")),
         E.EvalRow("p.jpg", valid=True, crown=True, cheek=True, torso="match",
                   framing="portrait", fell_back=()),
     ]
     text = E.report(rows)
     assert "full: n=1" in text and "hair=1/1" in text
+    assert "mid: n=1" in text and "bottom=1/1" in text
     assert "portrait: n=1" in text and "hair=0/1" in text
+
+
+def _ratio_photo(face_h, img_h=1000, img_w=1000):
+    img = Image.new("RGB", (img_w, img_h), (120, 100, 90))
+    face = Q.FaceBox(100, 100, 100, face_h)
+    q = Q.Quality(0.95, face.area, 120.0, 400.0, 100.0, True)
+    return Q.PhotoInput("t.jpg", img, face, q, ())
+
+
+def test_report_band_matches_fixed10_cuts():
+    # 고정 세트 실측 양끝값: full 최대 0.0989 / mid 최소 0.1000 / portrait 최소 0.2059.
+    assert E.report_band(_ratio_photo(98)) == "full"
+    assert E.report_band(_ratio_photo(99)) == "full"
+    assert E.report_band(_ratio_photo(100)) == "mid"  # 0.10 경계는 mid
+    assert E.report_band(_ratio_photo(190)) == "mid"
+    assert E.report_band(_ratio_photo(199)) == "mid"
+    assert E.report_band(_ratio_photo(200)) == "portrait"  # 0.20 경계는 portrait
+    assert E.report_band(_ratio_photo(206)) == "portrait"
+    noface = Q.PhotoInput("x.jpg", Image.new("RGB", (100, 100)), None, None, ())
+    assert E.report_band(noface) == "-"
+
+
+def test_evaluate_records_ratio_band():
+    p = photo()  # 600x800, face h=200 → 0.25 → portrait
+    row = E.evaluate(p, extract(p))
+    assert row.framing == "portrait"
+
+
+def test_hair_box_help_states_plumbing_only():
+    assert "배선" in E.HAIR_BOX_HELP
+    assert "VLM" in E.HAIR_BOX_HELP
 
 
 def test_parse_hair_box():
@@ -97,10 +134,11 @@ def test_eval_accepts_fixed_hair_box():
     assert "hair" not in rows[0].fell_back
 
 
+@pytest.mark.skipif(not FLAG_PHOTO.exists(), reason="픽스처 없음(out/ 미포함 클론)")
 def test_eval_main_accepts_hair_box_flag(monkeypatch):
     # faceless synthetic 이미지로는 photo.rejected 조기 반환이라 --hair-box 배선을
     # 검증 못 한다. 실측 얼굴 사진 + extract 스파이로 bbox 도착을 고정한다.
-    photo_path = Path(__file__).resolve().parent.parent / "out" / "s0_photos" / "7f18cb16d51f6228b635d23c18772c05.jpg"
+    photo_path = FLAG_PHOTO
     seen = {}
     orig_extract = E.extract
 
