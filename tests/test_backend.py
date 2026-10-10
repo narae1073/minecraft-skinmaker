@@ -53,3 +53,33 @@ def test_generate_returns_three_urls():
 def test_non_image_rejected():
     r = client().post("/api/v1/generate-skin", files={"file": ("x.txt", b"hi", "text/plain")})
     assert r.status_code == 400
+    assert r.json()["detail"]["code"] == "not_image"
+
+
+def test_no_face_reports_422_with_message(tmp_path):
+    from PIL import Image as PILImage
+
+    blank = tmp_path / "blank.jpg"
+    PILImage.new("RGB", (200, 200), (30, 60, 90)).save(blank)
+    with blank.open("rb") as f:
+        r = client().post("/api/v1/generate-skin", files={"file": ("b.jpg", f, "image/jpeg")})
+    assert r.status_code == 422
+    body = r.json()["detail"]
+    assert body["code"] == "no_face"
+    assert "얼굴" in body["message"]
+
+
+def test_classify_failure_maps_to_502():
+    A.make_transport = lambda: MockTransport(fail=True)
+    with PHOTO.open("rb") as f:
+        r = TestClient(A.app).post("/api/v1/generate-skin", files={"file": ("m.jpg", f, "image/jpeg")})
+    assert r.status_code == 502
+    assert r.json()["detail"]["code"] == "classify_failed"
+
+
+def test_rate_limit_maps_to_503():
+    A.make_transport = lambda: MockTransport(fail=True, error="HTTP 429: quota")
+    with PHOTO.open("rb") as f:
+        r = TestClient(A.app).post("/api/v1/generate-skin", files={"file": ("m.jpg", f, "image/jpeg")})
+    assert r.status_code == 503
+    assert r.json()["detail"]["code"] == "overloaded"

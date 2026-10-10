@@ -39,6 +39,19 @@ def make_transport():
     return get_transport(name, model=os.environ.get(MODEL_ENV))
 
 
+def fail(status_code: int, code: str, message: str):
+    """프론트 에러 박스에 그대로 보여줄 구조화 본문."""
+    raise HTTPException(status_code, {"status": "error", "code": code, "message": message})
+
+
+def classify_error_status(message: str) -> tuple[int, str, str]:
+    """일시 과부하(재시도 가능)와 확정 실패를 구분한다."""
+    transient = ("429", "500", "502", "503", "504", "timeout", "Timeout", "temporarily")
+    if any(t in message for t in transient):
+        return 503, "overloaded", "AI 서버가 바빠요. 잠시 후 다시 눌러주세요."
+    return 502, "classify_failed", f"분류 실패: {message[:200]}"
+
+
 app = FastAPI(title="skinmaker")
 
 
@@ -52,24 +65,24 @@ def health():
 @app.post("/api/v1/generate-skin")
 async def generate_skin(file: UploadFile = File(...)):
     if not (file.content_type or "").startswith("image/"):
-        raise HTTPException(400, "이미지 파일이 아님")
+        fail(400, "not_image", "이미지 파일을 올려주세요.")
     with tempfile.NamedTemporaryFile(suffix=Path(file.filename or "up.jpg").suffix or ".jpg") as tmp:
         tmp.write(await file.read())
         tmp.flush()
         try:
             photo = inspect(tmp.name)
         except Exception as exc:
-            raise HTTPException(400, f"이미지 읽기 실패: {type(exc).__name__}") from exc
+            fail(400, "unreadable", f"이미지를 읽지 못했어요: {type(exc).__name__}")
     if photo.rejected:
-        raise HTTPException(422, "얼굴을 찾지 못함")
+        fail(422, "no_face", "사진에서 얼굴을 찾지 못했어요. 정면 실사 얼굴 사진으로 다시 시도해주세요.")
     transport = make_transport()
     result = classify(photo, transport)
     if not result.ok:
-        raise HTTPException(502, f"분류 실패: {result.error}")
+        fail(*classify_error_status(result.error or ""))
     observed = extract(photo)
     candidates = build(observed, result, photo.degrade)
     if not candidates or not all(c.ok for c in candidates):
-        raise HTTPException(500, "렌더 검증 실패")
+        fail(500, "render_failed", "렌더 검증 실패. 같은 사진으로 다시 시도해주세요.")
     token = uuid.uuid4().hex[:12]
     urls = []
     for c in candidates:

@@ -6,6 +6,7 @@ function App() {
   const [file, setFile] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
   const [fileError, setFileError] = useState(false);
+  const [serverError, setServerError] = useState('');
   const [skins, setSkins] = useState([]);
 
   // 사이드바 및 스킨 기록 관련 상태
@@ -39,6 +40,7 @@ function App() {
 
     setIsLoading(true);
     setSkins([]);
+    setServerError('');
 
     const formData = new FormData();
     formData.append('file', file);
@@ -49,17 +51,22 @@ function App() {
         body: formData,
       });
 
-      if (!response.ok) throw new Error('서버 오류');
-
-      const data = await response.json();
+      const data = await response.json().catch(() => null);
+      if (!response.ok) {
+        const msg = data?.detail?.message || data?.message || `서버 오류 (${response.status})`;
+        setServerError(msg);
+        return;
+      }
       if (data.status === 'success') {
         setSkins(data.data.skins);
         // 스킨 생성이 완료되면 기존 기록(skinHistory) 뒤에 새 스킨들을 추가
         setSkinHistory(prev => [...prev, ...data.data.skins]);
+      } else {
+        setServerError(data?.message || '스킨 생성 실패');
       }
     } catch (error) {
       console.error(error);
-      alert('스킨 생성 중 오류가 발생했습니다.');
+      setServerError('서버에 연결하지 못했어요. 백엔드가 켜져 있는지 확인해주세요.');
     } finally {
       setIsLoading(false);
     }
@@ -133,6 +140,14 @@ function App() {
         <div className="loading-overlay" onClick={() => setFileError(false)}>
           <h2>파일 오류!</h2>
           <p>사진 파일을 첨부해주세요!</p>
+        </div>
+      )}
+
+      {serverError && (
+        <div className="loading-overlay" onClick={() => setServerError('')}>
+          <h2>스킨 생성 실패</h2>
+          <p>{serverError}</p>
+          <p className="empty-msg">눌러서 닫기</p>
         </div>
       )}
 
