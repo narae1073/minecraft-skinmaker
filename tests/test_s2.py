@@ -2,6 +2,7 @@
 import json
 import sys
 from pathlib import Path
+from typing import Any
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
@@ -16,6 +17,8 @@ from skinmaker.vlm.gemini import _gemini_schema
 from skinmaker.vlm.gemini import GeminiTransport
 from skinmaker.vlm.mock import MockTransport
 from skinmaker.vlm.ollama import OllamaTransport
+from skinmaker.vlm.openrouter import DEFAULT_MODELS
+from skinmaker.vlm.openrouter import OpenRouterTransport
 
 GOOD = {
     "top_garment": "hoodie",
@@ -402,3 +405,138 @@ def test_apply_cross_rules_is_pure():
 def test_derive_does_not_touch_when_top_present():
     d = A.apply_cross_rules({"top_garment": "hoodie", "sleeve_len": "long", "pattern": "plain"})
     assert d.applied == ()
+
+
+# --- OpenRouter 무료 모델 폴백 ------------------------------------------------
+
+def test_openrouter_registry():
+    t = get_transport("openrouter")
+    assert t.name == "openrouter"
+    assert t.model == "apodex/apodex-1.1-mini:free"
+
+
+def test_openrouter_requires_api_key(monkeypatch):
+    monkeypatch.delenv("OPENROUTER_API_KEY", raising=False)
+    t = OpenRouterTransport()
+    ok, detail = t.available()
+    assert ok is False and "API 키 없음" in detail
+
+
+def test_openrouter_default_fallback_chain():
+    t = OpenRouterTransport(api_key="x")
+    assert t._models[0] == "apodex/apodex-1.1-mini:free"
+    assert len(t._models) > 5
+    assert "openrouter/free" in t._models
+
+
+def test_openrouter_custom_model_list():
+    t = OpenRouterTransport(api_key="x", model="a/b:free,c/d:free")
+    assert t._models == ("a/b:free", "c/d:free")
+
+
+def test_openrouter_env_default_models(monkeypatch):
+    monkeypatch.setenv("OPENROUTER_DEFAULT_MODELS", "z/z:free,a/b:free")
+    try:
+        t = OpenRouterTransport(api_key="x")
+        assert t._models[0] == "z/z:free"
+        assert t._models[1] == "a/b:free"
+    finally:
+        monkeypatch.delenv("OPENROUTER_DEFAULT_MODELS", raising=False)
+
+
+def test_openrouter_extra_model_becomes_primary():
+    t = OpenRouterTransport(api_key="x", model="new/fresh:free")
+    assert t._models[0] == "new/fresh:free"
+    assert t._models[1] == "apodex/apodex-1.1-mini:free"
+
+
+class FakeResp:
+    def __init__(self, status: int = 200, text: str = "", json_: Any = None):
+        self.status_code = status
+        self._text = text
+        self._json = json_
+        self.text = text
+
+    def json(self):
+        if self._json is not None:
+            return self._json
+        return json.loads(self._text)
+
+
+class FakeSession:
+    def __init__(self, responses):
+        self.responses = responses
+        self.calls = []
+
+    def post(self, url, headers, json, timeout):
+        self.calls.append((url, headers, json))
+        return self.responses.pop(0)
+
+    def get(self, url, headers, timeout):
+        return FakeResp(200, "", {"data": []})
+
+
+def test_openrouter_extract_success_first_call():
+    t = OpenRouterTransport(api_key="x")
+    t.session = FakeSession(
+        [FakeResp(json_={"choices": [{"message": {"content": json.dumps(GOOD)}}]})]
+    )
+    img = Image.new("RGB", (100, 100), "red")
+    result = t.complete(img, "prompt", A.build_schema())
+    assert result == GOOD
+    assert t.last_model == "apodex/apodex-1.1-mini:free"
+
+
+def test_openrouter_fallback_to_second_model():
+    first = {"choices": [{"message": {"content": "no json at all"}}]}
+    second = {"choices": [{"message": {"content": json.dumps(GOOD)}}]}
+    t = OpenRouterTransport(api_key="x")
+    t.session = FakeSession([FakeResp(json_=first), FakeResp(json_=second)])
+    img = Image.new("RGB", (100, 100), "red")
+    result = t.complete(img, "prompt", A.build_schema())
+    assert result == GOOD
+    assert t.last_model == "google/gemma-4-31b-it:free"
+    assert t.last_error is None
+
+
+def test_openrouter_all_models_fail_returns_none():
+    fail = {"error": {"message": "boom"}}
+    t = OpenRouterTransport(api_key="x")
+    t.session = FakeSession([FakeResp(json_=fail), FakeResp(json_=fail)])
+    img = Image.new("RGB", (100, 100), "red")
+    result = t.complete(img, "prompt", A.build_schema())
+    assert result is None
+    assert "boom" in t.last_error
+
+
+def test_openrouter_fallback_on_http_error():
+    bad = FakeResp(429, '{"error":{"message":"rate limit"}}')
+    good = FakeResp(json_={"choices": [{"message": {"content": json.dumps(GOOD)}}]})
+    t = OpenRouterTransport(api_key="x")
+    t.session = FakeSession([bad, good])
+    img = Image.new("RGB", (100, 100), "red")
+    result = t.complete(img, "prompt", A.build_schema())
+    assert result == GOOD
+
+
+def test_openrouter_none_image_returns_none():
+    t = OpenRouterTransport(api_key="x")
+    result = t.complete(None, "ping", {})
+    assert result is None
+
+
+def test_openrouter_request_structure():
+    t = OpenRouterTransport(api_key="x")
+    t.session = FakeSession([FakeResp(json_={"choices": [{"message": {"content": json.dumps(GOOD)}}]})])
+    img = Image.new("RGB", (100, 100), "red")
+    t.complete(img, "hi", A.build_schema())
+    req = t.session.calls[0][2]
+    assert req["model"] == "apodex/apodex-1.1-mini:free"
+    assert req["messages"][0]["role"] == "user"
+    assert req["messages"][0]["content"][0]["type"] == "text"
+    assert req["messages"][0]["content"][1]["type"] == "image_url"
+    assert req["temperature"] == 0
+    assert req["response_format"]["type"] == "json_object"
+    assert "Authorization" in t.session.calls[0][1]
+    assert "X-Title" in t.session.calls[0][1]
+

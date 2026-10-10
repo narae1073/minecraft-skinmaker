@@ -38,6 +38,7 @@ _BUILDERS = {
     "mock": (".mock", "MockTransport"),
     "gemini": (".gemini", "GeminiTransport"),
     "ollama": (".ollama", "OllamaTransport"),
+    "openrouter": (".openrouter", "OpenRouterTransport"),
 }
 
 

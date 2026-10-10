@@ -15,7 +15,7 @@ from .measure import SUFFIXES
 from .quality import inspect
 from .vlm import get_transport
 
-TRANSPORTS = ("mock", "gemini", "ollama")
+TRANSPORTS = ("mock", "gemini", "ollama", "openrouter")
 
 
 def probe(name: str, **cfg) -> int:
