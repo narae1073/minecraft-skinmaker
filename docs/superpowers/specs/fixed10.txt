@@ -1,0 +1,17 @@
+# Task 5 fixed verification set (10 photos, frozen 2026-10-10).
+# pool: out/s0_photos (shared symlink, read-only). band by face_h/img_h.
+# selection: evenly spaced by ratio within band (deterministic, min-mid-max spread).
+# all 10 have detectable faces (inspect() not rejected).
+# deviation from brief: brief says out/fixed10.txt, but out/ is a shared
+# git-ignored symlink; recorded here (committed, reviewable) instead.
+# format: <band> <face_h/img_h> <filename>
+full 0.0541 images31.jpeg
+full 0.0857 images10.jpeg
+full 0.0931 istockphoto-1660422184-612x612.jpg
+full 0.0989 full-body-portrait-confident-middle-aged-asian-man-standing-casually-against-white-background-looking-camera-307892842.webp
+mid 0.1000 asian-man-casual-full-body-260nw-111554696.webp
+mid 0.1154 images4.jpeg
+mid 0.1900 images12.jpeg
+portrait 0.2059 istockphoto-1372309567-612x612.jpg
+portrait 0.2669 1000_F_247111204_ronTlofPxQGLlIijbhhnJUBbJ2bDfQ8N.jpg
+portrait 0.4088 ex6(half).png

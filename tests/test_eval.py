@@ -41,6 +41,25 @@ def test_report_counts_and_names_mismatch():
     assert "거절 1" in text
 
 
+def test_report_breaks_down_by_framing():
+    text = E.report([
+        E.EvalRow("a.jpg", valid=True, crown=True, cheek=True, torso="match"),
+    ])
+    assert "full" in text and "mid" in text and "portrait" in text
+
+
+def test_report_fallback_per_framing_band():
+    rows = [
+        E.EvalRow("f.jpg", valid=True, crown=True, cheek=True, torso="match",
+                  framing="fullbody", fell_back=("hair",)),
+        E.EvalRow("p.jpg", valid=True, crown=True, cheek=True, torso="match",
+                  framing="portrait", fell_back=()),
+    ]
+    text = E.report(rows)
+    assert "full: n=1" in text and "hair=1/1" in text
+    assert "portrait: n=1" in text and "hair=0/1" in text
+
+
 def test_parse_hair_box():
     assert E.parse_hair_box("150,0,100,60") == Q.FaceBox(150, 0, 100, 60)
 

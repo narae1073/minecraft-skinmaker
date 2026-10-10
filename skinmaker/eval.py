@@ -19,6 +19,7 @@ from pathlib import Path
 
 from .attributes import EMPTY
 from .canvas import shade
+from .classify import framing
 from .colors import ObservedColors, extract
 from .measure import SUFFIXES
 from .quality import FaceBox, PhotoInput, inspect
@@ -36,6 +37,15 @@ class EvalRow:
     torso: str = "-"
     fell_back: tuple[str, ...] = ()
     degrade: tuple[str, ...] = ()
+    framing: str = "-"
+
+
+# classify.framing() 라벨 → 리포트 밴드. framing()은 2값(fullbody/portrait,
+# 경계 0.12)이라 mid 밴드는 비어 있다. mid는 설계 문서의 비율 밴드
+# (full<0.10/mid/portrait≥0.20, 고정 세트 선정용)와 헤더를 맞추기 위한 예약.
+_BAND_OF = {"fullbody": "full", "mid": "mid", "portrait": "portrait"}
+_BANDS = ("full", "mid", "portrait")
+_FALLBACK_KEYS = ("bottom", "hair", "skin", "top")
 
 
 def expected_pixel(observed: ObservedColors, key: str, face: str) -> tuple:
@@ -60,6 +70,7 @@ def evaluate(photo: PhotoInput, observed: ObservedColors, model: str = "classic"
                   rejected=photo.rejected, degrade=photo.degrade)
     if photo.rejected:
         return row
+    row.framing = framing(photo)
     canvas = render(observed, EMPTY, photo.degrade, model)
     row.valid = validate_image(canvas.image, model) == []
     row.crown = canvas.get("head", "top", 0, 0) == expected_pixel(observed, "hair", "top")
@@ -97,6 +108,15 @@ def report(rows: list[EvalRow], show: int = 20) -> str:
         lines.append("  torso: " + "  ".join(f"{k}={v}" for k, v in sorted(torso_kinds.items())))
         all_fell = Counter(f for r in ok for f in r.fell_back)
         lines.append("  fallback: " + "  ".join(f"{k}={v}" for k, v in sorted(all_fell.items())))
+        lines.append("  framing별 fallback:")
+        for band in _BANDS:
+            members = [r for r in ok if _BAND_OF.get(r.framing) == band]
+            if not members:
+                lines.append(f"    {band}: n=0")
+                continue
+            fell = Counter(f for r in members for f in r.fell_back)
+            detail = "  ".join(f"{k}={fell.get(k, 0)}/{len(members)}" for k in _FALLBACK_KEYS)
+            lines.append(f"    {band}: n={len(members)} {detail}")
     bad = [r for r in ok if not (r.valid and r.crown and r.cheek and r.torso != "MISMATCH")]
     if bad:
         lines.append(f"불일치 {len(bad)}:")
