@@ -266,6 +266,9 @@ cd ~/Programming/skinmaker
            일치하면 후보 1개, 근거 없는 변형 금지. cross 규칙 재적용+중복 제거.
            전 후보 validate_image 통과. 무순위.)
 ⑥ [1.5일] 웹 (FastAPI + JS 캡처·다운스케일 + pixelated 표시 + skinview3d CDN)
+           (2026-10-10 진행 중: 친구 Vite 앱 `frontend/` 병합. `backend/app.py` 가
+           `/api/v1/generate-skin` 계약 구현. 8000 충돌로 백엔드는 8001+프록시 수정.
+           messi5·lena e2e 통과. 남은 것: dist 정적 서빙 확인, 에러 UX(422 문구).)
 ```
 
 ### S2 의 transport 분리 요건

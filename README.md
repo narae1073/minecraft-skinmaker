@@ -181,6 +181,18 @@ PLACEHOLDER 더미로 채운다. 헤더에 표시되며 실제 결과로 오인�
 (`hair_length`, `sleeve_len`)만 변형한다. 일치하면 후보 1개 — 근거 없는
 변형은 만들지 않는다. 순위를 매기지 않고 전부 저장한다.
 
+## 웹 (Vite + FastAPI)
+
+```bash
+set -a; source .env; set +a   # GEMINI_API_KEY
+.venv/bin/python -m uvicorn backend.app:app --port 8001
+cd frontend && npm install && npm run dev   # http://localhost:5173/
+```
+
+계약: `POST /api/v1/generate-skin` (multipart `file`)
+→ `{"status":"success","data":{"skins":[url,...]}}`.
+8000이 차 있으면 백엔드 포트를 바꾸고 `frontend/vite.config.js` 프록시도 같이 바꾼다.
+
 ## 진행 상태
 
 - [x] 1단계: UV 상수, 캔버스, 불변식 검증, 3면 프리뷰, 더미 스킨
