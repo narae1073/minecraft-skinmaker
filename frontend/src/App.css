@@ -1,0 +1,302 @@
+* {
+  box-sizing: border-box;
+}
+
+html, body, #root {
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  max-width: none;
+}
+
+body {
+  background-image: url('/wallpaper.png');
+  background-size: cover;
+  background-position: center;
+  background-attachment: fixed;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+#root {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  width: 100%;
+}
+
+.container {
+  max-width: 800px;
+  width: 90%;
+  padding: 40px;
+  background: rgba(255, 255, 255, 0.85);
+  border-radius: 12px;
+  box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+  text-align: center;
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  z-index: 10;
+}
+
+h1 {
+  margin-top: 0;
+  line-height: 1.4;
+  word-break: keep-all;
+}
+
+.upload-section {
+  margin: 30px 0;
+  padding: 30px;
+  border: 2px dashed #cbd5e1;
+  border-radius: 8px;
+  background: rgba(248, 250, 252, 0.8);
+}
+
+/* 메인 변환하기 버튼 */
+.generate-btn {
+  display: block;
+  margin: 20px auto 0;
+  padding: 12px 24px;
+  background-color: #22c55e;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  font-weight: bold;
+  font-size: 16px;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.generate-btn:hover {
+  background-color: #16a34a;
+}
+
+.generate-btn:disabled {
+  background-color: #94a3b8;
+  cursor: not-allowed;
+}
+
+.viewer-grid {
+  display: flex;
+  gap: 20px;
+  justify-content: center;
+  flex-wrap: wrap;
+  margin-top: 20px;
+}
+
+.skin-card {
+  background: rgba(248, 250, 252, 0.9);
+  padding: 20px;
+  border-radius: 10px;
+  border: 1px solid #e2e8f0;
+}
+
+.download-btn {
+  display: inline-block;
+  margin-top: 15px;
+  padding: 10px 16px;
+  background-color: #10b981;
+  color: white;
+  text-decoration: none;
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: bold;
+}
+
+.footer {
+  margin-top: 40px;
+  padding-top: 20px;
+  border-top: 1px solid #cbd5e1;
+  font-size: 13px;
+  color: #64748b;
+  text-align: center;
+}
+
+/* =======================================
+   전체 화면 로딩 오버레이
+======================================== */
+.loading-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background: rgba(0, 0, 0, 0.75);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  color: white;
+  z-index: 9999;
+  text-align: center;
+}
+
+.loading-overlay h2 {
+  margin-bottom: 10px;
+  color: #4ade80;
+}
+
+.spinner {
+  width: 60px;
+  height: 60px;
+  border: 6px solid rgba(255, 255, 255, 0.2);
+  border-top: 6px solid #22c55e;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  margin-bottom: 30px;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+/* =======================================
+   왼쪽 사이드바 (스킨 기록 목록)
+======================================== */
+.sidebar-toggle-btn {
+  position: fixed;
+  top: 20px;
+  left: 20px;
+  z-index: 1000;
+  background: rgba(255, 255, 255, 0.95);
+  color: #333;
+  padding: 10px 16px;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  font-size: 15px;
+  font-weight: bold;
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+
+.sidebar-toggle-btn:hover {
+  background: #f8fafc;
+}
+
+.sidebar {
+  position: fixed;
+  top: 0;
+  left: -320px; /* 기본 상태에서는 화면 왼쪽에 숨어있음 */
+  width: 320px;
+  height: 100vh;
+  background: rgba(255, 255, 255, 0.98);
+  box-shadow: 2px 0 15px rgba(0,0,0,0.2);
+  transition: left 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  z-index: 1001;
+  display: flex;
+  flex-direction: column;
+  padding: 20px;
+}
+
+.sidebar.open {
+  left: 0; /* 버튼 클릭 시 화면으로 튀어나옴 */
+}
+
+.sidebar-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 2px solid #e2e8f0;
+  padding-bottom: 12px;
+  margin-bottom: 15px;
+}
+
+.sidebar-header h3 {
+  margin: 0;
+  font-size: 18px;
+  color: #1e293b;
+}
+
+.close-btn {
+  background: transparent;
+  color: #94a3b8;
+  border: none;
+  font-size: 20px;
+  font-weight: bold;
+  cursor: pointer;
+  padding: 0;
+  transition: color 0.2s;
+}
+
+.close-btn:hover {
+  color: #ef4444;
+}
+
+.delete-btn {
+  width: 100%;
+  padding: 10px;
+  background-color: #ef4444;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  font-weight: bold;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.delete-btn:hover {
+  background-color: #dc2626;
+}
+
+.sidebar-content {
+  flex: 1;
+  overflow-y: auto;
+}
+
+.empty-msg {
+  color: #64748b;
+  text-align: center;
+  margin-top: 40px;
+  font-size: 14px;
+}
+
+.skin-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.skin-list-item {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  padding: 12px;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  margin-bottom: 10px;
+  background: #f8fafc;
+  transition: transform 0.1s;
+}
+
+.skin-list-item:hover {
+  border-color: #cbd5e1;
+}
+
+.skin-checkbox {
+  width: 18px;
+  height: 18px;
+  cursor: pointer;
+}
+
+.skin-thumbnail {
+  width: 48px;
+  height: 48px;
+  /* 마인크래프트 스킨 특성상 확대를 해도 픽셀이 흐려지지 않게 유지해주는 속성 */
+  image-rendering: pixelated; 
+  background: #e2e8f0;
+  border-radius: 4px;
+  border: 1px solid #cbd5e1;
+}
+
+.sidebar-download-link {
+  color: #2563eb;
+  font-weight: bold;
+  text-decoration: none;
+  font-size: 14px;
+}
+
+.sidebar-download-link:hover {
+  text-decoration: underline;
+}
