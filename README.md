@@ -93,6 +93,20 @@ curl -sSLf -o assets/face_detection_yunet_2023mar.onnx \
 
 다른 경로를 쓰려면 `SKINMAKER_YUNET` 환경변수로 지정한다.
 
+## assets/포즈 모델 (전신·상반신용, 선택)
+
+S1 밴드는 관절(어깨·골반·무릎)이 있으면 그 위치에 놓고, 없으면 얼굴 비례로 폴백한다.
+모델이 없어도 동작한다.
+
+```bash
+curl -sSLf -o assets/pose_landmarker_lite.task \
+  https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_lite/float16/1/pose_landmarker_lite.task
+```
+
+다른 경로를 쓰려면 `SKINMAKER_POSE` 환경변수로 지정한다.
+상반신(골반이 프레임 밖)이면 하의 밴드가 비어 하의색 MISSING → S3 기본값 +
+S2 `none` 규칙이 하의를 추론한다.
+
 ## S0 계측
 
 ```bash
@@ -136,6 +150,7 @@ curl -sSLf -o assets/face_detection_yunet_2023mar.onnx \
 | 패널 | 보이는 것 | 이걸로 잡는 오류 |
 |---|---|---|
 | **S0 input gate** | 원본 + 얼굴 박스 + 헤어/피부/상의 샘플 영역 | 얼굴을 못 찾음 /wrong face, 헤어 영역이 모자를 잡음, 상의 밴드가 배경에 감 |
+| **S1 observed colors** | 원본 vs 화이트밸런스 후 + 영역별 추출 HEX·점유율·신뢰도 | **보정이 과했는지, 상의가 맨살인지, 헤어가 모자인지** |
 | **S3 atlas 64x64** | 스킨 텍스처 8배 확대 + 8텍셀 격자 | 어떤 텍셀이 어느 좌표인지 |
 | **S3 skin over UV guide** | 스킨을 색으로 코딩된 UV 가이드에 55% 합성 | **内容和 영역이 맞는 rect 에 들어갔는지** (가장 중요) |
 | **S4 preview** | 정면/측면/후면/위/오버레이 | 어색한 면, 실루엣 붕괴 |
@@ -143,8 +158,9 @@ curl -sSLf -o assets/face_detection_yunet_2023mar.onnx \
 패널 하단 note 에 검출 점수·품질 지표·영역 크기·플래그가 찍힌다.
 note 가 두 줄 넘으면 자동으로 접힌다.
 
-S1~S3 가 아직 없어 스킨 자리는 **PLACEHOLDER** 더미로 채운다. 헤더에 표시되며
-실제 결과로 오인하지 않는다. S1~S3 를 추가하면서 `debugview.PANELS` 에 한 줄씩 넣는다.
+S1 패널까지는 실측이다. S3/S4 자리는 기본 `--no-placeholder` 없이 돌리면
+PLACEHOLDER 더미로 채운다. 헤더에 표시되며 실제 결과로 오인하지 않는다.
+`--no-placeholder` 를 주면 S3 실렌더(S1 색 + 기본 enum, S2 미연결)로 그린다.
 
 **이 도구가 실제로 잡은 것들** (S1 코드를 쓰기 전에 설계 결함 3건이 드러남):
 
@@ -155,15 +171,26 @@ S1~S3 가 아직 없어 스킨 자리는 **PLACEHOLDER** 더미로 채운다. �
 3. 후면/측면이 1순위 패널이 아님
    → 정면은 관측된 면이라 평가력이 없다. UV 가이드 패널이 그 역할을 대신함.
 
+## S4 후보
+
+```bash
+.venv/bin/python -m skinmaker.s4 --transport mock --photo <사진> --out out/s4
+```
+
+`--transport gemini|ollama` 로 실측. 이중 질의가 불일치한 vary 필드
+(`hair_length`, `sleeve_len`)만 변형한다. 일치하면 후보 1개 — 근거 없는
+변형은 만들지 않는다. 순위를 매기지 않고 전부 저장한다.
+
 ## 진행 상태
 
 - [x] 1단계: UV 상수, 캔버스, 불변식 검증, 3면 프리뷰, 더미 스킨
 - [x] S0: 입력 판정 (YuNet 검출, 품질 신호, 저하 계획, 계측 CLI)
-- [x] 단계별 시각 샘플 (contact sheet, 4개 패널)
-- [ ] S1: 관측 추출 (화이트밸런스 + 클러스터 모드)
-- [ ] S2: VLM 분류 (스키마 5필드)
-- [ ] S3: 파라메트릭 렌더
-- [ ] S4: 후보 3개 + 검증
+- [x] 단계별 시각 샘플 (contact sheet, 5개 패널)
+- [x] S1: 관측 추출 (skin-referenced 화이트밸런스, 클러스터 모드, 신뢰도·skinlike 플래그)
+- [x] S2: VLM 분류 (스키마 5필드, transport 분리, 이중 질의 불확실성)
+- [x] S3: 파라메트릭 렌더
+- [x] S4: 후보 N개 + 검증 (`candidates.build`, 변형 근거는 이중 질의 불일치만. 무순위)
+- [ ] 웹 (FastAPI + JS 캡처·다운스케일 + pixelated 표시 + skinview3d CDN)
 
 ## 주의
 

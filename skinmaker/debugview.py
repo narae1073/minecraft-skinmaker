@@ -3,7 +3,7 @@
 각 단계가 "무엇을 결정했는지" 를 눈으로 확인하기 위한 패널을 만든다.
 2단계에서 잘못 남긴 비트는 4단계에서 못 찾으므로 단계마다 그 자리에서 봐야 한다.
 
-패널은 registry 에 등록한다. S1~S3 가 생기면 PANELS 에 한 줄씩 추가한다.
+패널은 registry 에 등록한다. 새 단계가 생기면 PANELS 에 한 줄씩 추가한다.
 """
 from __future__ import annotations
 
@@ -141,6 +141,88 @@ def panel_reject(photo: PhotoInput) -> Panel:
     return Panel("S0 input gate", img, f"REJECTED  flags={','.join(photo.degrade) or 'none'}")
 
 
+# --- S1 -------------------------------------------------------------------
+
+def _swatch(color: tuple[int, int, int], size: int = 34) -> Image.Image:
+    img = Image.new("RGB", (size, size), color)
+    ImageDraw.Draw(img).rectangle([0, 0, size - 1, size - 1], outline=(90, 90, 96))
+    return img
+
+
+def _share_bar(share: float, w: int, h: int = 10) -> Image.Image:
+    img = Image.new("RGB", (w, h), (52, 52, 58))
+    fill = int(w * min(1.0, max(0.0, share)))
+    tone = (70, 200, 110) if share >= 0.18 else (230, 160, 60)
+    if fill >= 1:
+        ImageDraw.Draw(img).rectangle([0, 0, fill - 1, h - 1], fill=tone)
+    return img
+
+
+def panel_s1(photo: PhotoInput, observed, photo_corrected: Image.Image | None = None) -> Panel:
+    """원본과 화이트밸런스 후를 나란히, 그 아래 영역별 추출 색과 신뢰도."""
+    from .colors import LIGHT_PERCENTILE, apply_gain, bottom_bands, hair_region, skin_region
+    import numpy as np
+
+    w = PANEL_W
+    half = (w - PAD) // 2
+    left = _fit(photo.image.convert("RGB"), half)
+    right = _fit(photo_corrected if photo_corrected is not None else photo.image.convert("RGB"), half)
+    top_h = max(left.height, right.height)
+
+    def _first(boxes):
+        return boxes[0] if boxes else None
+
+    regions = [
+        ("skin", "skin", skin_region),
+        ("hair", "hair", hair_region),
+        ("top", "top", lambda f: _first(shirt_bands(f, photo.image.size))),
+        ("bottom", "bottom", lambda f: _first(bottom_bands(f, photo.image.size))),
+    ]
+    row_h = 46
+    note_lines_n = len(note_lines(_s1_note(observed), w))
+    img = Image.new("RGB", (w, top_h + PAD + row_h * 4 + NOTE_H * note_lines_n), BG)
+    img.paste(left, (0, 0))
+    img.paste(right, (half + PAD, 0))
+    d = ImageDraw.Draw(img)
+    d.text((2, top_h - 12), "original", fill=(200, 200, 210), font=font(9, mono=True))
+    d.text((half + PAD + 2, top_h - 12), "white-balanced", fill=(200, 200, 210), font=font(9, mono=True))
+
+    mono = font(9, mono=True)
+    y = top_h + PAD
+    for key, label, geom in regions:
+        sample = getattr(observed, key)
+        x = 0
+        if photo.face is not None:
+            from .quality import clip_to
+
+            box = geom(photo.face)
+            cl = clip_to(box, photo.image.size) if box is not None else None
+            if cl is not None and cl.w >= 4 and cl.h >= 4:
+                crop = photo.image.convert("RGB").crop((cl.x, cl.y, cl.right, cl.bottom))
+                img.paste(crop.resize((38, 38)), (x, y))
+                x += 42
+        img.paste(_swatch(sample.rgb), (x, y))
+        x += 38
+        d.text((x + 2, y + 1), sample.hex if not sample.missing else "--", fill=FG, font=mono)
+        d.text((x + 2, y + 14), f"{label} share={sample.share:.0%}", fill=DIM, font=mono)
+        d.text((x + 2, y + 27), "confident" if sample.confident else "low", fill=(
+            (90, 210, 120) if sample.confident else (235, 150, 60)), font=mono)
+        img.paste(_share_bar(sample.share, max(10, half - x)), (x, y + 36))
+        y += row_h
+    return Panel("S1 observed colors", img, _s1_note(observed))
+
+
+def _s1_note(observed) -> str:
+    gain = observed.wb_gain
+    return (
+        f"wb_gain={gain[0]:.2f},{gain[1]:.2f},{gain[2]:.2f} "
+        f"wb_ok={'yes' if observed.wb_confident else 'CLIPPED->raw'} "
+        f"skin=conf{'' if observed.skin.confident else 'X'} hair=conf{'' if observed.hair.confident else 'X'} "
+        f"top=conf{'' if observed.top.confident else 'X'}"
+        f"{'  TOP==SKIN' if observed.top_skinlike else ''}"
+    )
+
+
 # --- S3 / S4 --------------------------------------------------------------
 
 def panel_atlas(image: Image.Image, scale: int = 8, cell: int = 8) -> Panel:
@@ -192,14 +274,24 @@ def panel_preview(image: Image.Image, model: str) -> Panel:
 
 TEXTURE = 64
 
-PANELS = ("s0", "atlas", "uvmap", "preview")
+PANELS = ("s0", "s1", "atlas", "uvmap", "preview")
 
 
-def build_panels(photo: PhotoInput, skin: Image.Image | None, model: str, which=PANELS) -> list[Panel]:
+def build_panels(photo: PhotoInput, skin: Image.Image | None, model: str, observed=None, which=PANELS) -> list[Panel]:
     out = []
     for name in which:
         if name == "s0":
             out.append(panel_s0(photo) if photo.face is not None else panel_reject(photo))
+        elif name == "s1" and observed is not None:
+            corrected = None
+            if observed.wb_gain != (1.0, 1.0, 1.0):
+                import numpy as np
+
+                from .colors import apply_gain
+
+                arr = np.asarray(photo.image.convert("RGB"), dtype=np.float32) / 255.0
+                corrected = Image.fromarray((apply_gain(arr, observed.wb_gain) * 255).astype(np.uint8))
+            out.append(panel_s1(photo, observed, corrected))
         elif name == "atlas" and skin is not None:
             out.append(panel_atlas(skin))
         elif name == "uvmap" and skin is not None:

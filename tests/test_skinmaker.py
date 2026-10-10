@@ -322,3 +322,35 @@ def test_side_view_is_eight_wide_with_body_centered():
 def test_slim_front_view_is_fifteen_by_thirty_two():
     panel = render_view(build_placeholder("slim").image, "slim", "front")
     assert panel.size == (15, 32)
+
+
+@pytest.mark.parametrize("model", ["classic", "slim"])
+def test_head_overlay_stays_transparent_by_default(model):
+    """HEAD ACC.(head layer=1)는 기본 투명. 기본 머리카락은 HEAD(layer=0)에만."""
+    from skinmaker.format import HEAD_ACCESSORY_LAYER
+
+    canvas = build_placeholder(model=model)
+    assert canvas.layout.part("head", HEAD_ACCESSORY_LAYER).region == (32, 0, 32, 16)
+    px = canvas.image.load()
+    for face in canvas.layout.part("head", HEAD_ACCESSORY_LAYER).faces.values():
+        for y in range(face.y, face.y + face.h):
+            for x in range(face.x, face.x + face.w):
+                assert px[x, y][3] == 0, f"HEAD ACC.에 머리카락/색이 들어감: {(x, y)}"
+
+
+@pytest.mark.parametrize("model", ["classic", "slim"])
+def test_basic_hair_is_only_in_head_base_layer(model):
+    """기본 머리카락(앞머리)은 HEAD front layer=0 상단 2행에 있고 layer=1엔 없다."""
+    from skinmaker.format import HEAD_ACCESSORY_LAYER, HEAD_HAIR_LAYER
+
+    assert HEAD_HAIR_LAYER == 0 and HEAD_ACCESSORY_LAYER == 1
+    canvas = build_placeholder(model=model)
+    hair = rgba("#3a2a1c")
+    base_front = canvas.layout.face("head", "front", HEAD_HAIR_LAYER)
+    for u in range(8):
+        for v in (0, 1):
+            assert canvas.image.getpixel((base_front.x + u, base_front.y + v))[:3] == hair[:3]
+    overlay_front = canvas.layout.face("head", "front", HEAD_ACCESSORY_LAYER)
+    for v in range(overlay_front.h):
+        for u in range(overlay_front.w):
+            assert canvas.image.getpixel((overlay_front.x + u, overlay_front.y + v))[3] == 0
