@@ -1,0 +1,408 @@
+{
+ "generated": "2026-10-11",
+ "source": "/home/achi/Programming/skinmaker/out/s0_photos",
+ "labels_used": "/home/achi/Programming/skinmaker/docs/superpowers/specs/bottom_labels.json",
+ "target_n": 45,
+ "counts": {
+  "full": 0,
+  "mid": 0,
+  "portrait": 0
+ },
+ "budget": {
+  "full": 0,
+  "mid": 0,
+  "portrait": 0
+ },
+ "selected": [],
+ "excluded": [
+  {
+   "photo": "1000_F_247111204_ronTlofPxQGLlIijbhhnJUBbJ2bDfQ8N.jpg",
+   "reason": "already_labeled"
+  },
+  {
+   "photo": "1000_F_491690237_7UmUJAfnpHXOAg6iANp3oKIPE39fzjt0.jpg",
+   "reason": "already_labeled"
+  },
+  {
+   "photo": "190929399-skating-into-the-sunset-rear-view-shot-of-a-young-man-skateboarding-outside.jpg",
+   "reason": "no_face"
+  },
+  {
+   "photo": "360_F_378254126_odMZ9KPOCfwztDM8jsWGuh0ESCuwZ1eE.jpg",
+   "reason": "already_labeled"
+  },
+  {
+   "photo": "7f18cb16d51f6228b635d23c18772c05.jpg",
+   "reason": "already_labeled"
+  },
+  {
+   "photo": "asian-fat-woman-exercising-basic-postures-to-lose-weight-keep-healthy-has-immunity-against-disease-white-background-191414276.webp",
+   "reason": "already_labeled"
+  },
+  {
+   "photo": "asian-man-casual-full-body-260nw-111554696.webp",
+   "reason": "already_labeled"
+  },
+  {
+   "photo": "asian-man-gray-t-shirt_53876-96980.avif",
+   "reason": "already_labeled"
+  },
+  {
+   "photo": "c766ee640d1d384d16785e2b2f2cd3c8.jpg",
+   "reason": "already_labeled"
+  },
+  {
+   "photo": "confident-full-body-casual-happy-woman-standing-wearing-jeans-isolated-white-background-37963228.webp",
+   "reason": "already_labeled"
+  },
+  {
+   "photo": "ex1.png",
+   "reason": "no_face"
+  },
+  {
+   "photo": "ex2.png",
+   "reason": "already_labeled"
+  },
+  {
+   "photo": "ex3.png",
+   "reason": "already_labeled"
+  },
+  {
+   "photo": "ex4.png",
+   "reason": "no_face"
+  },
+  {
+   "photo": "ex5.png",
+   "reason": "already_labeled"
+  },
+  {
+   "photo": "ex6(half).png",
+   "reason": "already_labeled"
+  },
+  {
+   "photo": "front-view-full-body-asian-man-standing-isolated-white-backgr-background-photo-34206366.webp",
+   "reason": "already_labeled"
+  },
+  {
+   "photo": "full-body-asian-female-student-portrait-smiling-young-adult-standing-isolated-white-background-30661764.webp",
+   "reason": "already_labeled"
+  },
+  {
+   "photo": "full-body-confident-happy-woman-standing-against-isolated-white-background-portrait-120172352.webp",
+   "reason": "already_labeled"
+  },
+  {
+   "photo": "full-body-image-young-asian-260nw-2599558593.webp",
+   "reason": "already_labeled"
+  },
+  {
+   "photo": "full-body-portrait-confident-middle-aged-asian-man-standing-casually-against-white-background-looking-camera-307892842.webp",
+   "reason": "already_labeled"
+  },
+  {
+   "photo": "full-body-pose-young-fitness-asian-man-10546480.webp",
+   "reason": "already_labeled"
+  },
+  {
+   "photo": "full-shot-man-silhouette-jumping-sunset_23-2150444989.avif",
+   "reason": "already_labeled"
+  },
+  {
+   "photo": "gettyimages-1355078890-612x612.jpg",
+   "reason": "already_labeled"
+  },
+  {
+   "photo": "gettyimages-1501793213-612x612.jpg",
+   "reason": "already_labeled"
+  },
+  {
+   "photo": "gettyimages-2165018220-612x612.jpg",
+   "reason": "already_labeled"
+  },
+  {
+   "photo": "gettyimages-2192499195-612x612.jpg",
+   "reason": "already_labeled"
+  },
+  {
+   "photo": "gettyimages-626535661-612x612.jpg",
+   "reason": "already_labeled"
+  },
+  {
+   "photo": "handsome-young-cheerful-man_171337-1155.avif",
+   "reason": "already_labeled"
+  },
+  {
+   "photo": "image1.jpeg",
+   "reason": "already_labeled"
+  },
+  {
+   "photo": "images1.jpeg",
+   "reason": "no_face"
+  },
+  {
+   "photo": "images10.jpeg",
+   "reason": "already_labeled"
+  },
+  {
+   "photo": "images11.jpeg",
+   "reason": "already_labeled"
+  },
+  {
+   "photo": "images12.jpeg",
+   "reason": "already_labeled"
+  },
+  {
+   "photo": "images13.jpeg",
+   "reason": "no_face"
+  },
+  {
+   "photo": "images15.jpeg",
+   "reason": "already_labeled"
+  },
+  {
+   "photo": "images16.jpeg",
+   "reason": "no_face"
+  },
+  {
+   "photo": "images17.jpeg",
+   "reason": "already_labeled"
+  },
+  {
+   "photo": "images18.jpeg",
+   "reason": "already_labeled"
+  },
+  {
+   "photo": "images19.jpeg",
+   "reason": "already_labeled"
+  },
+  {
+   "photo": "images2.jpeg",
+   "reason": "already_labeled"
+  },
+  {
+   "photo": "images20.jpeg",
+   "reason": "already_labeled"
+  },
+  {
+   "photo": "images21.jpeg",
+   "reason": "already_labeled"
+  },
+  {
+   "photo": "images22.jpeg",
+   "reason": "already_labeled"
+  },
+  {
+   "photo": "images23.jpeg",
+   "reason": "already_labeled"
+  },
+  {
+   "photo": "images24.jpeg",
+   "reason": "already_labeled"
+  },
+  {
+   "photo": "images25.jpeg",
+   "reason": "already_labeled"
+  },
+  {
+   "photo": "images26.jpeg",
+   "reason": "already_labeled"
+  },
+  {
+   "photo": "images27.jpeg",
+   "reason": "no_face"
+  },
+  {
+   "photo": "images28.jpeg",
+   "reason": "already_labeled"
+  },
+  {
+   "photo": "images29.jpeg",
+   "reason": "no_face"
+  },
+  {
+   "photo": "images3.jpeg",
+   "reason": "already_labeled"
+  },
+  {
+   "photo": "images30.jpeg",
+   "reason": "already_labeled"
+  },
+  {
+   "photo": "images31.jpeg",
+   "reason": "already_labeled"
+  },
+  {
+   "photo": "images32.jpeg",
+   "reason": "no_face"
+  },
+  {
+   "photo": "images33.jpeg",
+   "reason": "already_labeled"
+  },
+  {
+   "photo": "images34.jpeg",
+   "reason": "already_labeled"
+  },
+  {
+   "photo": "images35.jpeg",
+   "reason": "already_labeled"
+  },
+  {
+   "photo": "images36.jpeg",
+   "reason": "already_labeled"
+  },
+  {
+   "photo": "images37.jpeg",
+   "reason": "no_face"
+  },
+  {
+   "photo": "images4.jpeg",
+   "reason": "already_labeled"
+  },
+  {
+   "photo": "images5.jpeg",
+   "reason": "already_labeled"
+  },
+  {
+   "photo": "images6.jpeg",
+   "reason": "already_labeled"
+  },
+  {
+   "photo": "images7.jpeg",
+   "reason": "already_labeled"
+  },
+  {
+   "photo": "images8.jpeg",
+   "reason": "already_labeled"
+  },
+  {
+   "photo": "images9.jpeg",
+   "reason": "already_labeled"
+  },
+  {
+   "photo": "istockphoto-1303500951-612x612.jpg",
+   "reason": "already_labeled"
+  },
+  {
+   "photo": "istockphoto-1327765702-612x612.jpg",
+   "reason": "already_labeled"
+  },
+  {
+   "photo": "istockphoto-1372309567-612x612.jpg",
+   "reason": "already_labeled"
+  },
+  {
+   "photo": "istockphoto-1404089233-612x612.jpg",
+   "reason": "already_labeled"
+  },
+  {
+   "photo": "istockphoto-1456958496-612x612.jpg",
+   "reason": "already_labeled"
+  },
+  {
+   "photo": "istockphoto-1465965078-612x612.jpg",
+   "reason": "already_labeled"
+  },
+  {
+   "photo": "istockphoto-1470196121-612x612.jpg",
+   "reason": "already_labeled"
+  },
+  {
+   "photo": "istockphoto-1660422184-612x612.jpg",
+   "reason": "already_labeled"
+  },
+  {
+   "photo": "istockphoto-1673640822-612x612.jpg",
+   "reason": "already_labeled"
+  },
+  {
+   "photo": "istockphoto-2178373890-612x612.jpg",
+   "reason": "no_face"
+  },
+  {
+   "photo": "istockphoto-2207541639-612x612.jpg",
+   "reason": "already_labeled"
+  },
+  {
+   "photo": "istockphoto-2222963909-612x612.jpg",
+   "reason": "already_labeled"
+  },
+  {
+   "photo": "istockphoto-892646878-612x612.jpg",
+   "reason": "already_labeled"
+  },
+  {
+   "photo": "lena.jpg",
+   "reason": "already_labeled"
+  },
+  {
+   "photo": "lifestyle-people-emotions-casual-concept-confident-nice-smiling-asian-woman-cross-arms-chest-confident-ready-help-listening-coworkers-taking-part-conversation_1258-59335.avif",
+   "reason": "already_labeled"
+  },
+  {
+   "photo": "man-gray-shirt-pants-casual-wear-fashion-full-body_53876-102101.avif",
+   "reason": "already_labeled"
+  },
+  {
+   "photo": "man-night-streets-city_23-2149001266.avif",
+   "reason": "no_face"
+  },
+  {
+   "photo": "man-showing-thumbs-up-over-house-background-happiness-gesture-people-concept-smiling-51325753.webp",
+   "reason": "already_labeled"
+  },
+  {
+   "photo": "messi5.jpg",
+   "reason": "already_labeled"
+  },
+  {
+   "photo": "people-2562408_640.jpg",
+   "reason": "already_labeled"
+  },
+  {
+   "photo": "pexels-guilherme-stecanella-173739360-31363684.jpg",
+   "reason": "already_labeled"
+  },
+  {
+   "photo": "pexels-photo-17734003.avif",
+   "reason": "already_labeled"
+  },
+  {
+   "photo": "pexels-photo-24809720.avif",
+   "reason": "already_labeled"
+  },
+  {
+   "photo": "pexels-sarkhan-asgarli-414047422-18255627.jpg",
+   "reason": "no_face"
+  },
+  {
+   "photo": "photo-1494790108377-be9c29b29330.jpeg",
+   "reason": "already_labeled"
+  },
+  {
+   "photo": "photo-1573496359142-b8d87734a5a2.jpeg",
+   "reason": "already_labeled"
+  },
+  {
+   "photo": "portrait-of-a-businesswoman-posing-with-the-thumbs-up-CFA1W5.jpg",
+   "reason": "already_labeled"
+  },
+  {
+   "photo": "premium_photo-1681884426120-8cb29ee5877c.avif",
+   "reason": "already_labeled"
+  },
+  {
+   "photo": "snapshot-asian-woman-brown-pants-white-t-shirt_197531-17014.avif",
+   "reason": "already_labeled"
+  },
+  {
+   "photo": "solitary-woman-looks-up-wonder-breathtaking-milky-way-galaxy-night-sky-mountain-viewpoint-moment-serene-467032302.webp",
+   "reason": "no_face"
+  },
+  {
+   "photo": "white-t-shirt-men-s-basic-wear-full-body_53876-125248.avif",
+   "reason": "already_labeled"
+  }
+ ],
+ "shortfall": 45
+}
