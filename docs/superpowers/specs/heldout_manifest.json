@@ -404,5 +404,6 @@
    "reason": "already_labeled"
   }
  ],
- "shortfall": 45
+ "shortfall": 45,
+ "lighting_scene_note": null
 }
