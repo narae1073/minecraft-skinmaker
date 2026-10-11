@@ -605,3 +605,20 @@ def test_bottom_plausibility_accepts_trousers():
     p = Q.PhotoInput("t.jpg", img, face, Q.Quality(0.9, face.area, 120.0, 400.0, 110.0, True), ())
     observed = C.extract(p)
     assert observed.bottom_plausible is True
+
+
+# --- 하네스 상수 교정 (F1): 짙은 네이비 데님은 명도로 보면 dark 이지만
+# 색조로는 blue 다. 이전 luma >= 40 게이트가 blue 라벨 4건을 dark 로 눌렀다
+# (images19 #112337 luma 32.6, ex5 #141a25 25.5, gettyimages-1501793213
+# #1d2122 32.2 — 전부 label=blue, 실측=dark). 게이트를 25 로 내린다.
+
+
+@pytest.mark.parametrize("hex_str", ["#112337", "#141a25", "#1d2122"])
+def test_harness_dark_navy_blueness_overrides_brightness(hex_str):
+    assert _cat(hex_str) == "blue"
+
+
+def test_harness_black_slight_blue_cast_stays_dark():
+    # 게이트를 내리는 것의 인하 한계: luma < 25 인 검정·청조는 dark 유지
+    # (images2 실측 #0d171a, luma 21).
+    assert _cat("#0d171a") == "dark"

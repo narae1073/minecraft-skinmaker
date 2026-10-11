@@ -24,6 +24,9 @@ LABELS_PATH = Path(__file__).resolve().parent.parent / "docs" / "superpowers" / 
 SOURCE_DIR = Path(__file__).resolve().parent.parent / "out" / "s0_photos"
 CATEGORIES = ("blue", "dark", "light", "mid", "colored")
 BLUE_CHROMA_MIN = 0.05  # B-R 크로마 차. 짙은 데님(#374047)은 0.057, 검정 바지는 0.
+BLUE_LUMA_MIN = 25.0  # 짙은 네이비(#112337 luma 32.6, #141a25 25.5)는 색조로 blue 다.
+# 이전 40 은 blue 라벨 4건을 dark 로 눌렀다 (bottom_eval 59장 재측정,
+# 2026-10-11). 인하 한계: luma < 25 검정(#0d171a 21)은 dark 유지.
 COLORED_SAT_MIN = 0.25  # (max-min)/max
 COLORED_VALUE_MIN = 0.25  # max(r,g,b). 이보다 어두우면 색조가 있어도 어두운 옷으로 본다
 
@@ -34,7 +37,11 @@ def categorize(sample: C.ColorSample) -> str:
         return "missing"
     r, g, b = (c / 255.0 for c in sample.rgb)
     total = r + g + b
-    if total > 0 and (b / total - r / total) >= BLUE_CHROMA_MIN and C.luma(np.asarray(sample.rgb, np.float32)) >= 40:
+    if (
+        total > 0
+        and (b / total - r / total) >= BLUE_CHROMA_MIN
+        and C.luma(np.asarray(sample.rgb, np.float32)) >= BLUE_LUMA_MIN
+    ):
         return "blue"
     mx, mn = max(r, g, b), min(r, g, b)
     # 명도가 낮으면 채도 비율은 의미가 없다 (#010b18 의 (mx-mn)/mx 는 0.96 이지만 검정이다).
