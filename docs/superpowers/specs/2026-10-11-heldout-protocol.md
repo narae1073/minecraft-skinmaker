@@ -89,3 +89,14 @@ python -m skinmaker.bottom_eval --labels docs/superpowers/specs/heldout_labels.j
 ```
 
 현재 manifest(전량 shortfall)는 풀 고객을 기록한 스냅샷으로 커밋한다.
+
+## Addendum — 2026-10-11 (pre-labeling pin)
+
+- Pool: 49 face-detectable photos from heldout-photos/ (70 files, 21 no_face).
+- n (gate denominator): scored count from `bottom_eval --labels`, after none/unclear exclusion.
+- Threshold: §4 formula 0.644 − 1.645·sqrt(0.644·0.356/n) at that exact n.
+- Floor: if scored < 30, no verdict.
+- Band mix: full 25 / mid 15 / portrait 9. Portrait n=9 underpowered for per-band claims; aggregate only.
+- Label distribution: blue=15, colored=13, dark=6, light=6, none=7, mid=2, unclear=0.
+- Distribution caveat: mid=2 (4%) vs fitting set's ~14%. The held-out under-represents neutral-gray garments. If the aggregate passes, the verdict holds for the dominant categories (blue/colored/dark/light) but NOT for mid — mid is underpowered. If the aggregate is borderline, a supplementary mid-focused check is warranted after the gate, not before.
+- Anchor caveat: 0.644 is the fitting-set result of F1; this is a generalization check of a post-hoc number.

@@ -1,409 +1,645 @@
 {
  "generated": "2026-10-11",
- "source": "/home/achi/Programming/skinmaker/out/s0_photos",
+ "source": "heldout-photos",
  "labels_used": "/home/achi/Programming/skinmaker/docs/superpowers/specs/bottom_labels.json",
- "target_n": 45,
+ "target_n": 49,
  "counts": {
-  "full": 0,
-  "mid": 0,
-  "portrait": 0
+  "full": 25,
+  "mid": 15,
+  "portrait": 9
  },
  "budget": {
-  "full": 0,
-  "mid": 0,
-  "portrait": 0
+  "full": 25,
+  "mid": 15,
+  "portrait": 9
  },
- "selected": [],
- "excluded": [
-  {
-   "photo": "1000_F_247111204_ronTlofPxQGLlIijbhhnJUBbJ2bDfQ8N.jpg",
-   "reason": "already_labeled"
-  },
-  {
-   "photo": "1000_F_491690237_7UmUJAfnpHXOAg6iANp3oKIPE39fzjt0.jpg",
-   "reason": "already_labeled"
-  },
-  {
-   "photo": "190929399-skating-into-the-sunset-rear-view-shot-of-a-young-man-skateboarding-outside.jpg",
-   "reason": "no_face"
-  },
-  {
-   "photo": "360_F_378254126_odMZ9KPOCfwztDM8jsWGuh0ESCuwZ1eE.jpg",
-   "reason": "already_labeled"
-  },
-  {
-   "photo": "7f18cb16d51f6228b635d23c18772c05.jpg",
-   "reason": "already_labeled"
-  },
-  {
-   "photo": "asian-fat-woman-exercising-basic-postures-to-lose-weight-keep-healthy-has-immunity-against-disease-white-background-191414276.webp",
-   "reason": "already_labeled"
-  },
-  {
-   "photo": "asian-man-casual-full-body-260nw-111554696.webp",
-   "reason": "already_labeled"
-  },
-  {
-   "photo": "asian-man-gray-t-shirt_53876-96980.avif",
-   "reason": "already_labeled"
-  },
-  {
-   "photo": "c766ee640d1d384d16785e2b2f2cd3c8.jpg",
-   "reason": "already_labeled"
-  },
-  {
-   "photo": "confident-full-body-casual-happy-woman-standing-wearing-jeans-isolated-white-background-37963228.webp",
-   "reason": "already_labeled"
-  },
-  {
-   "photo": "ex1.png",
-   "reason": "no_face"
-  },
-  {
-   "photo": "ex2.png",
-   "reason": "already_labeled"
-  },
-  {
-   "photo": "ex3.png",
-   "reason": "already_labeled"
-  },
-  {
-   "photo": "ex4.png",
-   "reason": "no_face"
-  },
-  {
-   "photo": "ex5.png",
-   "reason": "already_labeled"
-  },
-  {
-   "photo": "ex6(half).png",
-   "reason": "already_labeled"
-  },
-  {
-   "photo": "front-view-full-body-asian-man-standing-isolated-white-backgr-background-photo-34206366.webp",
-   "reason": "already_labeled"
-  },
-  {
-   "photo": "full-body-asian-female-student-portrait-smiling-young-adult-standing-isolated-white-background-30661764.webp",
-   "reason": "already_labeled"
-  },
-  {
-   "photo": "full-body-confident-happy-woman-standing-against-isolated-white-background-portrait-120172352.webp",
-   "reason": "already_labeled"
-  },
-  {
-   "photo": "full-body-image-young-asian-260nw-2599558593.webp",
-   "reason": "already_labeled"
-  },
-  {
-   "photo": "full-body-portrait-confident-middle-aged-asian-man-standing-casually-against-white-background-looking-camera-307892842.webp",
-   "reason": "already_labeled"
-  },
-  {
-   "photo": "full-body-pose-young-fitness-asian-man-10546480.webp",
-   "reason": "already_labeled"
-  },
-  {
-   "photo": "full-shot-man-silhouette-jumping-sunset_23-2150444989.avif",
-   "reason": "already_labeled"
-  },
-  {
-   "photo": "gettyimages-1355078890-612x612.jpg",
-   "reason": "already_labeled"
-  },
-  {
-   "photo": "gettyimages-1501793213-612x612.jpg",
-   "reason": "already_labeled"
-  },
-  {
-   "photo": "gettyimages-2165018220-612x612.jpg",
-   "reason": "already_labeled"
-  },
-  {
-   "photo": "gettyimages-2192499195-612x612.jpg",
-   "reason": "already_labeled"
-  },
-  {
-   "photo": "gettyimages-626535661-612x612.jpg",
-   "reason": "already_labeled"
-  },
-  {
-   "photo": "handsome-young-cheerful-man_171337-1155.avif",
-   "reason": "already_labeled"
-  },
-  {
-   "photo": "image1.jpeg",
-   "reason": "already_labeled"
-  },
-  {
-   "photo": "images1.jpeg",
-   "reason": "no_face"
-  },
-  {
-   "photo": "images10.jpeg",
-   "reason": "already_labeled"
-  },
-  {
-   "photo": "images11.jpeg",
-   "reason": "already_labeled"
-  },
-  {
-   "photo": "images12.jpeg",
-   "reason": "already_labeled"
-  },
-  {
-   "photo": "images13.jpeg",
-   "reason": "no_face"
-  },
-  {
-   "photo": "images15.jpeg",
-   "reason": "already_labeled"
-  },
-  {
-   "photo": "images16.jpeg",
-   "reason": "no_face"
-  },
-  {
-   "photo": "images17.jpeg",
-   "reason": "already_labeled"
-  },
-  {
-   "photo": "images18.jpeg",
-   "reason": "already_labeled"
-  },
-  {
-   "photo": "images19.jpeg",
-   "reason": "already_labeled"
-  },
-  {
-   "photo": "images2.jpeg",
-   "reason": "already_labeled"
-  },
-  {
-   "photo": "images20.jpeg",
-   "reason": "already_labeled"
-  },
-  {
-   "photo": "images21.jpeg",
-   "reason": "already_labeled"
-  },
-  {
-   "photo": "images22.jpeg",
-   "reason": "already_labeled"
-  },
-  {
-   "photo": "images23.jpeg",
-   "reason": "already_labeled"
-  },
-  {
-   "photo": "images24.jpeg",
-   "reason": "already_labeled"
-  },
-  {
-   "photo": "images25.jpeg",
-   "reason": "already_labeled"
-  },
-  {
-   "photo": "images26.jpeg",
-   "reason": "already_labeled"
-  },
-  {
-   "photo": "images27.jpeg",
-   "reason": "no_face"
-  },
-  {
-   "photo": "images28.jpeg",
-   "reason": "already_labeled"
-  },
-  {
-   "photo": "images29.jpeg",
-   "reason": "no_face"
-  },
-  {
-   "photo": "images3.jpeg",
-   "reason": "already_labeled"
-  },
-  {
-   "photo": "images30.jpeg",
-   "reason": "already_labeled"
-  },
-  {
-   "photo": "images31.jpeg",
-   "reason": "already_labeled"
-  },
-  {
-   "photo": "images32.jpeg",
-   "reason": "no_face"
-  },
-  {
-   "photo": "images33.jpeg",
-   "reason": "already_labeled"
-  },
-  {
-   "photo": "images34.jpeg",
-   "reason": "already_labeled"
-  },
-  {
-   "photo": "images35.jpeg",
-   "reason": "already_labeled"
-  },
-  {
-   "photo": "images36.jpeg",
-   "reason": "already_labeled"
-  },
-  {
-   "photo": "images37.jpeg",
-   "reason": "no_face"
-  },
-  {
-   "photo": "images4.jpeg",
-   "reason": "already_labeled"
-  },
-  {
-   "photo": "images5.jpeg",
-   "reason": "already_labeled"
-  },
-  {
-   "photo": "images6.jpeg",
-   "reason": "already_labeled"
-  },
-  {
-   "photo": "images7.jpeg",
-   "reason": "already_labeled"
-  },
-  {
-   "photo": "images8.jpeg",
-   "reason": "already_labeled"
-  },
-  {
-   "photo": "images9.jpeg",
-   "reason": "already_labeled"
-  },
-  {
-   "photo": "istockphoto-1303500951-612x612.jpg",
-   "reason": "already_labeled"
-  },
-  {
-   "photo": "istockphoto-1327765702-612x612.jpg",
-   "reason": "already_labeled"
-  },
-  {
-   "photo": "istockphoto-1372309567-612x612.jpg",
-   "reason": "already_labeled"
-  },
-  {
-   "photo": "istockphoto-1404089233-612x612.jpg",
-   "reason": "already_labeled"
-  },
-  {
-   "photo": "istockphoto-1456958496-612x612.jpg",
-   "reason": "already_labeled"
-  },
-  {
-   "photo": "istockphoto-1465965078-612x612.jpg",
-   "reason": "already_labeled"
-  },
-  {
-   "photo": "istockphoto-1470196121-612x612.jpg",
-   "reason": "already_labeled"
-  },
-  {
-   "photo": "istockphoto-1660422184-612x612.jpg",
-   "reason": "already_labeled"
-  },
-  {
-   "photo": "istockphoto-1673640822-612x612.jpg",
-   "reason": "already_labeled"
-  },
-  {
-   "photo": "istockphoto-2178373890-612x612.jpg",
-   "reason": "no_face"
-  },
-  {
-   "photo": "istockphoto-2207541639-612x612.jpg",
-   "reason": "already_labeled"
-  },
-  {
-   "photo": "istockphoto-2222963909-612x612.jpg",
-   "reason": "already_labeled"
-  },
-  {
-   "photo": "istockphoto-892646878-612x612.jpg",
-   "reason": "already_labeled"
-  },
-  {
-   "photo": "lena.jpg",
-   "reason": "already_labeled"
-  },
-  {
-   "photo": "lifestyle-people-emotions-casual-concept-confident-nice-smiling-asian-woman-cross-arms-chest-confident-ready-help-listening-coworkers-taking-part-conversation_1258-59335.avif",
-   "reason": "already_labeled"
-  },
-  {
-   "photo": "man-gray-shirt-pants-casual-wear-fashion-full-body_53876-102101.avif",
-   "reason": "already_labeled"
-  },
-  {
-   "photo": "man-night-streets-city_23-2149001266.avif",
-   "reason": "no_face"
-  },
-  {
-   "photo": "man-showing-thumbs-up-over-house-background-happiness-gesture-people-concept-smiling-51325753.webp",
-   "reason": "already_labeled"
-  },
-  {
-   "photo": "messi5.jpg",
-   "reason": "already_labeled"
-  },
-  {
-   "photo": "people-2562408_640.jpg",
-   "reason": "already_labeled"
-  },
-  {
-   "photo": "pexels-guilherme-stecanella-173739360-31363684.jpg",
-   "reason": "already_labeled"
-  },
-  {
-   "photo": "pexels-photo-17734003.avif",
-   "reason": "already_labeled"
-  },
-  {
-   "photo": "pexels-photo-24809720.avif",
-   "reason": "already_labeled"
-  },
-  {
-   "photo": "pexels-sarkhan-asgarli-414047422-18255627.jpg",
-   "reason": "no_face"
-  },
-  {
-   "photo": "photo-1494790108377-be9c29b29330.jpeg",
-   "reason": "already_labeled"
-  },
-  {
-   "photo": "photo-1573496359142-b8d87734a5a2.jpeg",
-   "reason": "already_labeled"
-  },
-  {
-   "photo": "portrait-of-a-businesswoman-posing-with-the-thumbs-up-CFA1W5.jpg",
-   "reason": "already_labeled"
-  },
-  {
-   "photo": "premium_photo-1681884426120-8cb29ee5877c.avif",
-   "reason": "already_labeled"
-  },
-  {
-   "photo": "snapshot-asian-woman-brown-pants-white-t-shirt_197531-17014.avif",
-   "reason": "already_labeled"
-  },
-  {
-   "photo": "solitary-woman-looks-up-wonder-breathtaking-milky-way-galaxy-night-sky-mountain-viewpoint-moment-serene-467032302.webp",
-   "reason": "no_face"
-  },
-  {
-   "photo": "white-t-shirt-men-s-basic-wear-full-body_53876-125248.avif",
-   "reason": "already_labeled"
+ "selected": [
+  {
+   "photo": "image114.jpg",
+   "band": "full",
+   "face_h_over_img_h": 0.0427,
+   "face_box": [
+    367,
+    351,
+    42,
+    45
+   ]
+  },
+  {
+   "photo": "image157.jpeg",
+   "band": "full",
+   "face_h_over_img_h": 0.0439,
+   "face_box": [
+    174,
+    158,
+    17,
+    22
+   ]
+  },
+  {
+   "photo": "image107.jpg",
+   "band": "full",
+   "face_h_over_img_h": 0.06,
+   "face_box": [
+    536,
+    471,
+    60,
+    78
+   ]
+  },
+  {
+   "photo": "image158.jpeg",
+   "band": "full",
+   "face_h_over_img_h": 0.065,
+   "face_box": [
+    151,
+    377,
+    37,
+    48
+   ]
+  },
+  {
+   "photo": "image109.jpeg",
+   "band": "full",
+   "face_h_over_img_h": 0.0654,
+   "face_box": [
+    772,
+    986,
+    145,
+    174
+   ]
+  },
+  {
+   "photo": "image156.webp",
+   "band": "full",
+   "face_h_over_img_h": 0.0685,
+   "face_box": [
+    1020,
+    380,
+    88,
+    137
+   ]
+  },
+  {
+   "photo": "image165.jpeg",
+   "band": "full",
+   "face_h_over_img_h": 0.0737,
+   "face_box": [
+    134,
+    120,
+    42,
+    44
+   ]
+  },
+  {
+   "photo": "image122.webp",
+   "band": "full",
+   "face_h_over_img_h": 0.0747,
+   "face_box": [
+    196,
+    190,
+    59,
+    69
+   ]
+  },
+  {
+   "photo": "image151.jpeg",
+   "band": "full",
+   "face_h_over_img_h": 0.075,
+   "face_box": [
+    271,
+    97,
+    45,
+    60
+   ]
+  },
+  {
+   "photo": "image132.jpeg",
+   "band": "full",
+   "face_h_over_img_h": 0.0765,
+   "face_box": [
+    243,
+    101,
+    30,
+    38
+   ]
+  },
+  {
+   "photo": "image101.jpg",
+   "band": "full",
+   "face_h_over_img_h": 0.0767,
+   "face_box": [
+    290,
+    180,
+    44,
+    61
+   ]
+  },
+  {
+   "photo": "image164.jpeg",
+   "band": "full",
+   "face_h_over_img_h": 0.0767,
+   "face_box": [
+    68,
+    76,
+    19,
+    23
+   ]
+  },
+  {
+   "photo": "image168.jpg",
+   "band": "full",
+   "face_h_over_img_h": 0.0778,
+   "face_box": [
+    1840,
+    2595,
+    358,
+    437
+   ]
+  },
+  {
+   "photo": "image131.jpeg",
+   "band": "full",
+   "face_h_over_img_h": 0.0804,
+   "face_box": [
+    154,
+    125,
+    39,
+    48
+   ]
+  },
+  {
+   "photo": "image102.jpg",
+   "band": "full",
+   "face_h_over_img_h": 0.0832,
+   "face_box": [
+    257,
+    109,
+    70,
+    87
+   ]
+  },
+  {
+   "photo": "image113.webp",
+   "band": "full",
+   "face_h_over_img_h": 0.0833,
+   "face_box": [
+    256,
+    182,
+    56,
+    75
+   ]
+  },
+  {
+   "photo": "image140.jpg",
+   "band": "full",
+   "face_h_over_img_h": 0.085,
+   "face_box": [
+    195,
+    83,
+    40,
+    52
+   ]
+  },
+  {
+   "photo": "image149.jpeg",
+   "band": "full",
+   "face_h_over_img_h": 0.0862,
+   "face_box": [
+    283,
+    109,
+    55,
+    69
+   ]
+  },
+  {
+   "photo": "image163.jpeg",
+   "band": "full",
+   "face_h_over_img_h": 0.0871,
+   "face_box": [
+    138,
+    161,
+    40,
+    52
+   ]
+  },
+  {
+   "photo": "image136.jpeg",
+   "band": "full",
+   "face_h_over_img_h": 0.0878,
+   "face_box": [
+    184,
+    84,
+    34,
+    44
+   ]
+  },
+  {
+   "photo": "image153.webp",
+   "band": "full",
+   "face_h_over_img_h": 0.0882,
+   "face_box": [
+    480,
+    614,
+    99,
+    127
+   ]
+  },
+  {
+   "photo": "image150.jpeg",
+   "band": "full",
+   "face_h_over_img_h": 0.0887,
+   "face_box": [
+    277,
+    102,
+    59,
+    71
+   ]
+  },
+  {
+   "photo": "image127.jpeg",
+   "band": "full",
+   "face_h_over_img_h": 0.0903,
+   "face_box": [
+    247,
+    92,
+    37,
+    50
+   ]
+  },
+  {
+   "photo": "image121.avif",
+   "band": "full",
+   "face_h_over_img_h": 0.0905,
+   "face_box": [
+    367,
+    69,
+    55,
+    67
+   ]
+  },
+  {
+   "photo": "image161.jpeg",
+   "band": "full",
+   "face_h_over_img_h": 0.0914,
+   "face_box": [
+    207,
+    303,
+    45,
+    62
+   ]
+  },
+  {
+   "photo": "image110.avif",
+   "band": "mid",
+   "face_h_over_img_h": 0.1,
+   "face_box": [
+    339,
+    42,
+    59,
+    74
+   ]
+  },
+  {
+   "photo": "image169.avif",
+   "band": "mid",
+   "face_h_over_img_h": 0.1011,
+   "face_box": [
+    1680,
+    2383,
+    514,
+    568
+   ]
+  },
+  {
+   "photo": "image105.jpg",
+   "band": "mid",
+   "face_h_over_img_h": 0.1028,
+   "face_box": [
+    92,
+    23,
+    29,
+    37
+   ]
+  },
+  {
+   "photo": "image141.jpg",
+   "band": "mid",
+   "face_h_over_img_h": 0.1029,
+   "face_box": [
+    207,
+    55,
+    42,
+    63
+   ]
+  },
+  {
+   "photo": "image137.jpeg",
+   "band": "mid",
+   "face_h_over_img_h": 0.1062,
+   "face_box": [
+    215,
+    50,
+    54,
+    72
+   ]
+  },
+  {
+   "photo": "image104.jpg",
+   "band": "mid",
+   "face_h_over_img_h": 0.1078,
+   "face_box": [
+    81,
+    55,
+    63,
+    69
+   ]
+  },
+  {
+   "photo": "image126.jpeg",
+   "band": "mid",
+   "face_h_over_img_h": 0.1168,
+   "face_box": [
+    221,
+    136,
+    61,
+    78
+   ]
+  },
+  {
+   "photo": "image134.jpeg",
+   "band": "mid",
+   "face_h_over_img_h": 0.1367,
+   "face_box": [
+    171,
+    101,
+    76,
+    101
+   ]
+  },
+  {
+   "photo": "image148.webp",
+   "band": "mid",
+   "face_h_over_img_h": 0.1501,
+   "face_box": [
+    357,
+    161,
+    62,
+    80
+   ]
+  },
+  {
+   "photo": "image123.jpeg",
+   "band": "mid",
+   "face_h_over_img_h": 0.1581,
+   "face_box": [
+    228,
+    69,
+    73,
+    111
+   ]
+  },
+  {
+   "photo": "image159.jpeg",
+   "band": "mid",
+   "face_h_over_img_h": 0.1675,
+   "face_box": [
+    149,
+    201,
+    80,
+    100
+   ]
+  },
+  {
+   "photo": "image147.avif",
+   "band": "mid",
+   "face_h_over_img_h": 0.1689,
+   "face_box": [
+    213,
+    109,
+    92,
+    125
+   ]
+  },
+  {
+   "photo": "image133.jpeg",
+   "band": "mid",
+   "face_h_over_img_h": 0.1746,
+   "face_box": [
+    140,
+    144,
+    92,
+    129
+   ]
+  },
+  {
+   "photo": "image138.jpeg",
+   "band": "mid",
+   "face_h_over_img_h": 0.1845,
+   "face_box": [
+    150,
+    122,
+    83,
+    121
+   ]
+  },
+  {
+   "photo": "image125.jpeg",
+   "band": "mid",
+   "face_h_over_img_h": 0.1859,
+   "face_box": [
+    120,
+    251,
+    77,
+    103
+   ]
+  },
+  {
+   "photo": "image155.jpg",
+   "band": "portrait",
+   "face_h_over_img_h": 0.2128,
+   "face_box": [
+    1488,
+    228,
+    326,
+    417
+   ]
+  },
+  {
+   "photo": "image103.jpg",
+   "band": "portrait",
+   "face_h_over_img_h": 0.218,
+   "face_box": [
+    259,
+    145,
+    163,
+    218
+   ]
+  },
+  {
+   "photo": "image119.webp",
+   "band": "portrait",
+   "face_h_over_img_h": 0.22,
+   "face_box": [
+    333,
+    135,
+    108,
+    132
+   ]
+  },
+  {
+   "photo": "image117.webp",
+   "band": "portrait",
+   "face_h_over_img_h": 0.2211,
+   "face_box": [
+    201,
+    80,
+    137,
+    199
+   ]
+  },
+  {
+   "photo": "image118.webp",
+   "band": "portrait",
+   "face_h_over_img_h": 0.2214,
+   "face_box": [
+    202,
+    40,
+    46,
+    62
+   ]
+  },
+  {
+   "photo": "image146.webp",
+   "band": "portrait",
+   "face_h_over_img_h": 0.2429,
+   "face_box": [
+    173,
+    43,
+    51,
+    68
+   ]
+  },
+  {
+   "photo": "image120.webp",
+   "band": "portrait",
+   "face_h_over_img_h": 0.2433,
+   "face_box": [
+    270,
+    156,
+    163,
+    219
+   ]
+  },
+  {
+   "photo": "image112.webp",
+   "band": "portrait",
+   "face_h_over_img_h": 0.2627,
+   "face_box": [
+    437,
+    145,
+    105,
+    140
+   ]
+  },
+  {
+   "photo": "image124.jpeg",
+   "band": "portrait",
+   "face_h_over_img_h": 0.5296,
+   "face_box": [
+    -6,
+    157,
+    138,
+    277
+   ]
   }
  ],
- "shortfall": 45,
- "lighting_scene_note": null
+ "excluded": [
+  {
+   "photo": "image106.jpg",
+   "reason": "no_face"
+  },
+  {
+   "photo": "image108.jpg",
+   "reason": "no_face"
+  },
+  {
+   "photo": "image111.avif",
+   "reason": "no_face"
+  },
+  {
+   "photo": "image115.webp",
+   "reason": "no_face"
+  },
+  {
+   "photo": "image116.webp",
+   "reason": "no_face"
+  },
+  {
+   "photo": "image128.jpeg",
+   "reason": "no_face"
+  },
+  {
+   "photo": "image129.jpeg",
+   "reason": "no_face"
+  },
+  {
+   "photo": "image130.jpeg",
+   "reason": "no_face"
+  },
+  {
+   "photo": "image135.jpeg",
+   "reason": "no_face"
+  },
+  {
+   "photo": "image139.jpeg",
+   "reason": "no_face"
+  },
+  {
+   "photo": "image142.webp",
+   "reason": "no_face"
+  },
+  {
+   "photo": "image143.webp",
+   "reason": "no_face"
+  },
+  {
+   "photo": "image144.webp",
+   "reason": "no_face"
+  },
+  {
+   "photo": "image145.webp",
+   "reason": "no_face"
+  },
+  {
+   "photo": "image152.jpg",
+   "reason": "no_face"
+  },
+  {
+   "photo": "image154.webp",
+   "reason": "no_face"
+  },
+  {
+   "photo": "image160.jpeg",
+   "reason": "no_face"
+  },
+  {
+   "photo": "image162.jpeg",
+   "reason": "no_face"
+  },
+  {
+   "photo": "image166.jpeg",
+   "reason": "no_face"
+  },
+  {
+   "photo": "image167.jpeg",
+   "reason": "no_face"
+  },
+  {
+   "photo": "image170.jpg",
+   "reason": "no_face"
+  }
+ ],
+ "shortfall": 0,
+ "lighting_scene_note": "indoor/outdoor mix, varied WB"
 }
