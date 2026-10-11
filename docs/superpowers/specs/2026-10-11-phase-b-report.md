@@ -90,3 +90,16 @@ istockphoto-1372309567: 하의측정이 피부색(맨다리) 또는 잔여 문�
 - 측정 산출물: `out/fixed10-gemini-b1.json` (VLM 라벨 단서용), 진단 스크립트
   `out/none_diag*.py` (일회성, 커밋 안 함).
 - 후속: C1 수치 이 문서에 기록 완료. C2 contact sheet은 `skinmaker.samples`.
+
+## 후속: bottom_eval 기준기 재측정 (2026-10-11, F1 픽스 이후)
+
+범주기(`bottom_eval.categorize`)의 blue luma 게이트 40→25 교정(F1, 커밋 c84438c)으로
+이 문서의 수치가 구(舊) 기준기 값이 됐다. 재측정: mask on **0.576→0.644 (34/59→38/59)**,
+mask off 0.339→0.373, wrong 25→21 (손실 0, blue→dark 4건 해소).
+ produkt 출력 변화 없음(categorize는 하네스 전용). 이후 비교는 0.644 기준이다.
+
+- F2(blue chroma 0.05→0.08)는 F1 이후 실측 **+0** (gettyimages-1501793213을
+  되잃음) → **기각**. 계획 수순에서 제외한다.
+- 남은 21 wrong: 하네스 임계 경계(colored/light/mid, 11건 — 과적합 리스크로 보류),
+  프레임/배경 오표본 5건(합의 개선 불가: abstain은 agree가 아님), 마스크 피부·
+  중립 오염 4건(전경 마스크 src), 구도 2건(라벨과 충돌 — 제외 불가).
