@@ -211,3 +211,30 @@ python -m skinmaker.bottom_eval --labels docs/superpowers/specs/heldout_labels.j
 - 4/5 정답. 남은 것은 국소화 문제가 아니라 **색 산술 문제** (마스크 내 하이라이트) — 상수 튜닝이 아니라 측정 로직 설계로 별도 과제.
 - 웹 UI (`compare-grid`)는 원본-스킨 나란히 비교를 이미 제공하며, 이 검증은 같은 근거를 서버 경로로 재확인한 것.
 - RAM 참고: "RAM 7GB" 기록(`2026-10-10 spec:61`)은 현재 박스(16 GB 총량, 8.5 GB 가용)와 다름 — spec은 이미 갱신됨.
+
+### S2 enum 검증 결과 (2026-10-12 실측) — 게이트 세트 전수 이중질의 + 마스크 교차검증
+
+- 목적: S2 정답률의 최종 기준은 사람 라벨(의사결정 (a))이다. 여기선 그 검토 표를
+  줄이기 위해 (1) 이중질의 필드별 일치율, (2) SCHP 마스크 기하 라벨과의 불일치를 잰다.
+  **이 수치는 정답률이 아니라 일관성 측정이다.**
+- 대상: `out/heldout-photos-2` L3 게이트 세트(선정 45장; 이미 소진 세트이므로 튜닝 용도 불가,
+  일관성 측정으로만 사용). 판정 **43장**, 실패 3장 — 전부 Gemini ReadTimeout(30 s) 일시장애,
+  파이프라인 결함 없음.
+- 이중질의 일치율 (raw 동일성, 이 حل은 동의어도 불일치로 세는 하한):
+  top_garment 41/43 (0.95) · bottom_garment **43/43 (1.00)** · pattern **43/43 (1.00)** ·
+  sleeve_len 41/43 (0.95) · hair_length 42/43 (0.98).
+  불일치 5장은 모두 `res.uncertain`에 정확히 잡혔다 — 불확실성 경로와 이중질의가 정합 동작.
+- 마스크 교차검증 (bottom_garment): 불일치 5장 = **양성 2 + 실제 판단 후보 3**.
+  - 양성: `image200`, `image202` — S2=`jeans` vs mask=`pants` (마스크는 데님을 구분 못함;
+    `jeans`는 `attributes.py` 계약 내 별개 enum이며 렌더 행도 다름 → 계약 위반 아님).
+  - 실제 후보: `image203`/`image231` (S2=pants vs mask=shorts, 하의 수직 span/h<0.25),
+    `image240` (S2=pants vs mask=skirt) — 둘다 마스크 기하가 S2 enum을 의심.
+- 분포 (계약 내 24/24 위반 없음): top {shirt 19, jacket 11, tee 7, sweater 6},
+  bottom {pants 41, jeans 2}, pattern {plain 41, graphic 1, vertical_stripe 1},
+  sleeve {long 29, short 6, none 5, three_quarter 3}, hair {short 27, long 10, medium 6}.
+- 사람 검토 표: 불일치 10행(이중질의 5 + 마스크 5, 중복 없음) 한정.
+  `out/s2_review.html` (사진+판정 나란히, 불일치 셀 적색) + `out/s2_human_labels.json`
+  스캐폴드. 사람 기입 → `S2 enum 정확도` 최종 통과의 유일한 근거.
+- 프로세스 유의: `python`/`uv` 미설치 이슈로 `.venv/bin/python` 사용; 스크립트에
+  파서 가용성 assert 추가(리뷰 지적 반영 — 마스크 교차검증의 조용한 공백 방지).
+
