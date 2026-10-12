@@ -238,3 +238,23 @@ python -m skinmaker.bottom_eval --labels docs/superpowers/specs/heldout_labels.j
 - 프로세스 유의: `python`/`uv` 미설치 이슈로 `.venv/bin/python` 사용; 스크립트에
   파서 가용성 assert 추가(리뷰 지적 반영 — 마스크 교차검증의 조용한 공백 방지).
 
+### S2 사람 라벨 정확도 (2026-10-12 실측) — 10행 기입 완료
+
+- 사람(소유자)이 불일치 10행 전부 기입 (`out/s2_human_labels.json`). 스캐폴드의
+  bottom enum에 `jeans`가 없었기에 pants로 기입됨 → 이중 계정: **strict 36/50 (0.72)**,
+  **coarse (jeans≡pants) 38/50 (0.76)**. 이것은 불일치 하위집단(=가장 어려운 10장)만의
+  수치이므로 전체 정확도의 **하한**이다. 그 외 33장의 정확도는 미측정.
+- 필드별 (coarse): bottom 10/10 · sleeve 9/10 · hair 9/10 · pattern 7/10 · **top 3/10**.
+  top_garment가 계약상 가장 약하다: polo↔shirt 6건, tank↔tee 2건 (문양 기준 실패가 아니라
+  상의 종류 구분). pattern은 vertical_stripe 1건 환각 포함.
+- **마스크 교차 판정**: 실제 후보 3장(`image203/231/240`) 모두 사람=pants →
+  **기계 판정 0/3 적중, S2 3/3 정답**. mask 기하 규칙(span<0.25→shorts, skirt geometry)은
+  프레임 잘림에서 오탐한다 — 교차 결과는 S2 오답 탐지기가 아니라 참고 목록으로 격하.
+  bottom_garment는 이중질의(1.00)만으로 충분하다.
+- 플래그 기본 on 결정 (2026-10-12): L2/L3(+7장)/L2b(+3장)/L2c(하의·머리·신발 국소화)
+  누적 근거로 `parsing_on()` 기본 on으로 전환 (커밋 `3c7be85`). SKINMAKER_PARSING=0/false/off/no
+  (또는 빈값) 명시로만 끈다. 없으면 밴드 경로로 조용한 폴백 (테스트 412 green).
+  - A/B (fixed-10, env 미설정): valid 10/10, bottom fallback 0/10, hair fallback **10/10→0/10** —
+    이전 기본값 대비 열화 없음. 사진당 +2.2 s 배포 부하는 L0 실측 기록 유지.
+  - `.env`의 `SKINMAKER_PARSING=1`은 이제 중복이지만 무해 (호환 위해 유지).
+
