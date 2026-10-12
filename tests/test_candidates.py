@@ -98,3 +98,52 @@ def test_all_vary_combinations_validate():
 
             canvas = render(observed, attrs, (), "classic")
             assert validate_image(canvas.image, "classic") == [], (hair, sleeve)
+
+
+# --- 후보별 노이즈 시드 + ON/OFF 쌍 (설계 §4·§8.1) --------------------------
+
+def _leg_shoe_pixels(model="classic"):
+    from skinmaker.format import get_layout
+
+    layout = get_layout(model)
+    allowed = set()
+    for part in ("r_leg", "l_leg"):
+        for face in layout.part(part, 0).faces.values():
+            if face.h < 12:
+                continue
+            for v in range(9, face.h):  # shoe_start=9 (jeans/pants)
+                for u in range(face.w):
+                    allowed.add((face.x + u, face.y + v))
+    return allowed
+
+
+def test_candidates_have_seeds():
+    first, second = dict(BASE), dict(BASE, sleeve_len="short", hair_length="very_long")
+    observed, result = setup(first, second)
+    out = S4.build(observed, result)
+    assert len(out) == 3
+    assert len({c.noise_seed for c in out}) == 3
+
+
+def test_same_candidate_reproducible():
+    first, second = dict(BASE), dict(BASE, sleeve_len="short", hair_length="very_long")
+    out1 = S4.build(*setup(first, second))
+    out2 = S4.build(*setup(first, second))
+    assert [c.image.tobytes() for c in out1] == [c.image.tobytes() for c in out2]
+    assert [c.noise_seed for c in out1] == [c.noise_seed for c in out2]
+
+
+def test_candidate_flat_pair_contract():
+    """ON/OFF 쌍: 노이즈는 같고, 차이는 신발 행뿐이며, 둘 다 validate 통과."""
+    first, second = dict(BASE), dict(BASE, sleeve_len="short", hair_length="very_long")
+    observed, result = setup(first, second)
+    out = S4.build(observed, result)
+    allowed = _leg_shoe_pixels()
+    for c in out:
+        assert c.ok, c.problems
+        assert c.image_flat is not None
+        assert validate_image(c.image_flat, "classic") == []
+        px1, px2 = c.image.load(), c.image_flat.load()
+        diff = {(x, y) for y in range(64) for x in range(64) if px1[x, y] != px2[x, y]}
+        assert diff, "ON/OFF 사이 신발 행 차이 없음"
+        assert diff <= allowed, diff - allowed

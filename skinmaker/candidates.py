@@ -16,7 +16,7 @@ from PIL import Image
 from .attributes import Attributes, apply_cross_rules, validate
 from .classify import Classification
 from .colors import ObservedColors
-from .render import render
+from .render import derive_noise_seed, render
 from .validate import validate_image
 
 
@@ -27,6 +27,8 @@ class Candidate:
     image: Image.Image
     varied: str = ""
     problems: tuple[str, ...] = field(default_factory=tuple)
+    noise_seed: int = 0
+    image_flat: Image.Image | None = None
 
     @property
     def ok(self) -> bool:
@@ -74,7 +76,15 @@ def build(
             continue
         seen.add(key)
         attrs = Attributes(dict(values), merged.hair_bbox, merged.coerced, merged.missing, merged.raw, merged.derived)
-        canvas = render(observed, attrs, tuple(degrade), model)
-        problems = tuple(str(p) for p in validate_image(canvas.image, model))
-        out.append(Candidate(len(out) + 1, attrs, canvas.image, varied, problems))
+        # 후보별 결정론 시드 (설계 §8.3): 중복 제거된 실제 순번이 인덱스.
+        seed = derive_noise_seed(observed, attrs, tuple(degrade), len(out) + 1)
+        # ON/OFF 쌍 (설계 §4): 같은 시드 — 노이즈는 동일, 신발 톤만 다르다.
+        canvas = render(observed, attrs, tuple(degrade), model, noise_seed=seed)
+        flat_canvas = render(observed, attrs, tuple(degrade), model, noise_seed=seed, shoe_two_tone=False)
+        problems = tuple(
+            str(p)
+            for img in (canvas.image, flat_canvas.image)
+            for p in validate_image(img, model)
+        )
+        out.append(Candidate(len(out) + 1, attrs, canvas.image, varied, problems, seed, flat_canvas.image))
     return out
