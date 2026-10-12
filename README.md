@@ -213,21 +213,21 @@ return a parseable JSON object wins; nonexistent ids were removed against the li
   colored / none / unclear), scores mask on/off, and compares render fallback policies
   (`default_only`, `confident_only`, `trust_measured`, `gate`). Nothing here calls the network.
 
-## Parsing layer (optional: `SKINMAKER_PARSING`)
+## Parsing layer (default on; `SKINMAKER_PARSING`)
 
-Bottom-garment localization via a SCHP human-parsing mask is an **optional layer**. It is off by default — without the flag the existing band/cascade path is used unchanged.
+Bottom/hair/shoe localization via a SCHP human-parsing mask is **on by default** (since 2026-10-12). With the mask present, the dominant colour of the Pants/Skirt mask pixels becomes the bottom colour, and hair/shoe colours are sampled from Hair(2)/Shoes(9,10) — all read pre-white-balance. The band/cascade path remains as the fallback.
 
 ```bash
 pip install -r requirements-parsing.txt        # onnxruntime (no torch needed)
 mkdir -p out/models
 curl -sSLf -o out/models/schp-atr-18-int8-static.onnx \
   "https://huggingface.co/pirocheto/schp-atr-18/resolve/main/onnx/schp-atr-18-int8-static.onnx?download=true"
-export SKINMAKER_PARSING=1                     # on: the dominant colour of Pants/Skirt mask pixels becomes the bottom colour
+export SKINMAKER_PARSING=0                     # optional: disable (back to bands-only)
 export SKINMAKER_PARSER=out/models/schp-atr-18-int8-static.onnx   # default path (overridable)
 ```
 
-- Measured (`docs/superpowers/specs/2026-10-11-heldout-protocol.md`, L0/L1): 2.2 s/photo on this 4-core box, ~110 MB RSS; fitting-set A/B on 59 photos took bottom agreement **0.644 → 0.746 (+6)** — the mask resolved every diagnosed localization failure.
-- If the dependency or the model file is missing, the layer quietly falls back to the band path. top/hair sampling is unchanged; `bottom_plausible` and the render fallback policy apply as before.
+- Measured (`docs/superpowers/specs/2026-10-11-heldout-protocol.md`, L0/L3/L2b/L2c): 2.2 s/photo on this 4-core box, ~110 MB RSS; new held-out (45) agreement **0.409 → 0.568 (+7)** for bottoms, and hair fallback **82/83 → 10/83** on the fitting pool.
+- If the dependency or the model file is missing, the layer quietly falls back to the band path — no hard requirement for the mediabox. `bottom_plausible` and the render fallback policy apply as before.
 
 ## Web (Vite + FastAPI)
 

@@ -18,9 +18,10 @@ from skinmaker import render as R
 
 # --- 플래그 ------------------------------------------------------------
 
-def test_flag_default_off(monkeypatch):
+def test_flag_default_on(monkeypatch):
+    """기본 on (2026-10-12 결정): 미설정 시 파싱 사용. 0/빈/off/no 로만 끈다."""
     monkeypatch.delenv(P.PARSING_ENV, raising=False)
-    assert P.parsing_on() is False
+    assert P.parsing_on() is True
 
 
 @pytest.mark.parametrize("value", ["1", "true", "TRUE", "on", "Yes"])
@@ -29,7 +30,7 @@ def test_flag_on_variants(monkeypatch, value):
     assert P.parsing_on() is True
 
 
-@pytest.mark.parametrize("value", ["0", "", "off", "no"])
+@pytest.mark.parametrize("value", ["0", "", "false", "FALSE", "off", "no"])
 def test_flag_off_variants(monkeypatch, value):
     monkeypatch.setenv(P.PARSING_ENV, value)
     assert P.parsing_on() is False
@@ -146,7 +147,7 @@ def test_extract_uses_mask_bottom_when_enabled(monkeypatch):
 
 
 def test_extract_flag_off_never_calls_mask(monkeypatch):
-    monkeypatch.delenv(P.PARSING_ENV, raising=False)
+    monkeypatch.setenv(P.PARSING_ENV, "0")  # 명시 off (기본은 이제 on)
     photo = _synthetic()
 
     def boom(image):

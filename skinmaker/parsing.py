@@ -1,8 +1,9 @@
-"""SCHP 인간 파싱으로 부위별 샘플 영역을 국소화한다. 옵션 계층 (기본 off).
+"""SCHP 인간 파싱으로 부위별 샘플 영역을 국소화한다. 기본 on (2026-10-12).
 
-SKINMAKER_PARSING=1 이고 onnxruntime·모델이 모두 있을 때만 동작한다.
-어느 쪽이 없으면 bottom_mask가 None을 돌려주고 호출부는 밴드/캐스케이드
-경로로 폴백한다. 절대 예외를 밖으로 던지지 않는다.
+onnxruntime·모델이 모두 있을 때만 동작하고, 어느 쪽이 없으면 bottom_mask가
+None을 돌려주고 호출부는 밴드/캐스케이드 경로로 폴백한다 (조용한 폴백).
+SKINMAKER_PARSING=0/false/off/no 로 명시적으로 끌 수 있다.
+절대 예외를 밖으로 던지지 않는다.
 
 - 모델: pirocheto/schp-atr-18 SCHP INT8 ONNX (69 MB). 기본 경로
   out/models/…, SKINMAKER_PARSER 로 교체 가능. 다운로드:
@@ -37,7 +38,8 @@ _SESSION = None
 
 
 def parsing_on() -> bool:
-    return os.environ.get(PARSING_ENV, "").strip().lower() in ("1", "true", "on", "yes")
+    """기본 on. SKINMAKER_PARSING=0/false/off/no (또는 빈값) 로만 끈다."""
+    return os.environ.get(PARSING_ENV, "1").strip().lower() not in ("0", "false", "off", "no", "")
 
 
 def parser_path() -> Path:

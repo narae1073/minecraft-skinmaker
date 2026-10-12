@@ -249,11 +249,13 @@ def test_light_gray_backdrop_sample_is_still_background():
     assert C._matches_background(floor, bg_chroma, 186.0) is True
 
 
-def test_bottom_recovers_trousers_when_frame_strip_hits_gap_between_legs():
+def test_bottom_recovers_trousers_when_frame_strip_hits_gap_between_legs(monkeypatch):
     """전신 + 다리 사이 틈. 프레임 하부 중앙 띠가 바닥(틈)만 보면 cascade 가
     배경으로 탈락시키고, 하의를 못 찾아 상의 흰색이 하의로 남았다 (images10).
     다리 영역 전경 마스크로 짙은 바지색을 얻어야 한다.
+    파싱은 명시 off — 이 테스트는 내부 전경마스크 기기를 검증한다.
     """
+    monkeypatch.setenv(C.parsing.PARSING_ENV, "0")
     W, H = 240, 350
     bg = (200, 200, 200)
     img = Image.new("RGB", (W, H), bg)
@@ -278,8 +280,11 @@ def test_bottom_recovers_trousers_when_frame_strip_hits_gap_between_legs():
     assert observed.bottom.rgb[0] < 120  # 흰색(상의)이 아니다
 
 
-def test_mask_fallback_bottom_is_marked_unconfident():
-    """전경 마스크는 마지막 수단의 추정이다. 확신값으로 내보내지 않는다."""
+def test_mask_fallback_bottom_is_marked_unconfident(monkeypatch):
+    """전경 마스크는 마지막 수단의 추정이다. 확신값으로 내보내지 않는다.
+    파싱은 명시 off — 파서 마스크 경로와 구분해 내부 수단만 검증한다.
+    """
+    monkeypatch.setenv(C.parsing.PARSING_ENV, "0")
     W, H = 240, 350
     img = Image.new("RGB", (W, H), (200, 200, 200))
     px = img.load()
