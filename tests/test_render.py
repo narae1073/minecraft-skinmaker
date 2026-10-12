@@ -1,4 +1,5 @@
 """S3 파라메트릭 렌더 (네트워크 없음)."""
+import dataclasses
 import sys
 from pathlib import Path
 
@@ -184,6 +185,21 @@ def test_shorts_renders_skin_between_pants_and_shoe():
     f = get_layout("classic").face("r_leg", "front", 0)
     assert canvas.image.getpixel((f.x + 1, f.y + 2))[:3] == shade(rgba("#3c4450"), 1.0)[:3]
     assert canvas.image.getpixel((f.x + 1, f.y + 7))[:3] == shade(rgba("#e0ac69"), 1.0)[:3]
+
+
+def test_shoes_two_tone_top_and_sole():
+    """폴리시 C: 신발 블록은 2톤 — 윗부분(바닥 직전 행까지)은 밝게, 바닥 행은 어둡게.
+    단색 블록이 신발로 안 읽히는 문제를 고친다. 측정 신발색에서 톤을 파생한다.
+    """
+    obs = dataclasses.replace(observed(), shoe=sample("#9a5a30"))
+    canvas = R.render(obs, attrs(bottom_garment="pants"), (), "classic")
+    f = get_layout("classic").face("r_leg", "front", 0)
+    shoe = rgba("#9a5a30")  # front face shade 1.0 → 신발색 그대로에서 톤 파생
+    top = canvas.image.getpixel((f.x + 1, f.y + 9))[:3]
+    sole = canvas.image.getpixel((f.x + 1, f.y + 11))[:3]
+    assert top == shade(shoe, 1.35)[:3], top
+    assert sole == shade(shoe, 0.62)[:3], sole
+    assert top != sole
 
 
 def test_render_uses_only_binary_alpha():

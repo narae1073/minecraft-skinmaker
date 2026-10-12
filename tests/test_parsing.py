@@ -283,8 +283,10 @@ def test_render_shoes_use_mask_colour(monkeypatch):
     monkeypatch.setattr(P, "bottom_mask", lambda im: seg)
     obs = C.extract(photo)
     canvas = R.render(obs, A.EMPTY, (), "classic")
-    # 앞면 다리 (side 9-11 중 앞줄) 색이 신발색인지
+    # 앞면 다리 (side 9-11 중 앞줄) 색이 신발색에서 파생: 윗톤 1.35 / 바닥행 0.62
     front = canvas.layout.face("r_leg", "front", 0)
-    row = 10
-    cols = [canvas.get("r_leg", "front", u, row) for u in range(front.w)]
-    assert all(c[:3] == (220, 40, 30) for c in cols), cols  # front shade 1.0 -> 신발색 그대로
+    shoe = R.rgba("#dc281e")  # 마스크가 재 측정색 (220,40,30) + alpha
+    top = [canvas.get("r_leg", "front", u, 9) for u in range(front.w)]
+    sole = [canvas.get("r_leg", "front", u, 11) for u in range(front.w)]
+    assert all(c[:3] == R.shade(shoe, 1.35)[:3] for c in top), top
+    assert all(c[:3] == R.shade(shoe, 0.62)[:3] for c in sole), sole

@@ -298,7 +298,9 @@ def render_legs(canvas: SkinCanvas, colors: dict[str, Color], attrs: Attributes,
                 continue
             for v in range(f.h):
                 if v >= shoe_start:
+                    # 2톤 신발 (폴리시 C): 바닥 행은 어둡게, 나머지는 밝게.
                     c = shade(colors["shoe"], FACE_SHADE[face_name])
+                    c = shade(c, 0.62) if v == f.h - 1 else shade(c, 1.35)
                 elif v <= pants_end:
                     c = shade(pants_c, FACE_SHADE[face_name])
                 else:
