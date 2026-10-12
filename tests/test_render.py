@@ -202,6 +202,52 @@ def test_shoes_two_tone_top_and_sole():
     assert top != sole
 
 
+def test_shoe_two_tone_off_is_flat():
+    """토글 OFF 변형: 신발이 구 단색(shade(shoe, FACE_SHADE))으로 돌아간다."""
+    obs = dataclasses.replace(observed(), shoe=sample("#9a5a30"))
+    canvas = R.render(obs, attrs(bottom_garment="pants"), (), "classic", shoe_two_tone=False)
+    f = get_layout("classic").face("r_leg", "front", 0)
+    shoe = rgba("#9a5a30")
+    for v in (9, 10, 11):
+        c = canvas.image.getpixel((f.x + 1, f.y + v))[:3]
+        assert c == shade(shoe, 1.0)[:3], (v, c)
+
+
+# --- 텍스처 노이즈 (설계 §2: 이산 톤 밴딩, 거울 대칭, 결정론 시드) -----------
+
+def test_noise_same_seed_same_texture():
+    a = R.render(observed(), attrs(), (), "classic", noise_seed=7)
+    b = R.render(observed(), attrs(), (), "classic", noise_seed=7)
+    assert a.image.tobytes() == b.image.tobytes()
+
+
+def test_noise_changes_pixels():
+    flat = R.render(observed(), attrs(), (), "classic")
+    noisy = R.render(observed(), attrs(), (), "classic", noise_seed=7)
+    f = get_layout("classic").face("body", "front", 0)
+    assert any(
+        flat.image.getpixel((f.x + u, f.y + v)) != noisy.image.getpixel((f.x + u, f.y + v))
+        for u in range(f.w) for v in range(f.h)
+    )
+
+
+def test_noise_seed_varies():
+    a = R.render(observed(), attrs(), (), "classic", noise_seed=7)
+    b = R.render(observed(), attrs(), (), "classic", noise_seed=8)
+    f = get_layout("classic").face("body", "front", 0)
+    assert any(
+        a.image.getpixel((f.x + u, f.y + v)) != b.image.getpixel((f.x + u, f.y + v))
+        for u in range(f.w) for v in range(f.h)
+    )
+
+
+@pytest.mark.parametrize("top,bottom", [("shirt", "pants"), ("none", "skirt"), ("jacket", "jeans")])
+def test_noise_passes_validate(top, bottom):
+    canvas = R.render(observed(), attrs(top_garment=top, bottom_garment=bottom), (), "classic", noise_seed=42)
+    assert validate_image(canvas.image, "classic") == []
+
+
+
 def test_render_uses_only_binary_alpha():
     alpha = R.render(observed(), attrs(), (), "classic").image.getchannel("A")
     assert {v for _, v in alpha.getcolors(maxcolors=256)} <= {0, 255}

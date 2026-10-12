@@ -10,6 +10,9 @@
 """
 from __future__ import annotations
 
+import hashlib
+import json
+
 from .attributes import Attributes
 from .canvas import Color, SkinCanvas, rgba, shade
 from .colors import MISSING, ObservedColors
@@ -286,7 +289,7 @@ def render_arms(canvas: SkinCanvas, colors: dict[str, Color], attrs: Attributes,
                     canvas.put(part, face_name, u, v, c, 0)
 
 
-def render_legs(canvas: SkinCanvas, colors: dict[str, Color], attrs: Attributes, bottom_garment: str | None = None) -> None:
+def render_legs(canvas: SkinCanvas, colors: dict[str, Color], attrs: Attributes, bottom_garment: str | None = None, *, shoe_two_tone: bool = True) -> None:
     bottom_garment = bottom_garment or attrs.get("bottom_garment")
     pants_end, shoe_start = BOTTOM_ROWS.get(bottom_garment, (11, 9))
     pants_c = colors["bottom"]
@@ -298,9 +301,12 @@ def render_legs(canvas: SkinCanvas, colors: dict[str, Color], attrs: Attributes,
                 continue
             for v in range(f.h):
                 if v >= shoe_start:
-                    # 2톤 신발 (폴리시 C): 바닥 행은 어둡게, 나머지는 밝게.
-                    c = shade(colors["shoe"], FACE_SHADE[face_name])
-                    c = shade(c, 0.62) if v == f.h - 1 else shade(c, 1.35)
+                    if shoe_two_tone:
+                        # 2톤 신발 (폴리시 C): 바닥 행은 어둡게, 나머지는 밝게.
+                        c = shade(colors["shoe"], FACE_SHADE[face_name])
+                        c = shade(c, 0.62) if v == f.h - 1 else shade(c, 1.35)
+                    else:
+                        c = shade(colors["shoe"], FACE_SHADE[face_name])
                 elif v <= pants_end:
                     c = shade(pants_c, FACE_SHADE[face_name])
                 else:
@@ -316,8 +322,15 @@ def render(
     attrs: Attributes,
     degrade: tuple[str, ...] = (),
     model: str = "classic",
+    *,
+    noise_seed: int | None = None,
+    shoe_two_tone: bool = True,
 ) -> SkinCanvas:
-    """S3 진입점. 입력 3개 → 검증 통과하는 캔버스 1개."""
+    """S3 진입점. 입력 3개 → 검증 통과하는 캔버스 1개.
+
+    noise_seed가 주어지면 마지막에 이산 톤 밴딩 패스 (설계 §2: 거울 대칭·결정론).
+    shoe_two_tone=False는 Edit Skin 토글 OFF 변형 (구 단색 신발 블록).
+    """
     canvas = SkinCanvas(model)
     colors = resolve_colors(observed)
     pattern = effective_pattern(attrs.get("pattern"), observed, attrs, tuple(degrade))
@@ -326,5 +339,62 @@ def render(
     render_head(canvas, colors, attrs)
     render_body(canvas, colors, attrs, pattern, alt)
     render_arms(canvas, colors, attrs, pattern, resolve_sleeve(attrs, observed))
-    render_legs(canvas, colors, attrs, resolve_bottom(attrs, observed))
+    render_legs(canvas, colors, attrs, resolve_bottom(attrs, observed), shoe_two_tone=shoe_two_tone)
+    if noise_seed is not None:
+        _apply_noise(canvas, noise_seed)
     return canvas
+
+
+# --- 텍스처 노이즈 (스티브류 밴딩; docs/specs/2026-10-12-skin-noise-editor-design.md) ---
+
+NOISE_STEPS: tuple[float, ...] = (0.92, 0.96, 1.0, 1.08)
+# eval 프로브 톨러런스: |NOISE_STEPS - 1.0| 최대 0.08 → 채널 최대 드리프트
+# round((1 - 0.92) * 255) ≈ 20, 밝기 끝 round((255-255*(1-1.08)*... 상향 여유 → 32 고정.
+NOISE_TOL = 32
+
+
+def derive_noise_seed(
+    observed: ObservedColors,
+    attrs: Attributes,
+    degrade: tuple[str, ...] = (),
+    index: int = 0,
+) -> int:
+    """저장 후보 내용에서 결정론 시드. 같은 후보는 언제나 같은 텍스처 (설계 §8.3)."""
+    colors = resolve_colors(observed)
+    payload = json.dumps({
+        "colors": sorted([k, list(v)] for k, v in colors.items()),
+        "attrs": sorted(attrs.values.items()),
+        "degrade": list(degrade),
+        "index": index,
+    }, sort_keys=True, default=str)
+    return int(hashlib.sha256(payload.encode()).hexdigest()[:16], 16)
+
+
+def _noise_factor(seed: int, role: str, face: str, bu: int, bv: int) -> float:
+    b = hashlib.md5(f"{seed}|{role}|{face}|{bu}|{bv}".encode()).digest()[0]
+    return NOISE_STEPS[b % len(NOISE_STEPS)]
+
+
+def _apply_noise(canvas: SkinCanvas, seed: int) -> None:
+    """전 face 밴딩 패스. 계수 키는 (role, face, u'//2, v//2) — 좌우 거울이
+    같은 계수를 얻도록 u를 min(u, w-1-u)로 정규화한다 (validate 의 mirror 불변식)."""
+    px = canvas.image.load()
+    for part in canvas.layout.parts.values():
+        role = part.name
+        if role.startswith(("l_", "r_")):
+            role = role[2:]
+        for fname, face in part.faces.items():
+            bv_base, bu_half_w = 2, face.w
+            for v in range(face.h):
+                bv = v // 2
+                for u in range(face.w):
+                    uq = min(u, face.w - 1 - u)
+                    k = _noise_factor(seed, role, fname, uq // 2, bv)
+                    if k == 1.0:
+                        continue
+                    x, y = face.x + u, face.y + v
+                    r, g, b, a = px[x, y]
+                    if a == 0:
+                        continue
+                    px[x, y] = shade((r, g, b, a), k)
+    return
