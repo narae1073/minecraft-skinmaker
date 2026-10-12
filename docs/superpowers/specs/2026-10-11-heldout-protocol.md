@@ -125,4 +125,13 @@ python -m skinmaker.bottom_eval --labels docs/superpowers/specs/heldout_labels.j
 | L2 wire behind a flag | full suite green; `eval out/fixed10` not worse | any test failure or fixed-10 regression |
 | L3 one-shot new held-out | fresh photos (the 49 are consumed); §4 threshold at the new n | agreement < threshold → A rejected |
 
+### L0 결과 (2026-10-12 실측) — **PASS**
+
+- 모델: `pirocheto/schp-atr-18` SCHP ONNX, **INT8 static 69 MB** (model card 기준 FP32 대비 99.94% 픽셀 일치). 18 클래스 `Background/Hair/Upper-clothes/Skirt/Pants/Dress/Belt/Face/arm/leg/…` — 하의 = Pants(6)+Skirt(5), 상의 = Upper-clothes(4), **맨다리 = Left/Right-leg 피부 클래스** (D3 맨다리 구분 재활용 가능).
+- 설치: `onnxruntime 1.31.0` 하나뿐. torch 불필요 — HF 커스텀 processor(`SCHPImageProcessor`)는 torch 요구하므로 로직을 수작업 복제해 대체 확인: RGB → 512×512 BILINEAR → /255 → `(x−mean)/std`, mean `[.406,.456,.485]`, std `[.225,.224,.229]` (`image_processing_schp.py` 실제 코드 대조).
+- 이 박스 실측 (CPU 4코어): 세션 로드 **0.43 s**, 로드 후 RSS **+109 MB** (158 MB), 10장 추론 후 **529 MB** — 전체 가용 8.5 GB 대비 여유 큼. 사진당 전진 **≈2.24 s** (intra_op=4 최적; 8/12 스레드는 악화). 모델 카드의 229 ms는 16코어 기준이라 이 박스 실측이 진실. <5 s 예산 내 → 통과.
+- 마스크 정합성: `messi5` 사람 영역과 `businesswoman` Face·Upper-clothes·Pants 분할 모두 overlay로 시각 확인 정확 (`out/l0_masks/`). `Background 80–86%`는 전신 사진이 배경 지배라 정상이지 마스크 오류가 아님. 이 박스 RAM 실측 참고: "RAM 7GB" 제약 기록(`2026-10-10 spec:61`)은 현재 머신(16 GB, 가용 8.5 GB)과 다름 — 제약 기록 갱신 권고.
+- 유의 3가지: (1) 축구 유니폼은 ATR(패션) 분포 밖 → `Dress 5%` 오분류 artifact; (2) INT8 ONNX는 `logits` 헤드만 노출 (`parsing_logits`/edge 제외); (3) 맨다리-피부 클래스 존재 확인.
+- 스파이크 산출물(전재 gitignored·미배선): `out/l0_spike.py`, `out/l0_report.json`, `out/l0_masks/`, 모델 `out/models/schp-atr-18-int8-static.onnx`.
+
 - **Dependency preference:** ONNX Runtime + a compact human-parsing ONNX model, to avoid the torch wheel/disk/RAM cost. Measure load time, RAM, and per-photo latency in L0 **before** any pipeline wiring. Declare as an optional extra, so the base install (and the mediapipe-disabled constraint) is unchanged.
