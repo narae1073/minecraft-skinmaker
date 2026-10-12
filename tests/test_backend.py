@@ -117,6 +117,7 @@ def test_generate_uses_hair_bbox_for_crown():
     from skinmaker.eval import expected_pixel
     from skinmaker.quality import inspect
     from skinmaker.render import DEFAULT_HAIR, FACE_SHADE
+    from skinmaker.render import NOISE_TOL as _NOISE_TOL
 
     with PHOTO_HAIR.open("rb") as f:
         r = client(GOOD_HAIR, None).post("/api/v1/generate-skin", files={"file": ("h.jpg", f, "image/jpeg")})
@@ -132,7 +133,9 @@ def test_generate_uses_hair_bbox_for_crown():
     assert result.ok and result.hair_bbox_px is not None
     observed = extract(photo, hair_bbox=result.hair_bbox_px)
     assert observed.hair.confident  # 픽스처 변별력 가드: retune으로 미달이 되면 여기서 loudly 실패
-    assert crown == expected_pixel(observed, "hair", "top")
+    expected = expected_pixel(observed, "hair", "top")
+    # 노이즈 파이프라인 (설계 §3): 등식은 채널별 톨러런스로.
+    assert all(abs(p - q) <= _NOISE_TOL for p, q in zip(crown[:3], expected[:3])), (crown, expected)
 
 
 @pytest.mark.skipif(not PHOTO.exists(), reason="픽스처 없음(out/ 미포함 클론)")

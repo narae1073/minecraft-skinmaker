@@ -17,6 +17,7 @@ from skinmaker.canvas import rgba, shade
 from skinmaker.classify import classify
 from skinmaker.colors import extract
 from skinmaker.eval import expected_pixel
+from skinmaker import render as R
 from skinmaker.render import DEFAULT_HAIR, FACE_SHADE
 from skinmaker.vlm.mock import MockTransport
 
@@ -74,4 +75,5 @@ def test_s4_passes_hair_bbox_to_extract(tmp_path, monkeypatch):
     crown = Image.open(saved[0]).convert("RGBA").getpixel((8, 0))  # head top (0,0)
     default_crown = shade(rgba(DEFAULT_HAIR), FACE_SHADE["top"])
     assert crown != default_crown  # 배선 전에는 기본 헤어색으로 굳는다
-    assert crown == expected
+    # 후보 렌더는 이제 노이즈가 얹힌다 (설계 §3): 등식은 톨러런스로.
+    assert all(abs(p - q) <= R.NOISE_TOL for p, q in zip(crown[:3], expected[:3])), (crown, expected)
