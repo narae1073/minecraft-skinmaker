@@ -377,7 +377,20 @@ def extract(
         if seg is not None:
             cls_mask = np.isin(seg, parsing.BOTTOM_CLASSES)
             if cls_mask.any():
-                bottom = dominant_color(arr[cls_mask], bins=bins)
+                # SKIN_REF 앵커 WB는 따뜻한 피부를 중립으로 밀며 옅은 노랑까지
+                # 회녹색으로 눌렀다 (fitting 59: mask+WB 0.746 → raw 0.797).
+                # 마스크 자체가 옷을 고르므로 색은 WB 이전 원본으로 쟀고,
+                # plausible 도 같은 원본 공간의 배경과 비교한다.
+                bottom = dominant_color(rgb[cls_mask], bins=bins)
+                raw_bg = background_chroma(rgb)
+                raw_bg_luma = background_luma(rgb)
+                parsing_bg, parsing_bg_luma = raw_bg, raw_bg_luma
+            else:
+                parsing_bg, parsing_bg_luma = bg, bg_luma
+        else:
+            parsing_bg, parsing_bg_luma = bg, bg_luma
+    else:
+        parsing_bg, parsing_bg_luma = bg, bg_luma
 
     def _chroma_of(sample: ColorSample):
         if sample.missing:
@@ -410,7 +423,7 @@ def extract(
 
     return ObservedColors(
         skin, hair, top, bottom, applied, wb_ok, skin_chroma, top_alt, stripe, cover,
-        bottom_plausible=_bottom_plausible(bottom, bg, bg_luma),
+        bottom_plausible=_bottom_plausible(bottom, parsing_bg, parsing_bg_luma),
     )
 
 

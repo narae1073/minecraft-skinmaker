@@ -169,3 +169,27 @@ def test_extract_falls_back_to_bands_when_mask_unavailable(monkeypatch):
     obs2 = C.extract(photo)
     assert obs1.bottom.hex == obs2.bottom.hex and obs1.bottom.missing is False
     assert calls["n"] >= 1
+
+
+def _synthetic_wb_sensitive():
+    # 피부 앵커가 따뜻해야 WB 게인이 의미 있게 걸린다.
+    img = Image.new("RGB", (200, 400), (240, 240, 240))
+    px = img.load()
+    for y in range(80, 130):        # 얼굴: 따뜻한 피부 (R 치우침)
+        for x in range(80, 120):
+            px[x, y] = (250, 170, 120)
+    for y in range(205, 400):        # 바지: 옅은 노랑 (WB 뒤 회녹색으로 밀리는 값)
+        for x in range(70, 130):
+            px[x, y] = (232, 220, 160)
+    face = Q.FaceBox(80, 80, 40, 50)
+    return Q.PhotoInput("t.jpg", img, face, Q.Quality(0.9, face.area, 120.0, 400.0, 110.0, True), ())
+
+
+def test_mask_bottom_uses_raw_colour_under_wb_gain(monkeypatch):
+    # 마스크 국소화는 WB 이전 원본 픽셀을 잰다 — SKIN_REF 앵커 WB 가 옅은 노랑을
+    # 회녹색으로 눌러버리는 것(#c7cdc1 사례)을 막는다 (fitting 59 A-B: 0.746->0.797).
+    monkeypatch.setenv(P.PARSING_ENV, "1")
+    photo = _synthetic_wb_sensitive()
+    monkeypatch.setattr(P, "bottom_mask", lambda image: _seg_for(photo, {"bottom": P.PANTS}))
+    obs = C.extract(photo)
+    assert max(abs(o - e) for o, e in zip(obs.bottom.rgb, (232, 220, 160))) <= 6
