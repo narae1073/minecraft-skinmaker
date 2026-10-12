@@ -13,6 +13,7 @@ import numpy as np
 from PIL import Image
 
 from .quality import FaceBox, PhotoInput, clip_to, hair_region, skin_region, shirt_bands
+from . import parsing
 
 LUMA = (0.2126, 0.7152, 0.0722)
 
@@ -365,6 +366,18 @@ def extract(
             )
             if not masked.missing:
                 bottom = masked
+
+    # L2: SCHP 마스크 국소화 (옵션, SKINMAKER_PARSING=1). 마스크가 하의
+    # (Pants/Skirt) 픽셀을 주고 커버리지가 있으면 그 영역의 지배색이
+    # 밴드/캐스케이드 결과를 대신한다 — L1 실측(0.644→0.746)에서 국소화
+    # 실패가 전부 나아진 경로다. 불가/실패/빈 마스크는 현행 결과를 유지하고,
+    # bottom_plausible은 아래 공통 경로로 일관 재계산된다.
+    if parsing.parsing_on():
+        seg = parsing.bottom_mask(photo.image)
+        if seg is not None:
+            cls_mask = np.isin(seg, parsing.BOTTOM_CLASSES)
+            if cls_mask.any():
+                bottom = dominant_color(arr[cls_mask], bins=bins)
 
     def _chroma_of(sample: ColorSample):
         if sample.missing:

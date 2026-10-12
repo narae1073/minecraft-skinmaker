@@ -145,4 +145,12 @@ python -m skinmaker.bottom_eval --labels docs/superpowers/specs/heldout_labels.j
 - A/B는 적합 59장만의 판정이며, 헬드아웃 49장을 재사용하지 않았다 (측정·시각화 포함).
 - 산출물 (gitignored): `out/l1_ab.py`, `out/l1_ab.json`.
 
+### L2 결과 (2026-10-12 실측) — **PASS**
+
+- 배선: 새 `skinmaker/parsing.py` (옵션 계층, 기본 off). 플래그 `SKINMAKER_PARSING=1`, 모델 경로 `SKINMAKER_PARSER` (기본 `out/models/schp-atr-18-int8-static.onnx`). `colors.extract` 하의 경로에 뒤따르며, 마스크가 `Pants/Skirt` 픽셀을 주면 밴드/캐스케이드 결과를 대체, 불가/실패/빈 마스크는 기존 결과 유지. `bottom_plausible`은 공통 경로(`_bottom_plausible`)로 일관 재계산. `bottom_mask`는 절대 예외를 던지지 않는다.
+- 테스트: `tests/test_parsing.py` 19건 TDD (RED: ImportError → GREEN): 플래그 기본 off·변형(1/true/on/yes), 가용성 폴백(의존성/모델 부재), `_preproc` 문서 스펙 일치, 클래스맵 원본 리사이즈, extract 배선 on/off/마스크 불가 폴백. **전체 403 passed.**
+- `eval out/fixed10`: flag off = 기존 수치 동일 (valid 10/10, hair fallback 10/10 유지), flag on = valid/crown/cheek/torso 불변, bottom fallback 0/10 유지 — **열화 없음**.
+- 의존성 선언: `requirements-parsing.txt` (onnxruntime 단일). 기본 requirements 불변 → 미들박스 설치가 의무화되지 않는다. README "Parsing layer (optional)" 문서 추가.
+- 단서 2개: (a) flag on 시 L1의 3 손실(`ex5`/`images22` 범주 경계, `image1` 저커버)이 그대로 수록 — 플래그 기본 off라 제품 영향은 선택적; (b) 사진당 +2.2 s(4코어) — 배포 시 측정 과제.
+
 - **Dependency preference:** ONNX Runtime + a compact human-parsing ONNX model, to avoid the torch wheel/disk/RAM cost. Measure load time, RAM, and per-photo latency in L0 **before** any pipeline wiring. Declare as an optional extra, so the base install (and the mediapipe-disabled constraint) is unchanged.
