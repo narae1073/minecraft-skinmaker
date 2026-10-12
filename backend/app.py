@@ -67,7 +67,8 @@ async def generate_skin(file: UploadFile = File(...)):
     if not (file.content_type or "").startswith("image/"):
         fail(400, "not_image", "이미지 파일을 올려주세요.")
     with tempfile.NamedTemporaryFile(suffix=Path(file.filename or "up.jpg").suffix or ".jpg") as tmp:
-        tmp.write(await file.read())
+        raw = await file.read()
+        tmp.write(raw)
         tmp.flush()
         try:
             photo = inspect(tmp.name)
@@ -84,6 +85,8 @@ async def generate_skin(file: UploadFile = File(...)):
     if not candidates or not all(c.ok for c in candidates):
         fail(500, "render_failed", "렌더 검증 실패. 같은 사진으로 다시 시도해주세요.")
     token = uuid.uuid4().hex[:12]
+    input_name = f"input_{token}{Path(file.filename or 'up.jpg').suffix or '.jpg'}"
+    (STATIC_DIR / input_name).write_bytes(raw)
     urls = []
     for c in candidates:
         name = f"{token}_c{c.index}.png"
@@ -92,6 +95,7 @@ async def generate_skin(file: UploadFile = File(...)):
     return {
         "status": "success",
         "data": {
+            "input": f"/static/skins/{input_name}",
             "skins": urls,
             "summary": summarize(result.attributes, result.uncertain),
             "uncertain": list(result.uncertain),

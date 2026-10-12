@@ -133,3 +133,18 @@ def test_generate_uses_hair_bbox_for_crown():
     observed = extract(photo, hair_bbox=result.hair_bbox_px)
     assert observed.hair.confident  # 픽스처 변별력 가드: retune으로 미달이 되면 여기서 loudly 실패
     assert crown == expected_pixel(observed, "hair", "top")
+
+
+@pytest.mark.skipif(not PHOTO.exists(), reason="픽스처 없음(out/ 미포함 클론)")
+def test_generate_returns_input_photo_url():
+    with PHOTO.open("rb") as f:
+        r = client().post("/api/v1/generate-skin", files={"file": ("m.jpg", f, "image/jpeg")})
+    assert r.status_code == 200, r.text
+    body = r.json()
+    input_url = body["data"]["input"]
+    assert input_url.startswith("/static/skins/input_")
+    from backend.app import STATIC_DIR
+
+    saved = STATIC_DIR / Path(input_url).name
+    assert saved.exists()
+    assert saved.read_bytes() == PHOTO.read_bytes()  # 사진과 동일 바이트

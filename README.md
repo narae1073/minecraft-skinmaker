@@ -238,7 +238,9 @@ cd frontend && npm install && npm run dev   # http://localhost:5173/
 ```
 
 Contract: `POST /api/v1/generate-skin` (multipart `file`)
-→ `{"status":"success","data":{"skins":[url,...]}}`.
+→ `{"status":"success","data":{"input":<url>,"skins":[url,...],"summary":…,"uncertain":[…]}}`.
+`data.input` points to the saved upload (`backend/static/skins/input_<token>.<ext>`); the
+frontend shows the input photo next to the generated skins for side-by-side comparison.
 Generated e2e skins are archived under `backend/static/skins/`.
 If 8000 is taken, also update `frontend/vite.config.js`.
 

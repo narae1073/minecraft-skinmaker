@@ -85,6 +85,35 @@ h1 {
   margin-top: 20px;
 }
 
+/* 원본 사진 + 스킨 후보 나란히 비교 (원본이 맨 왼쪽) */
+.compare-grid {
+  display: flex;
+  gap: 20px;
+  align-items: stretch;
+  flex-wrap: wrap;
+  margin-top: 20px;
+  justify-content: center;
+}
+
+.compare-grid .input-card h3 {
+  color: #64748b;
+}
+
+.compare-hint {
+  color: #64748b;
+  font-size: 14px;
+  margin-top: 8px;
+}
+
+.input-photo {
+  width: 200px;
+  height: 280px;
+  object-fit: contain;
+  background: #f1f5f9;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+}
+
 .skin-card {
   background: rgba(248, 250, 252, 0.9);
   padding: 20px;
