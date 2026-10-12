@@ -1,645 +1,533 @@
 {
- "generated": "2026-10-11",
- "source": "heldout-photos",
+ "generated": "2026-10-12",
+ "source": "out/heldout-photos-2",
  "labels_used": "/home/achi/Programming/skinmaker/docs/superpowers/specs/bottom_labels.json",
- "target_n": 49,
+ "target_n": 45,
  "counts": {
-  "full": 25,
-  "mid": 15,
-  "portrait": 9
+  "full": 34,
+  "mid": 11,
+  "portrait": 1
  },
  "budget": {
-  "full": 25,
-  "mid": 15,
-  "portrait": 9
+  "full": 33,
+  "mid": 11,
+  "portrait": 1
  },
  "selected": [
   {
-   "photo": "image114.jpg",
+   "photo": "image240.png",
    "band": "full",
-   "face_h_over_img_h": 0.0427,
+   "face_h_over_img_h": 0.056,
    "face_box": [
-    367,
-    351,
-    42,
-    45
-   ]
-  },
-  {
-   "photo": "image157.jpeg",
-   "band": "full",
-   "face_h_over_img_h": 0.0439,
-   "face_box": [
-    174,
-    158,
-    17,
-    22
-   ]
-  },
-  {
-   "photo": "image107.jpg",
-   "band": "full",
-   "face_h_over_img_h": 0.06,
-   "face_box": [
-    536,
-    471,
-    60,
-    78
-   ]
-  },
-  {
-   "photo": "image158.jpeg",
-   "band": "full",
-   "face_h_over_img_h": 0.065,
-   "face_box": [
-    151,
-    377,
-    37,
-    48
-   ]
-  },
-  {
-   "photo": "image109.jpeg",
-   "band": "full",
-   "face_h_over_img_h": 0.0654,
-   "face_box": [
-    772,
-    986,
-    145,
-    174
-   ]
-  },
-  {
-   "photo": "image156.webp",
-   "band": "full",
-   "face_h_over_img_h": 0.0685,
-   "face_box": [
-    1020,
-    380,
-    88,
-    137
-   ]
-  },
-  {
-   "photo": "image165.jpeg",
-   "band": "full",
-   "face_h_over_img_h": 0.0737,
-   "face_box": [
-    134,
-    120,
-    42,
-    44
-   ]
-  },
-  {
-   "photo": "image122.webp",
-   "band": "full",
-   "face_h_over_img_h": 0.0747,
-   "face_box": [
-    196,
-    190,
-    59,
-    69
-   ]
-  },
-  {
-   "photo": "image151.jpeg",
-   "band": "full",
-   "face_h_over_img_h": 0.075,
-   "face_box": [
-    271,
-    97,
-    45,
-    60
-   ]
-  },
-  {
-   "photo": "image132.jpeg",
-   "band": "full",
-   "face_h_over_img_h": 0.0765,
-   "face_box": [
-    243,
-    101,
-    30,
+    219,
+    246,
+    31,
     38
    ]
   },
   {
-   "photo": "image101.jpg",
+   "photo": "image211.png",
    "band": "full",
-   "face_h_over_img_h": 0.0767,
+   "face_h_over_img_h": 0.0598,
    "face_box": [
-    290,
-    180,
-    44,
-    61
-   ]
-  },
-  {
-   "photo": "image164.jpeg",
-   "band": "full",
-   "face_h_over_img_h": 0.0767,
-   "face_box": [
-    68,
-    76,
-    19,
-    23
-   ]
-  },
-  {
-   "photo": "image168.jpg",
-   "band": "full",
-   "face_h_over_img_h": 0.0778,
-   "face_box": [
-    1840,
-    2595,
-    358,
-    437
-   ]
-  },
-  {
-   "photo": "image131.jpeg",
-   "band": "full",
-   "face_h_over_img_h": 0.0804,
-   "face_box": [
-    154,
-    125,
-    39,
-    48
-   ]
-  },
-  {
-   "photo": "image102.jpg",
-   "band": "full",
-   "face_h_over_img_h": 0.0832,
-   "face_box": [
-    257,
-    109,
-    70,
-    87
-   ]
-  },
-  {
-   "photo": "image113.webp",
-   "band": "full",
-   "face_h_over_img_h": 0.0833,
-   "face_box": [
-    256,
-    182,
-    56,
-    75
-   ]
-  },
-  {
-   "photo": "image140.jpg",
-   "band": "full",
-   "face_h_over_img_h": 0.085,
-   "face_box": [
-    195,
-    83,
-    40,
-    52
-   ]
-  },
-  {
-   "photo": "image149.jpeg",
-   "band": "full",
-   "face_h_over_img_h": 0.0862,
-   "face_box": [
-    283,
-    109,
-    55,
-    69
-   ]
-  },
-  {
-   "photo": "image163.jpeg",
-   "band": "full",
-   "face_h_over_img_h": 0.0871,
-   "face_box": [
-    138,
-    161,
-    40,
-    52
-   ]
-  },
-  {
-   "photo": "image136.jpeg",
-   "band": "full",
-   "face_h_over_img_h": 0.0878,
-   "face_box": [
-    184,
-    84,
-    34,
-    44
-   ]
-  },
-  {
-   "photo": "image153.webp",
-   "band": "full",
-   "face_h_over_img_h": 0.0882,
-   "face_box": [
-    480,
-    614,
-    99,
-    127
-   ]
-  },
-  {
-   "photo": "image150.jpeg",
-   "band": "full",
-   "face_h_over_img_h": 0.0887,
-   "face_box": [
-    277,
-    102,
-    59,
-    71
-   ]
-  },
-  {
-   "photo": "image127.jpeg",
-   "band": "full",
-   "face_h_over_img_h": 0.0903,
-   "face_box": [
-    247,
-    92,
-    37,
-    50
-   ]
-  },
-  {
-   "photo": "image121.avif",
-   "band": "full",
-   "face_h_over_img_h": 0.0905,
-   "face_box": [
-    367,
-    69,
-    55,
-    67
-   ]
-  },
-  {
-   "photo": "image161.jpeg",
-   "band": "full",
-   "face_h_over_img_h": 0.0914,
-   "face_box": [
-    207,
-    303,
-    45,
-    62
-   ]
-  },
-  {
-   "photo": "image110.avif",
-   "band": "mid",
-   "face_h_over_img_h": 0.1,
-   "face_box": [
-    339,
-    42,
-    59,
-    74
-   ]
-  },
-  {
-   "photo": "image169.avif",
-   "band": "mid",
-   "face_h_over_img_h": 0.1011,
-   "face_box": [
-    1680,
-    2383,
-    514,
-    568
-   ]
-  },
-  {
-   "photo": "image105.jpg",
-   "band": "mid",
-   "face_h_over_img_h": 0.1028,
-   "face_box": [
-    92,
-    23,
+    216,
+    185,
     29,
     37
    ]
   },
   {
-   "photo": "image141.jpg",
-   "band": "mid",
-   "face_h_over_img_h": 0.1029,
+   "photo": "image242.png",
+   "band": "full",
+   "face_h_over_img_h": 0.0706,
    "face_box": [
-    207,
-    55,
+    208,
+    167,
+    39,
+    52
+   ]
+  },
+  {
+   "photo": "image239.png",
+   "band": "full",
+   "face_h_over_img_h": 0.0773,
+   "face_box": [
+    210,
+    140,
+    35,
+    44
+   ]
+  },
+  {
+   "photo": "image206.png",
+   "band": "full",
+   "face_h_over_img_h": 0.0775,
+   "face_box": [
+    213,
+    136,
+    37,
+    48
+   ]
+  },
+  {
+   "photo": "image220.png",
+   "band": "full",
+   "face_h_over_img_h": 0.0782,
+   "face_box": [
+    673,
+    291,
+    142,
+    176
+   ]
+  },
+  {
+   "photo": "image218.png",
+   "band": "full",
+   "face_h_over_img_h": 0.0784,
+   "face_box": [
+    244,
+    116,
+    39,
+    48
+   ]
+  },
+  {
+   "photo": "image233.png",
+   "band": "full",
+   "face_h_over_img_h": 0.0796,
+   "face_box": [
+    180,
+    100,
+    44,
+    54
+   ]
+  },
+  {
+   "photo": "image246.png",
+   "band": "full",
+   "face_h_over_img_h": 0.0796,
+   "face_box": [
+    179,
+    156,
+    41,
+    54
+   ]
+  },
+  {
+   "photo": "image216.png",
+   "band": "full",
+   "face_h_over_img_h": 0.0797,
+   "face_box": [
+    195,
+    123,
+    38,
+    51
+   ]
+  },
+  {
+   "photo": "image210.png",
+   "band": "full",
+   "face_h_over_img_h": 0.0838,
+   "face_box": [
+    170,
+    95,
+    38,
+    50
+   ]
+  },
+  {
+   "photo": "image219.png",
+   "band": "full",
+   "face_h_over_img_h": 0.0841,
+   "face_box": [
+    249,
+    67,
+    47,
+    57
+   ]
+  },
+  {
+   "photo": "image243.png",
+   "band": "full",
+   "face_h_over_img_h": 0.0841,
+   "face_box": [
+    209,
+    139,
+    44,
+    57
+   ]
+  },
+  {
+   "photo": "image222.png",
+   "band": "full",
+   "face_h_over_img_h": 0.0859,
+   "face_box": [
+    206,
+    108,
     42,
+    55
+   ]
+  },
+  {
+   "photo": "image232.png",
+   "band": "full",
+   "face_h_over_img_h": 0.0874,
+   "face_box": [
+    167,
+    88,
+    38,
+    48
+   ]
+  },
+  {
+   "photo": "image226.png",
+   "band": "full",
+   "face_h_over_img_h": 0.0888,
+   "face_box": [
+    246,
+    155,
+    72,
+    98
+   ]
+  },
+  {
+   "photo": "image247.png",
+   "band": "full",
+   "face_h_over_img_h": 0.0889,
+   "face_box": [
+    260,
+    78,
+    43,
+    55
+   ]
+  },
+  {
+   "photo": "image244.png",
+   "band": "full",
+   "face_h_over_img_h": 0.0894,
+   "face_box": [
+    198,
+    52,
+    47,
+    64
+   ]
+  },
+  {
+   "photo": "image217.png",
+   "band": "full",
+   "face_h_over_img_h": 0.0902,
+   "face_box": [
+    267,
+    65,
+    79,
+    105
+   ]
+  },
+  {
+   "photo": "image213.png",
+   "band": "full",
+   "face_h_over_img_h": 0.0905,
+   "face_box": [
+    144,
+    91,
+    41,
+    54
+   ]
+  },
+  {
+   "photo": "image245.png",
+   "band": "full",
+   "face_h_over_img_h": 0.0908,
+   "face_box": [
+    143,
+    40,
+    40,
+    54
+   ]
+  },
+  {
+   "photo": "image200.png",
+   "band": "full",
+   "face_h_over_img_h": 0.0929,
+   "face_box": [
+    200,
+    53,
+    47,
     63
    ]
   },
   {
-   "photo": "image137.jpeg",
+   "photo": "image228.png",
+   "band": "full",
+   "face_h_over_img_h": 0.0935,
+   "face_box": [
+    484,
+    45,
+    115,
+    157
+   ]
+  },
+  {
+   "photo": "image236.png",
+   "band": "full",
+   "face_h_over_img_h": 0.0941,
+   "face_box": [
+    213,
+    42,
+    49,
+    65
+   ]
+  },
+  {
+   "photo": "image224.png",
+   "band": "full",
+   "face_h_over_img_h": 0.095,
+   "face_box": [
+    360,
+    77,
+    85,
+    114
+   ]
+  },
+  {
+   "photo": "image238.png",
+   "band": "full",
+   "face_h_over_img_h": 0.095,
+   "face_box": [
+    174,
+    21,
+    37,
+    49
+   ]
+  },
+  {
+   "photo": "image214.png",
+   "band": "full",
+   "face_h_over_img_h": 0.0951,
+   "face_box": [
+    229,
+    33,
+    58,
+    77
+   ]
+  },
+  {
+   "photo": "image215.png",
+   "band": "full",
+   "face_h_over_img_h": 0.0959,
+   "face_box": [
+    145,
+    57,
+    41,
+    52
+   ]
+  },
+  {
+   "photo": "image235.png",
+   "band": "full",
+   "face_h_over_img_h": 0.0961,
+   "face_box": [
+    119,
+    57,
+    33,
+    39
+   ]
+  },
+  {
+   "photo": "image248.png",
+   "band": "full",
+   "face_h_over_img_h": 0.0969,
+   "face_box": [
+    117,
+    34,
+    29,
+    38
+   ]
+  },
+  {
+   "photo": "image209.png",
+   "band": "full",
+   "face_h_over_img_h": 0.0985,
+   "face_box": [
+    312,
+    41,
+    49,
+    64
+   ]
+  },
+  {
+   "photo": "image202.png",
+   "band": "full",
+   "face_h_over_img_h": 0.0994,
+   "face_box": [
+    555,
+    72,
+    121,
+    159
+   ]
+  },
+  {
+   "photo": "image229.png",
+   "band": "full",
+   "face_h_over_img_h": 0.0995,
+   "face_box": [
+    330,
+    51,
+    70,
+    87
+   ]
+  },
+  {
+   "photo": "image223.png",
+   "band": "mid",
+   "face_h_over_img_h": 0.1008,
+   "face_box": [
+    314,
+    86,
+    88,
+    129
+   ]
+  },
+  {
+   "photo": "image221.png",
+   "band": "mid",
+   "face_h_over_img_h": 0.1015,
+   "face_box": [
+    440,
+    89,
+    93,
+    136
+   ]
+  },
+  {
+   "photo": "image237.png",
    "band": "mid",
    "face_h_over_img_h": 0.1062,
    "face_box": [
-    215,
-    50,
+    240,
+    30,
     54,
     72
    ]
   },
   {
-   "photo": "image104.jpg",
+   "photo": "image230.png",
    "band": "mid",
-   "face_h_over_img_h": 0.1078,
+   "face_h_over_img_h": 0.1068,
    "face_box": [
-    81,
-    55,
-    63,
-    69
+    131,
+    7,
+    39,
+    52
    ]
   },
   {
-   "photo": "image126.jpeg",
+   "photo": "image234.png",
    "band": "mid",
-   "face_h_over_img_h": 0.1168,
+   "face_h_over_img_h": 0.1085,
    "face_box": [
-    221,
-    136,
-    61,
-    78
+    194,
+    27,
+    38,
+    56
    ]
   },
   {
-   "photo": "image134.jpeg",
+   "photo": "image249.png",
    "band": "mid",
-   "face_h_over_img_h": 0.1367,
+   "face_h_over_img_h": 0.1099,
    "face_box": [
-    171,
-    101,
-    76,
-    101
-   ]
-  },
-  {
-   "photo": "image148.webp",
-   "band": "mid",
-   "face_h_over_img_h": 0.1501,
-   "face_box": [
-    357,
-    161,
-    62,
-    80
-   ]
-  },
-  {
-   "photo": "image123.jpeg",
-   "band": "mid",
-   "face_h_over_img_h": 0.1581,
-   "face_box": [
-    228,
-    69,
-    73,
-    111
-   ]
-  },
-  {
-   "photo": "image159.jpeg",
-   "band": "mid",
-   "face_h_over_img_h": 0.1675,
-   "face_box": [
-    149,
-    201,
-    80,
-    100
-   ]
-  },
-  {
-   "photo": "image147.avif",
-   "band": "mid",
-   "face_h_over_img_h": 0.1689,
-   "face_box": [
-    213,
-    109,
-    92,
-    125
-   ]
-  },
-  {
-   "photo": "image133.jpeg",
-   "band": "mid",
-   "face_h_over_img_h": 0.1746,
-   "face_box": [
-    140,
-    144,
-    92,
-    129
-   ]
-  },
-  {
-   "photo": "image138.jpeg",
-   "band": "mid",
-   "face_h_over_img_h": 0.1845,
-   "face_box": [
-    150,
-    122,
-    83,
-    121
-   ]
-  },
-  {
-   "photo": "image125.jpeg",
-   "band": "mid",
-   "face_h_over_img_h": 0.1859,
-   "face_box": [
-    120,
-    251,
-    77,
-    103
-   ]
-  },
-  {
-   "photo": "image155.jpg",
-   "band": "portrait",
-   "face_h_over_img_h": 0.2128,
-   "face_box": [
-    1488,
-    228,
-    326,
-    417
-   ]
-  },
-  {
-   "photo": "image103.jpg",
-   "band": "portrait",
-   "face_h_over_img_h": 0.218,
-   "face_box": [
-    259,
-    145,
-    163,
-    218
-   ]
-  },
-  {
-   "photo": "image119.webp",
-   "band": "portrait",
-   "face_h_over_img_h": 0.22,
-   "face_box": [
-    333,
-    135,
-    108,
-    132
-   ]
-  },
-  {
-   "photo": "image117.webp",
-   "band": "portrait",
-   "face_h_over_img_h": 0.2211,
-   "face_box": [
-    201,
-    80,
-    137,
-    199
-   ]
-  },
-  {
-   "photo": "image118.webp",
-   "band": "portrait",
-   "face_h_over_img_h": 0.2214,
-   "face_box": [
-    202,
-    40,
-    46,
-    62
-   ]
-  },
-  {
-   "photo": "image146.webp",
-   "band": "portrait",
-   "face_h_over_img_h": 0.2429,
-   "face_box": [
-    173,
-    43,
-    51,
+    214,
+    25,
+    50,
     68
    ]
   },
   {
-   "photo": "image120.webp",
-   "band": "portrait",
-   "face_h_over_img_h": 0.2433,
+   "photo": "image205.png",
+   "band": "mid",
+   "face_h_over_img_h": 0.122,
    "face_box": [
-    270,
-    156,
-    163,
-    219
-   ]
-  },
-  {
-   "photo": "image112.webp",
-   "band": "portrait",
-   "face_h_over_img_h": 0.2627,
-   "face_box": [
-    437,
-    145,
     105,
-    140
+    11,
+    26,
+    36
    ]
   },
   {
-   "photo": "image124.jpeg",
-   "band": "portrait",
-   "face_h_over_img_h": 0.5296,
+   "photo": "image204.png",
+   "band": "mid",
+   "face_h_over_img_h": 0.1283,
    "face_box": [
-    -6,
-    157,
-    138,
-    277
+    362,
+    186,
+    88,
+    113
+   ]
+  },
+  {
+   "photo": "image203.png",
+   "band": "mid",
+   "face_h_over_img_h": 0.1767,
+   "face_box": [
+    193,
+    104,
+    82,
+    106
+   ]
+  },
+  {
+   "photo": "image225.png",
+   "band": "mid",
+   "face_h_over_img_h": 0.1773,
+   "face_box": [
+    1023,
+    371,
+    371,
+    399
+   ]
+  },
+  {
+   "photo": "image231.png",
+   "band": "mid",
+   "face_h_over_img_h": 0.1848,
+   "face_box": [
+    414,
+    213,
+    211,
+    292
+   ]
+  },
+  {
+   "photo": "image201.png",
+   "band": "portrait",
+   "face_h_over_img_h": 0.2198,
+   "face_box": [
+    164,
+    108,
+    110,
+    149
    ]
   }
  ],
  "excluded": [
   {
-   "photo": "image106.jpg",
+   "photo": "image207.png",
    "reason": "no_face"
   },
   {
-   "photo": "image108.jpg",
+   "photo": "image208.png",
    "reason": "no_face"
   },
   {
-   "photo": "image111.avif",
+   "photo": "image212.png",
    "reason": "no_face"
   },
   {
-   "photo": "image115.webp",
-   "reason": "no_face"
-  },
-  {
-   "photo": "image116.webp",
-   "reason": "no_face"
-  },
-  {
-   "photo": "image128.jpeg",
-   "reason": "no_face"
-  },
-  {
-   "photo": "image129.jpeg",
-   "reason": "no_face"
-  },
-  {
-   "photo": "image130.jpeg",
-   "reason": "no_face"
-  },
-  {
-   "photo": "image135.jpeg",
-   "reason": "no_face"
-  },
-  {
-   "photo": "image139.jpeg",
-   "reason": "no_face"
-  },
-  {
-   "photo": "image142.webp",
-   "reason": "no_face"
-  },
-  {
-   "photo": "image143.webp",
-   "reason": "no_face"
-  },
-  {
-   "photo": "image144.webp",
-   "reason": "no_face"
-  },
-  {
-   "photo": "image145.webp",
-   "reason": "no_face"
-  },
-  {
-   "photo": "image152.jpg",
-   "reason": "no_face"
-  },
-  {
-   "photo": "image154.webp",
-   "reason": "no_face"
-  },
-  {
-   "photo": "image160.jpeg",
-   "reason": "no_face"
-  },
-  {
-   "photo": "image162.jpeg",
-   "reason": "no_face"
-  },
-  {
-   "photo": "image166.jpeg",
-   "reason": "no_face"
-  },
-  {
-   "photo": "image167.jpeg",
-   "reason": "no_face"
-  },
-  {
-   "photo": "image170.jpg",
+   "photo": "image241.png",
    "reason": "no_face"
   }
  ],
  "shortfall": 0,
- "lighting_scene_note": "indoor/outdoor mix, varied WB"
+ "lighting_scene_note": null
 }

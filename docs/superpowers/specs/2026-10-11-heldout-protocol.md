@@ -153,4 +153,16 @@ python -m skinmaker.bottom_eval --labels docs/superpowers/specs/heldout_labels.j
 - 의존성 선언: `requirements-parsing.txt` (onnxruntime 단일). 기본 requirements 불변 → 미들박스 설치가 의무화되지 않는다. README "Parsing layer (optional)" 문서 추가.
 - 단서 2개: (a) flag on 시 L1의 3 손실(`ex5`/`images22` 범주 경계, `image1` 저커버)이 그대로 수록 — 플래그 기본 off라 제품 영향은 선택적; (b) 사진당 +2.2 s(4코어) — 배포 시 측정 과제.
 
+### L3 결과 (2026-10-12 실측) — **PASS: path A 채택**
+
+- 세트: 신규 50장 (`out/heldout-photos-2`), 무겹 0, no_face 4, 검출 46 → **선정 45** (full 33 / mid 11 / portrait 1, shortfall 0). 라벨 45키; **라벨러 표기 정규화 4건** `white`→`light` (판정 공개, 이름만 교정). 확정 라벨 분포: colored 22 / dark 7 / light 10 / mid 8 / blue 3 / none 1 — **scored n=44**.
+- **§4 기준 (n=44): threshold = 0.644 − 1.645·√(0.644·0.356/44) = 0.5253 → 0.53** (44장 중 24장 이상이 통과; n≥30).
+- **밴드 경로 (플래그 off): 0.409 (18/44) → FAIL** — 이전 held-out 0.476과 마찬가지로 F1이 세트 특이임을 2차례 연속 확인.
+- **path A (플래그 on): 0.568 (25/44) → PASS** (임계 0.53 초과, 마진 약 2장). 같은 세트 내 비교: **0.409 → 0.568 (+7장, +16%p)** — 국소화 실패 클래스가 거의 사라지고 범주 경계 문제만 남음.
+- 실패 분해 (mask-on 오답 19장): **기기/범주 경계 17** (인접 수치: `mid↔blue/dark/light` 7, `light↔blue` 5 — 연한 파랑 하의 luma 178–222 구간, `colored↔neutral` 6) + **근흑색 blue vs dark** 2. **국소화 실패 0** (image11x류 마스크 해소 반영). 라벨 분포가 colored/밝은 치우침(colored 22/44, light 10/44)이라 기준선 조성 리스크는 있음 — 게이트는 데이터 순수 관점의 통계다.
+- per-category (mask-on): colored **15/22** · dark **6/7** · blue **2/3** · mid **2/8** · light **0/10** — light·mid가 계약(기준 정밀도) 한계로 남은 것이지 국소화 문제가 아님.
+- 결정: **path A accepted.** 플래그 기본 off — 사용자가 `SKINMAKER_PARSING=1` 설정 시 켜진다. 미해결: (1) `light`/`mid` 경계류 0/10·2/8 (범주 계약 문제); (2) 플래그 on 시 사진당 +2.2 s 배포 부하; (3) illustration (image114류)은 parsing 목표에서 제외.
+
+- **Dependency preference:** ONNX Runtime + a compact human-parsing ONNX model, to avoid the torch wheel/disk/RAM cost. Measure load time, RAM, and per-photo latency in L0 **before** any pipeline wiring. Declare as an optional extra, so the base install (and the mediapipe-disabled constraint) is unchanged.
+
 - **Dependency preference:** ONNX Runtime + a compact human-parsing ONNX model, to avoid the torch wheel/disk/RAM cost. Measure load time, RAM, and per-photo latency in L0 **before** any pipeline wiring. Declare as an optional extra, so the base install (and the mediapipe-disabled constraint) is unchanged.
