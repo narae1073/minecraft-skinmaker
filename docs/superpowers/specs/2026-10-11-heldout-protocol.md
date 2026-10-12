@@ -134,4 +134,15 @@ python -m skinmaker.bottom_eval --labels docs/superpowers/specs/heldout_labels.j
 - 유의 3가지: (1) 축구 유니폼은 ATR(패션) 분포 밖 → `Dress 5%` 오분류 artifact; (2) INT8 ONNX는 `logits` 헤드만 노출 (`parsing_logits`/edge 제외); (3) 맨다리-피부 클래스 존재 확인.
 - 스파이크 산출물(전재 gitignored·미배선): `out/l0_spike.py`, `out/l0_report.json`, `out/l0_masks/`, 모델 `out/models/schp-atr-18-int8-static.onnx`.
 
+### L1 결과 (2026-10-12 실측) — **PASS, +6**
+
+- 적합 59장 전수, 마스크 경로 (Pants 6 + Skirt 5 → 지배색) 대 현행 밴드/캐스케이드 경로 A-B, 같은 `categorize` 기기를 사용.
+- **BASE 38/59 (0.644) — 커밋된 기준선과 1건도 어긋나지 않음(정합성 확인) → MASK 44/59 (0.746), +6.**
+- 개선 9장: `images23`·`images33` (청바지 → blue — 마스크가 실제 바지 색 `#373f4a`/`#3d6370`을 쟀다), `1000_F_491690237` (분홍 피부 → blue), `gettyimages-626535661` (갈색 피부 → dark), `full-shot-silhouette` (하늘 → dark), `images25` (마컨 → colored), `ex3` (연회색 → colored), `istockphoto-1404089233` (노랑 → colored), `man-showing-…` (청백 → light). 진단된 국소화 실패 사진이 전부 나아졌다.
+- **손실 3장 (주의):** `ex5` (blue→dark, `#141a25`→`#111721`)·`images22` (dark→blue, `#15181d`→`#171a20`) — 마스크가 뽑은 색은 기존 것과 거의 같고 **범주만 경계를 건넜다** = 기기(범주 경계) 문제이지 국소화 문제가 아님. `image1`은 mask% **1.0%** 저커버 이상치 — 마스크 품질 의심 1건.
+- L1 판정: 집계 기준 (감소 없음) 충족, 진단 메커니즘 전부 개선 → **통과, L2 진입**.
+- 참고: `trust_measured` 0.500보다 높지만 그 차이가 곧 국소화 개선분은 아니다 — 이 집계에는 기기 경계 개선도 섞여 있다.
+- A/B는 적합 59장만의 판정이며, 헬드아웃 49장을 재사용하지 않았다 (측정·시각화 포함).
+- 산출물 (gitignored): `out/l1_ab.py`, `out/l1_ab.json`.
+
 - **Dependency preference:** ONNX Runtime + a compact human-parsing ONNX model, to avoid the torch wheel/disk/RAM cost. Measure load time, RAM, and per-photo latency in L0 **before** any pipeline wiring. Declare as an optional extra, so the base install (and the mediapipe-disabled constraint) is unchanged.
