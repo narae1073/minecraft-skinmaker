@@ -19,6 +19,8 @@ class Problem:
 
 def _mirror_runs(image: Image.Image, model: str) -> list[Problem]:
     problems: list[Problem] = []
+    from .render import NOISE_TOL
+
     layout = get_layout(model)
     for right, left in MIRRORED_PAIRS.items():
         for layer in (0, 1):
@@ -31,7 +33,9 @@ def _mirror_runs(image: Image.Image, model: str) -> list[Problem]:
                         lu = lface.w - 1 - u
                         rp = image.getpixel((rface.x + u, rface.y + v))
                         lp = image.getpixel((lface.x + lu, lface.y + v))
-                        if rp != lp:
+                        # 기저색은 대칭이므로 톨러런스 밖 차이만 결함이다. 노이즈는
+                        # 좌우 비대칭까지 허용 (개정 2026-10-12; NOISE_TOL ≤ 단계 한계).
+                        if any(abs(p - q) > NOISE_TOL for p, q in zip(rp[:3], lp[:3])):
                             problems.append(
                                 Problem(
                                     "mirror",

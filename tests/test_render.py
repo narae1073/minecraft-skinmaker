@@ -247,6 +247,28 @@ def test_noise_passes_validate(top, bottom):
     assert validate_image(canvas.image, "classic") == []
 
 
+def test_noise_asymmetric_pair():
+    """개정 (2026-10-12 사용자 피드백): 노이즈는 좌우 비대칭 — 거울 면 텍스처가
+    달라질 수 있다 (validate mirror는 이제 톨러런스로 판정한다)."""
+    from skinmaker.format import get_layout
+
+    layout = get_layout("classic")
+    canvas = R.render(observed(), attrs(), (), "classic", noise_seed=7)
+    rf = layout.face("r_leg", "front", 0)
+    lf = layout.face("l_leg", "front", 0)
+    rp = canvas.image.crop((rf.x, rf.y, rf.x + rf.w, rf.y + rf.h))
+    lp = canvas.image.crop((lf.x, lf.y, lf.x + lf.w, lf.y + lf.h))
+    assert rp.tobytes() != lp.tobytes()
+
+
+def test_noise_irregular_clustering():
+    """단일 전면 계수가 아니다: body front 면에 서로 다른 톤 밴드가 섞인다."""
+    canvas = R.render(observed(), attrs(), (), "classic", noise_seed=7)
+    f = get_layout("classic").face("body", "front", 0)
+    tones = {canvas.image.getpixel((f.x + u, f.y + v)) for u in range(f.w) for v in range(f.h)}
+    assert len(tones) >= 3, tones
+
+
 
 def test_render_uses_only_binary_alpha():
     alpha = R.render(observed(), attrs(), (), "classic").image.getchannel("A")

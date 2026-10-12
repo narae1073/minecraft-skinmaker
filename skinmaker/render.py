@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import random
 
 from .attributes import Attributes
 from .canvas import Color, SkinCanvas, rgba, shade
@@ -351,6 +352,9 @@ NOISE_STEPS: tuple[float, ...] = (0.92, 0.96, 1.0, 1.08)
 # eval 프로브 톨러런스: |NOISE_STEPS - 1.0| 최대 0.08 → 채널 최대 드리프트
 # round((1 - 0.92) * 255) ≈ 20, 밝기 끝 round((255-255*(1-1.08)*... 상향 여유 → 32 고정.
 NOISE_TOL = 32
+# 개정 (2026-10-12 사용자 피드백): 노이즈 적용은 좌우 비대칭·불규칙이다.
+# 단일 전면 계수 대신 면(face)별 rng 시드로 가변 pitch(1~3px) 파절 + 단계 무작위.
+NOISE_CELL_WEIGHTS = ((1.0, 6.0), (0.96, 2.0), (0.92, 1.5), (1.08, 1.5))  # 합계 11
 
 
 def derive_noise_seed(
@@ -370,26 +374,42 @@ def derive_noise_seed(
     return int(hashlib.sha256(payload.encode()).hexdigest()[:16], 16)
 
 
-def _noise_factor(seed: int, role: str, face: str, bu: int, bv: int) -> float:
-    b = hashlib.md5(f"{seed}|{role}|{face}|{bu}|{bv}".encode()).digest()[0]
-    return NOISE_STEPS[b % len(NOISE_STEPS)]
+def _noise_step(rng: random.Random) -> float:
+    x = rng.random() * sum(w for _, w in NOISE_CELL_WEIGHTS)
+    cum = 0.0
+    for k, w in NOISE_CELL_WEIGHTS:
+        cum += w
+        if x < cum:
+            return k
+    return 1.0
 
 
 def _apply_noise(canvas: SkinCanvas, seed: int) -> None:
-    """전 face 밴딩 패스. 계수 키는 (role, face, u'//2, v//2) — 좌우 거울이
-    같은 계수를 얻도록 u를 min(u, w-1-u)로 정규화한다 (validate 의 mirror 불변식)."""
+    """면 단위 rng로 불규칙 파절(1~3px) 밴딩. 계수 추출 시 u를 거울 정규화하지
+    않으므로 좌우 팔다리는 독립적인 무늬를 얻는다 (기저색은 여전히 대칭, 노이즈만
+    비대칭 — validate mirror는 NOISE_TOL 톨러런스로 판정한다)."""
     px = canvas.image.load()
     for part in canvas.layout.parts.values():
-        role = part.name
-        if role.startswith(("l_", "r_")):
-            role = role[2:]
+        role = part.name[2:] if part.name.startswith(("l_", "r_")) else part.name
         for fname, face in part.faces.items():
-            bv_base, bu_half_w = 2, face.w
+            key = hashlib.md5(f"{seed}|{part.name}|{fname}".encode()).digest()
+            rng = random.Random(int.from_bytes(key[:8], "little"))
+            assigned: set[tuple[int, int]] = set()
+            grid: dict[tuple[int, int], float] = {}
             for v in range(face.h):
-                bv = v // 2
                 for u in range(face.w):
-                    uq = min(u, face.w - 1 - u)
-                    k = _noise_factor(seed, role, fname, uq // 2, bv)
+                    if (v, u) in assigned:
+                        continue
+                    value = _noise_step(rng)
+                    r = rng.random()
+                    pitch = 1 if r < 0.35 else (2 if r < 0.85 else 3)
+                    for vv in range(v, min(face.h, v + pitch)):
+                        for uu in range(u, min(face.w, u + pitch)):
+                            grid[(vv, uu)] = value
+                            assigned.add((vv, uu))
+            for v in range(face.h):
+                for u in range(face.w):
+                    k = grid[(v, u)]
                     if k == 1.0:
                         continue
                     x, y = face.x + u, face.y + v
