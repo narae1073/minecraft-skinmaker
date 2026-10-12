@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import Skin3DViewer from './components/Skin3DViewer';
+import SkinEditor from './components/SkinEditor';
 import './App.css';
 
 function App() {
@@ -7,8 +8,9 @@ function App() {
   const [isLoading, setIsLoading] = useState(false);
   const [fileError, setFileError] = useState(false);
   const [serverError, setServerError] = useState('');
-  const [skins, setSkins] = useState([]);
+  const [skins, setSkins] = useState([]); // 현재 결과: {url, flatUrl} 쌍 배열
   const [inputPhoto, setInputPhoto] = useState(null);
+  const [editorItem, setEditorItem] = useState(null); // SkinEditor 모달 대상 ({url, flatUrl})
 
   // 사이드바 및 스킨 기록 관련 상태
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
@@ -60,10 +62,15 @@ function App() {
         return;
       }
       if (data.status === 'success') {
-        setSkins(data.data.skins);
+        // 스킨을 {url, flatUrl} 쌍으로 보관 — Edit Skin 토글이 두 변형을 스왑한다 (설계 §5)
+        const pairs = (data.data.skins || []).map((url, i) => ({
+          url,
+          flatUrl: (data.data.skins_flat || [])[i] || null,
+        }));
+        setSkins(pairs);
         setInputPhoto(data.data.input || null);
         // 스킨 생성이 완료되면 기존 기록(skinHistory) 뒤에 새 스킨들을 추가
-        setSkinHistory(prev => [...prev, ...data.data.skins]);
+        setSkinHistory(prev => [...prev, ...pairs]);
       } else {
         setServerError(data?.message || '스킨 생성 실패');
       }
@@ -118,19 +125,22 @@ function App() {
             <p className="empty-msg">아직 생성된 스킨이 없습니다.</p>
           ) : (
             <ul className="skin-list">
-              {skinHistory.map((skinUrl, index) => (
+              {skinHistory.map((skin, index) => (
                 <li key={index} className="skin-list-item">
-                  <input 
-                    type="checkbox" 
+                  <input
+                    type="checkbox"
                     className="skin-checkbox"
-                    checked={selectedSkins.includes(index)} 
-                    onChange={() => handleToggleSelect(index)} 
+                    checked={selectedSkins.includes(index)}
+                    onChange={() => handleToggleSelect(index)}
                   />
                   {/* 스킨 썸네일 (64x64 이미지를 픽셀 깨짐 없이 보여줌) */}
-                  <img src={skinUrl} alt={`스킨 ${index + 1}`} className="skin-thumbnail" />
-                  <a href={skinUrl} download={`skin_${index + 1}.png`} className="sidebar-download-link">
-                    스킨 {index + 1} 
+                  <img src={skin.url} alt={`스킨 ${index + 1}`} className="skin-thumbnail" />
+                  <a href={skin.url} download={`skin_${index + 1}.png`} className="sidebar-download-link">
+                    스킨 {index + 1}
                   </a>
+                  <button className="edit-btn" onClick={() => { setEditorItem(skin); setIsSidebarOpen(false); }}>
+                    편집
+                  </button>
                 </li>
               ))}
             </ul>
@@ -192,17 +202,26 @@ function App() {
                   </a>
                 </div>
               )}
-              {skins.map((skinUrl, index) => (
+              {skins.map((skin, index) => (
                 <div key={index} className="skin-card">
                   <h3>후보 {index + 1}</h3>
-                  <Skin3DViewer skinUrl={skinUrl} />
-                  <a href={skinUrl} download={`skin_option_${index + 1}.png`} className="download-btn">
-                    스킨 다운로드
-                  </a>
+                  <Skin3DViewer skinUrl={skin.url} />
+                  <div className="card-actions">
+                    <button className="edit-btn" onClick={() => setEditorItem(skin)}>
+                      스킨 편집 ✏️
+                    </button>
+                    <a href={skin.url} download={`skin_option_${index + 1}.png`} className="download-btn">
+                      스킨 다운로드
+                    </a>
+                  </div>
                 </div>
               ))}
             </div>
           </div>
+        )}
+
+        {editorItem && (
+          <SkinEditor skin={editorItem} onClose={() => setEditorItem(null)} />
         )}
 
         <footer className="footer">

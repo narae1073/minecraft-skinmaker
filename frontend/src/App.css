@@ -329,3 +329,67 @@ h1 {
 .sidebar-download-link:hover {
   text-decoration: underline;
 }
+/* --- 스킨 편집기 모달 (설계 §5) --- */
+.edit-btn {
+  padding: 6px 10px;
+  border: 1px solid #93c5fd;
+  background: #eff6ff;
+  color: #1d4ed8;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 14px;
+}
+.edit-btn:hover { background: #dbeafe; }
+
+.card-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+.editor-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.editor-modal {
+  background: #ffffff;
+  border-radius: 12px;
+  padding: 16px 20px;
+  max-height: 90vh;
+  overflow: auto;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+}
+
+.editor-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+.editor-header h3 { margin: 0; }
+
+.editor-body {
+  display: flex;
+  justify-content: center;
+}
+
+.editor-options {
+  margin-top: 10px;
+}
+
+.option-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 15px;
+  cursor: pointer;
+}
+
+.editor-download { display: block; margin-top: 12px; text-align: center; }

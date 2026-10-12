@@ -79,11 +79,11 @@ function MinecraftCharacter({ skinUrl }) {
   );
 }
 
-export default function Skin3DViewer({ skinUrl }) {
-  if (!skinUrl) return <div style={{ width: 200, height: 300, background: '#e2e8f0' }} />;
+export default function Skin3DViewer({ skinUrl, width = 200, height = 300 }) {
+  if (!skinUrl) return <div style={{ width, height, background: '#e2e8f0' }} />;
 
   return (
-    <div style={{ width: '200px', height: '300px', background: '#e2e8f0', borderRadius: '8px' }}>
+    <div style={{ width: `${width}px`, height: `${height}px`, background: '#e2e8f0', borderRadius: '8px' }}>
       <Canvas camera={{ position: [0, 2, 5], fov: 50 }}>
         <ambientLight intensity={0.6} />
         <directionalLight position={[5, 10, 5]} intensity={1.2} />
