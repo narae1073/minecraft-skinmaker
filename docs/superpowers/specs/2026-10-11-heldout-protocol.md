@@ -165,6 +165,40 @@ python -m skinmaker.bottom_eval --labels docs/superpowers/specs/heldout_labels.j
 
 - **Dependency preference:** ONNX Runtime + a compact human-parsing ONNX model, to avoid the torch wheel/disk/RAM cost. Measure load time, RAM, and per-photo latency in L0 **before** any pipeline wiring. Declare as an optional extra, so the base install (and the mediapipe-disabled constraint) is unchanged.
 
+
+### L2b 결과 (2026-10-12 실측) — **PASS, +3: 마스크 샘플 WB 미적용**
+
+- 배경: 옅은 노랑 바지 업로드가 WB(SKIN_REF 앵커) 뒤 `#c7cdc1` 회녹색으로 측정 —
+  WB 게인 (R↓0.905, B↑1.245)이 옅은 노랑 `#e4dcb5` 를 중립으로 밀었다.
+- 실험 (같은 마스크 픽셀 raw vs post-WB 대조): 적합 59장
+  **mask+WB 44/59 (0.746) → mask+raw 47/59 (0.797)**, net +3 (손실 3건 포함).
+  밴드 대비 +9. 규칙 (감소 없음) 충족 → 채택.
+- 구현: `colors.extract` 파싱 블록이 raw 배열(플래그 on)에서 지배색을 쟀고,
+  `bottom_plausible`도 같은 원본 공간 배경과 비교해 일관성 유지.
+- TDD: `test_mask_bottom_uses_raw_colour_under_wb_gain` RED(회녹색으로 밀림) → GREEN.
+  전체 405 passed. `eval out/fixed10` 잔상 열화 없음 (valid 10/10, bottom 0/10).
+- 업로드 5장 재검증 (제품 경로): 옅은 노랑 **`#e4dcb5` (light) 정답으로 회복**,
+  빨간 반바지 `#b81d0c` ✓, 보라 `#9b6d95` ✓, 카키 `#846042` ✓, 연청 데님
+  `#646573` (mid — 옅은 청바지의 완급이 경계에 있음, 관찰) — 4.5/5.
+- 유의: raw 샘플과 post-WB 배경을 섞지 않도록 same-space 비교 원칙 유지.
+
+### L2c 결과 (2026-10-12 실측) — **PASS: hair + shoe 국소화**
+
+- 배경: `eval` hair fallback이 적합 풀 83장에서 82/83 (99%) — 머리 색이 거의 항상
+  기본 `#3a2a1c` (share 신뢰 게이트를 못 넘는다)이라 모든 스킨이 짙은 갈색 머리 같아 보였다.
+  parser 마스크의 `Hair`(2)·`Left/Right-shoe`(9/10) 클래스로 직접 잰다.
+- 구현: `parsing.py` 상수 추가 (HAIR=2, SHOES=(9,10)); `colors.extract` 파싱 블록이
+  동일 seg에서 hair·shoe 샘플을 raw 공간으로 쟀고 (WB 이전 — L2b same-space 원칙),
+  마스크가 `hair_bbox`·small 블랭크보다 우선 (마스크에 머리가 없으면 기존 경로 유지);
+  `ObservedColors.shoe` 필드 추가, `resolve_colors` "shoe" pick(SHOE 폴백),
+  `render_legs` 신발 rows를 `colors["shoe"]` 색으로.
+- TDD: 신규 5건 (hair 마스크 채택 / small 블랭크 정복 / bbox 정복 / shoe 채택 /
+  렌더 신발색) RED → GREEN; 테스트 결함 3건은 테스트 쪽 즉시 수정 (405→410).
+- 실측 (eval): fixed-10 flag off = hair 10/10 (기존 상태) / flag on = **hair fallback 소멸**.
+  적합 풀 83장: **hair fallback 82/83 → 10/83** (국소화된 72장이 실측 머리 색).
+  valid 10/10 열화 없음.
+- 상수 변화 없음, held-out 재사용 없음.
+
 ### 웹사이트 종단 검증 (2026-10-12 실측) — SKINMAKER_PARSING=1, 실제 API 경로 (TestClient)
 
 - 대상: 사용자가 웹에서 업로드한 5장 (`backend/static/skins/input_*`). 요청마다 gemini 분류(이중질의) + parsing on → `data.input` URL과 스킨 3종 반환 확인. 합성판: `out/website_verify/*_website.png`.
@@ -177,20 +211,3 @@ python -m skinmaker.bottom_eval --labels docs/superpowers/specs/heldout_labels.j
 - 4/5 정답. 남은 것은 국소화 문제가 아니라 **색 산술 문제** (마스크 내 하이라이트) — 상수 튜닝이 아니라 측정 로직 설계로 별도 과제.
 - 웹 UI (`compare-grid`)는 원본-스킨 나란히 비교를 이미 제공하며, 이 검증은 같은 근거를 서버 경로로 재확인한 것.
 - RAM 참고: "RAM 7GB" 기록(`2026-10-10 spec:61`)은 현재 박스(16 GB 총량, 8.5 GB 가용)와 다름 — spec은 이미 갱신됨.
-
-### L2b 결과 (2026-10-12 실측) — **PASS, +3: 마스크 샘플 WB 미적용**
-
-- 배경: 옅은 노랑 바지 업로드가 WB(SKIN_REF 앵커) 뒤 `#c7cdc1` 회녹색으로 측정 —
-  WB 게인 (R↓0.905, B↑1.245)이 옅은 노랑 `#e4dcb5` 를 중립으로 밀었다.
-- 실험 (evaluate/선별없이 같은 마스크 픽셀 raw vs post-WB): 적합 59장
-  **mask+WB 44/59 (0.746) → mask+raw 47/59 (0.797)**, net +3 (손실 3건 포함).
-  밴드 대비 +9. 규칙 (감소 없음) 충족 → 채택.
-- 구현: `colors.extract` 파싱 블록이 raw 배열(플래그 on)에서 지배색을 쟀고,
-  `bottom_plausible`도 같은 원본 공간 배경과 비교해 일관성 유지.
-- TDD: `test_mask_bottom_uses_raw_colour_under_wb_gain` RED(회녹색으로 밀림) → GREEN.
-  전체 405 passed. `eval out/fixed10` 잔상 열화 없음 (valid 10/10, bottom 0/10).
-- 업로드 5장 재검증 (제품 경로): 옅은 노랑 **`#e4dcb5` (light) 정답으로 회복**,
-  빨간 반바지 `#b81d0c` ✓, 보라 `#9b6d95` ✓, 카키 `#846042` ✓, 연청 데님
-  `#646573` (mid — 옅은 청바지의 완급이 경계에 있음, 관찰) — 4.5/5.
-- 유의: raw 샘플과 post-WB 배경을 섞지 않도록 same-space 비교 원칙 유지.
-  상수 변화 없음 — 설계 변경(WB 우회)이며 적합 세트로 검증했다.

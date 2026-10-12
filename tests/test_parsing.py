@@ -9,8 +9,11 @@ import pytest
 from PIL import Image
 
 from skinmaker import parsing as P
+from skinmaker.attributes import EMPTY
+from skinmaker import attributes as A
 from skinmaker import colors as C
 from skinmaker import quality as Q
+from skinmaker import render as R
 
 
 # --- 플래그 ------------------------------------------------------------
@@ -193,3 +196,94 @@ def test_mask_bottom_uses_raw_colour_under_wb_gain(monkeypatch):
     monkeypatch.setattr(P, "bottom_mask", lambda image: _seg_for(photo, {"bottom": P.PANTS}))
     obs = C.extract(photo)
     assert max(abs(o - e) for o, e in zip(obs.bottom.rgb, (232, 220, 160))) <= 6
+
+
+# --- L2c: 마스크로 머리·신발 국소화 --------------------------------------
+# eval hair fallback 10/10 (기본 #3a2a1c만 성김)을 마스크로 직접 잰다.
+# 신발도 SHOE 상수 검정 대신 Left/Right-shoe 클래스 색으로.
+
+def test_extract_hair_uses_mask_when_enabled(monkeypatch):
+    monkeypatch.setenv(P.PARSING_ENV, "1")
+    photo = _synthetic_wb_sensitive()
+    # 머리 영역을 청록색으로 바꾸고 마스크로 Hair 클래스 지정
+    px = photo.image.load()
+    for y in range(60, 80):
+        for x in range(80, 120):
+            px[x, y] = (0, 170, 170)
+    seg = np.zeros((photo.image.height, photo.image.width), np.uint8)
+    seg[60:80, 80:120] = 2          # Hair 클래스
+    seg[205:400, 70:130] = P.PANTS
+    monkeypatch.setattr(P, "bottom_mask", lambda im: seg)
+    obs = C.extract(photo)
+    assert obs.hair.hex == "#00aaaa", obs.hair.hex
+
+def test_extract_hair_mask_beats_small_face_blanking(monkeypatch):
+    # small flag이면 지금은 헤어를 블랭크(끌지 않음)한다 — 마스크라면 실측 영역이 있어 측정한다.
+    monkeypatch.setenv(P.PARSING_ENV, "1")
+    photo = _synthetic_wb_sensitive()
+    px = photo.image.load()
+    for y in range(60, 80):
+        for x in range(80, 120):
+            px[x, y] = (0, 170, 170)
+    photo = photo._replace(degrade=("small",)) if hasattr(photo, "_replace") else photo
+    photo = Q.PhotoInput(photo.path, photo.image, photo.face, photo.quality, ("small",))
+    seg = np.zeros((photo.image.height, photo.image.width), np.uint8)
+    seg[60:80, 80:120] = 2
+    seg[205:400, 70:130] = P.PANTS
+    monkeypatch.setattr(P, "bottom_mask", lambda im: seg)
+    obs = C.extract(photo)
+    assert obs.hair.hex == "#00aaaa"
+
+
+def test_extract_hair_mask_beats_hair_bbox(monkeypatch):
+    # VLM hair_bbox를 무시한다 — 실측 마스크가 우선이고 mask가 색을 못 찾으면 bbox 폴백이다.
+    monkeypatch.setenv(P.PARSING_ENV, "1")
+    photo = _synthetic_wb_sensitive()
+    px = photo.image.load()
+    for y in range(60, 80):
+        for x in range(80, 120):
+            px[x, y] = (0, 170, 170)
+    seg = np.zeros((photo.image.height, photo.image.width), np.uint8)
+    seg[60:80, 80:120] = 2
+    seg[205:400, 70:130] = P.PANTS
+    monkeypatch.setattr(P, "bottom_mask", lambda im: seg)
+    from skinmaker import colors as CM
+    observed = C.extract(photo, hair_bbox=Q.FaceBox(0, 0, 20, 20))
+    assert observed.hair.hex == "#00aaaa"
+
+
+def test_extract_shoe_sample_from_mask(monkeypatch):
+    monkeypatch.setenv(P.PARSING_ENV, "1")
+    photo = _synthetic_wb_sensitive()
+    image = photo.image
+    px = image.load()
+    for y in range(380, 400):        # 신발 (빨강)
+        for x in range(70, 130):
+            px[x, y] = (220, 40, 30)
+    seg = np.zeros((image.height, image.width), np.uint8)
+    seg[60:80, 80:120] = 2
+    seg[205:400, 70:130] = P.PANTS
+    seg[380:400, 70:130] = 9         # Left-shoe
+    monkeypatch.setattr(P, "bottom_mask", lambda im: seg)
+    obs = C.extract(photo)
+    assert obs.shoe.hex == "#dc281e", obs.shoe
+
+
+def test_render_shoes_use_mask_colour(monkeypatch):
+    monkeypatch.setenv(P.PARSING_ENV, "1")
+    photo = _synthetic_wb_sensitive()
+    image = photo.image
+    px = image.load()
+    for y in range(380, 400):
+        for x in range(70, 130):
+            px[x, y] = (220, 40, 30)
+    seg = np.zeros((image.height, image.width), np.uint8)
+    seg[380:400, 70:130] = 9
+    monkeypatch.setattr(P, "bottom_mask", lambda im: seg)
+    obs = C.extract(photo)
+    canvas = R.render(obs, A.EMPTY, (), "classic")
+    # 앞면 다리 (side 9-11 중 앞줄) 색이 신발색인지
+    front = canvas.layout.face("r_leg", "front", 0)
+    row = 10
+    cols = [canvas.get("r_leg", "front", u, row) for u in range(front.w)]
+    assert all(c[:3] == (220, 40, 30) for c in cols), cols  # front shade 1.0 -> 신발색 그대로

@@ -8,7 +8,8 @@ SKINMAKER_PARSING=1 이고 onnxruntime·모델이 모두 있을 때만 동작한
   out/models/…, SKINMAKER_PARSER 로 교체 가능. 다운로드:
   https://huggingface.co/pirocheto/schp-atr-18/resolve/main/onnx/schp-atr-18-int8-static.onnx
 - 클래스: 0 Background · 2 Hair · 4 Upper-clothes · 5 Skirt · 6 Pants ·
-  11 Face · 12/13 Left/Right-leg(맨다리 피부) · 14/15 arm · 9/10 shoe …
+  11 Face · 12/13 Left/Right-leg(맨다리 피부) · 14/15 arm · 9/10 shoe ·
+  16 Bag · 17 Scarf. Hair(2)·Shoe(9/10)은 머리색·신발색 국소화에도 쓴다.
 - 전처리(heat source: repo image_processing_schp.py 실제 코드): RGB →
   512×512 BILINEAR → /255 → (x−mean)/std, mean=[.406,.456,.485], std=[.225,.224,.229].
 """
@@ -26,6 +27,8 @@ DEFAULT_MODEL = Path(__file__).resolve().parent.parent / "out" / "models" / "sch
 
 PANTS, SKIRT = 6, 5
 BOTTOM_CLASSES = (PANTS, SKIRT)
+HAIR = 2
+SHOES = (9, 10)  # Left-shoe, Right-shoe
 
 MEAN = np.array([0.406, 0.456, 0.485], np.float32)  # RGB 순서, BGR 인덱스 관례 (repo 문서)
 STD = np.array([0.225, 0.224, 0.229], np.float32)

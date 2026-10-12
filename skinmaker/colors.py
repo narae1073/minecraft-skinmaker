@@ -217,6 +217,7 @@ class ObservedColors:
     stripe: str = "plain"
     cover: CoverEstimate | None = None
     bottom_plausible: bool = True  # 하의 측정이 피부도 배경도 아니다 (렌더 폴백 정책 입력)
+    shoe: ColorSample = MISSING
 
     @property
     def top_confident(self) -> bool:
@@ -372,6 +373,7 @@ def extract(
     # 밴드/캐스케이드 결과를 대신한다 — L1 실측(0.644→0.746)에서 국소화
     # 실패가 전부 나아진 경로다. 불가/실패/빈 마스크는 현행 결과를 유지하고,
     # bottom_plausible은 아래 공통 경로로 일관 재계산된다.
+    shoe = MISSING
     if parsing.parsing_on():
         seg = parsing.bottom_mask(photo.image)
         if seg is not None:
@@ -387,6 +389,16 @@ def extract(
                 parsing_bg, parsing_bg_luma = raw_bg, raw_bg_luma
             else:
                 parsing_bg, parsing_bg_luma = bg, bg_luma
+            # L2c: 머리도 마스크로 — eval hair fallback 10/10 문제를 직격한다.
+            # hair_bbox·small 블랭크보다 마스크가 우선 (실측 영역이 진실이다);
+            # 마스크에 머리 픽셀이 없으면 기존 bbox/기하 경로 결과를 유지한다.
+            hair_mask = seg == parsing.HAIR
+            if hair_mask.any():
+                hair = dominant_color(rgb[hair_mask], bins=bins)
+            # 신발도 마스크로 (검정 상수 대신 실측 색). 없으면 render가 SHOE 상수 폴백.
+            shoe_mask = np.isin(seg, parsing.SHOES)
+            if shoe_mask.any():
+                shoe = dominant_color(rgb[shoe_mask], bins=bins)
         else:
             parsing_bg, parsing_bg_luma = bg, bg_luma
     else:
@@ -424,6 +436,7 @@ def extract(
     return ObservedColors(
         skin, hair, top, bottom, applied, wb_ok, skin_chroma, top_alt, stripe, cover,
         bottom_plausible=_bottom_plausible(bottom, parsing_bg, parsing_bg_luma),
+        shoe=shoe,
     )
 
 

@@ -85,6 +85,7 @@ def resolve_colors(observed: ObservedColors) -> dict[str, Color]:
     return {
         "skin": pick(observed.skin, DEFAULT_SKIN),
         "hair": pick(observed.hair, DEFAULT_HAIR),
+        "shoe": pick(observed.shoe, SHOE),
         "top": top,
         "top_alt": _hex_or(observed.top_alt.hex, DEFAULT_TOP) if not observed.top_alt.missing else shade(top, 0.72),
         "bottom": _hex_or(observed.bottom.hex, DEFAULT_BOTTOM) if bottom_usable(observed.bottom, observed.bottom_plausible) else rgba(DEFAULT_BOTTOM),
@@ -297,7 +298,7 @@ def render_legs(canvas: SkinCanvas, colors: dict[str, Color], attrs: Attributes,
                 continue
             for v in range(f.h):
                 if v >= shoe_start:
-                    c = shade(rgba(SHOE), FACE_SHADE[face_name])
+                    c = shade(colors["shoe"], FACE_SHADE[face_name])
                 elif v <= pants_end:
                     c = shade(pants_c, FACE_SHADE[face_name])
                 else:
