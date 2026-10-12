@@ -100,3 +100,12 @@ python -m skinmaker.bottom_eval --labels docs/superpowers/specs/heldout_labels.j
 - Label distribution: blue=15, colored=13, dark=6, light=6, none=7, mid=2, unclear=0.
 - Distribution caveat: mid=2 (4%) vs fitting set's ~14%. The held-out under-represents neutral-gray garments. If the aggregate passes, the verdict holds for the dominant categories (blue/colored/dark/light) but NOT for mid — mid is underpowered. If the aggregate is borderline, a supplementary mid-focused check is warranted after the gate, not before.
 - Anchor caveat: 0.644 is the fitting-set result of F1; this is a generalization check of a post-hoc number.
+
+## Addendum — 2026-10-12 (decision: labels are ground truth)
+
+- **Decision (a):** the 7-category label set is declared **ground truth**. It is not an instrument to be redefined. Category definitions stay as written; no category merge/drop.
+- **Rationale:** the reliability disambiguation (pass 2 intra-rater, rater B inter-rater) was **declined**, so the label noise floor is unmeasured. Redefining categories without a reliability measurement would be unverifiable and would leave the next gate equally ambiguous. The "instrument is broken" hypothesis is therefore **untested, not resolved** — recorded as a standing risk.
+- **Consequence for the metric:** `bottom_eval` agreement is a **relative A/B signal only**, never an absolute quality number. The gate result 0.476 (n=42) means "pipeline vs a single coarse human pass of unknown consistency"; it is not evidence about the pipeline alone.
+- **Gate record:** §4 verdict stands — observed 0.476 < threshold 0.52 (n=42) → **FAIL**, 0.644 recorded as set-specific. Path A (cross-bin merge) and all constant tuning remain **blocked** until re-verified on a fresh held-out. The 49 are consumed; they must not be reused as a fresh gate.
+- **Next work:** mechanism diagnosis of the real misses (decomposition: localization 8, pose/framing 2) — diagnosis only, **no constant changes**, and any candidate fix is validated on the fitting set first, then a **new** held-out, never tuned against the 49.
+- **Anchor set:** `docs/superpowers/specs/anchor-set/` (2 fitting-set photos, `mid` and `colored`) retained for any future rater-facing calibration; unused under decision (a).
