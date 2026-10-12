@@ -9,7 +9,7 @@ from PIL import Image
 
 from skinmaker import eval as E
 from skinmaker import quality as Q
-from skinmaker.colors import extract
+from skinmaker.colors import ColorSample, ObservedColors, extract
 
 FLAG_PHOTO = Path(__file__).resolve().parent.parent / "out" / "s0_photos" / "7f18cb16d51f6228b635d23c18772c05.jpg"
 
@@ -164,3 +164,39 @@ def test_eval_main_skips_extract_failure_and_continues(tmp_path, monkeypatch, ca
     monkeypatch.setattr(E, "extract", flaky)
     assert E.main([str(tmp_path), "--hair-box", "10,10,50,50"]) == 0
     assert "SKIP a.png" in capsys.readouterr().out
+
+
+# --- 노이즈 시드 경로 + 프로브 톨러런스 (설계 §3, 2026-10-12) ----------------
+
+def sample_n(hex_value, share=0.5, confident=True, n=100):
+    r = int(hex_value[1:3], 16)
+    g = int(hex_value[3:5], 16)
+    b = int(hex_value[5:7], 16)
+    return ColorSample(hex_value, share, confident, (r, g, b), n)
+
+
+def make_noise_observed(skin="#e0ac69", hair="#3a2a1c", top="#2f6fb5", bottom="#3c4450"):
+    return ObservedColors(
+        sample_n(skin), sample_n(hair), sample_n(top), sample_n(bottom),
+        (1.0, 1.0, 1.0), True, (0.5, 0.3, 0.2),
+    )
+
+
+def test_evaluate_pipeline_noise_probes_pass():
+    row = E.evaluate(photo(), make_noise_observed())
+    assert row.valid is True
+    assert row.crown is True
+    assert row.cheek is True
+    assert row.torso == "match"
+
+
+def test_probe_tolerance_catches_material_swap():
+    obs = make_noise_observed()
+    hair_top = E.expected_pixel(obs, "hair", "top")
+    skin_front = E.expected_pixel(obs, "skin", "front")
+    assert not E.probe_equal(hair_top, skin_front)
+    from skinmaker.canvas import shade
+    from skinmaker.render import NOISE_STEPS
+
+    for k in NOISE_STEPS:
+        assert E.probe_equal(hair_top, shade(hair_top, k)), k

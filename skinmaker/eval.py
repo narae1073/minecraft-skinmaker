@@ -68,6 +68,15 @@ def expected_pixel(observed: ObservedColors, key: str, face: str) -> tuple:
     return shade(resolve_colors(observed)[key], FACE_SHADE[face])
 
 
+def probe_equal(rendered: tuple, expected: tuple, tol: int | None = None) -> bool:
+    """프로프 비교 (의미 변경 2026-10-12, 설계 §3): 픽셌 동등 → 채널별 |Δ| ≤ NOISE_TOL.
+    프로브의 목적(머리/상의 배선 스왑 등 결함 나포)은 톨러런스가 담당한다."""
+    if tol is None:
+        from .render import NOISE_TOL
+        tol = NOISE_TOL
+    return all(abs(p - q) <= tol for p, q in zip(rendered[:3], expected[:3]))
+
+
 # --hair-box는 배선 확인용이다. 전 사진에 같은 고정 박스를 주입하므로
 # 크기·구도가 다른 사진들에는 맞지 않아 <50% 기준의 증거가 될 수 없다.
 # 그 기준에는 per-photo 박스(진짜 VLM 출력)가 필요하다. 동작 변경 없음.
@@ -96,13 +105,16 @@ def evaluate(photo: PhotoInput, observed: ObservedColors, model: str = "classic"
     if photo.rejected:
         return row
     row.framing = report_band(photo)
-    canvas = render(observed, EMPTY, photo.degrade, model)
+    from .render import derive_noise_seed
+
+    canvas = render(observed, EMPTY, photo.degrade, model,
+                    noise_seed=derive_noise_seed(observed, EMPTY, photo.degrade, 1))
     row.valid = validate_image(canvas.image, model) == []
-    row.crown = canvas.get("head", "top", 0, 0) == expected_pixel(observed, "hair", "top")
-    row.cheek = canvas.get("head", "front", 3, 5) == expected_pixel(observed, "skin", "front")
+    row.crown = probe_equal(canvas.get("head", "top", 0, 0), expected_pixel(observed, "hair", "top"))
+    row.cheek = probe_equal(canvas.get("head", "front", 3, 5), expected_pixel(observed, "skin", "front"))
     pattern = effective_pattern(EMPTY.get("pattern"), observed, EMPTY, photo.degrade)
     if pattern == "plain":
-        row.torso = "match" if canvas.get("body", "front", 0, 5) == expected_pixel(observed, "top", "front") else "MISMATCH"
+        row.torso = "match" if probe_equal(canvas.get("body", "front", 0, 5), expected_pixel(observed, "top", "front")) else "MISMATCH"
     else:
         row.torso = f"patterned:{pattern}"
     colors = resolve_colors(observed)
