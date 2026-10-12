@@ -165,4 +165,15 @@ python -m skinmaker.bottom_eval --labels docs/superpowers/specs/heldout_labels.j
 
 - **Dependency preference:** ONNX Runtime + a compact human-parsing ONNX model, to avoid the torch wheel/disk/RAM cost. Measure load time, RAM, and per-photo latency in L0 **before** any pipeline wiring. Declare as an optional extra, so the base install (and the mediapipe-disabled constraint) is unchanged.
 
-- **Dependency preference:** ONNX Runtime + a compact human-parsing ONNX model, to avoid the torch wheel/disk/RAM cost. Measure load time, RAM, and per-photo latency in L0 **before** any pipeline wiring. Declare as an optional extra, so the base install (and the mediapipe-disabled constraint) is unchanged.
+### 웹사이트 종단 검증 (2026-10-12 실측) — SKINMAKER_PARSING=1, 실제 API 경로 (TestClient)
+
+- 대상: 사용자가 웹에서 업로드한 5장 (`backend/static/skins/input_*`). 요청마다 gemini 분류(이중질의) + parsing on → `data.input` URL과 스킨 3종 반환 확인. 합성판: `out/website_verify/*_website.png`.
+- 측정 (사진 → 마스크 하의 색):
+  - 앉아서 연청 바지 → `#b5dfff` 연한 청백 **정답**.
+  - Fitting Room 빨강 반바지 → `#9a180d` 진한 빨강 **정답**, enum `bottom_garment=shorts`.
+  - 보라 슈트 → `#9b6d95` 보라 **정답**.
+  - 카키 바지 남자 → `#7a5b3d` 카키 **정답** (bands 이전 측정은 티셔츠색이었다).
+  - 얇은 노랑 바지 → `#c7cdc1` 회녹색 **오답** — 옅은 색이 흰 배경에서 크로마를 잃는 문제.
+- 4/5 정답. 남은 것은 국소화 문제가 아니라 **색 산술 문제** (마스크 내 하이라이트) — 상수 튜닝이 아니라 측정 로직 설계로 별도 과제.
+- 웹 UI (`compare-grid`)는 원본-스킨 나란히 비교를 이미 제공하며, 이 검증은 같은 근거를 서버 경로로 재확인한 것.
+- RAM 참고: "RAM 7GB" 기록(`2026-10-10 spec:61`)은 현재 박스(16 GB 총량, 8.5 GB 가용)와 다름 — spec은 이미 갱신됨.
