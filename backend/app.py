@@ -87,16 +87,20 @@ async def generate_skin(file: UploadFile = File(...)):
     token = uuid.uuid4().hex[:12]
     input_name = f"input_{token}{Path(file.filename or 'up.jpg').suffix or '.jpg'}"
     (STATIC_DIR / input_name).write_bytes(raw)
-    urls = []
+    urls, flat_urls = [], []
     for c in candidates:
         name = f"{token}_c{c.index}.png"
         c.image.save(STATIC_DIR / name)
+        flat_name = f"{token}_c{c.index}_flat.png"
+        c.image_flat.save(STATIC_DIR / flat_name)  # Edit Skin 토글 OFF 변형 (설계 §5)
         urls.append(f"/static/skins/{name}")
+        flat_urls.append(f"/static/skins/{flat_name}")
     return {
         "status": "success",
         "data": {
             "input": f"/static/skins/{input_name}",
             "skins": urls,
+            "skins_flat": flat_urls,
             "summary": summarize(result.attributes, result.uncertain),
             "uncertain": list(result.uncertain),
         },

@@ -66,6 +66,47 @@ def test_generate_returns_three_urls():
         assert (STATIC_DIR / Path(u).name).exists()
 
 
+@pytest.mark.skipif(not PHOTO.exists(), reason="픽스처 없음(out/ 미포함 클론)")
+def test_generate_returns_flat_variants():
+    """Edit Skin 토글 재료 (설계 §5): skins_flat이 skins와 같은 순서·길이,
+    디스크에 실재하고, ON 파일과 신발 행 밖 픽셀이 동일하다."""
+    second = dict(GOOD, sleeve_len="long", hair_length="long")
+    with PHOTO.open("rb") as f:
+        r = client(GOOD, second).post("/api/v1/generate-skin", files={"file": ("m.jpg", f, "image/jpeg")})
+    assert r.status_code == 200, r.text
+    data = r.json()["data"]
+    flats = data["skins_flat"]
+    assert len(flats) == len(data["skins"])
+    from PIL import Image as PILImage
+
+    allowed = _admin_leg_shoe_pixels()
+    for on, flat in zip(data["skins"], flats):
+        on_name, flat_name = Path(on).name, Path(flat).name
+        assert flat_name == on_name.replace(".png", "_flat.png"), (on_name, flat_name)
+        assert (A.STATIC_DIR / on_name).exists() and (A.STATIC_DIR / flat_name).exists()
+        # 신발 행 밖 동일 (계약 테스트 동일 근거)
+        px_on = PILImage.open(A.STATIC_DIR / on_name).convert("RGBA").load()
+        px_flat = PILImage.open(A.STATIC_DIR / flat_name).convert("RGBA").load()
+        diff = {(x, y) for y in range(64) for x in range(64) if px_on[x, y] != px_flat[x, y]}
+        assert diff, "신발 행 차이 없음"
+        assert diff <= allowed, diff - allowed
+
+
+def _admin_leg_shoe_pixels():
+    from skinmaker.format import get_layout
+
+    layout = get_layout("classic")
+    allowed = set()
+    for part in ("r_leg", "l_leg"):
+        for face in layout.part(part, 0).faces.values():
+            if face.h < 12:
+                continue
+            for v in range(9, face.h):
+                for u in range(face.w):
+                    allowed.add((face.x + u, face.y + v))
+    return allowed
+
+
 def test_non_image_rejected():
     r = client().post("/api/v1/generate-skin", files={"file": ("x.txt", b"hi", "text/plain")})
     assert r.status_code == 400
