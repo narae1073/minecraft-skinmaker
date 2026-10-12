@@ -109,3 +109,20 @@ python -m skinmaker.bottom_eval --labels docs/superpowers/specs/heldout_labels.j
 - **Gate record:** §4 verdict stands — observed 0.476 < threshold 0.52 (n=42) → **FAIL**, 0.644 recorded as set-specific. Path A (cross-bin merge) and all constant tuning remain **blocked** until re-verified on a fresh held-out. The 49 are consumed; they must not be reused as a fresh gate.
 - **Next work:** mechanism diagnosis of the real misses (decomposition: localization 8, pose/framing 2) — diagnosis only, **no constant changes**, and any candidate fix is validated on the fitting set first, then a **new** held-out, never tuned against the 49.
 - **Anchor set:** `docs/superpowers/specs/anchor-set/` (2 fitting-set photos, `mid` and `colored`) retained for any future rater-facing calibration; unused under decision (a).
+
+## Addendum — 2026-10-12b (decision: unblock path A / learned localization)
+
+- **Decision (i):** path A — a learned human-parsing / clothes-segmentation layer — is **unblocked for evaluation**. Basis: the mechanism diagnosis (5/5 inspected real misses had correct labels; the pipeline measured the top/background — `image137` red sweater, `image114` white bg, `image168` black top, `image103` white blouse, `image124` abstain). Localization, not the instrument, is the coherent failure class.
+- **Constraint override (explicit, user call):** this knowingly sets aside two recorded constraints — the anti-goal "확산/SAM/파인튜닝을 끌어오는 것, 기각 결정 유지" (`2026-10-10-fullbody-geometry-design.md:57`, plan `:18`) and the hardware line "GPU 없음, RAM 7GB" (`:61`). Recorded so the override is not implicit. If the dependency spike (L0) fails, the decision reverts.
+- **Scope:** bottom localization only, first; top/hair sampling unchanged. All model-introduced parameters are set on **fitting** data, never on the held-out.
+- **Unchanged:** §4 gate FAIL stands; 0.644 stays set-specific; the 49 held-out is consumed and must not be reused; no constant tuning.
+- **Validation ladder (falsification per step):**
+
+| step | action | falsified if |
+|---|---|---|
+| L0 dependency spike | load a parser (prefer ONNX Runtime over torch), run on ~10 fitting photos | RAM exceeds headroom on 7 GB, forward > ~5 s/photo, or masks are visibly poor |
+| L1 offline A/B (fitting set) | bottom colour from masks vs current bands across the 59 | any loss vs current fitting-set agreement, or no improvement on the diagnosed mechanisms |
+| L2 wire behind a flag | full suite green; `eval out/fixed10` not worse | any test failure or fixed-10 regression |
+| L3 one-shot new held-out | fresh photos (the 49 are consumed); §4 threshold at the new n | agreement < threshold → A rejected |
+
+- **Dependency preference:** ONNX Runtime + a compact human-parsing ONNX model, to avoid the torch wheel/disk/RAM cost. Measure load time, RAM, and per-photo latency in L0 **before** any pipeline wiring. Declare as an optional extra, so the base install (and the mediapipe-disabled constraint) is unchanged.
