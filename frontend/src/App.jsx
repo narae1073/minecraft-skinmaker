@@ -11,6 +11,7 @@ function App() {
   const [skins, setSkins] = useState([]); // 현재 결과: {url, flatUrl} 쌍 배열
   const [inputPhoto, setInputPhoto] = useState(null);
   const [editorItem, setEditorItem] = useState(null); // SkinEditor 모달 대상 ({url, flatUrl})
+  const [noiseLevel, setNoiseLevel] = useState(100); // 노이즈 세기 % (기본 100 = 현행, 설계 §9)
 
   // 사이드바 및 스킨 기록 관련 상태
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
@@ -48,6 +49,7 @@ function App() {
 
     const formData = new FormData();
     formData.append('file', file);
+    formData.append('noise_level', String(noiseLevel / 100));
 
     try {
       const response = await fetch('/api/v1/generate-skin', {
@@ -180,8 +182,22 @@ function App() {
         <div className="upload-section">
           <input type="file" accept="image/jpeg, image/png" onChange={handleFileChange} />
           <button onClick={handleGenerate} disabled={isLoading} className="generate-btn">
-            {isLoading ? '생성 중...' : '스킨 변환하기'} 
+            {isLoading ? '생성 중...' : '스킨 변환하기'}
           </button>
+        </div>
+
+        <div className="noise-slider-row" title="0% = 노이즈 없음">
+          <label htmlFor="noise-level">노이즈 강도</label>
+          <input
+            id="noise-level"
+            type="range"
+            min="0"
+            max="100"
+            step="5"
+            value={noiseLevel}
+            onChange={(e) => setNoiseLevel(Number(e.target.value))}
+          />
+          <span className="noise-readout">{noiseLevel}%</span>
         </div>
 
         {skins.length > 0 && (

@@ -393,3 +393,20 @@ h1 {
 }
 
 .editor-download { display: block; margin-top: 12px; text-align: center; }
+
+/* --- 노이즈 세기 슬라이더 (설계 §9) --- */
+.noise-slider-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  justify-content: center;
+  margin: 10px 0 4px;
+}
+.noise-slider-row label { font-size: 15px; color: #334155; }
+.noise-slider-row input[type="range"] { width: 220px; accent-color: #2563eb; }
+.noise-readout {
+  min-width: 48px;
+  font-variant-numeric: tabular-nums;
+  font-weight: bold;
+  color: #1d4ed8;
+}
