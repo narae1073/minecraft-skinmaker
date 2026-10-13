@@ -43,6 +43,16 @@ const LEG = {
   px: [8, 20, 4, 12], nx: [0, 20, 4, 12], py: [4, 16, 4, 4],
   ny: [8, 16, 4, 4], pz: [4, 20, 4, 12], nz: [12, 20, 4, 12],
 };
+// 좌측 팔다리는 자기 region을 쓴다 (format.py l_arm (32,48), l_leg (16,48)).
+// 기존엔 우측 rect를 재사용해 좌우 노이즈가 같아 보였다 (사용자 지적 2026-10-13).
+const LARM = {
+  px: [40, 52, 4, 12], nx: [32, 52, 4, 12], py: [36, 48, 4, 4],
+  ny: [40, 48, 4, 4], pz: [36, 52, 4, 12], nz: [44, 52, 4, 12],
+};
+const LLEG = {
+  px: [24, 52, 4, 12], nx: [16, 52, 4, 12], py: [20, 48, 4, 4],
+  ny: [24, 48, 4, 4], pz: [20, 52, 4, 12], nz: [28, 52, 4, 12],
+};
 
 function MinecraftCharacter({ skinUrl }) {
   const groupRef = useRef();
@@ -57,7 +67,9 @@ function MinecraftCharacter({ skinUrl }) {
     head: boxWithUV(1, 1, 1, HEAD),
     body: boxWithUV(1, 1.5, 0.5, BODY),
     arm: boxWithUV(0.5, 1.5, 0.5, ARM),
+    larm: boxWithUV(0.5, 1.5, 0.5, LARM),
     leg: boxWithUV(0.5, 1.5, 0.5, LEG),
+    lleg: boxWithUV(0.5, 1.5, 0.5, LLEG),
   }), []);
   const mat = useMemo(() => new THREE.MeshStandardMaterial({
     map: texture, transparent: true, alphaTest: 0.5,
@@ -71,9 +83,9 @@ function MinecraftCharacter({ skinUrl }) {
     <group ref={groupRef} position={[0, -2, 0]}>
       <mesh position={[0, 3.5, 0]} geometry={geos.head} material={mat} />
       <mesh position={[0, 2.25, 0]} geometry={geos.body} material={mat} />
-      <mesh position={[-0.75, 2.25, 0]} geometry={geos.arm} material={mat} />
+      <mesh position={[-0.75, 2.25, 0]} geometry={geos.larm} material={mat} />
       <mesh position={[0.75, 2.25, 0]} geometry={geos.arm} material={mat} />
-      <mesh position={[-0.25, 0.75, 0]} geometry={geos.leg} material={mat} />
+      <mesh position={[-0.25, 0.75, 0]} geometry={geos.lleg} material={mat} />
       <mesh position={[0.25, 0.75, 0]} geometry={geos.leg} material={mat} />
     </group>
   );
