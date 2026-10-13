@@ -14,7 +14,7 @@ import tempfile
 import uuid
 from pathlib import Path
 
-from fastapi import FastAPI, File, HTTPException, UploadFile
+from fastapi import FastAPI, File, Form, HTTPException, UploadFile
 from fastapi.staticfiles import StaticFiles
 
 from skinmaker.attributes import summarize
@@ -63,9 +63,17 @@ def health():
 
 
 @app.post("/api/v1/generate-skin")
-async def generate_skin(file: UploadFile = File(...)):
+async def generate_skin(file: UploadFile = File(...), noise_level: str = Form(None)):
     if not (file.content_type or "").startswith("image/"):
         fail(400, "not_image", "이미지 파일을 올려주세요.")
+    # 노이즈 세기 (설계 §9): 부재=1.0, 가비지=400, 범위 밖 숫자는 [0,1] 클램프.
+    level = 1.0
+    if noise_level is not None:
+        try:
+            level = float(noise_level)
+        except (TypeError, ValueError):
+            fail(400, "bad_noise_level", f"noise_level은 숫자여야 해요: {noise_level!r}")
+        level = min(1.0, max(0.0, level))
     with tempfile.NamedTemporaryFile(suffix=Path(file.filename or "up.jpg").suffix or ".jpg") as tmp:
         raw = await file.read()
         tmp.write(raw)
@@ -81,7 +89,7 @@ async def generate_skin(file: UploadFile = File(...)):
     if not result.ok:
         fail(*classify_error_status(result.error or ""))
     observed = extract(photo, hair_bbox=result.hair_bbox_px)
-    candidates = build(observed, result, photo.degrade)
+    candidates = build(observed, result, photo.degrade, noise_level=level)
     if not candidates or not all(c.ok for c in candidates):
         fail(500, "render_failed", "렌더 검증 실패. 같은 사진으로 다시 시도해주세요.")
     token = uuid.uuid4().hex[:12]

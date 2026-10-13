@@ -107,6 +107,32 @@ def _admin_leg_shoe_pixels():
     return allowed
 
 
+def test_generate_noise_level_contract():
+    """설계 §9: noise_level 폼 필드 — 부재=1.0, 가비지=400, 범위 밖=클램프, 0=무노이즈."""
+    from PIL import Image as PILImage
+
+    second = dict(GOOD, sleeve_len="long", hair_length="long")
+    post = lambda lvl: client(GOOD, second).post(
+        "/api/v1/generate-skin",
+        files={"file": ("m.jpg", PHOTO.open("rb").read(), "image/jpeg")},
+        data={} if lvl is None else {"noise_level": lvl},
+    )
+    r_garbage = post("abc")
+    assert r_garbage.status_code == 400
+    assert r_garbage.json()["detail"]["code"] == "bad_noise_level"
+
+    r0, r1, r7 = post("0"), post("1"), post("7")
+    assert r0.status_code == r1.status_code == r7.status_code == 200
+    png0 = A.STATIC_DIR / Path(r0.json()["data"]["skins"][0]).name
+    png1 = A.STATIC_DIR / Path(r1.json()["data"]["skins"][0]).name
+    png7 = A.STATIC_DIR / Path(r7.json()["data"]["skins"][0]).name
+    b0 = PILImage.open(png0).convert("RGBA").tobytes()
+    b1 = PILImage.open(png1).convert("RGBA").tobytes()
+    b7 = PILImage.open(png7).convert("RGBA").tobytes()
+    assert b0 != b1          # 0은 무노이즈 — 1과 다르다
+    assert b7 == b1          # 7은 [0,1]로 클램프 → 1과 동일
+
+
 def test_non_image_rejected():
     r = client().post("/api/v1/generate-skin", files={"file": ("x.txt", b"hi", "text/plain")})
     assert r.status_code == 400
