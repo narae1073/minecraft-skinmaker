@@ -15,13 +15,10 @@ body {
   background-size: cover;
   background-position: center;
   background-attachment: fixed;
-  display: flex;
-  justify-content: center;
 }
 
 #root {
-  display: flex;
-  justify-content: center;
+  display: block;
   width: 100%;
 }
 
@@ -29,7 +26,7 @@ body {
   max-width: 800px;
   width: 90%;
   padding: 40px;
-  margin-block: auto; /* 세이프 센터링: 짧으면 세로 중앙, 길면 0 — 내용보다 위가 스크롤 불가가 되는 align-items:center 버그 제거 */
+  margin: 24px auto 40px; /* 가로: auto margin (스펙상 절대 음수 불가 — flex/grid 센터링 함정 회피, 사용자 결정 D) */
   background: rgba(255, 255, 255, 0.85);
   border-radius: 12px;
   box-shadow: 0 4px 15px rgba(0,0,0,0.2);
