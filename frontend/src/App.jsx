@@ -14,6 +14,7 @@ function App() {
   const [inputPhoto, setInputPhoto] = useState(null);
   const [editorItem, setEditorItem] = useState(null); // SkinEditor 모달 대상 ({url, flatUrl})
   const [noiseLevel, setNoiseLevel] = useState(50); // 노이즈 세기 % (기본 50 — 사용자 결정 2026-10-13)
+  const [showSteps, setShowSteps] = useState(false); // 처리 과정 표시 (기본 해제 — 사용자 결정)
   const [catInfo, setCatInfo] = useState(null); // 분류 카테고리 {attributes, candidates, noiseLevel} (설계 §11)
   const [steps, setSteps] = useState(null); // 처리 과정 시트 {clean, full} (설계 §12)
 
@@ -56,6 +57,7 @@ function App() {
     const formData = new FormData();
     formData.append('file', file);
     formData.append('noise_level', String(noiseLevel / 100));
+    formData.append('steps', showSteps ? '1' : '0');
 
     try {
       const response = await fetch('/api/v1/generate-skin', {
@@ -194,8 +196,15 @@ function App() {
         
         <div className="upload-section">
           <input type="file" accept="image/jpeg, image/png" onChange={handleFileChange} />
-          <div className="noise-slider-row" title="0% = 노이즈 없음">
-            <label htmlFor="noise-level">노이즈</label>
+          <button onClick={handleGenerate} disabled={isLoading} className="generate-btn">
+            {isLoading ? '생성 중...' : '스킨 변환하기'}
+          </button>
+        </div>
+
+        <div className="config-section">
+          <h3>설정</h3>
+          <div className="config-row" title="0% = 노이즈 없음">
+            <label htmlFor="noise-level">노이즈 강도</label>
             <input
               id="noise-level"
               type="range"
@@ -207,9 +216,17 @@ function App() {
             />
             <span className="noise-readout">{noiseLevel}%</span>
           </div>
-          <button onClick={handleGenerate} disabled={isLoading} className="generate-btn">
-            {isLoading ? '생성 중...' : '스킨 변환하기'}
-          </button>
+          <div className="config-row">
+            <label htmlFor="show-steps">
+              <input
+                id="show-steps"
+                type="checkbox"
+                checked={showSteps}
+                onChange={(e) => setShowSteps(e.target.checked)}
+              />
+              처리 과정 표시 <small>(끄면 단계 이미지를 만들지 않아요)</small>
+            </label>
+          </div>
         </div>
 
         {skins.length > 0 && (

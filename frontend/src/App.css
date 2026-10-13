@@ -578,3 +578,26 @@ h1 {
   color: #1d4ed8;
   font-weight: bold;
 }
+
+/* --- 설정 상자 (생성 전 조정이 모이는 곳, 사용자 지시 2026-10-13) --- */
+.config-section {
+  margin: 14px 0 0;
+  padding: 14px 18px;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  background: rgba(248, 250, 252, 0.9);
+  text-align: left;
+}
+.config-section h3 { margin: 0 0 10px; font-size: 16px; color: #334155; }
+.config-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 4px 0;
+  font-size: 15px;
+  color: #334155;
+}
+.config-row input[type="range"] { flex: 1; max-width: 260px; accent-color: #2563eb; }
+.config-row small { color: #94a3b8; font-size: 12px; }
+.config-row label { display: flex; align-items: center; gap: 8px; cursor: pointer; }
+.config-row input[type="checkbox"] { width: 16px; height: 16px; accent-color: #2563eb; }
