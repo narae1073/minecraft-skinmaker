@@ -1,12 +1,12 @@
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 
 // 설계 §12 개정 + UI 정리: 인라인은 작은 썸네일, 클릭하면 라이트박스 모달.
 // 라이트박스는 자체 스크롤을 갖는다 — 페이지 스크롤을 붙잡지 않는다.
+// 훅은 조기 return 위에 (rules-of-hooks: 렌더마다 같은 순서·개수).
 export default function StepsPanel({ steps, compact = false }) {
   const [open, setOpen] = useState(false);
   const [mode, setMode] = useState("clean"); // "clean" | "full"
-  if (!steps?.clean) return null;
-  const url = mode === "full" ? steps.full : steps.clean;
+  const hasSteps = Boolean(steps?.clean);
 
   useEffect(() => {
     if (!open) return;
@@ -14,6 +14,9 @@ export default function StepsPanel({ steps, compact = false }) {
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [open]);
+
+  if (!hasSteps) return null;
+  const url = mode === "full" ? steps.full : steps.clean;
 
   return (
     <div className={`steps-block ${compact ? "steps-compact" : ""}`}>

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 
 // 설계 §11: LLM 분류 카테고리 — 사람용 칩 + JSON 값 표 (원본 값 그대로).
 const KOR = {
@@ -17,7 +17,7 @@ export default function CategoryPanel({ attributes, noiseLevel }) {
   const values = attributes.values || {};
   const uncertain = new Set(attributes.uncertain || []);
   const derivedFields = new Set((attributes.derived || []).map((d) => d.split("=")[0]));
-  const jsonPayload = { attributes, candidates, noise_level: noiseLevel };
+  const jsonPayload = { attributes, noise_level: noiseLevel };
   const label = (f) => KOR[f]?.[values[f]] || values[f];
 
   const copy = async () => {

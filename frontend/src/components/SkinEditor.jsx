@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import Skin3DViewer from './Skin3DViewer';
 import StepsPanel from './StepsPanel';
 

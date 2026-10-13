@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import Skin3DViewer from './components/Skin3DViewer';
 import SkinEditor from './components/SkinEditor';
 import CategoryPanel from './components/CategoryPanel';
@@ -229,7 +229,7 @@ function App() {
                     alt="입력 사진"
                     className="input-photo"
                   />
-                  <a href={inputPhoto} download={`input_${Date.now()}.png`} className="download-btn">
+                  <a href={inputPhoto} download="input_photo.png" className="download-btn">
                     사진 다운로드
                   </a>
                 </div>
