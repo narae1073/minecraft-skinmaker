@@ -477,3 +477,51 @@ h1 {
   font-size: 13px;
   color: #b45309;
 }
+
+/* --- 처리 과정 패널 (설계 §12) --- */
+.steps-details {
+  margin: 10px auto 6px;
+  max-width: 760px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 8px 16px 12px;
+  text-align: left;
+}
+.steps-details summary {
+  cursor: pointer;
+  color: #2563eb;
+  font-weight: bold;
+  user-select: none;
+}
+.steps-compact { margin: 12px 0 0; }
+
+.steps-toggle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 8px;
+}
+.steps-mode-btn {
+  padding: 4px 12px;
+  border: 1px solid #cbd5e1;
+  background: #fff;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 13px;
+}
+.steps-mode-btn.active {
+  background: #dbeafe;
+  border-color: #93c5fd;
+  color: #1d4ed8;
+  font-weight: bold;
+}
+.steps-fullsize-link { margin-left: auto; font-size: 13px; color: #2563eb; }
+
+.steps-image {
+  width: 100%;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  margin-top: 8px;
+  image-rendering: pixelated;
+}

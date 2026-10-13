@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import Skin3DViewer from './components/Skin3DViewer';
 import SkinEditor from './components/SkinEditor';
 import CategoryPanel from './components/CategoryPanel';
+import StepsPanel from './components/StepsPanel';
 import './App.css';
 
 function App() {
@@ -14,6 +15,7 @@ function App() {
   const [editorItem, setEditorItem] = useState(null); // SkinEditor 모달 대상 ({url, flatUrl})
   const [noiseLevel, setNoiseLevel] = useState(100); // 노이즈 세기 % (기본 100 = 현행, 설계 §9)
   const [catInfo, setCatInfo] = useState(null); // 분류 카테고리 {attributes, candidates, noiseLevel} (설계 §11)
+  const [steps, setSteps] = useState(null); // 처리 과정 시트 {clean, full} (설계 §12)
 
   // 사이드바 및 스킨 기록 관련 상태
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
@@ -49,6 +51,7 @@ function App() {
     setInputPhoto(null);
     setServerError('');
     setCatInfo(null);
+    setSteps(null);
 
     const formData = new FormData();
     formData.append('file', file);
@@ -79,6 +82,7 @@ function App() {
           candidates: data.data.candidates || [],
           noiseLevel: data.data.noise_level,
         });
+        setSteps(data.data.steps || null);
         setInputPhoto(data.data.input || null);
         // 스킨 생성이 완료되면 기존 기록(skinHistory) 뒤에 새 스킨들을 추가
         setSkinHistory(prev => [...prev, ...pairs]);
@@ -218,6 +222,7 @@ function App() {
               candidates={catInfo?.candidates}
               noiseLevel={catInfo?.noiseLevel}
             />
+            <StepsPanel steps={steps} />
             <div className="compare-grid">
               {inputPhoto && (
                 <div className="skin-card input-card">
@@ -254,7 +259,7 @@ function App() {
         )}
 
         {editorItem && (
-          <SkinEditor skin={editorItem} onClose={() => setEditorItem(null)} />
+          <SkinEditor skin={editorItem} steps={steps} onClose={() => setEditorItem(null)} />
         )}
 
         <footer className="footer">
