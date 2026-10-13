@@ -204,6 +204,30 @@ def test_generate_returns_steps_sheets():
         assert p.exists() and p.stat().st_size > 1000, url
 
 
+def test_generate_steps_flag_skips_sheets():
+    """설정 체크박스 (기본 해제): steps=0 → 시트 미생성, 응답 steps=null.
+    부재 → 기존 동작(생성). 진위 규칙은 parsing_on 관례와 동일."""
+    second = dict(GOOD, sleeve_len="long", hair_length="long")
+    post = lambda lvl: client(GOOD, second).post(
+        "/api/v1/generate-skin",
+        files={"file": ("m.jpg", PHOTO.open("rb").read(), "image/jpeg")},
+        data={} if lvl is None else {"steps": lvl},
+    )
+    r_off = post("0")
+    assert r_off.status_code == 200, r_off.text
+    data = r_off.json()["data"]
+    assert data["steps"] is None
+    token_off = Path(data["skins"][0]).name.split("_")[0]
+    assert not (A.STATIC_DIR / "steps" / f"{token_off}_steps.png").exists()
+
+    for truthy in ("1", "true", "on", "yes"):
+        r_on = post(truthy)
+        assert r_on.status_code == 200
+        assert r_on.json()["data"]["steps"] is not None
+    r_absent = post(None)
+    assert r_absent.json()["data"]["steps"] is not None  # 부재 = 기존 동작
+
+
 def test_non_image_rejected():
     r = client().post("/api/v1/generate-skin", files={"file": ("x.txt", b"hi", "text/plain")})
     assert r.status_code == 400

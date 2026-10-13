@@ -65,7 +65,7 @@ def health():
 
 
 @app.post("/api/v1/generate-skin")
-async def generate_skin(file: UploadFile = File(...), noise_level: str = Form(None)):
+async def generate_skin(file: UploadFile = File(...), noise_level: str = Form(None), steps: str = Form(None)):
     if not (file.content_type or "").startswith("image/"):
         fail(400, "not_image", "이미지 파일을 올려주세요.")
     # 노이즈 세기 (설계 §9): 부재=1.0, 가비지=400, 범위 밖 숫자는 [0,1] 클램프.
@@ -76,6 +76,9 @@ async def generate_skin(file: UploadFile = File(...), noise_level: str = Form(No
         except (TypeError, ValueError):
             fail(400, "bad_noise_level", f"noise_level은 숫자여야 해요: {noise_level!r}")
         level = min(1.0, max(0.0, level))
+    # 처리 과정 시트 (설계 §12): 진위 규칙은 parsing_on 관례. 부재=생성 (기존 동작),
+    # "0/false/off/no/빈값"=스킵 (설정 체크박스 기본 해제 → 웹이 명시 전송).
+    want_steps = (steps is None) or (str(steps).strip().lower() not in ("0", "false", "off", "no", ""))
     with tempfile.NamedTemporaryFile(suffix=Path(file.filename or "up.jpg").suffix or ".jpg") as tmp:
         raw = await file.read()
         tmp.write(raw)
@@ -113,12 +116,18 @@ async def generate_skin(file: UploadFile = File(...), noise_level: str = Form(No
     token = uuid.uuid4().hex[:12]
     input_name = f"input_{token}{Path(file.filename or 'up.jpg').suffix or '.jpg'}"
     (STATIC_DIR / input_name).write_bytes(raw)
-    # 처리 과정 시트 (설계 §12): 스킨 목록과 분리된 steps/ 하위폴더.
-    STEPS_DIR = STATIC_DIR / "steps"
-    STEPS_DIR.mkdir(exist_ok=True)
-    clean_sheet, full_sheet = steps_sheets(photo, candidates[0].image, "classic", observed, seg)
-    clean_sheet.convert("RGB").save(STEPS_DIR / f"{token}_steps.png")
-    full_sheet.convert("RGB").save(STEPS_DIR / f"{token}_steps_full.png")
+    # 처리 과정 시트 (설계 §12): 스킨 목록과 분리된 steps/ 하위폴더. 끄면 아예 미생성.
+    steps_urls = None
+    if want_steps:
+        STEPS_DIR = STATIC_DIR / "steps"
+        STEPS_DIR.mkdir(exist_ok=True)
+        clean_sheet, full_sheet = steps_sheets(photo, candidates[0].image, "classic", observed, seg)
+        clean_sheet.convert("RGB").save(STEPS_DIR / f"{token}_steps.png")
+        full_sheet.convert("RGB").save(STEPS_DIR / f"{token}_steps_full.png")
+        steps_urls = {
+            "clean": f"/static/steps/{token}_steps.png",
+            "full": f"/static/steps/{token}_steps_full.png",
+        }
     urls, flat_urls = [], []
     for c in candidates:
         name = f"{token}_c{c.index}.png"
@@ -146,10 +155,7 @@ async def generate_skin(file: UploadFile = File(...), noise_level: str = Form(No
                 {"index": c.index, "varied": c.varied} for c in candidates
             ],
             "noise_level": level,
-            "steps": {
-                "clean": f"/static/steps/{token}_steps.png",
-                "full": f"/static/steps/{token}_steps_full.png",
-            },
+            "steps": steps_urls,
         },
     }
 
