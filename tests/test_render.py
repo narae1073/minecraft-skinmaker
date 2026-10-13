@@ -269,6 +269,57 @@ def test_noise_irregular_clustering():
     assert len(tones) >= 3, tones
 
 
+# --- 노이즈 세기 noise_level (설계 §9) --------------------------------------
+
+def test_noise_level_zero_is_byte_identical_to_noiseless():
+    a = R.render(observed(), attrs(), (), "classic", noise_seed=7, noise_level=0.0)
+    b = R.render(observed(), attrs(), (), "classic")
+    assert a.image.tobytes() == b.image.tobytes()
+
+
+def test_noise_level_one_is_default():
+    a = R.render(observed(), attrs(), (), "classic", noise_seed=7, noise_level=1.0)
+    b = R.render(observed(), attrs(), (), "classic", noise_seed=7)
+    assert a.image.tobytes() == b.image.tobytes()
+
+
+def test_noise_level_scaled_step_helper():
+    assert R._scaled_step(0.92, 0.5) == 0.96
+    assert R._scaled_step(1.08, 0.5) == 1.04
+    assert R._scaled_step(1.0, 0.7) == 1.0
+    assert R._scaled_step(0.92, 0.0) == 1.0
+    assert R._scaled_step(1.08, 0.0) == 1.0
+
+
+def test_noise_level_monotone_between():
+    """톤된 픽셀의 값은 레벨에 따라 기저색과 최대치 사이에 놓인다 (단조)."""
+    base = R.render(observed(), attrs(), (), "classic")
+    half = R.render(observed(), attrs(), (), "classic", noise_seed=7, noise_level=0.5)
+    full = R.render(observed(), attrs(), (), "classic", noise_seed=7)
+    bp, hp, fp = base.image.load(), half.image.load(), full.image.load()
+    for y in range(64):
+        for x in range(64):
+            b, h, f = bp[x, y], hp[x, y], fp[x, y]
+            if f == b:
+                continue  # 톤 안 된 픽셀
+            for ch in range(3):
+                lo, hi = sorted((b[ch], f[ch]))
+                assert lo <= h[ch] <= hi, (x, y, ch, b, h, f)
+
+
+def test_noise_level_pattern_cells_invariant():
+    """톤 '대상 셀'은 레벨과 무관 — 낮은 레벨에서 달라진 픽셀 집합은
+    레벨 1의 집합의 부분집합 (라운딩으로 사라질 수는 있어도 생겨나지는 않는다)."""
+    base = R.render(observed(), attrs(), (), "classic")
+    lo = R.render(observed(), attrs(), (), "classic", noise_seed=7, noise_level=0.3)
+    hi = R.render(observed(), attrs(), (), "classic", noise_seed=7)
+    bp, lp, hp = base.image.load(), lo.image.load(), hi.image.load()
+    lo_set = {(x, y) for y in range(64) for x in range(64) if lp[x, y] != bp[x, y]}
+    hi_set = {(x, y) for y in range(64) for x in range(64) if hp[x, y] != bp[x, y]}
+    assert lo_set <= hi_set
+    assert len(hi_set) > 0
+
+
 
 def test_render_uses_only_binary_alpha():
     alpha = R.render(observed(), attrs(), (), "classic").image.getchannel("A")

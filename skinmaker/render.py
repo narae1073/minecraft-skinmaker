@@ -325,12 +325,14 @@ def render(
     model: str = "classic",
     *,
     noise_seed: int | None = None,
+    noise_level: float = 1.0,
     shoe_two_tone: bool = True,
 ) -> SkinCanvas:
     """S3 진입점. 입력 3개 → 검증 통과하는 캔버스 1개.
 
     noise_seed가 주어지면 마지막에 이산 톤 밴딩 패스 (설계 §2: 거울 대칭·결정론).
-    shoe_two_tone=False는 Edit Skin 토글 OFF 변형 (구 단색 신발 블록).
+    noise_level은 세기 배율 (§9): 0=무노이즈와 바이트 동일, 1=현행. 시드에 안 들어간다
+    (패턴 불변). shoe_two_tone=False는 Edit Skin 토글 OFF 변형 (구 단색 신발 블록).
     """
     canvas = SkinCanvas(model)
     colors = resolve_colors(observed)
@@ -342,7 +344,7 @@ def render(
     render_arms(canvas, colors, attrs, pattern, resolve_sleeve(attrs, observed))
     render_legs(canvas, colors, attrs, resolve_bottom(attrs, observed), shoe_two_tone=shoe_two_tone)
     if noise_seed is not None:
-        _apply_noise(canvas, noise_seed)
+        _apply_noise(canvas, noise_seed, noise_level)
     return canvas
 
 
@@ -384,10 +386,16 @@ def _noise_step(rng: random.Random) -> float:
     return 1.0
 
 
-def _apply_noise(canvas: SkinCanvas, seed: int) -> None:
+def _scaled_step(step: float, level: float) -> float:
+    """세기 배율 (설계 §9): s → 1 + (s-1)·level. 0=무노이즈, 1=현행, 패턴 불변."""
+    return 1.0 + (step - 1.0) * level
+
+
+def _apply_noise(canvas: SkinCanvas, seed: int, level: float = 1.0) -> None:
     """면 단위 rng로 불규칙 파절(1~3px) 밴딩. 계수 추출 시 u를 거울 정규화하지
     않으므로 좌우 팔다리는 독립적인 무늬를 얻는다 (기저색은 여전히 대칭, 노이즈만
-    비대칭 — validate mirror는 NOISE_TOL 톨러런스로 판정한다)."""
+    비대칭 — validate mirror는 NOISE_TOL 톨러런스로 판정한다).
+    level은 계수 크기만 배율한다 (0=무노이즈, 1=현행) — 패턴은 시드에만 의존."""
     px = canvas.image.load()
     for part in canvas.layout.parts.values():
         role = part.name[2:] if part.name.startswith(("l_", "r_")) else part.name
@@ -409,7 +417,7 @@ def _apply_noise(canvas: SkinCanvas, seed: int) -> None:
                             assigned.add((vv, uu))
             for v in range(face.h):
                 for u in range(face.w):
-                    k = grid[(v, u)]
+                    k = _scaled_step(grid[(v, u)], level)
                     if k == 1.0:
                         continue
                     x, y = face.x + u, face.y + v
