@@ -125,6 +125,16 @@ def test_candidates_have_seeds():
     assert len({c.noise_seed for c in out}) == 3
 
 
+def test_build_noise_level_zero_noiseless():
+    observed, result = setup(dict(BASE), dict(BASE))
+    lvl0 = S4.build(observed, result, noise_level=0.0)
+    from skinmaker.render import render
+    seedless = render(observed, lvl0[0].attributes, (), "classic")
+    seedless_flat = render(observed, lvl0[0].attributes, (), "classic", shoe_two_tone=False)
+    assert lvl0[0].image.tobytes() == seedless.image.tobytes()
+    assert lvl0[0].image_flat.tobytes() == seedless_flat.image.tobytes()
+
+
 def test_same_candidate_reproducible():
     first, second = dict(BASE), dict(BASE, sleeve_len="short", hair_length="very_long")
     out1 = S4.build(*setup(first, second))

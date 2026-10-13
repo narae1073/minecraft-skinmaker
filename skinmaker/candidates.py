@@ -49,6 +49,7 @@ def build(
     classification: Classification,
     degrade: tuple[str, ...] = (),
     model: str = "classic",
+    noise_level: float = 1.0,
 ) -> list[Candidate]:
     """후보 리스트. c1 = 첫째 답 그대로, c2/c3 = 불일치 필드 변형. 무순위."""
     merged = classification.attributes
@@ -79,8 +80,9 @@ def build(
         # 후보별 결정론 시드 (설계 §8.3): 중복 제거된 실제 순번이 인덱스.
         seed = derive_noise_seed(observed, attrs, tuple(degrade), len(out) + 1)
         # ON/OFF 쌍 (설계 §4): 같은 시드 — 노이즈는 동일, 신발 톤만 다르다.
-        canvas = render(observed, attrs, tuple(degrade), model, noise_seed=seed)
-        flat_canvas = render(observed, attrs, tuple(degrade), model, noise_seed=seed, shoe_two_tone=False)
+        # noise_level (§9): 세기 배율, 시드·패턴 불변.
+        canvas = render(observed, attrs, tuple(degrade), model, noise_seed=seed, noise_level=noise_level)
+        flat_canvas = render(observed, attrs, tuple(degrade), model, noise_seed=seed, noise_level=noise_level, shoe_two_tone=False)
         problems = tuple(
             str(p)
             for img in (canvas.image, flat_canvas.image)
