@@ -12,7 +12,7 @@ function App() {
   const [serverError, setServerError] = useState('');
   const [skins, setSkins] = useState([]); // 현재 결과: {url, flatUrl} 쌍 배열
   const [inputPhoto, setInputPhoto] = useState(null);
-  const [editorItem, setEditorItem] = useState(null); // SkinEditor 모달 대상 ({url, flatUrl})
+  const [editorItem, setEditorItem] = useState(null); // SkinEditor 모달 대상 ({url, flatUrl, steps})
   const [noiseLevel, setNoiseLevel] = useState(50); // 노이즈 세기 % (기본 50 — 사용자 결정 2026-10-13)
   const [showSteps, setShowSteps] = useState(false); // 처리 과정 표시 (기본 해제 — 사용자 결정)
   const [catInfo, setCatInfo] = useState(null); // 분류 카테고리 {attributes, candidates, noiseLevel} (설계 §11)
@@ -77,6 +77,7 @@ function App() {
           url,
           flatUrl: (data.data.skins_flat || [])[i] || null,
           varied: (data.data.candidates || [])[i]?.varied || "",
+          steps: data.data.steps || null, // 이 생성의 처리 과정 시트 — 사이드바 편집이 자기 세대의 시트를 연다 (후속 검토 1)
         }));
         setSkins(pairs);
         setCatInfo({
@@ -274,7 +275,7 @@ function App() {
         )}
 
         {editorItem && (
-          <SkinEditor skin={editorItem} steps={steps} onClose={() => setEditorItem(null)} />
+          <SkinEditor skin={editorItem} steps={editorItem.steps} onClose={() => setEditorItem(null)} />
         )}
 
         <footer className="footer">
