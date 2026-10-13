@@ -2,7 +2,7 @@
 
 ## 1. Project in one paragraph
 
-Photo → Minecraft 64×64 skin pipeline. **The VLM (Gemini) returns attribute JSON only; a code renderer paints the pixels.**
+Photo → Minecraft 64×64 skin pipeline.
 Stages: S0 quality/face detection (YuNet) → S1 colour measurement (white-balance + band/cascade) → S2 classification (double query, uncertainty flags) → SCHP human-parsing mask (colour localization for bottom/hair/shoes — **default ON** in code) → S3 parametric render (+ texture noise) → S4 candidates (1–3 variants from double-query disagreements) → web app (FastAPI + React 19 / three.js with 3D viewer & skin editor).
 
 ## 2. Current state (verified facts)
