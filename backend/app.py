@@ -124,6 +124,17 @@ async def generate_skin(file: UploadFile = File(...), noise_level: str = Form(No
             "skins_flat": flat_urls,
             "summary": summarize(sum_attrs, result.uncertain),
             "uncertain": list(result.uncertain),
+            # 분류 카테고리 구조화 JSON (설계 §11) — 웹이 표로 렌더한다.
+            "attributes": {
+                "values": dict(sum_attrs.values),
+                "uncertain": list(result.uncertain),
+                "derived": list(sum_attrs.derived),
+                "coerced": list(sum_attrs.coerced),
+            },
+            "candidates": [
+                {"index": c.index, "varied": c.varied} for c in candidates
+            ],
+            "noise_level": level,
         },
     }
 

@@ -161,6 +161,35 @@ def test_generate_upper_body_defaults_to_jeans():
         assert all(abs(p - q) <= 8 for p, q in zip(got, jeans)), (v, got, jeans)
 
 
+def test_generate_returns_category_payload():
+    """설계 §11: 분류 카테고리를 구조화 JSON으로 — 사용자가 본다."""
+    second = dict(GOOD, sleeve_len="long", hair_length="long")
+    with PHOTO.open("rb") as f:
+        r = client(GOOD, second).post("/api/v1/generate-skin", files={"file": ("m.jpg", f, "image/jpeg")})
+    assert r.status_code == 200, r.text
+    data = r.json()["data"]
+    a = data["attributes"]
+    for field in ("top_garment", "bottom_garment", "pattern", "sleeve_len", "hair_length"):
+        assert field in a["values"], a["values"]
+    assert a["uncertain"] == data["uncertain"]
+    cands = data["candidates"]
+    assert [c["index"] for c in cands] == [1, 2, 3]
+    assert cands[0]["varied"] == "as-answered"
+    assert cands[1]["varied"] != "as-answered"
+    assert data["noise_level"] == 1.0
+
+
+def test_generate_category_payload_records_derived():
+    """하체 미관측 jeans 기본이 발동하면 derived에 표기된다 (설계 §10·§11)."""
+    with UPPER_PHOTO.open("rb") as f:
+        r = client(dict(GOOD, bottom_garment="none"), None).post(
+            "/api/v1/generate-skin", files={"file": ("m.png", f, "image/png")})
+    assert r.status_code == 200, r.text
+    a = r.json()["data"]["attributes"]
+    assert a["values"]["bottom_garment"] == "jeans"
+    assert any("bottom_garment" in d for d in a["derived"]), a["derived"]
+
+
 def test_non_image_rejected():
     r = client().post("/api/v1/generate-skin", files={"file": ("x.txt", b"hi", "text/plain")})
     assert r.status_code == 400
