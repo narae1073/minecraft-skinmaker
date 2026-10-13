@@ -6,8 +6,12 @@ import StepsPanel from './StepsPanel';
 // 이후 옷 변경·피부 톤 등이 같은 자리에 붙는다 (v1은 신발 2톤뿐).
 export default function SkinEditor({ skin, steps, onClose }) {
   const [options, setOptions] = useState({ two_tone: true }); // 기본 ON
-  const texture = options.two_tone ? skin.url : (skin.flatUrl || skin.url);
-  const name = (texture || 'skin.png').split('/').pop().replace('.png', '');
+  // flatUrl이 없으면(구 응답) 2톤 OFF 변형이 존재하지 않는다 — 토글을 잠그고
+  // 표시 텍스처(2톤)와 일치하도록 ON으로 읽는다 (후속 검토 2).
+  const canFlat = Boolean(skin.flatUrl);
+  const twoTone = options.two_tone || !canFlat;
+  const texture = twoTone ? skin.url : skin.flatUrl;
+  const name = twoTone ? "skin_2tone" : "skin_flat"; // 토큰 대신 사람이 읽는 파일명 (후속 검토 2)
 
   return (
     <div className="editor-overlay" onClick={onClose}>
@@ -24,7 +28,8 @@ export default function SkinEditor({ skin, steps, onClose }) {
             <span>신발 2톤 (바닥 행 강조)</span>
             <input
               type="checkbox"
-              checked={options.two_tone}
+              checked={twoTone}
+              disabled={!canFlat}
               onChange={(e) => setOptions((o) => ({ ...o, two_tone: e.target.checked }))}
             />
           </label>
