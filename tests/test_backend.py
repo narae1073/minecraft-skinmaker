@@ -142,7 +142,7 @@ def test_generate_upper_body_defaults_to_jeans():
     from PIL import Image as PILImage
 
     from skinmaker.format import get_layout
-    from skinmaker.render import DEFAULT_JEANS, FACE_SHADE
+    from skinmaker.render import DEFAULT_JEANS, FACE_SHADE, NOISE_TOL
     from skinmaker.canvas import rgba, shade
 
     with UPPER_PHOTO.open("rb") as f:
@@ -158,7 +158,7 @@ def test_generate_upper_body_defaults_to_jeans():
     for v in range(9):
         got = img.getpixel((f.x + 1, f.y + v))[:3]
         # 파이프라인 렌더는 노이즈가 얹힌다 (설계 §3): 톨러런스 프로브.
-        assert all(abs(p - q) <= 8 for p, q in zip(got, jeans)), (v, got, jeans)
+        assert all(abs(p - q) <= NOISE_TOL for p, q in zip(got, jeans)), (v, got, jeans)
 
 
 def test_generate_returns_category_payload():
