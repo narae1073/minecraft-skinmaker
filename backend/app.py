@@ -90,7 +90,12 @@ async def generate_skin(file: UploadFile = File(...), noise_level: str = Form(No
     result = classify(photo, transport)
     if not result.ok:
         fail(*classify_error_status(result.error or ""))
-    observed = extract(photo, hair_bbox=result.hair_bbox_px)
+    # 파서 마스크는 요청당 1회 — 색 추출과 마스크 패널이 같은 세그먼트를 공유한다 (설계 §12).
+    from skinmaker import parsing as _parsing
+    from skinmaker.debugview import steps_sheets
+
+    seg = _parsing.bottom_mask(photo.image) if _parsing.parsing_on() else None
+    observed = extract(photo, hair_bbox=result.hair_bbox_px, seg=seg)
     # 하체 미관측 jeans 기본 (설계 §10): 요약이 텍스처와 어긋나지 않게 같은
     # resolve_bottom_ex 결정을 요약에도 반영한다 (derived 표기).
     resolved_bottom, bottom_is_default = resolve_bottom_ex(result.attributes, observed)
@@ -108,6 +113,12 @@ async def generate_skin(file: UploadFile = File(...), noise_level: str = Form(No
     token = uuid.uuid4().hex[:12]
     input_name = f"input_{token}{Path(file.filename or 'up.jpg').suffix or '.jpg'}"
     (STATIC_DIR / input_name).write_bytes(raw)
+    # 처리 과정 시트 (설계 §12): 스킨 목록과 분리된 steps/ 하위폴더.
+    STEPS_DIR = STATIC_DIR / "steps"
+    STEPS_DIR.mkdir(exist_ok=True)
+    clean_sheet, full_sheet = steps_sheets(photo, candidates[0].image, "classic", observed, seg)
+    clean_sheet.convert("RGB").save(STEPS_DIR / f"{token}_steps.png")
+    full_sheet.convert("RGB").save(STEPS_DIR / f"{token}_steps_full.png")
     urls, flat_urls = [], []
     for c in candidates:
         name = f"{token}_c{c.index}.png"
@@ -135,6 +146,10 @@ async def generate_skin(file: UploadFile = File(...), noise_level: str = Form(No
                 {"index": c.index, "varied": c.varied} for c in candidates
             ],
             "noise_level": level,
+            "steps": {
+                "clean": f"/static/steps/{token}_steps.png",
+                "full": f"/static/steps/{token}_steps_full.png",
+            },
         },
     }
 

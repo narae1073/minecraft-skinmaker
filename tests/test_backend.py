@@ -190,6 +190,20 @@ def test_generate_category_payload_records_derived():
     assert any("bottom_garment" in d for d in a["derived"]), a["derived"]
 
 
+def test_generate_returns_steps_sheets():
+    """설계 §12: 처리 과정 시트 (간단/QA) — steps/ 하위폴더에 저장, 응답 data.steps."""
+    second = dict(GOOD, sleeve_len="long", hair_length="long")
+    with PHOTO.open("rb") as f:
+        r = client(GOOD, second).post("/api/v1/generate-skin", files={"file": ("m.jpg", f, "image/jpeg")})
+    assert r.status_code == 200, r.text
+    steps = r.json()["data"]["steps"]
+    assert set(steps) == {"clean", "full"}
+    for url in steps.values():
+        assert url.startswith("/static/steps/")
+        p = A.STATIC_DIR / "steps" / Path(url).name
+        assert p.exists() and p.stat().st_size > 1000, url
+
+
 def test_non_image_rejected():
     r = client().post("/api/v1/generate-skin", files={"file": ("x.txt", b"hi", "text/plain")})
     assert r.status_code == 400
