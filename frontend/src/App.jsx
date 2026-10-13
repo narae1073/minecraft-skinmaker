@@ -13,7 +13,7 @@ function App() {
   const [skins, setSkins] = useState([]); // 현재 결과: {url, flatUrl} 쌍 배열
   const [inputPhoto, setInputPhoto] = useState(null);
   const [editorItem, setEditorItem] = useState(null); // SkinEditor 모달 대상 ({url, flatUrl})
-  const [noiseLevel, setNoiseLevel] = useState(100); // 노이즈 세기 % (기본 100 = 현행, 설계 §9)
+  const [noiseLevel, setNoiseLevel] = useState(50); // 노이즈 세기 % (기본 50 — 사용자 결정 2026-10-13)
   const [catInfo, setCatInfo] = useState(null); // 분류 카테고리 {attributes, candidates, noiseLevel} (설계 §11)
   const [steps, setSteps] = useState(null); // 처리 과정 시트 {clean, full} (설계 §12)
 

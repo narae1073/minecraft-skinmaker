@@ -148,3 +148,16 @@ render(observed, attrs, degrade, model, *, shoe_two_tone: bool = True,
   발동분 반영 = 요약과 동일 근거), `candidates [{index, varied}]`, `noise_level`.
   JSON 복사 버튼은 pretty-print 원본 JSON을 클립보드로.
 - 파이프라인·LLM 호출 변화 없음 (표시 전용). 검증: TestClient 2건 + build + 사람 확인.
+
+## 12. 처리 과정 이미지 (추가 2026-10-13, 표시 전용)
+
+- 결과 화면에 파이프라인 단계 이미지를 보여준다. 기존 QA 시트 디바이스
+  (debugview.build_panels/contact_sheet)를 웹으로 노출 + 신규 **마스크 패널**
+  (SCHP class map 색 오버레이 — 파싱 국소화 단계가 눈에 보이는 유일한 새 패널).
+- 두 벌 (웹 토글로 전환): **간단** s0(사진+얼굴박스) → mask → s1(색샘플) → atlas(64×64),
+  **전체 QA** s0 → s1 → atlas → uvmap → preview (+mask, seg 있을 때).
+- 비용: LLM 없음, PIL 만. 파서 마스크는 app.py에서 **1회** 계산해 extract와
+  패널에 같이 전달 (extract에 seg= 파라미터 추가 — 제공되면 재계산 안 함).
+- 저장: `backend/static/steps/{token}_steps.png` (간단) / `_{token}_steps_full.png`
+  (전체 QA) — 스킨 목록과 분리된 steps/ 하위폴더. 응답 `data.steps {clean, full}`.
+- 프론트: 결과 화면 + 편집기 모달에 접이식 "처리 과정" 섹션 (간단/QA 토글, 원본 크기 링크).
