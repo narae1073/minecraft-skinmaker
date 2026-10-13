@@ -138,3 +138,13 @@ render(observed, attrs, degrade, model, *, shoe_two_tone: bool = True,
   관측 '하의' 샘플은 상반신에서 오탐(셔츠 꼬리)이므로 쓰지 않는다.
 - **요약 정합**: app.py가 같은 결정을 summary에 반영 (derived 표기).
 - **실측**: 사용자 avif + ex6(half) → jeans 발동; istock 전신 → none 유지.
+
+## 11. 분류 카테고리 표시 (추가 2026-10-13, 표시 전용)
+
+- 결과 화면에 LLM 분류 카테고리를 보여준다: 사람용 칩 (한글 라벨, 미지 값은 원문 폴백,
+  불확실 필드 호박색, derived 표기 '*') + 접이식 **카테고리 JSON 표** (원본 JSON 값
+  그대로: values 5필드 · uncertain · derived · coerced · noise_level · 후보별 varied).
+- API 추가 필드: `attributes {values, uncertain, derived, coerced}` (jeans 기본
+  발동분 반영 = 요약과 동일 근거), `candidates [{index, varied}]`, `noise_level`.
+  JSON 복사 버튼은 pretty-print 원본 JSON을 클립보드로.
+- 파이프라인·LLM 호출 변화 없음 (표시 전용). 검증: TestClient 2건 + build + 사람 확인.

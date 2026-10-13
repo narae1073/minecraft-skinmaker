@@ -410,3 +410,70 @@ h1 {
   font-weight: bold;
   color: #1d4ed8;
 }
+
+/* --- 분류 결과 패널 (설계 §11) --- */
+.category-panel {
+  margin: 14px auto 6px;
+  max-width: 720px;
+  text-align: left;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 10px 16px;
+}
+.category-panel h3 { margin: 4px 0 8px; }
+
+.chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.chip {
+  background: #eff6ff;
+  color: #1e3a8a;
+  border: 1px solid #bfdbfe;
+  border-radius: 999px;
+  padding: 4px 12px;
+  font-size: 14px;
+}
+.chip-uncertain {
+  background: #fef9c3;
+  color: #854d0e;
+  border-color: #fde68a;
+}
+.chip em { font-style: normal; color: #b45309; }
+
+.json-details { margin-top: 10px; }
+.json-details summary {
+  cursor: pointer;
+  color: #2563eb;
+  font-weight: bold;
+  user-select: none;
+}
+.copy-json-btn {
+  margin: 8px 0;
+  padding: 4px 10px;
+  border: 1px solid #cbd5e1;
+  background: #fff;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 13px;
+}
+.copy-json-btn:hover { background: #f1f5f9; }
+
+.json-table {
+  border-collapse: collapse;
+  width: 100%;
+  font-family: ui-monospace, 'D2Coding', monospace;
+  font-size: 13px;
+}
+.json-table th, .json-table td {
+  border: 1px solid #e2e8f0;
+  padding: 4px 10px;
+  text-align: left;
+}
+.json-table th { background: #f1f5f9; }
+.row-uncertain td { background: #fffbeb; }
+.cand-table { margin-top: 10px; }
+
+.varied-note {
+  margin: 2px 0 4px;
+  font-size: 13px;
+  color: #b45309;
+}

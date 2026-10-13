@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import Skin3DViewer from './components/Skin3DViewer';
 import SkinEditor from './components/SkinEditor';
+import CategoryPanel from './components/CategoryPanel';
 import './App.css';
 
 function App() {
@@ -12,6 +13,7 @@ function App() {
   const [inputPhoto, setInputPhoto] = useState(null);
   const [editorItem, setEditorItem] = useState(null); // SkinEditor 모달 대상 ({url, flatUrl})
   const [noiseLevel, setNoiseLevel] = useState(100); // 노이즈 세기 % (기본 100 = 현행, 설계 §9)
+  const [catInfo, setCatInfo] = useState(null); // 분류 카테고리 {attributes, candidates, noiseLevel} (설계 §11)
 
   // 사이드바 및 스킨 기록 관련 상태
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
@@ -46,6 +48,7 @@ function App() {
     setSkins([]);
     setInputPhoto(null);
     setServerError('');
+    setCatInfo(null);
 
     const formData = new FormData();
     formData.append('file', file);
@@ -68,8 +71,14 @@ function App() {
         const pairs = (data.data.skins || []).map((url, i) => ({
           url,
           flatUrl: (data.data.skins_flat || [])[i] || null,
+          varied: (data.data.candidates || [])[i]?.varied || "",
         }));
         setSkins(pairs);
+        setCatInfo({
+          attributes: data.data.attributes || null,
+          candidates: data.data.candidates || [],
+          noiseLevel: data.data.noise_level,
+        });
         setInputPhoto(data.data.input || null);
         // 스킨 생성이 완료되면 기존 기록(skinHistory) 뒤에 새 스킨들을 추가
         setSkinHistory(prev => [...prev, ...pairs]);
@@ -204,6 +213,11 @@ function App() {
           <div className="result-section">
             <h2>생성된 64×64 스킨 후보 {skins.length}종</h2>
             <p className="compare-hint">원본 사진을 왼쪽에 두고 스킨을 비교해보세요 (3D 뷰어에서 회전도 가능)</p>
+            <CategoryPanel
+              attributes={catInfo?.attributes}
+              candidates={catInfo?.candidates}
+              noiseLevel={catInfo?.noiseLevel}
+            />
             <div className="compare-grid">
               {inputPhoto && (
                 <div className="skin-card input-card">
@@ -221,6 +235,9 @@ function App() {
               {skins.map((skin, index) => (
                 <div key={index} className="skin-card">
                   <h3>후보 {index + 1}</h3>
+                  {skin.varied && skin.varied !== "as-answered" && (
+                    <p className="varied-note">{skin.varied}</p>
+                  )}
                   <Skin3DViewer skinUrl={skin.url} />
                   <div className="card-actions">
                     <button className="edit-btn" onClick={() => setEditorItem(skin)}>
