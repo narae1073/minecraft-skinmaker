@@ -233,10 +233,6 @@ function App() {
           <div className="result-section">
             <h2>생성된 64×64 스킨 후보 {skins.length}종</h2>
             <p className="compare-hint">원본 사진을 왼쪽에 두고 스킨을 비교해보세요 (3D 뷰어에서 회전도 가능)</p>
-            <div className="analysis-row">
-              <CategoryPanel attributes={catInfo?.attributes} noiseLevel={catInfo?.noiseLevel} />
-              <StepsPanel steps={steps} />
-            </div>
             <div className="compare-grid">
               {inputPhoto && (
                 <div className="skin-card input-card">
@@ -268,6 +264,11 @@ function App() {
                   </div>
                 </div>
               ))}
+            </div>
+            {/* 순서 (사용자 지시): 원본+후보 행 → 분류 결과+처리 과정 행 */}
+            <div className={`analysis-row ${steps?.clean ? "" : "analysis-single"}`}>
+              <CategoryPanel attributes={catInfo?.attributes} noiseLevel={catInfo?.noiseLevel} />
+              <StepsPanel steps={steps} />
             </div>
           </div>
         )}

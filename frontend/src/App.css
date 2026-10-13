@@ -415,9 +415,11 @@ h1 {
   gap: 12px;
   align-items: start;
   max-width: 900px;
-  margin: 10px auto 6px;
+  margin: 18px auto 6px;
   text-align: left;
 }
+/* 처리 과정이 없으면(체크박스 off) 단일 열 — 빈 열이 분류 칩을 눌러놓지 않게 */
+.analysis-row.analysis-single { grid-template-columns: minmax(0, 1fr); }
 @media (max-width: 720px) {
   .analysis-row { grid-template-columns: 1fr; }
 }
