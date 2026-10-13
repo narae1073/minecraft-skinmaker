@@ -29,6 +29,7 @@ DEFAULT_MODEL = Path(__file__).resolve().parent.parent / "out" / "models" / "sch
 PANTS, SKIRT = 6, 5
 BOTTOM_CLASSES = (PANTS, SKIRT)
 HAIR = 2
+BARE_LEGS = (12, 13)  # Left/Right-leg 맨다리 피부 — 하체 관측 신호 (jeans 기본 룰)
 SHOES = (9, 10)  # Left-shoe, Right-shoe
 
 MEAN = np.array([0.406, 0.456, 0.485], np.float32)  # RGB 순서, BGR 인덱스 관례 (repo 문서)

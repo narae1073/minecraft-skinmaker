@@ -218,6 +218,7 @@ class ObservedColors:
     cover: CoverEstimate | None = None
     bottom_plausible: bool = True  # 하의 측정이 피부도 배경도 아니다 (렌더 폴백 정책 입력)
     shoe: ColorSample = MISSING
+    lower_body_seen: bool | None = None  # 파서가 하의/맨다리 픽셀을 봤는가 (None=판단 불가)
 
     @property
     def top_confident(self) -> bool:
@@ -374,9 +375,16 @@ def extract(
     # 실패가 전부 나아진 경로다. 불가/실패/빈 마스크는 현행 결과를 유지하고,
     # bottom_plausible은 아래 공통 경로로 일관 재계산된다.
     shoe = MISSING
+    lower_body_seen = None  # 파서 꺼짐/실패 → 판단 불가 (jeans 기본 미적용)
     if parsing.parsing_on():
         seg = parsing.bottom_mask(photo.image)
         if seg is not None:
+            # 하체 관측 신호 (사용자 룰 2026-10-13): 하의(Pants/Skirt)나 맨다리
+            # 피부 픽셀이 하나라도 있으면 하체가 프레임에 있다.
+            lower_body_seen = bool(
+                np.isin(seg, parsing.BOTTOM_CLASSES).any()
+                or np.isin(seg, parsing.BARE_LEGS).any()
+            )
             cls_mask = np.isin(seg, parsing.BOTTOM_CLASSES)
             if cls_mask.any():
                 # SKIN_REF 앵커 WB는 따뜻한 피부를 중립으로 밀며 옅은 노랑까지
@@ -437,6 +445,7 @@ def extract(
         skin, hair, top, bottom, applied, wb_ok, skin_chroma, top_alt, stripe, cover,
         bottom_plausible=_bottom_plausible(bottom, parsing_bg, parsing_bg_luma),
         shoe=shoe,
+        lower_body_seen=lower_body_seen,
     )
 
 

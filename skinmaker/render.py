@@ -32,6 +32,7 @@ DEFAULT_SKIN = "#e0ac69"
 DEFAULT_HAIR = "#3a2a1c"
 DEFAULT_TOP = "#5a5a5a"
 DEFAULT_BOTTOM = "#3c4450"
+DEFAULT_JEANS = "#3b5a86"  # 하체 미관측 jeans 기본 — 클래식 데님 청색 (사용자 결정)
 SHOE = "#2b2b2b"
 
 # 소매 길이 → 셔츠가 덮는 행(0-based, 끝 포함). 나머지는 피부+손.
@@ -115,16 +116,30 @@ def resolve_sleeve(attrs: Attributes, observed: ObservedColors) -> str:
     return attrs.get("sleeve_len")
 
 
-def resolve_bottom(attrs: Attributes, observed: ObservedColors) -> str:
-    """VLM 확신값 > S1 측정(길이만) > 기본값. 측정은 스타일이 아니라 길이만 본다."""
+def resolve_bottom_ex(attrs: Attributes, observed: ObservedColors) -> tuple[str, bool]:
+    """VLM 확신값 > S1 측정(길이만) > 기본값. 측정은 스타일이 아니라 길이만 본다.
+
+    반환: (bottom_garment, 하체미관측_기본_발동여부). 발동 시 렌더가 jeans 기본색
+    (#3b5a86)을 쓴다 — 상반신 사진의 관측 '하의' 샘플은 셔츠 꼬리 같은 오탐이다.
+    """
+    seen = observed.lower_body_seen
+    def _default(v: str) -> tuple[str, bool]:
+        # 맨다리가 보이는 전신 사진은 none 유지 (D3); 드레스는 밑단 가림 (가드).
+        if v == "none" and seen is False and attrs.get("top_garment") != "dress":
+            return "jeans", True
+        return v, False
     if "bottom_garment" not in attrs.coerced and "bottom_garment" not in attrs.missing:
-        return attrs.get("bottom_garment")
+        return _default(attrs.get("bottom_garment"))
     cover = observed.cover
     if cover is not None and cover.bottom_len == "long":
-        return "jeans" if denim_like(observed.bottom.rgb) else "pants"
+        return "jeans" if denim_like(observed.bottom.rgb) else "pants", False
     if cover is not None and cover.bottom_len == "short":
-        return "shorts"
-    return attrs.get("bottom_garment")
+        return "shorts", False
+    return _default(attrs.get("bottom_garment"))
+
+
+def resolve_bottom(attrs: Attributes, observed: ObservedColors) -> str:
+    return resolve_bottom_ex(attrs, observed)[0]
 
 
 def effective_pattern(pattern: str, observed: ObservedColors, attrs: Attributes, degrade: tuple[str, ...]) -> str:
@@ -336,13 +351,18 @@ def render(
     """
     canvas = SkinCanvas(model)
     colors = resolve_colors(observed)
+    resolved_bottom, bottom_is_default = resolve_bottom_ex(attrs, observed)
+    if bottom_is_default:
+        # 하체 미관측 jeans 기본: 관측 '하의' 샘플은 오탐(셔츠 꼬리 등)이므로
+        # 측정색 대신 클래식 데님 청색을 쓴다 (사용자 결정 2026-10-13).
+        colors["bottom"] = rgba(DEFAULT_JEANS)
     pattern = effective_pattern(attrs.get("pattern"), observed, attrs, tuple(degrade))
     # 측정 2색(줄무늬)이 있을 때만 실측 보조색. 없으면 합성 음영.
     alt = colors["top_alt"] if not observed.top_alt.missing and pattern in ("vertical_stripe", "horizontal_stripe") else None
     render_head(canvas, colors, attrs)
     render_body(canvas, colors, attrs, pattern, alt)
     render_arms(canvas, colors, attrs, pattern, resolve_sleeve(attrs, observed))
-    render_legs(canvas, colors, attrs, resolve_bottom(attrs, observed), shoe_two_tone=shoe_two_tone)
+    render_legs(canvas, colors, attrs, resolved_bottom, shoe_two_tone=shoe_two_tone)
     if noise_seed is not None:
         _apply_noise(canvas, noise_seed, noise_level)
     return canvas

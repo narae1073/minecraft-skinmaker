@@ -133,6 +133,34 @@ def test_generate_noise_level_contract():
     assert b7 == b1          # 7은 [0,1]로 클램프 → 1과 동일
 
 
+UPPER_PHOTO = Path(__file__).resolve().parent.parent / "out" / "fixed10" / "ex6(half).png"
+
+
+@pytest.mark.skipif(not UPPER_PHOTO.exists(), reason="픽스처 없음(out/ 미포함 클론)")
+def test_generate_upper_body_defaults_to_jeans():
+    """상반신 사진 + S2 bottom=none → 스킨은 jeans 행, summary도 jeans (설계 §10)."""
+    from PIL import Image as PILImage
+
+    from skinmaker.format import get_layout
+    from skinmaker.render import DEFAULT_JEANS, FACE_SHADE
+    from skinmaker.canvas import rgba, shade
+
+    with UPPER_PHOTO.open("rb") as f:
+        r = client(dict(GOOD, bottom_garment="none"), None).post(
+            "/api/v1/generate-skin", files={"file": ("m.png", f, "image/png")})
+    assert r.status_code == 200, r.text
+    body = r.json()["data"]
+    assert "bottom_garment=jeans" in body["summary"], body["summary"]
+    img = PILImage.open(A.STATIC_DIR / Path(body["skins"][0]).name).convert("RGBA")
+    L = get_layout("classic")
+    f = L.face("r_leg", "front", 0)
+    jeans = shade(rgba(DEFAULT_JEANS), FACE_SHADE["front"])[:3]
+    for v in range(9):
+        got = img.getpixel((f.x + 1, f.y + v))[:3]
+        # 파이프라인 렌더는 노이즈가 얹힌다 (설계 §3): 톨러런스 프로브.
+        assert all(abs(p - q) <= 8 for p, q in zip(got, jeans)), (v, got, jeans)
+
+
 def test_non_image_rejected():
     r = client().post("/api/v1/generate-skin", files={"file": ("x.txt", b"hi", "text/plain")})
     assert r.status_code == 400

@@ -9,6 +9,7 @@
 """
 from __future__ import annotations
 
+import dataclasses
 import os
 import tempfile
 import uuid
@@ -20,6 +21,7 @@ from fastapi.staticfiles import StaticFiles
 from skinmaker.attributes import summarize
 from skinmaker.candidates import build
 from skinmaker.classify import classify
+from skinmaker.render import resolve_bottom_ex
 from skinmaker.colors import extract
 from skinmaker.quality import inspect
 from skinmaker.vlm import get_transport
@@ -89,6 +91,17 @@ async def generate_skin(file: UploadFile = File(...), noise_level: str = Form(No
     if not result.ok:
         fail(*classify_error_status(result.error or ""))
     observed = extract(photo, hair_bbox=result.hair_bbox_px)
+    # 하체 미관측 jeans 기본 (설계 §10): 요약이 텍스처와 어긋나지 않게 같은
+    # resolve_bottom_ex 결정을 요약에도 반영한다 (derived 표기).
+    resolved_bottom, bottom_is_default = resolve_bottom_ex(result.attributes, observed)
+    sum_attrs = result.attributes
+    if bottom_is_default and resolved_bottom != result.attributes.get("bottom_garment"):
+        values = dict(result.attributes.values)
+        values["bottom_garment"] = resolved_bottom
+        sum_attrs = dataclasses.replace(
+            result.attributes, values=values,
+            derived=(*result.attributes.derived, "bottom_garment=jeans (하체 미관측 기본)"),
+        )
     candidates = build(observed, result, photo.degrade, noise_level=level)
     if not candidates or not all(c.ok for c in candidates):
         fail(500, "render_failed", "렌더 검증 실패. 같은 사진으로 다시 시도해주세요.")
@@ -109,7 +122,7 @@ async def generate_skin(file: UploadFile = File(...), noise_level: str = Form(No
             "input": f"/static/skins/{input_name}",
             "skins": urls,
             "skins_flat": flat_urls,
-            "summary": summarize(result.attributes, result.uncertain),
+            "summary": summarize(sum_attrs, result.uncertain),
             "uncertain": list(result.uncertain),
         },
     }

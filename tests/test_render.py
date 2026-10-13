@@ -213,6 +213,37 @@ def test_shoe_two_tone_off_is_flat():
         assert c == shade(shoe, 1.0)[:3], (v, c)
 
 
+# --- 하체 미관측 → jeans 기본 (사용자 요청 2026-10-13) ----------------------
+
+def test_resolve_bottom_defaults_jeans_when_lower_body_unseen():
+    obs = dataclasses.replace(observed(), lower_body_seen=False)
+    assert R.resolve_bottom(attrs(bottom_garment="none"), obs) == "jeans"
+
+
+def test_resolve_bottom_keeps_none_when_legs_visible():
+    """맨다리가 보이는 전신 사진은 여전히 none (설계 D3 유지)."""
+    obs = dataclasses.replace(observed(), lower_body_seen=True)
+    assert R.resolve_bottom(attrs(bottom_garment="none"), obs) == "none"
+
+
+def test_resolve_bottom_dress_guard():
+    """드레스 아래 청바지가 밀려 나오지 않게 — dress면 none 유지."""
+    obs = dataclasses.replace(observed(), lower_body_seen=False)
+    assert R.resolve_bottom(attrs(bottom_garment="none", top_garment="dress"), obs) == "none"
+
+
+def test_render_jeans_default_colour_and_rows():
+    obs = dataclasses.replace(observed(), lower_body_seen=False)
+    canvas = R.render(obs, attrs(bottom_garment="none"), (), "classic")
+    f = get_layout("classic").face("r_leg", "front", 0)
+    jeans = shade(rgba(R.DEFAULT_JEANS), 1.0)[:3]
+    for v in range(9):
+        assert canvas.image.getpixel((f.x + 1, f.y + v))[:3] == jeans, v
+    shoe = rgba("#2b2b2b")  # 관측 shoe 없음 → SHOE 폴백
+    assert canvas.image.getpixel((f.x + 1, f.y + 9))[:3] == shade(shoe, 1.35)[:3]
+    assert canvas.image.getpixel((f.x + 1, f.y + 11))[:3] == shade(shoe, 0.62)[:3]
+
+
 # --- 텍스처 노이즈 (설계 §2: 이산 톤 밴딩, 거울 대칭, 결정론 시드) -----------
 
 def test_noise_same_seed_same_texture():

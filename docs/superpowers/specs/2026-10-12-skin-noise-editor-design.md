@@ -124,3 +124,17 @@ render(observed, attrs, degrade, model, *, shoe_two_tone: bool = True,
   토큰별 관측치 저장 + 재렌더 엔드포인트가 필요 — 별도 과제 (phase 2), 여기선 안 함.
 - **테스트**: level 0 바이트 동일 · 단조성 (0.5 값이 기저와 1.0 사이) · 패턴 셀 불변
   (계수 공간) · API 부재/가비지/클램프 · 기존 후보·렌더 테스트 무변 (기본 1.0).
+
+## 10. 하체 미관측 → jeans 기본 (추가 2026-10-13, 사용자 요청)
+
+- **현상**: 상반신 사진에서 S2가 bottom="none" (크롭에 하의 없음) → 렌더가 맨다리+신발.
+  뷰어 결함 아님 — 텍스처 자체가 맨다리였다 (픽셀 덤프로 확인).
+- **신호**: `ObservedColors.lower_body_seen` (colors.extract, 파서 마스크:
+  Pants/Skirt px 또는 BARE_LEGS(12,13) px 존재). None=파서 꺼짐/실패(기본 미적용).
+- **룰** (`render.resolve_bottom_ex` → (garment, default발동)):
+  S2 확신값 "none" + lower_body_seen is False + top != "dress" → **"jeans", True**.
+  맨다리 보이는 전신은 none 유지 (D3 유지), 드레스 가드.
+- **색**: 발동 시 `DEFAULT_JEANS = #3b5a86` (클래식 데님 청색, 사용자 결정) —
+  관측 '하의' 샘플은 상반신에서 오탐(셔츠 꼬리)이므로 쓰지 않는다.
+- **요약 정합**: app.py가 같은 결정을 summary에 반영 (derived 표기).
+- **실측**: 사용자 avif + ex6(half) → jeans 발동; istock 전신 → none 유지.

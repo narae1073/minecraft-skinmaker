@@ -324,6 +324,37 @@ def test_short_bottom_len_resolves_to_shorts():
     assert R.resolve_bottom(A.EMPTY, obs) == "shorts"
 
 
+# --- 하체 미관측 → jeans 기본 (사용자 요청 2026-10-13) ----------------------
+
+def _bust_photo():
+    img = Image.new("RGB", (512, 512), (180, 150, 140))
+    face = Q.FaceBox(212, 198, 135, 191)
+    return Q.PhotoInput("t.jpg", img, face, Q.Quality(0.9, face.area, 120.0, 400.0, 110.0, True), ())
+
+
+def test_extract_marks_lower_body_seen(monkeypatch):
+    """파서 마스크가 하의(Pants/Skirt)나 맨다리 픽셀을 보면 True, 상체만 보면 False."""
+    import numpy as np
+    from skinmaker import parsing as P
+
+    monkeypatch.setenv(P.PARSING_ENV, "1")
+    seg_pants = np.zeros((512, 512), np.uint8)
+    seg_pants[300:400, 200:300] = 6
+    monkeypatch.setattr(P, "bottom_mask", lambda im: seg_pants)
+    assert C.extract(_bust_photo()).lower_body_seen is True
+
+    seg_upper = np.zeros((512, 512), np.uint8)
+    seg_upper[100:200, 200:300] = 4
+    monkeypatch.setattr(P, "bottom_mask", lambda im: seg_upper)
+    assert C.extract(_bust_photo()).lower_body_seen is False
+
+
+def test_extract_lower_body_seen_unknown_without_parser(monkeypatch):
+    """파서 꺼짐 → 판단 불가(None). jeans 기본은 파서가 본 경우에만 적용한다."""
+    monkeypatch.setenv(C.parsing.PARSING_ENV, "0")
+    assert C.extract(_bust_photo()).lower_body_seen is None
+
+
 def test_extract_returns_missing_when_no_face():
     p = Q.PhotoInput("t.jpg", Image.new("RGB", (100, 100)), None, None, ())
     o = C.extract(p)
