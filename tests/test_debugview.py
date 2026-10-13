@@ -180,6 +180,19 @@ def test_steps_sheets_clean_and_full():
     assert full.height >= clean.height  # 전체 QA가 패널이 더 많다
 
 
+def test_contact_sheet_columns_grid_is_compact():
+    """columns>1: 세로 스택 대신 격자 — 인라인 썸네일이 6000px 벽이 되지 않게."""
+    img = Image.new("RGB", (200, 300), (120, 100, 90))
+    face = Q.FaceBox(60, 40, 80, 100)
+    photo = Q.PhotoInput("t.jpg", img, face, Q.Quality(0.9, face.area, 120.0, 400.0, 110.0, True), ())
+    panels = build_panels(photo, build_placeholder("classic").image, "classic", which=("s0", "atlas"))
+    stacked = contact_sheet(panels)
+    grid = contact_sheet(panels, columns=2)
+    assert grid.width > stacked.width          # 가로로 펼쳐졌다
+    assert grid.height < stacked.height         # 세로로 짧아졌다
+    assert grid.width == 2 * PANEL_W + 10       # 2열 + PAD
+
+
 def test_extract_reuses_provided_seg(monkeypatch):
     """seg를 제공하면 bottom_mask를 다시 부르지 않는다 (파서 2회 비행 방지)."""
     import numpy as np

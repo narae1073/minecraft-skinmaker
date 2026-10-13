@@ -317,9 +317,12 @@ def panel_mask(photo: PhotoInput, seg) -> Panel:
 
 
 def steps_sheets(photo: PhotoInput, skin: Image.Image, model: str, observed=None, seg=None):
-    """(간단, 전체QA) 두 벌의 contact sheet. skin은 후보 1 렌더 (설계 §12)."""
-    clean = contact_sheet(build_panels(photo, skin, model, observed, which=PANEL_STRIP, seg=seg))
-    full = contact_sheet(build_panels(photo, skin, model, observed, which=PANELS, seg=seg))
+    """(간단, 전체QA) 두 벌의 contact sheet. skin은 후보 1 렌더 (설계 §12).
+
+    2열 격자 — 인라인 썸네일/라이트박스가 세로 6000px 벽이 되지 않는다.
+    """
+    clean = contact_sheet(build_panels(photo, skin, model, observed, which=PANEL_STRIP, seg=seg), columns=2)
+    full = contact_sheet(build_panels(photo, skin, model, observed, which=PANELS, seg=seg), columns=2)
     return clean, full
 
 
@@ -351,14 +354,21 @@ def build_panels(photo: PhotoInput, skin: Image.Image | None, model: str, observ
     return out
 
 
-def contact_sheet(panels: list[Panel], w: int = PANEL_W) -> Image.Image:
+def contact_sheet(panels: list[Panel], w: int = PANEL_W, columns: int = 1) -> Image.Image:
+    """패널 격자. columns=1 이면 기존 세로 스택 (CLI 호환)."""
     if not panels:
         return Image.new("RGBA", (w, CAPTION_H), BG)
     imgs = [p.render(w) for p in panels]
-    total_h = sum(i.height for i in imgs) + PAD * (len(imgs) - 1)
-    out = Image.new("RGBA", (w, total_h), BG)
+    columns = max(1, min(columns, len(imgs)))
+    rows = [imgs[i : i + columns] for i in range(0, len(imgs), columns)]
+    total_w = columns * w + PAD * (columns - 1)
+    total_h = sum(max(i.height for i in row) for row in rows) + PAD * (len(rows) - 1)
+    out = Image.new("RGBA", (total_w, total_h), BG)
     y = 0
-    for i in imgs:
-        out.paste(i, (0, y))
-        y += i.height + PAD
+    for row in rows:
+        x = 0
+        for i in row:
+            out.paste(i, (x, y))
+            x += i.width + PAD
+        y += max(i.height for i in row) + PAD
     return out

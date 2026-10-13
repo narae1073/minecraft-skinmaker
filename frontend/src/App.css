@@ -46,11 +46,16 @@ h1 {
 }
 
 .upload-section {
-  margin: 30px 0;
-  padding: 30px;
+  margin: 20px 0;
+  padding: 18px 20px;
   border: 2px dashed #cbd5e1;
   border-radius: 8px;
   background: rgba(248, 250, 252, 0.8);
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
 }
 
 /* 메인 변환하기 버튼 */
@@ -147,10 +152,7 @@ h1 {
 ======================================== */
 .loading-overlay {
   position: fixed;
-  top: 0;
-  left: 0;
-  width: 100vw;
-  height: 100vh;
+  inset: 0;
   background: rgba(0, 0, 0, 0.75);
   display: flex;
   flex-direction: column;
@@ -343,7 +345,7 @@ h1 {
 
 .card-actions {
   display: flex;
-  gap: 8px;
+  gap: 6px;
   justify-content: center;
   flex-wrap: wrap;
 }
@@ -398,12 +400,11 @@ h1 {
 .noise-slider-row {
   display: flex;
   align-items: center;
-  gap: 10px;
-  justify-content: center;
-  margin: 10px 0 4px;
+  gap: 8px;
+  margin: 0;
 }
-.noise-slider-row label { font-size: 15px; color: #334155; }
-.noise-slider-row input[type="range"] { width: 220px; accent-color: #2563eb; }
+.noise-slider-row label { font-size: 14px; color: #334155; }
+.noise-slider-row input[type="range"] { width: 160px; accent-color: #2563eb; }
 .noise-readout {
   min-width: 48px;
   font-variant-numeric: tabular-nums;
@@ -411,26 +412,36 @@ h1 {
   color: #1d4ed8;
 }
 
-/* --- 분류 결과 패널 (설계 §11) --- */
-.category-panel {
-  margin: 14px auto 6px;
-  max-width: 720px;
+/* --- 분석 정보 (정리: 분류 칩 + 처리 과정 썸네일을 한 줄에, 설계 §11·§12) --- */
+.analysis-row {
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
+  gap: 12px;
+  align-items: start;
+  max-width: 900px;
+  margin: 10px auto 6px;
   text-align: left;
+}
+@media (max-width: 720px) {
+  .analysis-row { grid-template-columns: 1fr; }
+}
+
+.category-panel {
   background: #f8fafc;
   border: 1px solid #e2e8f0;
   border-radius: 10px;
-  padding: 10px 16px;
+  padding: 10px 14px;
 }
-.category-panel h3 { margin: 4px 0 8px; }
+.category-panel h3 { margin: 0 0 8px; font-size: 16px; }
 
-.chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; }
 .chip {
   background: #eff6ff;
   color: #1e3a8a;
   border: 1px solid #bfdbfe;
   border-radius: 999px;
-  padding: 4px 12px;
-  font-size: 14px;
+  padding: 3px 10px;
+  font-size: 13px;
 }
 .chip-uncertain {
   background: #fef9c3;
@@ -439,21 +450,22 @@ h1 {
 }
 .chip em { font-style: normal; color: #b45309; }
 
-.json-details { margin-top: 10px; }
+.json-details { margin-top: 8px; }
 .json-details summary {
   cursor: pointer;
   color: #2563eb;
   font-weight: bold;
   user-select: none;
+  font-size: 14px;
 }
 .copy-json-btn {
-  margin: 8px 0;
-  padding: 4px 10px;
+  margin: 6px 0;
+  padding: 3px 10px;
   border: 1px solid #cbd5e1;
   background: #fff;
   border-radius: 6px;
   cursor: pointer;
-  font-size: 13px;
+  font-size: 12px;
 }
 .copy-json-btn:hover { background: #f1f5f9; }
 
@@ -461,46 +473,100 @@ h1 {
   border-collapse: collapse;
   width: 100%;
   font-family: ui-monospace, 'D2Coding', monospace;
-  font-size: 13px;
+  font-size: 12px;
 }
 .json-table th, .json-table td {
   border: 1px solid #e2e8f0;
-  padding: 4px 10px;
+  padding: 3px 8px;
   text-align: left;
 }
 .json-table th { background: #f1f5f9; }
 .row-uncertain td { background: #fffbeb; }
-.cand-table { margin-top: 10px; }
 
 .varied-note {
   margin: 2px 0 4px;
-  font-size: 13px;
+  font-size: 12px;
   color: #b45309;
 }
 
-/* --- 처리 과정 패널 (설계 §12) --- */
-.steps-details {
-  margin: 10px auto 6px;
-  max-width: 760px;
-  background: #f8fafc;
+/* 결과 영역은 스크롤 앵커링에 붙잡히지 않는다 (이미지 로드 중 위로 못 올라가던 문제) */
+.result-section { overflow-anchor: none; }
+
+/* --- 처리 과정 (설계 §12 개정: 썸네일 + 라이트박스) --- */
+.steps-block { text-align: left; }
+
+.steps-thumb-btn {
+  display: block;
+  width: 100%;
+  padding: 0;
   border: 1px solid #e2e8f0;
   border-radius: 10px;
-  padding: 8px 16px 12px;
-  text-align: left;
+  background: #f8fafc;
+  cursor: zoom-in;
+  overflow: hidden;
+  position: relative;
 }
-.steps-details summary {
-  cursor: pointer;
+/* 썸네일은 높이 고정 + 위쪽 잘라 보기 — 레이아웃 흔들림 없음 (설계 §12 정리) */
+.steps-thumb {
+  display: block;
+  width: 100%;
+  height: 150px;
+  object-fit: cover;
+  object-position: top center;
+  image-rendering: pixelated;
+}
+.steps-thumb-label {
+  display: block;
+  padding: 4px 0;
+  font-size: 13px;
   color: #2563eb;
-  font-weight: bold;
-  user-select: none;
+  background: #eff6ff;
+  border-top: 1px solid #dbeafe;
 }
-.steps-compact { margin: 12px 0 0; }
+.steps-compact .steps-thumb { height: 110px; }
 
-.steps-toggle {
+/* 라이트박스: 자체 스크롤 — 페이지 스크롤을 잡지 않는다 */
+.lightbox-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.7);
   display: flex;
   align-items: center;
-  gap: 6px;
-  margin-top: 8px;
+  justify-content: center;
+  z-index: 1100;
+}
+.lightbox {
+  background: #fff;
+  border-radius: 12px;
+  width: min(1000px, 94vw);
+  max-height: 90vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.lightbox-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  border-bottom: 1px solid #e2e8f0;
+}
+.lightbox-head h3 { margin: 0; font-size: 17px; }
+.lightbox-modes { display: flex; gap: 6px; margin-left: auto; }
+.lightbox-close {
+  border: none;
+  background: none;
+  font-size: 18px;
+  cursor: pointer;
+  color: #64748b;
+}
+.lightbox-body { overflow: auto; padding: 10px 14px 16px; }
+.steps-image {
+  display: block;
+  width: 100%;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  image-rendering: pixelated;
 }
 .steps-mode-btn {
   padding: 4px 12px;
@@ -515,13 +581,4 @@ h1 {
   border-color: #93c5fd;
   color: #1d4ed8;
   font-weight: bold;
-}
-.steps-fullsize-link { margin-left: auto; font-size: 13px; color: #2563eb; }
-
-.steps-image {
-  width: 100%;
-  border: 1px solid #e2e8f0;
-  border-radius: 6px;
-  margin-top: 8px;
-  image-rendering: pixelated;
 }

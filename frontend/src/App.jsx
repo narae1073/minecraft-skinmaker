@@ -194,35 +194,32 @@ function App() {
         
         <div className="upload-section">
           <input type="file" accept="image/jpeg, image/png" onChange={handleFileChange} />
+          <div className="noise-slider-row" title="0% = 노이즈 없음">
+            <label htmlFor="noise-level">노이즈</label>
+            <input
+              id="noise-level"
+              type="range"
+              min="0"
+              max="100"
+              step="5"
+              value={noiseLevel}
+              onChange={(e) => setNoiseLevel(Number(e.target.value))}
+            />
+            <span className="noise-readout">{noiseLevel}%</span>
+          </div>
           <button onClick={handleGenerate} disabled={isLoading} className="generate-btn">
             {isLoading ? '생성 중...' : '스킨 변환하기'}
           </button>
-        </div>
-
-        <div className="noise-slider-row" title="0% = 노이즈 없음">
-          <label htmlFor="noise-level">노이즈 강도</label>
-          <input
-            id="noise-level"
-            type="range"
-            min="0"
-            max="100"
-            step="5"
-            value={noiseLevel}
-            onChange={(e) => setNoiseLevel(Number(e.target.value))}
-          />
-          <span className="noise-readout">{noiseLevel}%</span>
         </div>
 
         {skins.length > 0 && (
           <div className="result-section">
             <h2>생성된 64×64 스킨 후보 {skins.length}종</h2>
             <p className="compare-hint">원본 사진을 왼쪽에 두고 스킨을 비교해보세요 (3D 뷰어에서 회전도 가능)</p>
-            <CategoryPanel
-              attributes={catInfo?.attributes}
-              candidates={catInfo?.candidates}
-              noiseLevel={catInfo?.noiseLevel}
-            />
-            <StepsPanel steps={steps} />
+            <div className="analysis-row">
+              <CategoryPanel attributes={catInfo?.attributes} noiseLevel={catInfo?.noiseLevel} />
+              <StepsPanel steps={steps} />
+            </div>
             <div className="compare-grid">
               {inputPhoto && (
                 <div className="skin-card input-card">

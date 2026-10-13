@@ -11,7 +11,7 @@ const KOR = {
 const FIELD_KOR = { top_garment: "상의", bottom_garment: "하의", pattern: "무늬", sleeve_len: "소매", hair_length: "머리" };
 const FIELDS = ["top_garment", "bottom_garment", "pattern", "sleeve_len", "hair_length"];
 
-export default function CategoryPanel({ attributes, candidates, noiseLevel }) {
+export default function CategoryPanel({ attributes, noiseLevel }) {
   const [copied, setCopied] = useState(false);
   if (!attributes) return null;
   const values = attributes.values || {};
@@ -60,16 +60,6 @@ export default function CategoryPanel({ attributes, candidates, noiseLevel }) {
             <tr><td>noise_level</td><td>{JSON.stringify(noiseLevel)}</td></tr>
           </tbody>
         </table>
-        {candidates && candidates.length > 0 && (
-          <table className="json-table cand-table">
-            <thead><tr><th>후보</th><th>근거 (varied)</th></tr></thead>
-            <tbody>
-              {candidates.map((c) => (
-                <tr key={c.index}><td>{c.index}</td><td>{JSON.stringify(c.varied)}</td></tr>
-              ))}
-            </tbody>
-          </table>
-        )}
       </details>
     </div>
   );
