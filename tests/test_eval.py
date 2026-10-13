@@ -200,3 +200,27 @@ def test_probe_tolerance_catches_material_swap():
 
     for k in NOISE_STEPS:
         assert E.probe_equal(hair_top, shade(hair_top, k)), k
+
+
+def test_probe_tolerance_blind_spot_adjacent_colours():
+    """유사색 스왑 사각지대 고정 (후속 검토 5 — 설계 §3 공개 채택의 경계선).
+
+    흑발 vs 짙은 남색처럼 채널별 |Δ| ≤ NOISE_TOL(32)인 색 쌍은 배선이 스왑돼도
+    프로브가 통과시킨다. 이는 노이즈 수용을 위해 합의된 의미 변경의 대가다.
+    노이즈 0 상태로도 놓친다는 점이 핵심 — 색 인접성 자체의 사각지대지
+    노이즈 잔여 오차가 아니다. 경계를 고정하는 이유: (a) 톨러런스를 늘리면
+    사각지대가 넓어져 여기서 걸리고, (b) 누군가 프로브를 '더 엄격하게 고치려다'
+    이 테스트를 깨면 §3 합의를 다시 열게 된다."""
+    from skinmaker.canvas import rgba, shade
+    from skinmaker.render import NOISE_TOL, FACE_SHADE
+
+    s = FACE_SHADE["top"]
+    black_hair = shade(rgba("#0a0a0e"), s)[:3]   # (11, 11, 16)
+    dark_navy = shade(rgba("#141a26"), s)[:3]    # (22, 29, 43) — 채널별 |Δ| ≤ 27
+    assert all(abs(p - q) <= NOISE_TOL for p, q in zip(black_hair, dark_navy))
+    assert E.probe_equal(black_hair, dark_navy)  # 유사색 스왑은 놓친다 — §3 채택
+
+    # 대비색 스왑은 계속 잡힌다 (프로브의 원래 목적: 배선 스왑 결함 나포)
+    white = shade(rgba("#f2f2f2"), s)[:3]
+    assert not E.probe_equal(black_hair, white)
+    assert not E.probe_equal(dark_navy, white)
