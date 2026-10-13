@@ -191,17 +191,25 @@ def test_generate_category_payload_records_derived():
 
 
 def test_generate_returns_steps_sheets():
-    """설계 §12: 처리 과정 시트 (간단/QA) — steps/ 하위폴더에 저장, 응답 data.steps."""
+    """설계 §12: 처리 과정 시트 (간단/QA) — steps/ 하위폴더에 저장, 응답 data.steps.
+
+    실앱 404 사건 (2026-10-13): 저장 위치(STATIC_DIR/steps=skins/steps)와 URL
+    (/static/steps/)가 어긋나 브라우저에서 404. 테스트는 URL을 실제로 페치해야
+    배선 불일치를 잡는다 — 파일 존재 + URL 접두사 검사만으로는 못 잡았다."""
     second = dict(GOOD, sleeve_len="long", hair_length="long")
+    c = client(GOOD, second)
     with PHOTO.open("rb") as f:
-        r = client(GOOD, second).post("/api/v1/generate-skin", files={"file": ("m.jpg", f, "image/jpeg")})
+        r = c.post("/api/v1/generate-skin", files={"file": ("m.jpg", f, "image/jpeg")})
     assert r.status_code == 200, r.text
     steps = r.json()["data"]["steps"]
     assert set(steps) == {"clean", "full"}
     for url in steps.values():
         assert url.startswith("/static/steps/")
-        p = A.STATIC_DIR / "steps" / Path(url).name
+        p = A.ROOT / "static" / "steps" / Path(url).name
         assert p.exists() and p.stat().st_size > 1000, url
+        got = c.get(url)  # URL이 실제로 서빙되는지 — 저장 위치와 응답 URL의 배선 검사
+        assert got.status_code == 200, (url, got.status_code)
+        assert got.content[:8] == b"\x89PNG\r\n\x1a\n" and len(got.content) > 1000, url
 
 
 def test_generate_steps_flag_skips_sheets():
@@ -218,7 +226,7 @@ def test_generate_steps_flag_skips_sheets():
     data = r_off.json()["data"]
     assert data["steps"] is None
     token_off = Path(data["skins"][0]).name.split("_")[0]
-    assert not (A.STATIC_DIR / "steps" / f"{token_off}_steps.png").exists()
+    assert not (A.ROOT / "static" / "steps" / f"{token_off}_steps.png").exists()
 
     for truthy in ("1", "true", "on", "yes"):
         r_on = post(truthy)

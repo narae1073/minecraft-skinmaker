@@ -119,7 +119,7 @@ async def generate_skin(file: UploadFile = File(...), noise_level: str = Form(No
     # 처리 과정 시트 (설계 §12): 스킨 목록과 분리된 steps/ 하위폴더. 끄면 아예 미생성.
     steps_urls = None
     if want_steps:
-        STEPS_DIR = STATIC_DIR / "steps"
+        STEPS_DIR = ROOT / "static" / "steps"  # /static 마운트 위치와 일치 (실앱 404 수정 2026-10-13)
         STEPS_DIR.mkdir(exist_ok=True)
         clean_sheet, full_sheet = steps_sheets(photo, candidates[0].image, "classic", observed, seg)
         clean_sheet.convert("RGB").save(STEPS_DIR / f"{token}_steps.png")
