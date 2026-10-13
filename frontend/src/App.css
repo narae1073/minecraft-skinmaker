@@ -17,13 +17,11 @@ body {
   background-attachment: fixed;
   display: flex;
   justify-content: center;
-  align-items: center;
 }
 
 #root {
   display: flex;
   justify-content: center;
-  align-items: center;
   width: 100%;
 }
 
@@ -31,6 +29,7 @@ body {
   max-width: 800px;
   width: 90%;
   padding: 40px;
+  margin-block: auto; /* 세이프 센터링: 짧으면 세로 중앙, 길면 0 — 내용보다 위가 스크롤 불가가 되는 align-items:center 버그 제거 */
   background: rgba(255, 255, 255, 0.85);
   border-radius: 12px;
   box-shadow: 0 4px 15px rgba(0,0,0,0.2);
