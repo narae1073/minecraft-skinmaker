@@ -89,7 +89,6 @@ render(observed, attrs, degrade, model, *, shoe_two_tone: bool = True,
 - 시각: fixed-10 보드 A/B → 사람 판정 (지금까지의 A/B 보드 스타일), 웹 업로드 1장 e2e.
 
 ## 8. 결정 보충 (builder check 반영 — 내 판정, reject 자유)
-
 1. **flat 렌더 소유**: `candidates.build` 가 후보마다 ON·OFF **둘 다** 렌더하고
    `Candidate` 에 `noise_seed: int` + `image_flat: Image | None = None` 를 추가한다
    (기존 위치 인자 생성은 영향 없음). app.py 는 파일 저장만 한다 — 시드 파생 로직
@@ -109,3 +108,19 @@ render(observed, attrs, degrade, model, *, shoe_two_tone: bool = True,
 4. **프론트 history 를 쌍으로**: 각 스킨 상태를 `{url, flatUrl, summary}`로 보관
    (인덱스 선택·삭제 로직을 객체 대상으로 이식). 새 결과 카드와 사이드바 이력 양쪽에
    Edit Skin 진입점이 있다. 사이드바 다운로드는 ON url(기존 파일명)을 계속 내려준다.
+
+## 9. 노이즈 세기 슬라이더 (추가 2026-10-13, 생성 전 웹 선택)
+
+- **계약**: `noise_level: float ∈ [0,1]`, 기본 1.0 (현행 동일 — 기존 호출자 무변).
+  적용은 **크기 배율**: 각 톤 단계 s → `1 + (s-1)·level`. 같은 셀이 톤되지만
+  부드러워져서 슬라이더가 연속 노브처럼 읽힌다. 레벨은 **시드에 넣지 않는다**
+  (패턴 불변 — 시드 계약 §8.3 유지). `level == 0`은 무노이즈 렌더와 **바이트 동일**.
+- **배선**: `render(..., noise_level=1.0)` → `_apply_noise(canvas, seed, level)`;
+  `candidates.build(..., noise_level=1.0)` 가 ON/OFF 쌍 모두에 전달.
+  API: multipart 필드 `noise_level` (부재 → 1.0; 숫자 아니면 400; 범위 밖 숫자는 [0,1] 클램프).
+- **프론트**: 업로드 섹션 슬라이더 0–100% (기본 100), FormData에 실어 보냄.
+  생성 후 에디터의 신발 토글과 독립 (레벨은 생성 시 고정).
+- **비용 유의**: 슬라이더 실험 = 재생성 = Gemini 호출 1회. 생성 후 실시간 조정은
+  토큰별 관측치 저장 + 재렌더 엔드포인트가 필요 — 별도 과제 (phase 2), 여기선 안 함.
+- **테스트**: level 0 바이트 동일 · 단조성 (0.5 값이 기저와 1.0 사이) · 패턴 셀 불변
+  (계수 공간) · API 부재/가비지/클램프 · 기존 후보·렌더 테스트 무변 (기본 1.0).
