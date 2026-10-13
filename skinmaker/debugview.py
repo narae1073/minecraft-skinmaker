@@ -275,13 +275,63 @@ def panel_preview(image: Image.Image, model: str) -> Panel:
 TEXTURE = 64
 
 PANELS = ("s0", "s1", "atlas", "uvmap", "preview")
+PANEL_STRIP = ("s0", "mask", "s1", "atlas")  # 사용자용 간단 보기 (설계 §12)
+
+# SCHP class → 오버레이 색 (마스크 패널). format.py 클래스 주석과 정합.
+MASK_COLORS = {
+    2: (232, 90, 200),    # Hair
+    4: (80, 220, 230),    # Upper-clothes
+    5: (255, 200, 60),    # Skirt
+    6: (90, 150, 255),    # Pants
+    9: (255, 120, 60),    # Left-shoe
+    10: (255, 120, 60),   # Right-shoe
+    12: (255, 170, 120),  # Left-leg (맨다리)
+    13: (255, 170, 120),  # Right-leg (맨다리)
+}
 
 
-def build_panels(photo: PhotoInput, skin: Image.Image | None, model: str, observed=None, which=PANELS) -> list[Panel]:
+def panel_mask(photo: PhotoInput, seg) -> Panel:
+    """파싱 마스크 단계. seg는 원본 크기 class map (parsing.bottom_mask 산출)."""
+    if seg is None:
+        return None
+    import numpy as np
+
+    base = photo.image.convert("RGB")
+    arr = np.asarray(base, dtype=np.float32)
+    overlay = arr.copy()
+    hits = 0
+    for cls, color in MASK_COLORS.items():
+        mask = seg == cls
+        n = int(mask.sum())
+        hits += n
+        if n:
+            overlay[mask] = 0.5 * overlay[mask] + 0.5 * np.asarray(color, dtype=np.float32)
+    img = _fit(Image.fromarray(overlay.astype(np.uint8)), PANEL_W)
+    pct = lambda n: f"{n / seg.size * 100:.1f}%"
+    parts = " ".join(
+        f"{name}={pct(int((seg == cls).sum()))}"
+        for cls, name in ((4, "상의"), (5, "치마"), (6, "바지"), (9, "신발"), (12, "맨다리"))
+        if (seg == cls).any()
+    )
+    return Panel("S1b parsing mask", img, parts or "마스크 픽셀 없음")
+
+
+def steps_sheets(photo: PhotoInput, skin: Image.Image, model: str, observed=None, seg=None):
+    """(간단, 전체QA) 두 벌의 contact sheet. skin은 후보 1 렌더 (설계 §12)."""
+    clean = contact_sheet(build_panels(photo, skin, model, observed, which=PANEL_STRIP, seg=seg))
+    full = contact_sheet(build_panels(photo, skin, model, observed, which=PANELS, seg=seg))
+    return clean, full
+
+
+def build_panels(photo: PhotoInput, skin: Image.Image | None, model: str, observed=None, which=PANELS, seg=None) -> list[Panel]:
     out = []
     for name in which:
         if name == "s0":
             out.append(panel_s0(photo) if photo.face is not None else panel_reject(photo))
+        elif name == "mask":
+            p = panel_mask(photo, seg)
+            if p is not None:
+                out.append(p)
         elif name == "s1" and observed is not None:
             corrected = None
             if observed.wb_gain != (1.0, 1.0, 1.0):

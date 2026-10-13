@@ -8,6 +8,7 @@ import pytest
 from PIL import Image
 
 from skinmaker import quality as Q
+from skinmaker import debugview as DV
 from skinmaker.debugview import (
     CAPTION_H,
     NOTE_H,
@@ -148,3 +149,60 @@ def test_build_panels_rejected_still_renders_skin_panels():
     panels = build_panels(rejected, skin, "classic")
     assert "REJECTED" in panels[0].note
     assert len(panels) == 4
+
+
+# --- 처리 과정 패널 (설계 §12): 마스크 패널 + 간단/QA 두 벌 -----------------
+
+def test_panel_mask_overlays_class_colours():
+    """SCHP class map을 반투명 색으로 얹는다 — pants 픽셀은 기저색과 달라진다."""
+    import numpy as np
+    from skinmaker import parsing as P
+
+    img = Image.new("RGB", (120, 160), (30, 30, 30))
+    face = Q.FaceBox(40, 20, 40, 50)
+    photo = Q.PhotoInput("t.jpg", img, face, Q.Quality(0.9, face.area, 120.0, 400.0, 110.0, True), ())
+    seg = np.zeros((160, 120), np.uint8)
+    seg[100:140, 40:80] = 6  # Pants
+    panel = DV.panel_mask(photo, seg)
+    px = panel.image.load()
+    # 팬츠는 사진 (40..80,100..140) → 패널은 PANEL_W(360)로 3배 확대 → (120..240, 300..420)
+    assert px[180, 360][:3] != (30, 30, 30)  # 팬츠 영역에 마스크 색이 섞였다
+
+
+def test_steps_sheets_clean_and_full():
+    """간단(s0+mask+s1+atlas)과 전체 QA(s0+s1+atlas+uvmap+preview+mask) 두 벌."""
+    img = Image.new("RGB", (200, 300), (120, 100, 90))
+    face = Q.FaceBox(60, 40, 80, 100)
+    photo = Q.PhotoInput("t.jpg", img, face, Q.Quality(0.9, face.area, 120.0, 400.0, 110.0, True), ())
+    skin = Image.new("RGBA", (64, 64), (0, 0, 0, 0))
+    clean, full = DV.steps_sheets(photo, skin, "classic")
+    assert clean.width == full.width
+    assert full.height >= clean.height  # 전체 QA가 패널이 더 많다
+
+
+def test_extract_reuses_provided_seg(monkeypatch):
+    """seg를 제공하면 bottom_mask를 다시 부르지 않는다 (파서 2회 비행 방지)."""
+    import numpy as np
+    from skinmaker import parsing as P
+    from skinmaker import colors as CC
+
+    monkeypatch.setenv(P.PARSING_ENV, "1")
+
+    def boom(image):
+        raise AssertionError("seg 제공됐는데 bottom_mask가 다시 불렸다")
+
+    monkeypatch.setattr(P, "bottom_mask", boom)
+    img = Image.new("RGB", (512, 512), (180, 150, 140))
+    face = Q.FaceBox(212, 198, 135, 191)
+    photo = Q.PhotoInput("t.jpg", img, face, Q.Quality(0.9, face.area, 120.0, 400.0, 110.0, True), ())
+    seg = np.zeros((512, 512), np.uint8)
+    seg[300:400, 200:300] = 6
+    obs = CC.extract(photo, seg=seg)
+    assert obs.lower_body_seen is True
+
+
+def test_build_panels_skips_mask_without_seg():
+    """seg 없으면 mask 패널은 조용히 생략 (CLI/파서-off 경로 무변)."""
+    rejected = Q.PhotoInput("t.jpg", Image.new("RGB", (300, 300), (0, 0, 0)), None, None, ())
+    panels = build_panels(rejected, build_placeholder("classic").image, "classic", which=DV.PANEL_STRIP)
+    assert len(panels) == 2  # s0(reject) + atlas — mask는 seg 없어 생략, s1은 observed 없어 생략

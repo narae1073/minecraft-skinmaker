@@ -277,10 +277,13 @@ def extract(
     patterned: bool = False,
     bins: int = CLUSTER_BINS,
     hair_bbox: FaceBox | None = None,
+    seg=None,
 ) -> ObservedColors:
     """사진 한 장에서 색 4개를 읽는다.
 
     patterned=True 는 상이가 줄무늬/체크임을 S2 에서 확인됐을 때만 쓴다.
+    seg (원본 크기 SCHP class map) 를 제공하면 파서를 다시 부르지 않는다
+    (웹 경로에서 마스크 패널과 색 추출이 같은 세그먼트를 공유한다).
     hair_bbox 가 있으면 헤어를 얼굴 기하 대신 그 영역에서 읽는다 (S2 VLM grounding).
     """
     if photo.face is None:
@@ -377,7 +380,7 @@ def extract(
     shoe = MISSING
     lower_body_seen = None  # 파서 꺼짐/실패 → 판단 불가 (jeans 기본 미적용)
     if parsing.parsing_on():
-        seg = parsing.bottom_mask(photo.image)
+        seg = seg if seg is not None else parsing.bottom_mask(photo.image)
         if seg is not None:
             # 하체 관측 신호 (사용자 룰 2026-10-13): 하의(Pants/Skirt)나 맨다리
             # 피부 픽셀이 하나라도 있으면 하체가 프레임에 있다.
