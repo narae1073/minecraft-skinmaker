@@ -326,9 +326,10 @@ def steps_sheets(photo: PhotoInput, skin: Image.Image, model: str, observed=None
     clean = contact_sheet(build_panels(photo, skin, model, observed, which=PANEL_STRIP, seg=seg), columns=2)
     full = contact_sheet(build_panels(photo, skin, model, observed, which=PANELS, seg=seg), columns=2)
     if note:
-        for img in (clean, full):
+        for img in (clean, full):  # 우상단 헤더 바의 빈 공간 — 좌하단 패널 푸터와 겹치지 않는다
             d = ImageDraw.Draw(img)
-            d.text((6, img.height - 16), note, fill=(235, 235, 235), font=font(10, mono=True))
+            d.text((img.width - d.textlength(note, font=font(10, mono=True)) - 6, 2),
+                   note, fill=(235, 235, 235), font=font(10, mono=True))
     return clean, full
 
 
