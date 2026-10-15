@@ -219,6 +219,7 @@ class ObservedColors:
     bottom_plausible: bool = True  # 하의 측정이 피부도 배경도 아니다 (렌더 폴백 정책 입력)
     shoe: ColorSample = MISSING
     lower_body_seen: bool | None = None  # 파서가 하의/맨다리 픽셀을 봤는가 (None=판단 불가)
+    hair_stencil: "HairStencil | None" = None  # 사진 실루엣 스텐실 (None=규칙 폴백)
 
     @property
     def top_confident(self) -> bool:

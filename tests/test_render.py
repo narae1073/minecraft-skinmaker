@@ -44,6 +44,55 @@ def attrs(**kw):
     return A.validate(base)
 
 
+# --- 머리 스텐신 경로 (Tier 0, 2026-10-15) -------------------------------------
+
+import hashlib
+
+from skinmaker import hairstencil as HS
+
+# 리팩터 전(2026-10-15) 렌더의 픽셀 해시 — 리팩터 후에도 같아야 한다.
+# dataclasses.replace(hair_stencil=rule_stencil) 경로가 오늘과 픽셀 동일임을 증명.
+NOISE_OFF_GOLDEN = {
+    "short": "a6c930567d18877b",
+    "medium": "1afebd0151289139",
+    "long": "a1a5835af3a98461",
+    "very_long": "88a3f7bd2b8926ac",
+}
+
+
+@pytest.mark.parametrize("length", ["short", "medium", "long", "very_long"])
+def test_rule_stencil_render_golden(length):
+    canvas = R.render(observed(), attrs(hair_length=length), ())
+    assert hashlib.sha256(canvas.image.tobytes()).hexdigest()[:16] == NOISE_OFF_GOLDEN[length]
+
+
+def test_stencil_wiring_rule_path_identical():
+    """observed.hair_stencil=rule_stencil 경로가 기본 경로와 픽셀 동일."""
+    base = observed()
+    for length in ("short", "very_long"):
+        a = attrs(hair_length=length)
+        with_stencil = R.render(
+            dataclasses.replace(base, hair_stencil=HS.rule_stencil(length)), a, ())
+        without = R.render(base, a, ())
+        assert with_stencil.image.tobytes() == without.image.tobytes(), length
+
+
+def test_render_consumes_mask_stencil():
+    """모호크 스텐실 → 옆/뒷면을 머리색으로 못 칠한다 (오늘은 무조건 칠했다).
+
+    스텐실 side_rows 0 → 오른쪽 면이 피부 음영이고, rule(short) 기본과 다르다.
+    """
+    stencil = HS.HairStencil(
+        tuple(tuple(False for _ in range(8)) for _ in range(8)), True,
+        {"left": 0, "right": 0, "back": 0})
+    base = observed()
+    canvas = R.render(dataclasses.replace(base, hair_stencil=stencil), attrs(), ())
+    right = canvas.get("head", "right", 3, 3)[:3]
+    assert right == shade(rgba(base.skin.hex), R.FACE_SHADE["right"])[:3], right
+    legacy = R.render(base, attrs(hair_length="long"), ())
+    assert legacy.get("head", "right", 3, 3)[:3] != right  # 오늘(long)은 옆면 0-5행이 머리색
+
+
 @pytest.mark.parametrize("model", ["classic", "slim"])
 def test_render_is_valid(model):
     canvas = R.render(observed(), attrs(), (), model)

@@ -186,39 +186,32 @@ def _shaded_face(canvas: SkinCanvas, part: str, face_name: str, base: Color, lay
     canvas.fill_face(part, face_name, shade(base, FACE_SHADE[face_name]), layer)
 
 
-def render_head(canvas: SkinCanvas, colors: dict[str, Color], attrs: Attributes) -> None:
+def render_head(canvas: SkinCanvas, colors: dict[str, Color], attrs: Attributes, stencil=None) -> None:
     skin_c, hair_c = colors["skin"], colors["hair"]
-    length = attrs.get("hair_length")
+    if stencil is None:
+        from .hairstencil import rule_stencil
+
+        stencil = rule_stencil(attrs.get("hair_length"))  # 오늘의 길이 규칙 (골든 해시와 픽셀 동일)
 
     # 베이스는 피부로 전부 채운 뒤 머리카락을 덮는다 (HEAD layer=0만).
     for face_name in canvas.layout.part("head", 0).faces:
         _shaded_face(canvas, "head", face_name, skin_c, 0)
 
-    # 정수리는 항상 머리카락 (가마). bottom(목)은 피부 유지.
-    canvas.fill_face("head", "top", shade(hair_c, FACE_SHADE["top"]), 0)
+    # 정수리: rule은 항상 머리(가마), mask 스텐신은 대머리에서 피부.
+    if stencil.top_hair:
+        canvas.fill_face("head", "top", shade(hair_c, FACE_SHADE["top"]), 0)
 
     front = canvas.layout.face("head", "front", 0)
-    # 앞머리: 상단 2행 + 옆 2열. very_long은 옆을 아래까지 내린다.
-    for u in range(front.w):
-        for v in (0, 1):
-            canvas.put("head", "front", u, v, shade(hair_c, FACE_SHADE["front"]), 0)
-    side_rows = (2, 3) if length in ("short", "medium") else (2, 3, 4, 5, 6, 7)
-    for v in side_rows:
-        canvas.put("head", "front", 0, v, shade(hair_c, FACE_SHADE["front"]), 0)
-        canvas.put("head", "front", front.w - 1, v, shade(hair_c, FACE_SHADE["front"]), 0)
+    for v, row in enumerate(stencil.front):
+        for u, is_hair in enumerate(row):
+            if is_hair:
+                canvas.put("head", "front", u, v, shade(hair_c, FACE_SHADE["front"]), 0)
 
-    # 옆/뒤 커버리지: short < medium < long < very_long
-    back_rows: dict[str, tuple[int, ...]] = {
-        "short": (0, 1),
-        "medium": (0, 1, 2, 3),
-        "long": (0, 1, 2, 3, 4, 5),
-        "very_long": (0, 1, 2, 3, 4, 5, 6, 7),
-    }
+    # 옆/뒤 커버리지: rule은 길이 표, mask는 앞 실루엣 추론 (긴 머리는 뒤까지).
     for face_name in ("right", "left", "back"):
+        rows = stencil.side_rows.get(face_name, 0)
         f = canvas.layout.face("head", face_name, 0)
-        for v in back_rows.get(length, (0, 1)):
-            if v >= f.h:
-                continue
+        for v in range(min(rows, f.h)):
             for u in range(f.w):
                 canvas.put("head", face_name, u, v, shade(hair_c, FACE_SHADE[face_name]), 0)
 
@@ -359,7 +352,7 @@ def render(
     pattern = effective_pattern(attrs.get("pattern"), observed, attrs, tuple(degrade))
     # 측정 2색(줄무늬)이 있을 때만 실측 보조색. 없으면 합성 음영.
     alt = colors["top_alt"] if not observed.top_alt.missing and pattern in ("vertical_stripe", "horizontal_stripe") else None
-    render_head(canvas, colors, attrs)
+    render_head(canvas, colors, attrs, observed.hair_stencil)
     render_body(canvas, colors, attrs, pattern, alt)
     render_arms(canvas, colors, attrs, pattern, resolve_sleeve(attrs, observed))
     render_legs(canvas, colors, attrs, resolved_bottom, shoe_two_tone=shoe_two_tone)
