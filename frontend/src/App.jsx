@@ -15,6 +15,8 @@ function App() {
   const [editorItem, setEditorItem] = useState(null); // SkinEditor 모달 대상 ({url, flatUrl, steps})
   const [noiseLevel, setNoiseLevel] = useState(50); // 노이즈 세기 % (기본 50 — 사용자 결정 2026-10-13)
   const [showSteps, setShowSteps] = useState(false); // 처리 과정 표시 (기본 해제 — 사용자 결정)
+  const [hairSource, setHairSource] = useState('mask'); // 머리 실루엣 근원 (Tier 0 기본 mask — 사용자 결정 2026-10-15)
+  const [hairSymmetry, setHairSymmetry] = useState('symmetrized'); // 머리 대칭 (기본 대칭화 — 사용자 결정)
   const [catInfo, setCatInfo] = useState(null); // 분류 카테고리 {attributes, candidates, noiseLevel} (설계 §11)
   const [steps, setSteps] = useState(null); // 처리 과정 시트 {clean, full} (설계 §12)
 
@@ -58,6 +60,8 @@ function App() {
     formData.append('file', file);
     formData.append('noise_level', String(noiseLevel / 100));
     formData.append('steps', showSteps ? '1' : '0');
+    formData.append('hair_source', hairSource);
+    formData.append('hair_symmetry', hairSymmetry);
 
     try {
       const response = await fetch('/api/v1/generate-skin', {
@@ -227,6 +231,28 @@ function App() {
               />
               처리 과정 표시 <small>(끄면 단계 이미지를 만들지 않아요)</small>
             </label>
+          </div>
+          <div className="config-row" title="mask = 처리 과정 시트의 파서 마스크에서 머리 실루엣을 투영 (대머리·모호크 표현), rule = 기존 길이 규칙">
+            <label htmlFor="hair-source">머리 형태</label>
+            <select
+              id="hair-source"
+              value={hairSource}
+              onChange={(e) => setHairSource(e.target.value)}
+            >
+              <option value="mask">마스크 추론 (사진 실루엣)</option>
+              <option value="rule">길이 규칙 (기존)</option>
+            </select>
+          </div>
+          <div className="config-row" title="symmetrized = 거울 대칭으로 정리, raw = 사진 비대칭 그대로 (디버그)">
+            <label htmlFor="hair-symmetry">머리 대칭</label>
+            <select
+              id="hair-symmetry"
+              value={hairSymmetry}
+              onChange={(e) => setHairSymmetry(e.target.value)}
+            >
+              <option value="symmetrized">대칭화</option>
+              <option value="raw">사진 그대로</option>
+            </select>
           </div>
         </div>
 
