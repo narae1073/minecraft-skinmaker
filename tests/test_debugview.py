@@ -180,6 +180,23 @@ def test_steps_sheets_clean_and_full():
     assert full.height >= clean.height  # 전체 QA가 패널이 더 많다
 
 
+def test_steps_sheets_stamp_note():
+    """옵션 스탬프: note가 있으면 시트에 찍힌다 — 저장 시트가 어떤 옵션 조합인지 증명.
+
+    크기는 불변 (라이트박스/썸네일 레이아웃 파괴 금지), note 없으면 기존과 동일.
+    """
+    img = Image.new("RGB", (200, 300), (120, 100, 90))
+    face = Q.FaceBox(60, 40, 80, 100)
+    photo = Q.PhotoInput("t.jpg", img, face, Q.Quality(0.9, face.area, 120.0, 400.0, 110.0, True), ())
+    skin = Image.new("RGBA", (64, 64), (0, 0, 0, 0))
+    clean0, full0 = DV.steps_sheets(photo, skin, "classic")
+    clean, full = DV.steps_sheets(photo, skin, "classic", note="hair=mask+symmetrized")
+    assert (clean.width, clean.height) == (clean0.width, clean0.height)
+    assert (full.width, full.height) == (full0.width, full0.height)
+    assert clean.tobytes() != clean0.tobytes()
+    assert full.tobytes() != full0.tobytes()
+
+
 def test_contact_sheet_columns_grid_is_compact():
     """columns>1: 세로 스택 대신 격자 — 인라인 썸네일이 6000px 벽이 되지 않게."""
     img = Image.new("RGB", (200, 300), (120, 100, 90))

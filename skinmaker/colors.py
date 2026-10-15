@@ -13,6 +13,7 @@ import numpy as np
 from PIL import Image
 
 from .quality import FaceBox, PhotoInput, clip_to, hair_region, skin_region, shirt_bands
+from . import hairstencil as HS
 from . import parsing
 
 LUMA = (0.2126, 0.7152, 0.0722)
@@ -279,6 +280,8 @@ def extract(
     bins: int = CLUSTER_BINS,
     hair_bbox: FaceBox | None = None,
     seg=None,
+    hair_source: str = "mask",
+    hair_symmetry: str = "symmetrized",
 ) -> ObservedColors:
     """사진 한 장에서 색 4개를 읽는다.
 
@@ -286,6 +289,9 @@ def extract(
     seg (원본 크기 SCHP class map) 를 제공하면 파서를 다시 부르지 않는다
     (웹 경로에서 마스크 패널과 색 추출이 같은 세그먼트를 공유한다).
     hair_bbox 가 있으면 헤어를 얼굴 기하 대신 그 영역에서 읽는다 (S2 VLM grounding).
+    hair_source="mask" (기본) 이고 seg 가 있으면 머리 실루엣 스텐실도 같은
+    세그먼트에서 투영해 observed.hair_stencil 에 실는다 (hairstencil.py).
+    근거가 서지 않으면 None — 렌더가 오늘의 길이 규칙으로 폴백한다.
     """
     if photo.face is None:
         return _empty()
@@ -450,6 +456,10 @@ def extract(
         bottom_plausible=_bottom_plausible(bottom, parsing_bg, parsing_bg_luma),
         shoe=shoe,
         lower_body_seen=lower_body_seen,
+        hair_stencil=(
+            HS.mask_stencil(seg, photo.face, photo.image.size, symmetry=hair_symmetry)
+            if seg is not None and hair_source == "mask" else None
+        ),
     )
 
 

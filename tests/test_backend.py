@@ -190,6 +190,39 @@ def test_generate_category_payload_records_derived():
     assert any("bottom_garment" in d for d in a["derived"]), a["derived"]
 
 
+def test_generate_echoes_hair_options():
+    """Tier 0 (2026-10-15): 머리 실루엣 근원/대칭 폼 필드.
+
+    부재 → 기본(mask, symmetrized) 적용 + 응답 에코 (noise_level 관례).
+    rule은 오늘 렌더와 픽셀 동일 베이스라인 (스텐실 미생성).
+    """
+    def post(**form):
+        with PHOTO.open("rb") as f:
+            return client().post("/api/v1/generate-skin",
+                                 files={"file": ("m.jpg", f, "image/jpeg")}, data=form)
+
+    r_default = post()
+    assert r_default.status_code == 200, r_default.text
+    body = r_default.json()["data"]
+    assert body["hair_source"] == "mask"
+    assert body["hair_symmetry"] == "symmetrized"
+
+    r_rule = post(hair_source="rule", hair_symmetry="raw")
+    assert r_rule.status_code == 200
+    body = r_rule.json()["data"]
+    assert body["hair_source"] == "rule"
+    assert body["hair_symmetry"] == "raw"
+
+
+def test_generate_rejects_bad_hair_option():
+    with PHOTO.open("rb") as f:
+        r = client().post("/api/v1/generate-skin",
+                          files={"file": ("m.jpg", f, "image/jpeg")},
+                          data={"hair_source": "bogus"})
+    assert r.status_code == 400, r.text
+    assert r.json()["detail"]["code"] == "bad_hair_option"
+
+
 def test_generate_returns_steps_sheets():
     """설계 §12: 처리 과정 시트 (간단/QA) — steps/ 하위폴더에 저장, 응답 data.steps.
 

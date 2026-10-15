@@ -316,13 +316,19 @@ def panel_mask(photo: PhotoInput, seg) -> Panel:
     return Panel("S1b parsing mask", img, parts or "마스크 픽셀 없음")
 
 
-def steps_sheets(photo: PhotoInput, skin: Image.Image, model: str, observed=None, seg=None):
+def steps_sheets(photo: PhotoInput, skin: Image.Image, model: str, observed=None, seg=None, note: str = ""):
     """(간단, 전체QA) 두 벌의 contact sheet. skin은 후보 1 렌더 (설계 §12).
 
     2열 격자 — 인라인 썸네일/라이트박스가 세로 6000px 벽이 되지 않는다.
+    note는 옵션 스탬프 (예: hair=mask+symmetrized) — 저장 시트에 어떤 조합으로
+    그렸는지 남긴다. 크기는 불변, 좌하단 오버레이.
     """
     clean = contact_sheet(build_panels(photo, skin, model, observed, which=PANEL_STRIP, seg=seg), columns=2)
     full = contact_sheet(build_panels(photo, skin, model, observed, which=PANELS, seg=seg), columns=2)
+    if note:
+        for img in (clean, full):
+            d = ImageDraw.Draw(img)
+            d.text((6, img.height - 16), note, fill=(235, 235, 235), font=font(10, mono=True))
     return clean, full
 
 

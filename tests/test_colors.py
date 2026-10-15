@@ -355,6 +355,43 @@ def test_extract_lower_body_seen_unknown_without_parser(monkeypatch):
     assert C.extract(_bust_photo()).lower_body_seen is None
 
 
+# --- 머리 스텐실 배선 (Tier 0, 2026-10-15) -----------------------------------
+
+def test_extract_builds_hair_stencil_from_seg(monkeypatch):
+    """seg + 기본(hair_source=mask) → 사진 실루엣 스텐실이 observed에 실린다."""
+    import numpy as np
+    from skinmaker import parsing as P
+
+    monkeypatch.setenv(P.PARSING_ENV, "1")
+    face = Q.FaceBox(212, 198, 135, 191)
+    hb = Q.hair_region(face)
+    seg = np.zeros((512, 512), np.uint8)
+    seg[int(hb.y):int(hb.y + hb.h / 4), int(hb.x):int(hb.x + hb.w)] = 2   # 상단 띠 = 머리
+    seg[face.y:face.y + face.h, face.x:face.x + face.w] = 11             # 얼굴
+    o = C.extract(_bust_photo(), seg=seg)
+    st = o.hair_stencil
+    assert st is not None
+    assert all(st.front[0]) and all(st.front[1])          # 상단 띠 → 0-1행 전체 폭
+    assert st.top_hair is True
+    assert st.side_rows == {"left": 2, "right": 2, "back": 2}  # 뒷면은 앞 실루엣 추론
+
+
+def test_extract_hair_source_rule_skips_stencil(monkeypatch):
+    """hair_source=rule → seg가 있어도 스텐실 미생성 (오늘 렌더 그대로)."""
+    import numpy as np
+    from skinmaker import parsing as P
+
+    monkeypatch.setenv(P.PARSING_ENV, "1")
+    seg = np.full((512, 512), 2, np.uint8)
+    assert C.extract(_bust_photo(), seg=seg, hair_source="rule").hair_stencil is None
+
+
+def test_extract_stencil_none_without_seg(monkeypatch):
+    """seg 없음(파서 꺼짐/실패) → 스텐실 없음 = 오늘 경로 (조용한 폴백)."""
+    monkeypatch.setenv(C.parsing.PARSING_ENV, "1")
+    assert C.extract(_bust_photo()).hair_stencil is None
+
+
 def test_extract_returns_missing_when_no_face():
     p = Q.PhotoInput("t.jpg", Image.new("RGB", (100, 100)), None, None, ())
     o = C.extract(p)
