@@ -4,7 +4,7 @@
 
 **Goal:** Improve mask-driven hair so rounded hairlines don't create bald corners, side/back coverage follows a profile, and long hair reaches the upper-body shoulders.
 
-**Architecture:** Keep `hair_source=rule` pixel-identical. Extend the mask-derived `HairStencil` with per-face coverage profiles and a body-length signal; derive these from the existing SCHP segmentation, then paint them deterministically in the renderer. The mask remains optional and failure falls back to the rule stencil.
+**Architecture:** Keep `hair_source=rule` pixel-identical. Extend the mask-derived `HairStencil` with per-face coverage profiles and a body-length signal capped at the upper torso; derive these from the existing SCHP segmentation, then paint them deterministically in the renderer. The mask remains optional and failure falls back to the rule stencil.
 
 **Tech Stack:** Python, NumPy, Pillow, existing SCHP class map and pixel renderer.
 
@@ -15,7 +15,7 @@
 - `rule` mode must remain byte-identical to the recorded four golden hashes.
 - No VLM schema, prompt, or transport changes.
 - No new dependency; use the per-request SCHP class map already passed into `extract()`.
-- Hair body paint must preserve the shirt front except for shoulder strands; preserve all existing skin validation invariants.
+- Hair body paint must preserve the shirt front except for shoulder strands, and stop at 6/12 torso rows; preserve all existing skin validation invariants.
 - Missing/invalid mask evidence falls back to today's rule render.
 
 ## Review Focus
@@ -45,7 +45,7 @@
 
 **Files:** `skinmaker/hairstencil.py`, `skinmaker/colors.py`, `skinmaker/render.py`, `tests/test_hairstencil.py`, `tests/test_render.py`, `tests/test_colors.py`
 
-**Interfaces:** Add a body-hair extent to `HairStencil`; mask mode derives it from contiguous SCHP hair below/alongside the face into the shoulder band. `render_body(..., hair_stencil=None)` paints hair only for a mask stencil with observed body extent.
+**Interfaces:** Add `body_rows: int` to `HairStencil`; mask mode derives it from the longest contiguous SCHP hair run below/alongside the face, mapped to at most 6 torso rows. `render_body(..., hair_stencil=None)` paints hair only for a mask stencil with observed body extent.
 
 - [x] Add tests: short/no shoulder hair yields zero body coverage; hair extending to shoulders yields body back and side coverage to measured rows plus only outer shoulder strands on the front; shirt center and neck remain visible; rule/no-mask output stays unchanged.
 - [x] Run tests and verify expected failures against current head-only stencil.
@@ -57,8 +57,8 @@
 
 **Files:** `out/hair_ab.py` (if needed), plan checklist only.
 
-- [ ] Extend/run the existing A/B board on the user's three archived input photos for mask+symmetrized, mask+raw, and rule.
-- [ ] Inspect step masks and 3D previews; verify pale/bright background cases don't create bald corners and body hair doesn't obscure clothing.
-- [ ] Run full suite unpiped: `.venv/bin/python -m pytest -q`.
-- [ ] Build frontend if any frontend source changed; otherwise no frontend changes expected.
-- [ ] Record A/B observations and final status.
+- [x] Extend/run the existing A/B board on the user's three archived input photos for mask+symmetrized, mask+raw, and rule.
+- [x] Inspect step masks and 3D previews; verify pale/bright background cases don't create bald corners and body hair doesn't obscure clothing. A/B revealed 12-row torso scaling reached the peach-shirt woman's waist, so mapping was reduced to a maximum 6-row shoulder/upper-torso drape.
+- [x] Run full suite unpiped: `.venv/bin/python -m pytest -q` → 477 passed.
+- [x] No frontend changes in this refinement; no frontend build required.
+- [x] Record A/B observations and final status.

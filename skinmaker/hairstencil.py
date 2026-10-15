@@ -32,7 +32,7 @@ class HairStencil:
     top_hair: bool                        # 정수리(top 면) 머리 여부
     side_profiles: dict[str, tuple[int, ...]] = field(default_factory=dict)
     # face author-u 열마다 위에서부터 칠할 행 수. head cuboid의 모든 면은 8열.
-    body_rows: int = 0                    # jaw 아래 관측된 머리 길이를 torso 12행으로 환산
+    body_rows: int = 0                    # jaw 아래 관측된 어깨 머리 길이(최대 upper torso 6행)
 
     @property
     def side_rows(self) -> dict[str, int]:
@@ -72,7 +72,7 @@ def _dominant_class(block: np.ndarray) -> int | None:
 
 
 def _body_hair_rows(seg: np.ndarray, face: FaceBox, img_size: tuple[int, int]) -> int:
-    """턱 아래 연속 hair 픽셀을 torso의 12행으로 환산한다.
+    """턱 아래 연속 hair 픽셀을 어깨~upper torso의 최대 6행으로 환산한다.
 
     얼굴 너비의 25%만큼 좌우 확장한 회랑을 턱(face.bottom)부터 한 얼굴 높이까지
     스캔한다. 행당 최소 2 hair 픽셀인 연속 run만 신호로 인정해 고립 픽셀을 무시한다.
@@ -89,7 +89,9 @@ def _body_hair_rows(seg: np.ndarray, face: FaceBox, img_size: tuple[int, int]) -
     for is_active in active:
         run = run + 1 if is_active else 0
         longest = max(longest, run)
-    return min(12, int(np.ceil(longest * 12 / face.h)))
+    # A front photo's face/body proportions vary wildly; only this feature's
+    # agreed scope is shoulder/upper-torso drape, never waist-length spill.
+    return min(6, int(np.ceil(longest * 6 / face.h)))
 
 
 def mask_stencil(

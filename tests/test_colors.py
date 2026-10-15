@@ -375,7 +375,7 @@ def test_extract_builds_hair_stencil_from_seg(monkeypatch):
     assert all(st.front[0]) and all(st.front[1])          # 상단 띠 → 0-1행 전체 폭
     assert st.top_hair is True
     assert st.side_rows == {"left": 2, "right": 2, "back": 2}  # 뒷면은 앞 실루엣 추론
-    assert st.body_rows == 4  # ceil(48 / 191 * 12)
+    assert st.body_rows == 2  # ceil(48 / 191 * 6), shoulder-band scaling
 
 
 def test_extract_hair_source_rule_skips_stencil(monkeypatch):

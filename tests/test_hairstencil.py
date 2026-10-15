@@ -193,12 +193,12 @@ def test_mask_stencil_measures_contiguous_shoulder_hair():
     seg = np.zeros((96, 96), np.uint8)
     for u in range(8):
         _set_cell(seg, hb, 0, u, 2)
-    # One side lock reaches 8 pixels below the chin, then stops: ceil(8/32*12)=3 body rows.
+    # One side lock reaches 8 pixels below the chin, then stops: ceil(8/32*6)=2 shoulder rows.
     seg[face.bottom:face.bottom + 8, face.x + 26:face.x + 31] = 2
     seg[face.bottom + 10:face.bottom + 18, face.x + 26:face.x + 31] = 2
     s = HS.mask_stencil(seg, face, (96, 96), symmetry="raw")
     assert s is not None
-    assert s.body_rows == 3
+    assert s.body_rows == 2
 
 
 def test_mask_stencil_short_hair_has_no_body_extent():
@@ -209,3 +209,14 @@ def test_mask_stencil_short_hair_has_no_body_extent():
     for u in range(8):
         _set_cell(seg, hb, 0, u, 2)
     assert HS.mask_stencil(seg, face, (96, 96), symmetry="raw").body_rows == 0
+
+
+def test_mask_stencil_body_extent_caps_at_upper_torso():
+    """Even hair seen a full face-height below the jaw stays within upper-torso rows."""
+    face = FaceBox(16, 24, 32, 32)
+    hb = Q.hair_region(face)
+    seg = np.zeros((96, 96), np.uint8)
+    for u in range(8):
+        _set_cell(seg, hb, 0, u, 2)
+    seg[face.bottom:face.bottom + face.h, face.x + 24:face.x + 31] = 2
+    assert HS.mask_stencil(seg, face, (96, 96), symmetry="raw").body_rows == 6

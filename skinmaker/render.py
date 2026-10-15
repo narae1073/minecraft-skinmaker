@@ -281,7 +281,7 @@ def render_body(
 
     # 관측된 긴 머리만 몸통으로 연장한다. 뒷면/옆면은 턱 아래 마스크 길이,
     # 앞면은 셔츠 중앙을 가리지 않도록 양쪽 바깥 2열에 어깨 가닥만 그린다.
-    body_rows = min(12, max(0, getattr(hair_stencil, "body_rows", 0)))
+    body_rows = min(6, max(0, getattr(hair_stencil, "body_rows", 0)))
     if body_rows:
         hair_c = colors["hair"]
         for face_name in ("back", "right", "left"):
