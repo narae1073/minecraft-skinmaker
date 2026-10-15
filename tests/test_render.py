@@ -84,7 +84,8 @@ def test_render_consumes_mask_stencil():
     """
     stencil = HS.HairStencil(
         tuple(tuple(False for _ in range(8)) for _ in range(8)), True,
-        {"left": 0, "right": 0, "back": 0})
+        {"left": (0,) * 8, "right": (0,) * 8,
+         "back": (0, 0, 0, 0, 0, 0, 0, 0)})
     base = observed()
     canvas = R.render(dataclasses.replace(base, hair_stencil=stencil), attrs(), ())
     right = canvas.get("head", "right", 3, 3)[:3]

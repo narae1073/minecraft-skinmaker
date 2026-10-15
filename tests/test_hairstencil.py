@@ -109,7 +109,8 @@ def test_mask_stencil_mohawk():
     assert not rows0[0] and not rows0[7]  # 옆은 배경 → 오늘이라면 머리였을 자리
     for v in range(2, 8):
         assert not any(s.front[v]), v
-    assert s.side_rows == {"left": 0, "right": 0, "back": 0}
+    assert s.side_rows["left"] == s.side_rows["right"] == 0
+    assert s.side_profiles["back"] == (0, 0, 0, 2, 2, 0, 0, 0)
 
 
 def test_mask_stencil_symmetrized_vs_raw():
@@ -127,12 +128,59 @@ def test_mask_stencil_symmetrized_vs_raw():
     assert raw.side_rows["left"] == 2
     assert raw.side_rows["right"] == 0
     assert raw.side_rows["back"] == 2  # 긴 쪽 기준으로 뒤까지
+    assert raw.side_profiles["right"] == (0,) * 8
 
     sym = HS.mask_stencil(seg, face, (96, 96))  # 기본값
     assert sym.front[0][0] is True
     assert sym.front[0][7] is True  # 거울 OR
     assert sym.side_rows["left"] == sym.side_rows["right"] == 2
     assert sym.side_rows["back"] == 2
+    assert sym.side_profiles["right"] == (2,) * 8
 
     with pytest.raises(ValueError):
         HS.mask_stencil(seg, face, (96, 96), symmetry="bogus")
+
+
+def _set_cell(seg, box, v, u, cls):
+    """Set a complete projected cell in the synthetic SCHP map."""
+    cw, ch = box.w / 8, box.h / 8
+    x0, x1 = int(box.x + u * cw), int(box.x + (u + 1) * cw)
+    y0, y1 = int(box.y + v * ch), int(box.y + (v + 1) * ch)
+    seg[y0:y1, x0:x1] = cls
+
+
+def test_mask_stencil_fills_only_unobserved_arch_corners():
+    """Background at the ∩ cap corners is inferred; an explicit face-class part remains skin."""
+    face = FaceBox(16, 24, 32, 32)
+    hb = Q.hair_region(face)
+    seg = np.zeros((96, 96), np.uint8)
+    # Round cap: row 0 center, row 1 wider, row 2 full. Row-0 col 3 is an
+    # explicit scalp/part signal, not an unobserved background corner.
+    for u in range(2, 6):
+        _set_cell(seg, hb, 0, u, 2)
+    _set_cell(seg, hb, 0, 3, 11)
+    for u in range(1, 7):
+        _set_cell(seg, hb, 1, u, 2)
+    for u in range(8):
+        _set_cell(seg, hb, 2, u, 2)
+    s = HS.mask_stencil(seg, face, (96, 96), symmetry="raw")
+    assert s is not None
+    assert s.front[0][0] and s.front[0][7], "unknown ∩ corners should be inferred as hair"
+    assert not s.front[0][3], "explicit FACE-class part must remain skin"
+
+
+def test_mask_stencil_head_profiles_follow_curved_mask():
+    """Per-column profiles preserve a curved edge rather than filling uniform rectangles."""
+    face = FaceBox(16, 24, 32, 32)
+    hb = Q.hair_region(face)
+    seg = np.zeros((96, 96), np.uint8)
+    # Hand-built curved silhouette: long outer locks, short center fringe.
+    heights = (5, 4, 3, 2, 2, 3, 4, 5)
+    for u, height in enumerate(heights):
+        for v in range(height):
+            _set_cell(seg, hb, v, u, 2)
+    s = HS.mask_stencil(seg, face, (96, 96), symmetry="raw")
+    assert s is not None
+    assert s.side_profiles["left"] == (5, 5, 4, 4, 3, 3, 2, 2)
+    assert s.side_profiles["right"] == (5, 5, 4, 4, 3, 3, 2, 2)
+    assert s.side_profiles["back"] == heights

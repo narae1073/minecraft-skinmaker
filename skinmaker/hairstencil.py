@@ -30,7 +30,13 @@ HEAD_GRID = 8  # 머리 각 면 8×8
 class HairStencil:
     front: tuple[tuple[bool, ...], ...]  # 8행(v) × 8열(u). True=머리카락. v0=정수리 쪽.
     top_hair: bool                        # 정수리(top 면) 머리 여부
-    side_rows: dict[str, int] = field(default_factory=dict)  # right/left/back → 위에서 몇 행까지
+    side_profiles: dict[str, tuple[int, ...]] = field(default_factory=dict)
+    # face author-u 열마다 위에서부터 칠할 행 수. head cuboid의 모든 면은 8열.
+
+    @property
+    def side_rows(self) -> dict[str, int]:
+        """기존 진단/계약 호환: 각 면 프로파일의 최장 길이."""
+        return {face: max(profile, default=0) for face, profile in self.side_profiles.items()}
 
 
 # 오늘의 길이 규칙 (render.render_head 그대로): length → (옆/뒤 행수, 옆열 깊이)
@@ -49,16 +55,19 @@ def rule_stencil(hair_length: str) -> HairStencil:
         elif v < side_depth:
             row[0] = row[HEAD_GRID - 1] = True  # 옆 2열
         front.append(tuple(row))
-    n = {"right": rows, "left": rows, "back": rows}
-    return HairStencil(tuple(front), True, n)
+    profiles = {
+        "right": (rows,) * 8,
+        "left": (rows,) * 8,
+        "back": (rows,) * 8,
+    }
+    return HairStencil(tuple(front), True, profiles)
 
 
 def _dominant_class(block: np.ndarray) -> int | None:
-    """셀 블록의 배경 제외 다수 클래스. 비배경 픽셀이 없으면 None (배경 셀)."""
-    nz = block[block != 0]
-    if nz.size == 0:
+    """셀 블록의 실제 다수 클래스. 모두 비어 있으면 None."""
+    if block.size == 0:
         return None
-    return int(np.bincount(nz).argmax())
+    return int(np.bincount(block.reshape(-1)).argmax())
 
 
 def mask_stencil(
@@ -79,7 +88,7 @@ def mask_stencil(
     if hb is None or hb != full:  # 머리 영역이 프레임에 잘리면 투영 근거가 어긋난다
         return None
     cw, ch = hb.w / HEAD_GRID, hb.h / HEAD_GRID
-    vote = np.zeros((HEAD_GRID, HEAD_GRID), dtype=bool)
+    classes = np.zeros((HEAD_GRID, HEAD_GRID), dtype=np.uint8)
     for v in range(HEAD_GRID):
         for u in range(HEAD_GRID):
             y0 = int(hb.y + v * ch)
@@ -88,29 +97,51 @@ def mask_stencil(
             x1 = int(hb.x + (u + 1) * cw)
             block = np.asarray(seg)[y0:max(y1, y0 + 1), x0:max(x1, x0 + 1)]
             cls = _dominant_class(block)
-            vote[v, u] = cls is not None and cls in HAIR_CLASSES
-    # 눈 템플릿 보호: 얼굴 중앙 열은 3행 이상 머리로 못 덮는다 (앞머리는 0-2행까지만).
-    vote[3:, 1:HEAD_GRID - 1] = False
+            classes[v, u] = 0 if cls is None else cls
+    vote = np.isin(classes, HAIR_CLASSES)
+    # 머리의 둥근 ∩ 캡은 사진에서 보이지 않는 배경과 겹친다. 위 3행 안에서
+    # 아래 행의 양옆 hair가 지지하는 배경 셀만 hair로 추론한다. FACE/의상 등
+    # 명시된 클래스는 절대로 덮지 않아 가르마/이마를 보존한다.
+    for v in range(min(3, HEAD_GRID - 1)):
+        for u in range(HEAD_GRID):
+            if classes[v, u] != 0 or vote[v, u]:
+                continue
+            lo, hi = max(0, u - 1), min(HEAD_GRID, u + 2)
+            support = int(vote[v + 1, lo:hi].sum())
+            needed = 1 if u in (0, HEAD_GRID - 1) else 2
+            if support >= needed:
+                vote[v, u] = True
     if symmetry == "symmetrized":
         mirror = vote[:, ::-1]
-        vote = vote | mirror
+        # 반대편을 채우는 건 관측되지 않은 배경 셀만 허용한다.
+        vote |= mirror & (classes == 0)
     elif symmetry != "raw":
         raise ValueError(f"symmetry는 symmetrized|raw: {symmetry!r}")
 
-    def col_rows(u: int) -> int:
-        idx = np.flatnonzero(vote[:, u])
-        return int(idx[-1]) + 1 if idx.size else 0
-
-    left_rows, right_rows = col_rows(0), col_rows(HEAD_GRID - 1)
-    if symmetry == "symmetrized":
-        left_rows = right_rows = max(left_rows, right_rows)
+    # 옆/뒤 프로파일은 눈 템플릿 클램프와 별개인 기하 근거를 쓴다. 앞면만
+    # clamp하여 눈 위 이마를 보호하되, 그 제한이 옆/뒤 머리 길이를 자르지 않게 한다.
+    profile_vote = vote.copy()
+    # 눈 템플릿 보호: 얼굴 중앙 열은 3행 이상 머리로 못 덮는다 (앞머리는 0-2행까지만).
+    vote[3:, 1:HEAD_GRID - 1] = False
     # 근거 없음(머리 영역 전부 배경) → None. 맨살뿐(대머리)은 근거다 — 벗은 스텐실.
     if not (np.asarray(seg)[int(hb.y):int(hb.y + hb.h), int(hb.x):int(hb.x + hb.w)] != 0).any():
         return None
-    side_rows = {
-        "left": left_rows,
-        "right": right_rows,
-        "back": max(left_rows, right_rows),  # 긴 머리는 뒤까지 흐른다 (앞 실루엣 추론)
+    heights = tuple(
+        int(np.flatnonzero(profile_vote[:, u])[-1]) + 1 if profile_vote[:, u].any() else 0
+        for u in range(HEAD_GRID)
+    )
+    # 가장자리 실루엣을 옆면 8열에 보간하고, 뒷면에는 전체 프로파일을 이어 붙인다.
+    # 바깥 가장자리에 hair가 없으면 side face도 비운다 (중앙 모호크가 옆면으로
+    # 번지지 않게). side face 각 열은 앞 가장자리에서 안쪽 head profile로 곡선을 만든다.
+    def interpolate(a: int, b: int) -> tuple[int, ...]:
+        return tuple(round(a + (b - a) * i / 7) for i in range(8))
+
+    left_profile = interpolate(heights[0], heights[3]) if heights[0] else (0,) * 8
+    right_profile = interpolate(heights[7], heights[4]) if heights[7] else (0,) * 8
+    side_profiles = {
+        "left": left_profile,
+        "right": right_profile,
+        "back": heights,
     }
     front = tuple(tuple(bool(b) for b in row) for row in vote)
     # 정수리: 상단 띠(격자 0-1행 너비)의 다수 클래스. 맨두피(11) 능선이면 피부,
@@ -118,4 +149,4 @@ def mask_stencil(
     band = np.asarray(seg)[int(hb.y):int(hb.y + hb.h / 4), int(hb.x):int(hb.x + hb.w)]
     dom = _dominant_class(band)
     top_hair = dom != FACE if dom is not None else True
-    return HairStencil(front, top_hair, side_rows)
+    return HairStencil(front, top_hair, side_profiles)

@@ -209,10 +209,10 @@ def render_head(canvas: SkinCanvas, colors: dict[str, Color], attrs: Attributes,
 
     # 옆/뒤 커버리지: rule은 길이 표, mask는 앞 실루엣 추론 (긴 머리는 뒤까지).
     for face_name in ("right", "left", "back"):
-        rows = stencil.side_rows.get(face_name, 0)
+        profile = stencil.side_profiles.get(face_name, ())
         f = canvas.layout.face("head", face_name, 0)
-        for v in range(min(rows, f.h)):
-            for u in range(f.w):
+        for u, rows in enumerate(profile[:f.w]):
+            for v in range(min(rows, f.h)):
                 canvas.put("head", face_name, u, v, shade(hair_c, FACE_SHADE[face_name]), 0)
 
     # 얼굴 특징 (고정 템플릿, v1 enum 없음): 눈 2×2, 입 4×1
