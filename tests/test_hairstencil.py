@@ -52,18 +52,22 @@ def test_rule_stencil_matches_current_pattern():
 
 
 def test_mask_stencil_projects_photo_hair():
-    """seg의 머리 픽셀 → 8×8 격자 투표. 가득 찬 머리: 0-1행 전체 폭 + 옆열 끝까지."""
+    """seg의 머리 픽셀 → 8×8 격자 투표. 얼굴 박스 위 머리 질량만 앞머리 행이 된다.
+
+    얼굴 박스 안에 머리 픽셀이 없으면(사진 머리선 = 박스 상단) 가운데 열은
+    0행까지만 — 이마가 드러난다. 옆열(0,7)은 트림 밖이라 마스크 대로 끝까지.
+    """
     face = FaceBox(16, 24, 32, 32)
     seg = np.full((96, 96), 2, np.uint8)  # 전부 머리
     seg[face.y:face.y + face.h, face.x:face.x + face.w] = 11  # 얼굴만 피부
     s = HS.mask_stencil(seg, face, (96, 96))
     assert s is not None
-    for v in (0, 1):
-        assert all(s.front[v]), (v, s.front[v])  # 상단 띠 = 머리
+    assert all(s.front[0])  # 0행은 전폭 머리 (위 구멍 금지)
+    for v in (1, 2):  # 가운데: 사진 머리선이 박스 위 → 0행까지만; 옆열은 유지
+        assert s.front[v][0] and s.front[v][7] and not any(s.front[v][1:7]), (v, s.front[v])
     assert s.top_hair is True
     for v in range(3, 8):  # 얼굴 박스 내부 가운데는 피부 (눈 템플릿 보호 클램프)
         assert not any(s.front[v][1:7]), (v, s.front[v])
-    assert s.front[2][0] and s.front[2][7]  # 옆열은 마스크 대로
     assert s.front[7][0] and s.front[7][7]
     assert s.side_rows == {"left": 8, "right": 8, "back": 8}
 
@@ -88,13 +92,15 @@ def test_mask_stencil_bald():
     assert s.top_hair is False
     assert not any(any(r) for r in s.front)  # 앞면 전부 피부
     assert s.side_rows == {"left": 0, "right": 0, "back": 0}
+    assert s.side_profiles["back"] == (0,) * 8  # 대머리: 뒤통수도 피부 (사용자 결정)
 
 
 def test_mask_stencil_mohawk():
     """모호크: 상단 띠의 중앙 폭 좁은 머리 띠만. 옆은 배경 → 머리 아님.
 
     오늘 규칙은 옆열을 무조건 머리로 칠했다 — 이 테스트가 그 한계를 깬다.
-    뒷면/옆면 행수 0 (중앙 띠가 옆으로 흐르지 않음 — 사진 그대로).
+    옆면 행수 0 (중앙 띠가 옆으로 흐르지 않음 — 사진 그대로), 뒤통수는 머리가
+    있으므로 가득 (사용자 결정 2026-10-15: 뒤통수에 피부 구멍 금지).
     """
     face = FaceBox(16, 24, 32, 32)
     hb = Q.hair_region(face)
@@ -110,7 +116,7 @@ def test_mask_stencil_mohawk():
     for v in range(2, 8):
         assert not any(s.front[v]), v
     assert s.side_rows["left"] == s.side_rows["right"] == 0
-    assert s.side_profiles["back"] == (0, 0, 0, 2, 2, 0, 0, 0)
+    assert s.side_profiles["back"] == (8,) * 8  # 머리 있음 → 뒤통수 가득
 
 
 def test_mask_stencil_symmetrized_vs_raw():
@@ -127,14 +133,14 @@ def test_mask_stencil_symmetrized_vs_raw():
     assert raw.front[0][7] is False
     assert raw.side_rows["left"] == 2
     assert raw.side_rows["right"] == 0
-    assert raw.side_rows["back"] == 2  # 긴 쪽 기준으로 뒤까지
+    assert raw.side_rows["back"] == 8  # 뒤통수 가득 (사용자 결정 2026-10-15)
     assert raw.side_profiles["right"] == (0,) * 8
 
     sym = HS.mask_stencil(seg, face, (96, 96))  # 기본값
     assert sym.front[0][0] is True
     assert sym.front[0][7] is True  # 거울 OR
     assert sym.side_rows["left"] == sym.side_rows["right"] == 2
-    assert sym.side_rows["back"] == 2
+    assert sym.side_rows["back"] == 8
     assert sym.side_profiles["right"] == (2,) * 8
 
     with pytest.raises(ValueError):
@@ -149,13 +155,17 @@ def _set_cell(seg, box, v, u, cls):
     seg[y0:y1, x0:x1] = cls
 
 
-def test_mask_stencil_fills_only_unobserved_arch_corners():
-    """Background at the ∩ cap corners is inferred; an explicit face-class part remains skin."""
+def test_mask_stencil_covers_arch_corners():
+    """∩ 캡 모서리: 배경은 추론으로, 관측 FACE 셀도 위 머리 흐름이 있으면 막는다.
+
+    사용자 결정 2026-10-15: 위 좌우 모서리에 피부가 보이면 안 된다 —
+    머리가 있는 열은 0행부터 이어진다 (위 구멍 금지).
+    """
     face = FaceBox(16, 24, 32, 32)
     hb = Q.hair_region(face)
     seg = np.zeros((96, 96), np.uint8)
     # Round cap: row 0 center, row 1 wider, row 2 full. Row-0 col 3 is an
-    # explicit scalp/part signal, not an unobserved background corner.
+    # explicit scalp/part signal — now covered too (hair flows beneath it).
     for u in range(2, 6):
         _set_cell(seg, hb, 0, u, 2)
     _set_cell(seg, hb, 0, 3, 11)
@@ -166,7 +176,7 @@ def test_mask_stencil_fills_only_unobserved_arch_corners():
     s = HS.mask_stencil(seg, face, (96, 96), symmetry="raw")
     assert s is not None
     assert s.front[0][0] and s.front[0][7], "unknown ∩ corners should be inferred as hair"
-    assert not s.front[0][3], "explicit FACE-class part must remain skin"
+    assert s.front[0][3], "관측 FACE 셀도 아래 머리 흐름이 있으면 덮는다 (위 구멍 금지)"
 
 
 def test_mask_stencil_head_profiles_follow_curved_mask():
@@ -183,7 +193,98 @@ def test_mask_stencil_head_profiles_follow_curved_mask():
     assert s is not None
     assert s.side_profiles["left"] == (5, 5, 4, 4, 3, 3, 2, 2)
     assert s.side_profiles["right"] == (5, 5, 4, 4, 3, 3, 2, 2)
-    assert s.side_profiles["back"] == heights
+    assert s.side_profiles["back"] == (8,) * 8  # 머리 있음 → 뒤통수 가득
+
+
+def _paint_band(seg, box, u, y0, y1, cls):
+    """얼굴 박스 안 열 밴드에 세로 머리 띠를 칠한다 (머리선 추적 스캔용)."""
+    cw = box.w / 8
+    x0, x1 = int(box.x + u * cw), int(box.x + (u + 1) * cw)
+    seg[y0:y1, x0:x1] = cls
+
+
+def test_mask_stencil_traces_photo_hairline():
+    """정면 머리선 추적: 사진에서 이마가 보이면 가운데 열을 윗행까지 자른다.
+
+    옆머리(1,2·5,6열)는 얼굴 박스 안에 깊은 머리(사진선 t≈0.5)가 있고
+    가운데(3,4열)는 없다 → 가운데만 0행까지, 옆은 0-2행 유지.
+    """
+    face = FaceBox(16, 24, 32, 32)
+    hb = Q.hair_region(face)
+    seg = np.zeros((96, 96), np.uint8)
+    for v in range(3):  # 상단 띠: 얼굴 위 머리 질량
+        for u in range(8):
+            _set_cell(seg, hb, v, u, 2)
+    for u in (1, 2, 5, 6):  # 옆머리는 얼굴 박스 안 0.5 얼굴높이까지
+        _paint_band(seg, hb, u, face.y, face.y + 16, 2)
+    s = HS.mask_stencil(seg, face, (96, 96), symmetry="raw")
+    assert s is not None
+    assert s.front[0][3] and s.front[0][4]
+    assert not s.front[1][3] and not s.front[2][3]  # 가운데: 이마 노출
+    assert not s.front[1][4] and not s.front[2][4]
+    assert s.front[1][1] and s.front[2][1]  # 옆: 사진선 깊이 유지
+    assert s.front[1][5] and s.front[2][5]
+    assert not s.front[3][1]  # 눈 보호(가운데 3행 이상 금지) 유지
+
+
+def test_mask_stencil_symmetrizes_traced_hairline():
+    """한쪽만 깊은 옆머리: 대칭화(기본)는 반대쪽 머리선도 내리고, raw는 한쪽만."""
+    face = FaceBox(16, 24, 32, 32)
+    hb = Q.hair_region(face)
+    seg = np.zeros((96, 96), np.uint8)
+    for v in range(3):
+        for u in range(8):
+            _set_cell(seg, hb, v, u, 2)
+    for u in (1, 2):  # 왼쪽만 깊다
+        _paint_band(seg, hb, u, face.y, face.y + 16, 2)
+    raw = HS.mask_stencil(seg, face, (96, 96), symmetry="raw")
+    assert raw.front[1][1] and raw.front[2][1]
+    assert not raw.front[1][6] and not raw.front[2][6]
+    sym = HS.mask_stencil(seg, face, (96, 96))  # symmetrized 기본
+    assert sym.front[1][6] and sym.front[2][6]  # 거울 최대: 오른쪽도 깊이 유지
+    assert not sym.front[1][3]  # 가운데 이마는 그대로 열림
+
+
+def test_mask_stencil_covers_skin_above_hair():
+    """머리 위에 뚫린 피부(모서리·가르마 셀)는 덮는다 — 위에 머리가 흐르면 구멍 금지.
+
+    왼쪽 끝·가운데의 관측 FACE 셀도 아래에 머리가 있으면 머리로 막힌다
+    (사용자 지시 2026-10-15). 머리가 전혀 없는 오른쪽 끝 열은 근거가 없어
+    그대로 피부.
+    """
+    face = FaceBox(16, 24, 32, 32)
+    hb = Q.hair_region(face)
+    seg = np.zeros((96, 96), np.uint8)
+    for v in (1, 2):
+        for u in range(7):  # 0-6열: 1-2행 머리
+            _set_cell(seg, hb, v, u, 2)
+    for u in range(7):  # 얼굴 박스 안 깊이 (추적선이 행을 자르지 않게)
+        _paint_band(seg, hb, u, face.y, face.y + 16, 2)
+    for u in (0, 3, 7):  # 0행: 왼끝·가르마·오른끝 = 관측 피부
+        _set_cell(seg, hb, 0, u, 11)
+    for u in range(7):
+        if u not in (0, 3):
+            _set_cell(seg, hb, 0, u, 2)
+    _set_cell(seg, hb, 1, 7, 11)  # 오른쪽 끝 열은 전부 피부
+    _set_cell(seg, hb, 2, 7, 11)
+    s = HS.mask_stencil(seg, face, (96, 96), symmetry="raw")
+    assert s is not None
+    assert s.front[0][0], "왼쪽 끝: 위가 관측 피부여도 아래 머리 흐름 → 덮는다"
+    assert s.front[0][3], "가르마 셀도 머리 위 구멍이면 덮는다"
+    assert not s.front[0][7] and not s.front[1][7], "머리 없는 열은 그대로 피부"
+
+
+def test_mask_stencil_back_full_when_hair_detected():
+    """머리가 있으면 뒤통수는 가득 — 정면 사진은 뒤통수를 안 보여준다 (사용자 결정 2026-10-15)."""
+    face = FaceBox(16, 24, 32, 32)
+    hb = Q.hair_region(face)
+    seg = np.zeros((96, 96), np.uint8)
+    for v in (0, 1):  # 짧은 머리: 앞 실루엣은 2행뿐
+        for u in range(8):
+            _set_cell(seg, hb, v, u, 2)
+    s = HS.mask_stencil(seg, face, (96, 96), symmetry="raw")
+    assert s is not None
+    assert s.side_profiles["back"] == (8,) * 8
 
 
 def test_mask_stencil_measures_contiguous_shoulder_hair():

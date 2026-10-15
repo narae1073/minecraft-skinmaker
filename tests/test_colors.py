@@ -372,9 +372,10 @@ def test_extract_builds_hair_stencil_from_seg(monkeypatch):
     o = C.extract(_bust_photo(), seg=seg)
     st = o.hair_stencil
     assert st is not None
-    assert all(st.front[0]) and all(st.front[1])          # 상단 띠 → 0-1행 전체 폭
+    assert all(st.front[0])                                  # 0행은 전폭 머리 (위 구멍 금지)
+    assert st.front[1][0] and st.front[1][7] and not any(st.front[1][1:7])  # 얼굴 위 머리뿐 → 가운데 0행까지
     assert st.top_hair is True
-    assert st.side_rows == {"left": 2, "right": 2, "back": 2}  # 뒷면은 앞 실루엣 추론
+    assert st.side_rows == {"left": 2, "right": 2, "back": 8}  # 머리 있음 → 뒤통수 가득 (사용자 결정)
     assert st.body_rows == 2  # ceil(48 / 191 * 6), shoulder-band scaling
 
 

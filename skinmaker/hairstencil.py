@@ -4,14 +4,17 @@
 - rule: 오늘의 길이 규칙 (render.render_head의 고정 표). 마스크가 없거나
   사용자가 고른 베이스라인. 픽셀 동일이 오늘 렌더와 같아야 한다.
 - mask: seg(원본 크기 SCHP class map)의 머리 픽셀을 8×8 머리 격자로 투영.
-  앞면은 사진 대로 (머리선 높이·앞머리·옆머리), 정수리는 상단 띠에서,
-  옆/뒷면은 앞 실루엣에서 추론한다 (앞 사진은 뒷머리를 보여주지 않는다).
+  앞면은 사진 대로 — 가운데 머리선은 얼굴 박스 안에서 추적해 이마를 살리고
+  (사용자 결정 2026-10-15), 머리 있는 열은 0행부터 이어 위 모서리 구멍을
+  금지한다. 뒤통수는 머리가 있으면 가득 (대머리만 피부). 옆면은 앞 실루엣에서
+  추론한다 (앞 사진은 뒷머리를 보여주지 않는다).
 
 색은 여기서 정하지 않는다 — 측정값(colors["hair"])이 그대로 칠해진다.
 정수리가 피부로 판정되는 대머리도 표현한다 (오늘은 항상 머리색).
 """
 from __future__ import annotations
 
+import math
 from dataclasses import dataclass, field
 
 import numpy as np
@@ -147,6 +150,34 @@ def mask_stencil(
     profile_vote = vote.copy()
     # 눈 템플릿 보호: 얼굴 중앙 열은 3행 이상 머리로 못 덮는다 (앞머리는 0-2행까지만).
     vote[3:, 1:HEAD_GRID - 1] = False
+    # 사진 머리선 추적: 얼굴 박스 안에서 열별 가장 깊은 머리 픽셀을 재고
+    # 가운데 열(1-6)을 그 높이까지만 남긴다 — 이마가 사진처럼 드러난다.
+    # 옆열(0,7)은 자르지 않는다: 옆머리 길이는 사진이 직접 보여준다.
+    seg_arr = np.asarray(seg)
+    keep0: dict[int, int] = {}
+    for u in range(1, HEAD_GRID - 1):
+        x0 = int(hb.x + u * cw)
+        x1 = int(hb.x + (u + 1) * cw)
+        y0, y1 = max(0, face.y), min(seg_arr.shape[0], face.bottom)
+        band_col = seg_arr[y0:y1, x0:x1]
+        ys = np.flatnonzero(np.isin(band_col, HAIR_CLASSES).any(axis=1))
+        t = float(ys[-1]) / max(1, face.h) if ys.size else 0.0
+        # ceil: 머리선이 걸친 행까지 머리. 최소 1행, 눈 보호로 최대 3행.
+        keep0[u] = min(3, max(1, math.ceil(t * HEAD_GRID))) - 1  # 행 수 → 마지막 행
+    if symmetry == "symmetrized":
+        # 한쪽만 읽힌 옆머리선은 반대쪽도 (거울 최대: 머리 많은 쪽 기준).
+        keep0 = {u: max(keep0[u], keep0[HEAD_GRID - 1 - u]) for u in keep0}
+    for u, vmax0 in keep0.items():
+        first = np.flatnonzero(vote[:, u])
+        if not first.size:
+            continue
+        vote[max(vmax0, int(first[0])) + 1:, u] = False
+    # 위 구멍 금지: 머리가 있는 열은 0행부터 이어진다 — 모서리·가르마 위 피부가
+    # 남으면 머리가 뚫린 것처럼 보인다 (사용자 지시 2026-10-15).
+    for u in range(HEAD_GRID):
+        first = np.flatnonzero(vote[:, u])
+        if first.size:
+            vote[:int(first[0]), u] = True
     # 근거 없음(머리 영역 전부 배경) → None. 맨살뿐(대머리)은 근거다 — 벗은 스텐실.
     if not (np.asarray(seg)[int(hb.y):int(hb.y + hb.h), int(hb.x):int(hb.x + hb.w)] != 0).any():
         return None
@@ -162,16 +193,19 @@ def mask_stencil(
 
     left_profile = interpolate(heights[0], heights[3]) if heights[0] else (0,) * 8
     right_profile = interpolate(heights[7], heights[4]) if heights[7] else (0,) * 8
-    side_profiles = {
-        "left": left_profile,
-        "right": right_profile,
-        "back": heights,
-    }
-    front = tuple(tuple(bool(b) for b in row) for row in vote)
     # 정수리: 상단 띠(격자 0-1행 너비)의 다수 클래스. 맨두피(11) 능선이면 피부,
     # 그 외(머리·배경=정수리 미관측)는 오늘 동작 유지(머리).
     band = np.asarray(seg)[int(hb.y):int(hb.y + hb.h / 4), int(hb.x):int(hb.x + hb.w)]
     dom = _dominant_class(band)
     top_hair = dom != FACE if dom is not None else True
+    # 뒤통수: 머리가 있으면 가득 — 정면 사진은 뒤통수를 보여주지 않는다.
+    # 대머리(머리 근거 없음)만 피부 유지 (사용자 결정 2026-10-15).
+    back = (HEAD_GRID,) * HEAD_GRID if (top_hair or bool(vote.any())) else heights
+    side_profiles = {
+        "left": left_profile,
+        "right": right_profile,
+        "back": back,
+    }
+    front = tuple(tuple(bool(b) for b in row) for row in vote)
     body_rows = _body_hair_rows(np.asarray(seg), face, img_size)
     return HairStencil(front, top_hair, side_profiles, body_rows)

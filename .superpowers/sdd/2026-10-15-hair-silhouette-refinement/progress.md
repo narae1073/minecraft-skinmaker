@@ -19,3 +19,9 @@ Task 3: Final review: self-review (no subagent; developer instruction prohibits 
 Task 3: complete (commits 5f7e118..a1b8be8, tests: .venv/bin/python -m pytest -q → 477 passed in 165.91s (0:02:45))
 Final review: self-review (no subagent). Diff review checked plan alignment, tests, mask→stencil→renderer wiring, rule golden hashes, body-row cap, classic/slim validation, and `git diff --check` (clean). No Critical/Important implementation findings.
 Final: Ruling: leave pale-hair colour confidence/fallback unchanged — this approved segment is silhouette/body geometry; the crop-top sample's color-confidence failure is a separate measurement-policy task — cost if wrong: that blonde can still render dark brown despite corrected geometry.
+
+## 후속: 머리선 다듬기 (2026-10-15, 사용자 목업 승인)
+- 사용자 결정(목업 리뷰): ① 뒤통수는 머리가 있으면 가득(대머리만 피부) ② 정면 머리선은 '사진 머리선' 추적 ③ 위 모서리 피부 구멍 금지 — "머리 있는 열은 0행부터".
+- 룰링: 위 구멍 금지(closure)는 모든 열에 적용 — 승인 문장 "every hair column reaches the top edge"의 문자 그대로. 결과: 0행 가르마(scalp) 셀도 아래에 머리가 있으면 덮인다. 틀렸을 경우 비용: 정수리 가르마 표현이 위 1행에서 사라짐 (test_mask_stencil_covers_arch_corners로 문서화).
+- 룰링: 트림은 가운데 열(1-6)만, ceil(t*8) 1..3행 클램프(눈 보호 유지), 대칭화는 mirror-max. 옆열(0,7)은 사진 그대로.
+- 실사진 검증: 남 [3,2,1,1,1,1,2,3] / 여 [8,3,3,1,1,3,3,8] — 승인 목업과 일치. 전체 스위트 481 passed.
