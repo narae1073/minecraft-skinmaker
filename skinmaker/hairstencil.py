@@ -185,14 +185,6 @@ def mask_stencil(
         int(np.flatnonzero(profile_vote[:, u])[-1]) + 1 if profile_vote[:, u].any() else 0
         for u in range(HEAD_GRID)
     )
-    # 가장자리 실루엣을 옆면 8열에 보간하고, 뒷면에는 전체 프로파일을 이어 붙인다.
-    # 바깥 가장자리에 hair가 없으면 side face도 비운다 (중앙 모호크가 옆면으로
-    # 번지지 않게). side face 각 열은 앞 가장자리에서 안쪽 head profile로 곡선을 만든다.
-    def interpolate(a: int, b: int) -> tuple[int, ...]:
-        return tuple(round(a + (b - a) * i / 7) for i in range(8))
-
-    left_profile = interpolate(heights[0], heights[3]) if heights[0] else (0,) * 8
-    right_profile = interpolate(heights[7], heights[4]) if heights[7] else (0,) * 8
     # 정수리: 상단 띠(격자 0-1행 너비)의 다수 클래스. 맨두피(11) 능선이면 피부,
     # 그 외(머리·배경=정수리 미관측)는 오늘 동작 유지(머리).
     band = np.asarray(seg)[int(hb.y):int(hb.y + hb.h / 4), int(hb.x):int(hb.x + hb.w)]
@@ -201,6 +193,14 @@ def mask_stencil(
     # 뒤통수: 머리가 있으면 가득 — 정면 사진은 뒤통수를 보여주지 않는다.
     # 대머리(머리 근거 없음)만 피부 유지 (사용자 결정 2026-10-15).
     back = (HEAD_GRID,) * HEAD_GRID if (top_hair or bool(vote.any())) else heights
+    # 옆면 머리선: 앞 가장자리(관자 깊이)에서 뒤통수 끝값까지 보간 — 뒤 모서리에서
+    # 끊기지 않고 이어진다 (사용자 지시 2026-10-15: 머리선이 끊김 없이 흘러야).
+    # 바깥 가장자리에 hair가 없으면 side face도 비운다 (모호크가 옆면으로 번지지 않게).
+    def interpolate(a: int, b: int) -> tuple[int, ...]:
+        return tuple(round(a + (b - a) * i / 7) for i in range(8))
+
+    left_profile = interpolate(heights[0], back[0]) if heights[0] else (0,) * 8
+    right_profile = interpolate(heights[7], back[0]) if heights[7] else (0,) * 8
     side_profiles = {
         "left": left_profile,
         "right": right_profile,

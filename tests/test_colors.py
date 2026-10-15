@@ -375,7 +375,7 @@ def test_extract_builds_hair_stencil_from_seg(monkeypatch):
     assert all(st.front[0])                                  # 0행은 전폭 머리 (위 구멍 금지)
     assert st.front[1][0] and st.front[1][7] and not any(st.front[1][1:7])  # 얼굴 위 머리뿐 → 가운데 0행까지
     assert st.top_hair is True
-    assert st.side_rows == {"left": 2, "right": 2, "back": 8}  # 머리 있음 → 뒤통수 가득 (사용자 결정)
+    assert st.side_rows == {"left": 8, "right": 8, "back": 8}  # 옆→뒤 가득으로 이어짐
     assert st.body_rows == 2  # ceil(48 / 191 * 6), shoulder-band scaling
 
 

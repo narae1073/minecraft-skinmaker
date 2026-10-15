@@ -131,7 +131,7 @@ def test_mask_stencil_symmetrized_vs_raw():
     raw = HS.mask_stencil(seg, face, (96, 96), symmetry="raw")
     assert raw.front[0][0] is True
     assert raw.front[0][7] is False
-    assert raw.side_rows["left"] == 2
+    assert raw.side_rows["left"] == 8  # 뒤통수 끝(가득)까지 이어진다
     assert raw.side_rows["right"] == 0
     assert raw.side_rows["back"] == 8  # 뒤통수 가득 (사용자 결정 2026-10-15)
     assert raw.side_profiles["right"] == (0,) * 8
@@ -139,9 +139,9 @@ def test_mask_stencil_symmetrized_vs_raw():
     sym = HS.mask_stencil(seg, face, (96, 96))  # 기본값
     assert sym.front[0][0] is True
     assert sym.front[0][7] is True  # 거울 OR
-    assert sym.side_rows["left"] == sym.side_rows["right"] == 2
+    assert sym.side_rows["left"] == sym.side_rows["right"] == 8
     assert sym.side_rows["back"] == 8
-    assert sym.side_profiles["right"] == (2,) * 8
+    assert sym.side_profiles["right"] == (2, 3, 4, 5, 5, 6, 7, 8)
 
     with pytest.raises(ValueError):
         HS.mask_stencil(seg, face, (96, 96), symmetry="bogus")
@@ -191,9 +191,30 @@ def test_mask_stencil_head_profiles_follow_curved_mask():
             _set_cell(seg, hb, v, u, 2)
     s = HS.mask_stencil(seg, face, (96, 96), symmetry="raw")
     assert s is not None
-    assert s.side_profiles["left"] == (5, 5, 4, 4, 3, 3, 2, 2)
-    assert s.side_profiles["right"] == (5, 5, 4, 4, 3, 3, 2, 2)
+    # 옆 경계는 앞 가장자리(관자) 깊이에서 뒤통수 끝(가득)으로 이어진다 — 뒤 모서리 단차 없음.
+    assert s.side_profiles["left"] == (5, 5, 6, 6, 7, 7, 8, 8)
+    assert s.side_profiles["right"] == (5, 5, 6, 6, 7, 7, 8, 8)
     assert s.side_profiles["back"] == (8,) * 8  # 머리 있음 → 뒤통수 가득
+
+
+def test_mask_stencil_side_profile_flows_into_full_back():
+    """옆 머리선은 관자 깊이에서 뒤통수 끝값까지 단조 증가 — 뒤 모서리에 단차가 없다.
+
+    사용자 지시 2026-10-15: 머리선이 끊김 없이 이어져야 한다. 정면 열 값(관자)과
+    옆면 첫 열이 같고, 옆면 끝 열과 뒤통수 가장자리가 같아야 코너에서 안 끊긴다.
+    """
+    face = FaceBox(16, 24, 32, 32)
+    hb = Q.hair_region(face)
+    seg = np.zeros((96, 96), np.uint8)
+    for u in range(8):  # 남 사진류: 관자 3행 · 가운데 1행 실루엣
+        for v in range(3 if u in (0, 7) else 2 if u in (1, 6) else 1):
+            _set_cell(seg, hb, v, u, 2)
+    s = HS.mask_stencil(seg, face, (96, 96), symmetry="raw")
+    assert s is not None
+    assert s.side_profiles["left"] == (3, 4, 4, 5, 6, 7, 7, 8)
+    assert list(s.side_profiles["left"]) == sorted(s.side_profiles["left"]), "단조 증가"
+    assert s.side_profiles["left"][0] == 3  # 앞 모서리 = 정면 가장자리 열
+    assert s.side_profiles["left"][-1] == s.side_profiles["back"][0] == 8  # 뒤 모서리 연속
 
 
 def _paint_band(seg, box, u, y0, y1, cls):
