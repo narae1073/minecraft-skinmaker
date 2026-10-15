@@ -47,11 +47,11 @@
 
 **Interfaces:** Add a body-hair extent to `HairStencil`; mask mode derives it from contiguous SCHP hair below/alongside the face into the shoulder band. `render_body(..., hair_stencil=None)` paints hair only for a mask stencil with observed body extent.
 
-- [ ] Add tests: short/no shoulder hair yields zero body coverage; hair extending to shoulders yields body back and side coverage to measured rows plus only outer shoulder strands on the front; shirt center and neck remain visible; rule/no-mask output stays unchanged.
-- [ ] Run tests and verify expected failures against current head-only stencil.
-- [ ] Implement extent extraction and body rendering; paint after shirt and neck so hair overlaps only the intended shoulder/upper-body cells.
-- [ ] Run focused tests and verify validation invariants on classic/slim skins.
-- [ ] Commit this independently.
+- [x] Add tests: short/no shoulder hair yields zero body coverage; hair extending to shoulders yields body back and side coverage to measured rows plus only outer shoulder strands on the front; shirt center and neck remain visible; rule/no-mask output stays unchanged.
+- [x] Run tests and verify expected failures against current head-only stencil.
+- [x] Implement extent extraction and body rendering; paint after shirt and neck so hair overlaps only the intended shoulder/upper-body cells.
+- [x] Run focused tests and verify validation invariants on classic/slim skins.
+- [x] Commit this independently.
 
 ### Task 3: Verify real fitting photos and full suite
 

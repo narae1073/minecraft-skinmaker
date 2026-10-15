@@ -32,6 +32,7 @@ class HairStencil:
     top_hair: bool                        # 정수리(top 면) 머리 여부
     side_profiles: dict[str, tuple[int, ...]] = field(default_factory=dict)
     # face author-u 열마다 위에서부터 칠할 행 수. head cuboid의 모든 면은 8열.
+    body_rows: int = 0                    # jaw 아래 관측된 머리 길이를 torso 12행으로 환산
 
     @property
     def side_rows(self) -> dict[str, int]:
@@ -68,6 +69,27 @@ def _dominant_class(block: np.ndarray) -> int | None:
     if block.size == 0:
         return None
     return int(np.bincount(block.reshape(-1)).argmax())
+
+
+def _body_hair_rows(seg: np.ndarray, face: FaceBox, img_size: tuple[int, int]) -> int:
+    """턱 아래 연속 hair 픽셀을 torso의 12행으로 환산한다.
+
+    얼굴 너비의 25%만큼 좌우 확장한 회랑을 턱(face.bottom)부터 한 얼굴 높이까지
+    스캔한다. 행당 최소 2 hair 픽셀인 연속 run만 신호로 인정해 고립 픽셀을 무시한다.
+    """
+    img_w, img_h = img_size
+    x0 = max(0, face.x - int(face.w * 0.25))
+    x1 = min(img_w, face.right + int(face.w * 0.25))
+    y0, y1 = max(0, face.bottom), min(img_h, face.bottom + face.h)
+    if x1 <= x0 or y1 <= y0:
+        return 0
+    patch = np.asarray(seg)[y0:y1, x0:x1]
+    active = np.isin(patch, HAIR_CLASSES).sum(axis=1) >= 2
+    run = longest = 0
+    for is_active in active:
+        run = run + 1 if is_active else 0
+        longest = max(longest, run)
+    return min(12, int(np.ceil(longest * 12 / face.h)))
 
 
 def mask_stencil(
@@ -149,4 +171,5 @@ def mask_stencil(
     band = np.asarray(seg)[int(hb.y):int(hb.y + hb.h / 4), int(hb.x):int(hb.x + hb.w)]
     dom = _dominant_class(band)
     top_hair = dom != FACE if dom is not None else True
-    return HairStencil(front, top_hair, side_profiles)
+    body_rows = _body_hair_rows(np.asarray(seg), face, img_size)
+    return HairStencil(front, top_hair, side_profiles, body_rows)

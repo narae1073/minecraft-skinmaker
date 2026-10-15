@@ -252,7 +252,14 @@ def _pattern_color(base: Color, alt: Color | None, u: int, v: int, w: int, h: in
     return shaded
 
 
-def render_body(canvas: SkinCanvas, colors: dict[str, Color], attrs: Attributes, pattern: str, alt: Color | None = None) -> None:
+def render_body(
+    canvas: SkinCanvas,
+    colors: dict[str, Color],
+    attrs: Attributes,
+    pattern: str,
+    alt: Color | None = None,
+    hair_stencil=None,
+) -> None:
     top_garment = attrs.get("top_garment")
     base = colors["skin"] if top_garment == "none" else colors["top"]
     # dress는 상의색 그대로. overalls/uniform/apron도 v1은 단색 베이스.
@@ -271,6 +278,22 @@ def render_body(canvas: SkinCanvas, colors: dict[str, Color], attrs: Attributes,
                     canvas.put("body", "front", u, v, shade(colors["skin"], 0.86), 0)
                 except ValueError:
                     continue
+
+    # 관측된 긴 머리만 몸통으로 연장한다. 뒷면/옆면은 턱 아래 마스크 길이,
+    # 앞면은 셔츠 중앙을 가리지 않도록 양쪽 바깥 2열에 어깨 가닥만 그린다.
+    body_rows = min(12, max(0, getattr(hair_stencil, "body_rows", 0)))
+    if body_rows:
+        hair_c = colors["hair"]
+        for face_name in ("back", "right", "left"):
+            f = canvas.layout.face("body", face_name, 0)
+            for v in range(min(body_rows, f.h)):
+                for u in range(f.w):
+                    canvas.put("body", face_name, u, v, shade(hair_c, FACE_SHADE[face_name]), 0)
+
+        front = canvas.layout.face("body", "front", 0)
+        for v in range(min(2, body_rows, front.h)):
+            for u in (0, 1, front.w - 2, front.w - 1):
+                canvas.put("body", "front", u, v, shade(hair_c, FACE_SHADE["front"]), 0)
 
 
 def render_arms(canvas: SkinCanvas, colors: dict[str, Color], attrs: Attributes, pattern: str, sleeve: str | None = None) -> None:
@@ -353,7 +376,7 @@ def render(
     # 측정 2색(줄무늬)이 있을 때만 실측 보조색. 없으면 합성 음영.
     alt = colors["top_alt"] if not observed.top_alt.missing and pattern in ("vertical_stripe", "horizontal_stripe") else None
     render_head(canvas, colors, attrs, observed.hair_stencil)
-    render_body(canvas, colors, attrs, pattern, alt)
+    render_body(canvas, colors, attrs, pattern, alt, observed.hair_stencil)
     render_arms(canvas, colors, attrs, pattern, resolve_sleeve(attrs, observed))
     render_legs(canvas, colors, attrs, resolved_bottom, shoe_two_tone=shoe_two_tone)
     if noise_seed is not None:

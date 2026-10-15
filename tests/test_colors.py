@@ -368,12 +368,14 @@ def test_extract_builds_hair_stencil_from_seg(monkeypatch):
     seg = np.zeros((512, 512), np.uint8)
     seg[int(hb.y):int(hb.y + hb.h / 4), int(hb.x):int(hb.x + hb.w)] = 2   # 상단 띠 = 머리
     seg[face.y:face.y + face.h, face.x:face.x + face.w] = 11             # 얼굴
+    seg[face.bottom:face.bottom + 48, face.right - 12:face.right + 8] = 2  # 턱 아래 어깨 머리
     o = C.extract(_bust_photo(), seg=seg)
     st = o.hair_stencil
     assert st is not None
     assert all(st.front[0]) and all(st.front[1])          # 상단 띠 → 0-1행 전체 폭
     assert st.top_hair is True
     assert st.side_rows == {"left": 2, "right": 2, "back": 2}  # 뒷면은 앞 실루엣 추론
+    assert st.body_rows == 4  # ceil(48 / 191 * 12)
 
 
 def test_extract_hair_source_rule_skips_stencil(monkeypatch):

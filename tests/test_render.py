@@ -95,6 +95,32 @@ def test_render_consumes_mask_stencil():
 
 
 @pytest.mark.parametrize("model", ["classic", "slim"])
+def test_mask_stencil_renders_body_back_sides_and_front_shoulder_strands(model):
+    """Long mask hair reaches torso back/sides; front gets only shoulder strands, neck stays visible."""
+    stencil = HS.HairStencil(
+        tuple(tuple(False for _ in range(8)) for _ in range(8)), True,
+        {"left": (0,) * 8, "right": (0,) * 8, "back": (0,) * 8},
+        body_rows=3,
+    )
+    base = observed()
+    canvas = R.render(dataclasses.replace(base, hair_stencil=stencil), attrs(), (), model).image
+    L = get_layout(model)
+    hair = rgba(base.hair.hex)[:3]
+    back = L.face("body", "back", 0)
+    right = L.face("body", "right", 0)
+    front = L.face("body", "front", 0)
+
+    assert canvas.getpixel((back.x + 4, back.y + 2))[:3] == shade(rgba(base.hair.hex), R.FACE_SHADE["back"])[:3]
+    assert canvas.getpixel((right.x + 2, right.y + 2))[:3] == shade(rgba(base.hair.hex), R.FACE_SHADE["right"])[:3]
+    for u in (0, 1, 6, 7):
+        assert canvas.getpixel((front.x + u, front.y + 1))[:3] == hair
+    assert canvas.getpixel((front.x + 3, front.y + 0))[:3] == shade(rgba(base.skin.hex), 0.86)[:3]
+    assert canvas.getpixel((front.x + 4, front.y + 1))[:3] == shade(rgba(base.skin.hex), 0.86)[:3]
+    assert canvas.getpixel((front.x + 3, front.y + 2))[:3] == shade(rgba(base.top.hex), R.FACE_SHADE["front"])[:3]
+    assert validate_image(canvas, model) == []
+
+
+@pytest.mark.parametrize("model", ["classic", "slim"])
 def test_render_is_valid(model):
     canvas = R.render(observed(), attrs(), (), model)
     assert validate_image(canvas.image, model) == []

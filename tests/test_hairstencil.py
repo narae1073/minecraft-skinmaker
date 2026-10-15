@@ -184,3 +184,28 @@ def test_mask_stencil_head_profiles_follow_curved_mask():
     assert s.side_profiles["left"] == (5, 5, 4, 4, 3, 3, 2, 2)
     assert s.side_profiles["right"] == (5, 5, 4, 4, 3, 3, 2, 2)
     assert s.side_profiles["back"] == heights
+
+
+def test_mask_stencil_measures_contiguous_shoulder_hair():
+    """Hair continuing below the jaw maps to torso rows; a gap ends the measured run."""
+    face = FaceBox(16, 24, 32, 32)
+    hb = Q.hair_region(face)
+    seg = np.zeros((96, 96), np.uint8)
+    for u in range(8):
+        _set_cell(seg, hb, 0, u, 2)
+    # One side lock reaches 8 pixels below the chin, then stops: ceil(8/32*12)=3 body rows.
+    seg[face.bottom:face.bottom + 8, face.x + 26:face.x + 31] = 2
+    seg[face.bottom + 10:face.bottom + 18, face.x + 26:face.x + 31] = 2
+    s = HS.mask_stencil(seg, face, (96, 96), symmetry="raw")
+    assert s is not None
+    assert s.body_rows == 3
+
+
+def test_mask_stencil_short_hair_has_no_body_extent():
+    """No Hair(2) pixels below the jaw means no torso hair rows."""
+    face = FaceBox(16, 24, 32, 32)
+    hb = Q.hair_region(face)
+    seg = np.zeros((96, 96), np.uint8)
+    for u in range(8):
+        _set_cell(seg, hb, 0, u, 2)
+    assert HS.mask_stencil(seg, face, (96, 96), symmetry="raw").body_rows == 0
