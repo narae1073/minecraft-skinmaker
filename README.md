@@ -75,7 +75,7 @@ cd frontend && npm install && npm run dev         # http://localhost:5173/
 
 Vite 프록시가 `8001`을 바라보므로 포트를 바꾸려면 `frontend/vite.config.js`도 함께 고친다. LAN 접근에는 `--host 0.0.0.0`이 필요하다.
 
-![웹 UI](website_output_images/Screenshot_20261015_164658.png)
+![웹 UI](website_output_images/Screenshot_20261016_104316.png)
 
 - 계약: `POST /api/v1/generate-skin` (multipart `file`)
   → `{"status":"success","data":{"input":…,"skins":[url,…],"summary":…,"uncertain":[…]}}`
