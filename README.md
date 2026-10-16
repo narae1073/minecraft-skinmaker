@@ -1,105 +1,49 @@
 # skinmaker
 
-Person photo → Minecraft 64×64 skin (RGBA PNG).
+인물 사진 한 장 → **Minecraft 64×64 스킨 (RGBA PNG)**.
 
-The AI (a VLM) only extracts an attribute JSON from the photo; **every pixel is drawn by
-code**. The split exists because of the pixel budget: a 64×64 skin has only 3,264 pixels
-available for painting (1,632 per layer), and the front of the face alone is 64 pixels.
-87% of the identity lives in hair and clothing, and downscaling a neural image into an
-8×12 garment turns it into color blotches — so the AI's share is limited to
-**classification** (what garment is it) and **color extraction**. The code renderer owns
-100% of the pixels, which is also what makes seams structurally impossible: there is
-exactly one renderer.
+핵심은 역할 분담이다. AI(VLM)는 사진에서 **속성 JSON**만 뽑고 — *무엇을 입었는가*(분류)와 *무슨 색인가*(색 추출) — **모든 픽셀은 코드가 그린다.**
 
-```
-photo ──VLM──→ attribute JSON ──→ code renderer ──→ 64×64 RGBA
-             (classify / color)                  + invariant checks
-```
+![핵심 구조](docs/images/architecture.svg)
 
-- Requirement that anchors all design: *the face and hair only need to be roughly
-  similar, not exact.* Faces end as enums; hair silhouette is free to design; only
-  color is measured.
-- Evaluable area: only 4 of the 14 cuboid faces are observed in a photo. The 75%
-  that cannot be observed is where real quality work happens.
+**왜 이렇게 나눴나.** 64×64 스킨에서 레이어당 실제로 칠할 수 있는 픽셀은 1,632개, 얼굴 앞면은 64픽셀뿐이다. 정체성의 87%는 머리와 옷에 살고, 신경망 이미지를 8×12 옷칸에 억지로 줄이면 색 얼룩이 된다. 그래서 AI의 몫은 **분류와 색**까지로 제한한다. 렌더러가 하나뿐이라 이음새(seam)는 구조적으로 생길 수 없다.
 
-## Install / run
+- 기준이 되는 요구사항: *얼굴과 머리는 대충 비슷하면 된다.* 얼굴은 enum으로, 머리 실루엣은 자유 설계로, 색만 측정한다.
+- 사진에서 실제로 관측되는 큐보이드 면은 14개 중 4개뿐. 관측할 수 없는 나머지 75%가 진짜 품질이 갈리는 곳이다.
+
+## 파이프라인
+
+![파이프라인](docs/images/pipeline.svg)
+
+| 단계 | 모듈 | 하는 일 |
+|---|---|---|
+| **S0** 입력 게이트 | `quality.py` | YuNet 얼굴 검출, 품질 신호(밝기·흐림·크기), 다중 얼굴 선택. **거부 조건은 “얼굴 없음” 하나뿐** |
+| **S1** 색 관측 | `colors.py` | 스킨 기준 화이트밸런스, 밴드/파서 마스크 기반 대표색, 신뢰도·폴백 판단 |
+| **S2** 분류 | `s2.py`, `classify.py` | VLM이 5필드 스키마(상·하의 enum, 소매 길이, 무늬, 기장) 채움. 이중 질의 불일치 = 불확실성 |
+| **파서 마스크** | `parsing.py` | SCHP 인체 파싱으로 하의·머리·신발 색 위치 확정 (**기본 ON**, 없으면 밴드 경로로 폴백) |
+| **S3** 렌더 | `render.py` | 파라메트릭 텍스처 그리기, 하의 폴백 정책, 결정적 노이즈 시드 |
+| **S4** 후보 | `candidates.py` | 이중 질의가 어긋난 필드만 변형해 1~3개 생성. 랭킹 없음, 전부 검증 통과 필수 |
+
+전송 계층(`vlm/`)은 `mock` · `gemini` · `ollama` · `openrouter`를 지원하며, OpenRouter는 무료 모델 폴백 체인을 쓴다.
+
+## 설치 / 실행
 
 ```bash
 python3 -m venv .venv
 .venv/bin/pip install -r requirements.txt
 
-.venv/bin/python -m pytest -q                  # full suite
-.venv/bin/python -m skinmaker --model classic  # dummy skin + preview into out/
+.venv/bin/python -m pytest -q                   # 전체 테스트 (482개)
+.venv/bin/python -m skinmaker --model classic   # 더미 스킨 + 프리뷰 → out/
 ```
 
-`out/placeholder_<model>.png` is the skin, `..._preview.png` is the QA 3/5-view sheet
-(panel order: front / side / back / top / overlay hair layer).
+`python`이나 `uv`가 아니라 **`.venv/bin/python`** 을 쓴다.
 
-## Locked design decisions
+- `out/placeholder_classic.png` — 스킨 본체 (64×64 RGBA)
+- `out/placeholder_classic_preview.png` — QA용 다중 뷰 시트 (앞 / 옆 / 뒤 / 위 / 오버레이)
 
-| Item | Decision |
-|---|---|
-| AI role | Vision API → attribute JSON only. Zero generated pixels. |
-| Face | Rendered by code (eyes 2×2, mouth 4×1) — enum-grade similarity |
-| Hands | Rendered by code (bottom 3–4 rows of the arms) |
-| Hair | Solid color set (10) × length (4) enums; only color is measured |
-| Outerwear | AI returns enum + HEX; code renders it into the 8×12 body box |
-| Boundaries | Code owns every pixel → seams structurally impossible |
-| Models | `classic` (4px arms) / `slim` (3px arms) |
-| Hard gate | Face detection failure only. No other rejection gates. |
+### 얼굴 검출 모델 (S0)
 
-## The 64×64 UV layout
-
-`skinmaker/format.py` is the single source of truth. `get_layout()` self-checks the
-atlas against the wiki counts and raises if anything drifts.
-
-Layer-0 / layer-1 (overlay) regions per part, atlas-relative (x, y, w, h), and box (w, h, d):
-
-| Part | Layer 0 region | Layer 1 region | Box |
-|---|---|---|---|
-| head | (0, 0) 32×16 | (32, 0) 32×16 | 8×8×8 |
-| body | (16, 16) 24×16 | (16, 32) 24×16 | 8×12×4 |
-| r_arm | (40, 16) 16×16 | (40, 32) 16×16 | 4×12×4 |
-| r_leg | (0, 16) 16×16 | (0, 32) 16×16 | 4×12×4 |
-| l_leg | (16, 48) 16×16 | (0, 48) 16×16 | 4×12×4 |
-| l_arm | (32, 48) 16×16 | (48, 48) 16×16 | 4×12×4 |
-
-- Head/body follow the cuboid face order; limbs follow the limb order
-  (semantically front → right → back → left → top → bottom — positions in the atlas
-  differ between the two groups, which is why this is code, not convention).
-- Usable pixels per layer: classic 1,632 / slim 1,568 (verified programmatically).
-
-**Slim: only the front/back faces shrink to 3px; the side (depth) faces stay 4px.**
-Because the limb box narrows, the back face's start x moves 1px left. The 4th column
-is ignored by the game.
-
-## Left arm / leg mirror rule
-
-`canvas.put(part, face, u, v, color)` takes `u` as **author coordinates, not texture
-coordinates**. `l_arm` / `l_leg` have opposite u direction; the canvas flips them on
-write. Draw both limbs with the same code and texture-space left/right symmetry holds
-automatically. `validate.py` enforces it.
-
-## Invariants (`skinmaker/validate.py`)
-
-Everything that would break the skin in-game is fixed here:
-
-| Code | Condition |
-|---|---|
-| `size` | exactly 64×64 |
-| `mode` | RGBA |
-| `overlap` | faces of different parts never overlap |
-| `bleed` | pixels belonging to no face are fully transparent |
-| `base_alpha` | inner-layer usable pixels are fully opaque (Java forces) |
-| `mirror` | left/right parts are exact texture-space mirrors |
-
-Alpha caveats: **Java allows partial transparency (1–255) on the outer
-(overlay) layer but enforces full opacity on the inner layer.** Bedrock allows only
-0/255.
-
-## Assets / YuNet model (S0)
-
-S0 uses OpenCV's bundled YuNet. The model file is not committed.
+OpenCV 내장 YuNet을 쓰며 모델 파일은 커밋하지 않는다.
 
 ```bash
 mkdir -p assets
@@ -107,159 +51,106 @@ curl -sSLf -o assets/face_detection_yunet_2023mar.onnx \
   https://github.com/opencv/opencv_zoo/raw/main/models/face_detection_yunet/face_detection_yunet_2023mar.onnx
 ```
 
-To use a different path, set `SKINMAKER_YUNET`.
+다른 경로는 `SKINMAKER_YUNET`으로 지정한다. 포즈 모델은 **선택 사항**이며 없어도 동작한다(`SKINMAKER_POSE`).
 
-### S0 measurement
-
-```bash
-.venv/bin/python -m skinmaker.measure path/to/photos
-```
-
-Reports rejection rate, quality-flag distribution, face size/brightness/blur/saturation.
-**The only hard gate is face detection failure**; the other flags
-(blur / dark / bright / small / flat) are renderer parameters for S1–S3, not rejections.
-Multiple detections: `quality.select_face()` picks the subject by area (YuNet scores
-cluster around 0.85–0.92 and carry no information), ties broken by image-center distance.
-
-## Optional pose model (upper/full body bands)
-
-S1 bands use joint landmarks (shoulder/pelvis/knee) when a pose model is present and
-fall back to face-proportion geometry otherwise. **The model is optional and works
-without it.** This machine cannot run mediapipe (SIGILL); pose detection is isolated
-off unless you supply a working model:
+### 파서 마스크 (선택이지만 권장)
 
 ```bash
-curl -sSLf -o assets/pose_landmarker_lite.task \
-  https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_lite/float16/1/pose_landmarker_lite.task
-```
-
-Set `SKINMAKER_POSE` for a non-default path. Upper-body framing (pelvis out of frame)
-leaves the bottom band empty → bottom color MISSING → S3 default + S2 `none` rule
-infers trousers.
-
-## Stage-by-stage contact sheet
-
-```bash
-.venv/bin/python -m skinmaker.samples <photo file|folder> -o out/samples
-# one sheet per photo; --no-placeholder to render S3 live, --patterned for patterned tops
-```
-
-One git-stage per photo. Panels, top to bottom:
-
-| Panel | Shows | Catches |
-|---|---|---|
-| **S0 input gate** | original + face box + hair/skin/top sample regions | no face / wrong face / hat grabbed as hair / top band on background |
-| **S1 observed colors** | original vs white-balanced + per-region HEX with share & confidence | over-correction / skinlike top / hat-as-hair |
-| **S3 atlas 64×64** | skin texture at 8× with an 8-texel grid | which texel is which coordinate |
-| **S3 skin over UV guide** | skin composited 55% over a color-coded UV guide | *the key check*: every region landed in its rect |
-| **S4 preview** | front / side / back / top / overlay | odd faces, silhouette collapse |
-
-Panel footers carry detection score, quality metrics, region share, and flags.
-S1 is actual measurement; S3/S4 panels are filled with a PLACEHOLDER dummy by default
-(header says so). Pass `--no-placeholder` to make S3 render live (S1 colors + default
-enums, S2 not wired in this view).
-
-Stage 1 observation (`skinmaker/colors.py`) in one breath: skin-referenced white
-balance (clipped/unconfident gains are identity — a clipped gain is what turned a
-white shirt mint), cluster-mode dominant color, chroma+**luma** background rejection
-(dark neutral jeans vs a gray backdrop), bottom-band cascade
-(face-proportional bands → frame-lower bands → lower-body foreground mask),
-`bottom_plausible` flag feeding the render fallback policy
-(`render.bottom_usable`: use measurement when confident or plausible-not-skin-not-background).
-
-## S4 candidates
-
-```bash
-.venv/bin/python -m skinmaker.s4 --transport mock --photo <photo> --out out/s4
-# --transport gemini|ollama|openrouter for live runs
-```
-
-Double-query disagreement only varies fields (`hair_length`, `sleeve_len`); agreeing
-queries produce a single candidate — no evidence-free variation, no ranking, all
-candidates saved.
-
-## S2 classification
-
-```bash
-.venv/bin/python -m skinmaker.s2 --transport mock --photo <photo>
-```
-
-Transports: `mock` | `gemini` | `ollama` | `openrouter`. The VLM fills a 5-field schema
-(top/bottom garment enum, sleeve length, pattern, bottom length) plus boxes
-(`hair_bbox` feeds hair color extraction; first answer wins on dual-query box
-disagreement). Crops are framing-aware: always extended to the image bottom for legs,
-and full-body frames are sent at up to `FULLBODY_MAX_PX = 1536` vs portrait's 768.
-
-OpenRouter transport (`skinmaker/vlm/openrouter.py`): `OPENROUTER_API_KEY`, optional
-`OPENROUTER_DEFAULT_MODELS` (comma list), free-model fallback chain, first model to
-return a parseable JSON object wins; nonexistent ids were removed against the live
-`/models` endpoint.
-
-## Output quality CLI (`eval`) and the label harness
-
-```bash
-.venv/bin/python -m skinmaker.eval out/s0_photos --show 200
-.venv/bin/python -m skinmaker.bottom_eval            # mask on/off A/B + fallback policies
-```
-
-- `eval`: VLM-free objective metrics — `valid` (invariants), `crown/cheek/torso`
-  pixel-consistency (deterministic render → mismatch means a wiring bug), and per-fallback
-  yield, broken down by framing bands (`full <0.10 / mid <0.20 / portrait ≥0.20`,
-  face-height ratio). `--hair-box "x,y,w,h"` injects a fixed hair box for wiring checks;
-  a single global box is deliberately **not** evidence toward the <50% hair-fallback
-  target (per-photo boxes require the real VLM).
-- `bottom_eval`: compares S1's measured bottom color against human category labels
-  (`docs/superpowers/specs/bottom_labels.json`, categories blue / dark / light / mid /
-  colored / none / unclear), scores mask on/off, and compares render fallback policies
-  (`default_only`, `confident_only`, `trust_measured`, `gate`). Nothing here calls the network.
-
-## Parsing layer (default on; `SKINMAKER_PARSING`)
-
-Bottom/hair/shoe localization via a SCHP human-parsing mask is **on by default** (since 2026-10-12). With the mask present, the dominant colour of the Pants/Skirt mask pixels becomes the bottom colour, and hair/shoe colours are sampled from Hair(2)/Shoes(9,10) — all read pre-white-balance. The band/cascade path remains as the fallback.
-
-```bash
-pip install -r requirements-parsing.txt        # onnxruntime (no torch needed)
+.venv/bin/pip install -r requirements-parsing.txt   # onnxruntime (torch 불필요)
 mkdir -p out/models
 curl -sSLf -o out/models/schp-atr-18-int8-static.onnx \
   "https://huggingface.co/pirocheto/schp-atr-18/resolve/main/onnx/schp-atr-18-int8-static.onnx?download=true"
-export SKINMAKER_PARSING=0                     # optional: disable (back to bands-only)
-export SKINMAKER_PARSER=out/models/schp-atr-18-int8-static.onnx   # default path (overridable)
+export SKINMAKER_PARSING=0   # 끄기 (밴드 전용 경로로)
+export SKINMAKER_PARSER=out/models/schp-atr-18-int8-static.onnx   # 경로 재정의
 ```
 
-- Measured (`docs/superpowers/specs/2026-10-11-heldout-protocol.md`, L0/L3/L2b/L2c): 2.2 s/photo on this 4-core box, ~110 MB RSS; new held-out (45) agreement **0.409 → 0.568 (+7)** for bottoms, and hair fallback **82/83 → 10/83** on the fitting pool.
-- If the dependency or the model file is missing, the layer quietly falls back to the band path — no hard requirement for the mediabox. `bottom_plausible` and the render fallback policy apply as before.
+의존성이나 모델 파일이 없으면 조용히 밴드 경로로 폴백한다. 측정치: 이 4코어 환경에서 사진당 ~2.2초 / ~110MB, 하의 색 정확도 +7%p, 머리 폴백 83→10건.
 
-## Web (Vite + FastAPI)
+## 웹 앱 (FastAPI + React 19 / three.js)
 
 ```bash
-set -a; source .env; set +a      # GEMINI_API_KEY
-.venv/bin/python -m uvicorn backend.app:app --port 8001
-cd frontend && npm install && npm run dev   # http://localhost:5173/
+set -a; source .env; set +a                       # GEMINI_API_KEY
+.venv/bin/python -m uvicorn backend.app:app --host 0.0.0.0 --port 8001
+cd frontend && npm install && npm run dev         # http://localhost:5173/
 ```
 
-Contract: `POST /api/v1/generate-skin` (multipart `file`)
-→ `{"status":"success","data":{"input":<url>,"skins":[url,...],"summary":…,"uncertain":[…]}}`.
-`data.input` points to the saved upload (`backend/static/skins/input_<token>.<ext>`); the
-frontend shows the input photo next to the generated skins for side-by-side comparison.
-Generated e2e skins are archived under `backend/static/skins/`.
-If 8000 is taken, also update `frontend/vite.config.js`.
+Vite 프록시가 `8001`을 바라보므로 포트를 바꾸려면 `frontend/vite.config.js`도 함께 고친다. LAN 접근에는 `--host 0.0.0.0`이 필요하다.
 
-## Status
+![웹 UI](website_output_images/Screenshot_20261015_164658.png)
 
-- [x] Stage 1: UV constants, canvas, invariant validation, multi-view preview, dummy skin
-- [x] S0: input gate (YuNet detection, quality signals, degradation plan, measurement CLI, multi-face selection)
-- [x] Stage-by-stage visual sample sheet (contact sheet)
-- [x] S1: observation (skin-referenced WB, cluster mode, confidence/skinlike flags, bottom cascade + foreground mask + loss test harness)
-- [x] S2: VLM classification (5-field schema, 4 transports incl. OpenRouter fallback chain, dual-query uncertainty)
-- [x] S3: parametric render (incl. the bottom fallback policy)
-- [x] S4: N candidates + validation (variation only on dual-query disagreement; no ranking)
-- [x] Web: FastAPI `generate-skin`, Vite capture, static skin archive
+- 계약: `POST /api/v1/generate-skin` (multipart `file`)
+  → `{"status":"success","data":{"input":…,"skins":[url,…],"summary":…,"uncertain":[…]}}`
+- 원본 사진을 후보 스킨 옆에 나란히 보여주고, 결과는 3D 뷰어로 회전해 확인한다.
+- 설정: 노이즈 강도(기본 50%), 머리 형태(마스크/규칙), 머리 대칭, 처리 과정 시트 표시.
+- 결과 카드에서 **스킨 편집**(투톤 신발 토글) 모달을 열 수 있고, 분류 카테고리 표와 처리 과정 이미지를 제공한다.
 
-## Notes
+## 출력 미리보기
 
-- **Java Edition skins must be signed** → they must be uploaded via minecraft.net to
-  show in the real game; without a legit account, verification stays local
-  (`validate.py` + previews). For quick visual checks, copy the PNG into
-  **Bedrock** instead (file copy is enough).
-- Photos of other people require portrait consent. This project is a **local-only** tool
-  by design; don't turn it into a web service for third-party photos.
+![프리뷰 시트](docs/images/preview_classic.png)
+
+패널 순서: **앞 / 옆 / 뒤 / 위 / 오버레이 머리 레이어**. 게임 없이 어긋남을 눈으로 잡는 QA 장치다.
+
+## 64×64 UV 레이아웃
+
+`skinmaker/format.py`가 유일한 진실 소스다. `get_layout()`이 위키 수치와 대조해 어긋나면 예외를 던진다.
+
+![UV 가이드](docs/images/uv_guide_classic.png)
+
+| 부위 | 레이어 0 | 레이어 1(오버레이) | 박스 |
+|---|---|---|---|
+| head | (0,0) 32×16 | (32,0) 32×16 | 8×8×8 |
+| body | (16,16) 24×16 | (16,32) 24×16 | 8×12×4 |
+| r_arm | (40,16) 16×16 | (40,32) 16×16 | 4×12×4 |
+| r_leg | (0,16) 16×16 | (0,32) 16×16 | 4×12×4 |
+| l_leg | (16,48) 16×16 | (0,48) 16×16 | 4×12×4 |
+| l_arm | (32,48) 16×16 | (48,48) 16×16 | 4×12×4 |
+
+- 모델은 `classic`(팔 4px) / `slim`(팔 3px). **slim은 앞·뒷면만 3px로 줄고 옆(깊이)면은 4px를 유지**한다.
+- 좌/우 팔·다리는 `canvas.put()`이 **작성자 좌표**를 받아 쓸 때 뒤집는다. 같은 코드로 그리면 텍스처 공간 대칭이 자동으로 맞고, `validate.py`가 이를 강제한다.
+
+## 불변식 (`skinmaker/validate.py`)
+
+게임에서 스킨이 깨지는 모든 조건을 여기서 막는다.
+
+| 코드 | 조건 |
+|---|---|
+| `size` | 정확히 64×64 |
+| `mode` | RGBA |
+| `overlap` | 서로 다른 부위의 면이 겹치지 않음 |
+| `bleed` | 어떤 면에도 속하지 않는 픽셀은 완전 투명 |
+| `base_alpha` | 내부 레이어의 사용 픽셀은 완전 불투명 |
+| `mirror` | 좌/우 부위가 텍스처 공간에서 정확한 거울 (노이즈 허용오차 `NOISE_TOL=32`) |
+
+> 알파 주의: Java는 **오버레이(외부) 레이어에 부분 투명(1–255)을 허용**하지만 내부 레이어는 완전 불투명을 강제한다. Bedrock은 0/255만 허용한다.
+
+## CLI 도구
+
+```bash
+.venv/bin/python -m skinmaker.measure <photos>        # S0: 거부율·품질 지표 분포
+.venv/bin/python -m skinmaker.samples <photo|folder>  # 단계별 컨택트 시트 (--no-placeholder, --patterned)
+.venv/bin/python -m skinmaker.s2 --transport mock --photo <photo>   # S2 분류만
+.venv/bin/python -m skinmaker.s4 --transport mock --photo <photo> --out out/s4   # S4 후보
+.venv/bin/python -m skinmaker.eval out/s0_photos --show 200        # VLM 없는 객관 지표
+.venv/bin/python -m skinmaker.bottom_eval                          # 하의 색 마스크 on/off A/B
+```
+
+- `samples`는 한 사진당 한 장의 시트(S0 입력 → S1 관측 색 → S3 아틀라스 → UV 가이드 합성 → S4 프리뷰)를 만든다. 기본은 더미(PLACEHOLDER)이고 `--no-placeholder`면 S3를 실제로 렌더한다.
+- `eval`은 불변식 통과 여부와 렌더 결정성(같은 입력 → 같은 픽셀)을 확인한다. 렌더가 결정적인데 값이 어긋나면 배선 버그다.
+
+## 상태
+
+- [x] Stage 1: UV 상수, 캔바스, 불변식 검증, 다중 뷰 프리뷰, 더미 스킨
+- [x] S0: 입력 게이트 (YuNet, 품질 신호, 다중 얼굴 선택, 측정 CLI)
+- [x] S1: 색 관측 (화이트밸런스, 클러스터 대표색, 하의 캐스케이드 + 전경 마스크)
+- [x] S2: VLM 분류 (5필드, 4전송, OpenRouter 폴백 체인, 이중 질의 불확실성)
+- [x] SCHP 파서 마스크 (기본 ON, 폴백 내장)
+- [x] S3: 파라메트릭 렌더 (하의 폴백 정책, 텍스처 노이즈)
+- [x] S4: 후보 생성 + 검증 (불일치 시에만 변형, 랭킹 없음)
+- [x] 웹: FastAPI `generate-skin`, Vite, 3D 뷰어, 스킨 편집, 처리 과정 시트
+
+테스트 **482개 통과**. 개발 규범: TDD(빨강 먼저 → 초록), 프론트 커밋 전 `npm run lint`, 상수/정책 변경은 기록된 A/B 근거 필수, 한국어 커밋 메시지.
+
+## 노트
+
+- **Java Edition 스킨은 서명이 필요**하므로 실제 게임에 보이려면 minecraft.net으로 업로드해야 한다. 정식 계정이 없으면 로컬 검증(`validate.py` + 프리뷰)으로 만족한다. 빠른 육안 확인은 PNG를 **Bedrock**에 복사하면 된다(파일 복사로 충분).
+- 타인 사진에는 **초상권 동의**가 필요하다. 이 도구는 설계상 **로컬 전용**이며, 제3자 사진용 웹 서비스로 만들지 않는다.
