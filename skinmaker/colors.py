@@ -221,6 +221,7 @@ class ObservedColors:
     shoe: ColorSample = MISSING
     lower_body_seen: bool | None = None  # 파서가 하의/맨다리 픽셀을 봤는가 (None=판단 불가)
     hair_stencil: "HairStencil | None" = None  # 사진 실루엣 스텐실 (None=규칙 폴백)
+    iris: ColorSample = MISSING  # 눈 홍채색 (양쪽 눈이 읽혀야 확신)
 
     @property
     def top_confident(self) -> bool:
@@ -272,6 +273,45 @@ def _crop_pixels(arr: np.ndarray, box: FaceBox) -> np.ndarray | None:
     if patch.size == 0:
         return None
     return patch.reshape(-1, 3).astype(np.float32)
+
+
+def _iris_sample(arr: np.ndarray, face: FaceBox) -> ColorSample:
+    """눈 밴드(얼굴 높이 38-60%)의 어두운 픽셀에서 홍채색을 잰다.
+
+    피부보다 확실히 어두운(명도 -45/255) 픽셀만 눈·속눈썹·홍채로 본다 —
+    피부는 크로마가 높아 색기 기준으로 고르면 피부가 뽑힌다 (2026-10-20 검증).
+    어두운 픽셀 중 색기 상위 60%의 평균 = 홍채. 양쪽 눈이 모두 읽혀야 확신.
+    """
+    skin_px = _crop_pixels(arr, skin_region(face))
+    if skin_px is None or skin_px.shape[0] == 0:
+        return MISSING
+    skin_lum = float(np.median(skin_px @ np.asarray(LUMA, dtype=np.float32)))
+    picks: list[np.ndarray] = []
+    total = used = 0
+    for x0, x1 in ((0.08, 0.42), (0.58, 0.92)):
+        box = FaceBox(
+            face.x + int(face.w * x0),
+            face.y + int(face.h * 0.38),
+            max(2, int(face.w * (x1 - x0))),
+            max(2, int(face.h * 0.22)),
+        )
+        px = _crop_pixels(arr, box)
+        if px is None or px.shape[0] < 6:
+            continue
+        total += px.shape[0]
+        lum = px @ np.asarray(LUMA, dtype=np.float32)
+        dark = px[lum < skin_lum - 45.0 / 255.0]
+        if dark.shape[0] < 6:
+            continue
+        chroma = dark.max(axis=1) - dark.min(axis=1)
+        sel = dark[chroma >= np.percentile(chroma, 60)]
+        picks.append((sel if sel.shape[0] else dark).mean(axis=0))
+        used += int(sel.shape[0] if sel.shape[0] else dark.shape[0])
+    if not picks:
+        return MISSING
+    mean = np.clip(np.mean(picks, axis=0), 0, 255)
+    hex_str, ints = _to_hex(mean)
+    return ColorSample(hex_str, used / max(1, total), len(picks) == 2, ints, used)
 
 
 def extract(
@@ -460,6 +500,7 @@ def extract(
             HS.mask_stencil(seg, photo.face, photo.image.size, symmetry=hair_symmetry)
             if seg is not None and hair_source == "mask" else None
         ),
+        iris=_iris_sample(arr, photo.face),
     )
 
 

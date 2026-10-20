@@ -50,13 +50,13 @@ import hashlib
 
 from skinmaker import hairstencil as HS
 
-# 리팩터 전(2026-10-15) 렌더의 픽셀 해시 — 리팩터 후에도 같아야 한다.
-# dataclasses.replace(hair_stencil=rule_stencil) 경로가 오늘과 픽셀 동일임을 증명.
+# rule 스텐실 렌더의 픽셀 베이스라인. 2026-10-20 얼굴 템플릿 변경(눈 4-5행,
+# 입 없음 — 사용자 결정)으로 재기록했다. 이후 rule 경로가 조용히 변하면 잡는다.
 NOISE_OFF_GOLDEN = {
-    "short": "a6c930567d18877b",
-    "medium": "1afebd0151289139",
-    "long": "a1a5835af3a98461",
-    "very_long": "88a3f7bd2b8926ac",
+    "short": "b4d6dbfa18a1adda",
+    "medium": "102b130dfcd6ba63",
+    "long": "8c514707514536d8",
+    "very_long": "ba94b70edf75d832",
 }
 
 
@@ -64,6 +64,59 @@ NOISE_OFF_GOLDEN = {
 def test_rule_stencil_render_golden(length):
     canvas = R.render(observed(), attrs(hair_length=length), ())
     assert hashlib.sha256(canvas.image.tobytes()).hexdigest()[:16] == NOISE_OFF_GOLDEN[length]
+
+
+def test_face_template_eyes_lowered_and_no_mouth():
+    """얼굴 템플릿: 눈 4-5행(한 행 아래), 입 없음 — 사용자 결정 2026-10-20."""
+    base = observed()
+    canvas = R.render(base, attrs(), ())
+    skin = shade(rgba(base.skin.hex), R.FACE_SHADE["front"])[:3]
+    sclera = rgba("#f2f2f2")[:3]
+    iris = rgba(R.DEFAULT_IRIS)[:3]
+    for base_u in (1, 5):
+        assert canvas.get("head", "front", base_u, 4)[:3] == sclera
+        assert canvas.get("head", "front", base_u + 1, 4)[:3] == iris
+        assert canvas.get("head", "front", base_u, 5)[:3] == iris
+        assert canvas.get("head", "front", base_u + 1, 5)[:3] == iris
+    for u in range(1, 7):  # 옛 눈 높이(3행)는 피부 (옆열은 옆머리)
+        assert canvas.get("head", "front", u, 3)[:3] == skin
+    for u in range(2, 6):  # 입 없음 — 6행 가운데는 피부
+        assert canvas.get("head", "front", u, 6)[:3] == skin
+
+
+def test_iris_color_from_photo_applied():
+    base = dataclasses.replace(observed(), iris=sample("#28468c"))
+    canvas = R.render(base, attrs(), ())
+    assert canvas.get("head", "front", 2, 4)[:3] == (40, 70, 140)
+
+
+def test_iris_unmeasured_falls_back_to_template():
+    base = dataclasses.replace(observed(), iris=C.MISSING)
+    canvas = R.render(base, attrs(), ())
+    assert canvas.get("head", "front", 2, 4)[:3] == rgba(R.DEFAULT_IRIS)[:3]
+
+
+def test_beard_full_fills_jaw_and_chin():
+    """수염 full: 6-7행 전체를 머리색으로 (입이 없어 가운데도 채운다)."""
+    base = observed()
+    canvas = R.render(base, attrs(beard="full"), ())
+    hair = shade(rgba(base.hair.hex), R.FACE_SHADE["front"])[:3]
+    for v in (6, 7):
+        for u in range(8):
+            assert canvas.get("head", "front", u, v)[:3] == hair
+
+
+def test_beard_stubble_is_muted_and_keeps_center_cheeks():
+    base = observed()
+    canvas = R.render(base, attrs(beard="stubble"), ())
+    skin = shade(rgba(base.skin.hex), R.FACE_SHADE["front"])[:3]
+    hair = shade(rgba(base.hair.hex), R.FACE_SHADE["front"])[:3]
+    stubble = tuple(int(round(0.55 * h + 0.45 * s)) for h, s in zip(hair, skin))
+    for u in (0, 1, 6, 7):
+        assert canvas.get("head", "front", u, 6)[:3] == stubble
+    for u in range(8):
+        assert canvas.get("head", "front", u, 7)[:3] == stubble
+    assert canvas.get("head", "front", 3, 6)[:3] == skin  # 가운데 볼은 피부
 
 
 def test_stencil_wiring_rule_path_identical():

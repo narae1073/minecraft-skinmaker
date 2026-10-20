@@ -228,7 +228,7 @@ def test_mask_stencil_traces_photo_hairline():
     """정면 머리선 추적: 사진에서 이마가 보이면 가운데 열을 윗행까지 자른다.
 
     옆머리(1,2·5,6열)는 얼굴 박스 안에 깊은 머리(사진선 t≈0.5)가 있고
-    가운데(3,4열)는 없다 → 가운데만 0행까지, 옆은 0-2행 유지.
+    가운데(3,4열)는 없다 → 가운데만 0행까지, 옆은 눈(4-5행) 위 3행까지.
     """
     face = FaceBox(16, 24, 32, 32)
     hb = Q.hair_region(face)
@@ -236,8 +236,10 @@ def test_mask_stencil_traces_photo_hairline():
     for v in range(3):  # 상단 띠: 얼굴 위 머리 질량
         for u in range(8):
             _set_cell(seg, hb, v, u, 2)
-    for u in (1, 2, 5, 6):  # 옆머리는 얼굴 박스 안 0.5 얼굴높이까지
-        _paint_band(seg, hb, u, face.y, face.y + 16, 2)
+    for u in (1, 2, 5, 6):  # 옆머리는 위 머리 질량에서 얼굴 박스 안까지 이어진다
+        x0 = int(hb.x + u * hb.w / 8)
+        x1 = int(hb.x + (u + 1) * hb.w / 8)
+        seg[int(hb.y):face.y + 16, x0:x1] = 2
     s = HS.mask_stencil(seg, face, (96, 96), symmetry="raw")
     assert s is not None
     assert s.front[0][3] and s.front[0][4]
@@ -245,7 +247,9 @@ def test_mask_stencil_traces_photo_hairline():
     assert not s.front[1][4] and not s.front[2][4]
     assert s.front[1][1] and s.front[2][1]  # 옆: 사진선 깊이 유지
     assert s.front[1][5] and s.front[2][5]
-    assert not s.front[3][1]  # 눈 보호(가운데 3행 이상 금지) 유지
+    # 눈이 4-5행으로 내려가 상한이 열렸다 — 깊은 옆머리는 3행까지 (참조 스킨)
+    assert s.front[3][1] and s.front[3][2] and s.front[3][5] and s.front[3][6]
+    assert not s.front[4][1]  # 눈 보호는 4행부터
 
 
 def test_mask_stencil_symmetrizes_traced_hairline():
@@ -264,6 +268,21 @@ def test_mask_stencil_symmetrizes_traced_hairline():
     sym = HS.mask_stencil(seg, face, (96, 96))  # symmetrized 기본
     assert sym.front[1][6] and sym.front[2][6]  # 거울 최대: 오른쪽도 깊이 유지
     assert not sym.front[1][3]  # 가운데 이마는 그대로 열림
+
+
+def test_mask_stencil_bang_trace_ignores_beard():
+    """턱 수염(hair)은 앞머리선을 늘리지 않는다 — 추적은 얼굴 위쪽 55%만 본다."""
+    face = FaceBox(16, 24, 32, 32)
+    hb = Q.hair_region(face)
+    seg = np.zeros((96, 96), np.uint8)
+    for v in (0, 1):  # 머리 질량은 얼굴 박스 위쪽에만
+        for u in range(8):
+            _set_cell(seg, hb, v, u, 2)
+    seg[face.y + int(0.75 * face.h):face.bottom, face.x:face.right] = 2  # 수염
+    s = HS.mask_stencil(seg, face, (96, 96), symmetry="raw")
+    assert s is not None
+    for u in range(1, 7):  # 가운데 머리선은 0행까지 — 수염이 끌어내리지 않는다
+        assert not s.front[1][u] and not s.front[2][u], (u, s.front[1][u])
 
 
 def test_mask_stencil_covers_skin_above_hair():

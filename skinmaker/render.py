@@ -30,6 +30,7 @@ FACE_SHADE = {
 
 DEFAULT_SKIN = "#e0ac69"
 DEFAULT_HAIR = "#3a2a1c"
+DEFAULT_IRIS = "#3b2a1a"
 DEFAULT_TOP = "#5a5a5a"
 DEFAULT_BOTTOM = "#3c4450"
 DEFAULT_JEANS = "#3b5a86"  # 하체 미관측 jeans 기본 — 클래식 데님 청색 (사용자 결정)
@@ -90,6 +91,7 @@ def resolve_colors(observed: ObservedColors) -> dict[str, Color]:
     return {
         "skin": pick(observed.skin, DEFAULT_SKIN),
         "hair": pick(observed.hair, DEFAULT_HAIR),
+        "iris": pick(observed.iris, DEFAULT_IRIS),
         "shoe": pick(observed.shoe, SHOE),
         "top": top,
         "top_alt": _hex_or(observed.top_alt.hex, DEFAULT_TOP) if not observed.top_alt.missing else shade(top, 0.72),
@@ -182,6 +184,16 @@ def effective_pattern(pattern: str, observed: ObservedColors, attrs: Attributes,
     return "plain"
 
 
+def _mix(a: Color, b: Color, t: float) -> Color:
+    """두 색을 t:(1-t)로 섞는다 (수염 stubble — 머리색과 피부의 중간)."""
+    return (
+        int(round(a[0] * t + b[0] * (1 - t))),
+        int(round(a[1] * t + b[1] * (1 - t))),
+        int(round(a[2] * t + b[2] * (1 - t))),
+        a[3],
+    )
+
+
 def _shaded_face(canvas: SkinCanvas, part: str, face_name: str, base: Color, layer: int = 0) -> None:
     canvas.fill_face(part, face_name, shade(base, FACE_SHADE[face_name]), layer)
 
@@ -215,16 +227,27 @@ def render_head(canvas: SkinCanvas, colors: dict[str, Color], attrs: Attributes,
             for v in range(min(rows, f.h)):
                 canvas.put("head", face_name, u, v, shade(hair_c, FACE_SHADE[face_name]), 0)
 
-    # 얼굴 특징 (고정 템플릿, v1 enum 없음): 눈 2×2, 입 4×1
+    # 얼굴 특징 (사용자 결정 2026-10-20): 눈 4-5행, 입 없음, 수염은 턱 6-7행.
+    # 홍채색은 사진 측정값 (없으면 템플릿 갈색).
     sclera = rgba("#f2f2f2")
-    iris = rgba("#3b2a1a")
+    iris_c = colors["iris"]
     for base_u in (1, 5):
-        canvas.put("head", "front", base_u, 3, sclera, 0)
-        canvas.put("head", "front", base_u + 1, 3, iris, 0)
-        canvas.put("head", "front", base_u, 4, iris, 0)
-        canvas.put("head", "front", base_u + 1, 4, iris, 0)
-    for u in range(2, 6):
-        canvas.put("head", "front", u, 6, shade(skin_c, 0.72), 0)
+        canvas.put("head", "front", base_u, 4, sclera, 0)
+        canvas.put("head", "front", base_u + 1, 4, iris_c, 0)
+        canvas.put("head", "front", base_u, 5, iris_c, 0)
+        canvas.put("head", "front", base_u + 1, 5, iris_c, 0)
+    beard = attrs.get("beard")
+    if beard == "full":
+        beard_c = shade(hair_c, FACE_SHADE["front"])
+        for v in (6, 7):
+            for u in range(8):
+                canvas.put("head", "front", u, v, beard_c, 0)
+    elif beard == "stubble":
+        beard_c = _mix(shade(hair_c, FACE_SHADE["front"]), shade(skin_c, FACE_SHADE["front"]), 0.55)
+        for u in (0, 1, 6, 7):
+            canvas.put("head", "front", u, 6, beard_c, 0)
+        for u in range(8):
+            canvas.put("head", "front", u, 7, beard_c, 0)
 
     # HEAD ACC.(layer=1)는 손대지 않는다. 기본 투명 유지.
 

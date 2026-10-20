@@ -20,6 +20,7 @@ BASE = {
     "pattern": "plain",
     "sleeve_len": "long",
     "hair_length": "short",
+    "beard": "none",
     "hair_bbox": [200, 50, 800, 600],
 }
 

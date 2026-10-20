@@ -148,8 +148,9 @@ def mask_stencil(
     # 옆/뒤 프로파일은 눈 템플릿 클램프와 별개인 기하 근거를 쓴다. 앞면만
     # clamp하여 눈 위 이마를 보호하되, 그 제한이 옆/뒤 머리 길이를 자르지 않게 한다.
     profile_vote = vote.copy()
-    # 눈 템플릿 보호: 얼굴 중앙 열은 3행 이상 머리로 못 덮는다 (앞머리는 0-2행까지만).
-    vote[3:, 1:HEAD_GRID - 1] = False
+    # 눈 템플릿 보호: 눈이 4-5행으로 내려갔다 (2026-10-20) — 가운데 열은
+    # 4행 이상 머리로 못 덮는다. 0-3행까지 앞머리 허용 (참조 스킨의 긴 앞머리).
+    vote[4:, 1:HEAD_GRID - 1] = False
     # 사진 머리선 추적: 얼굴 박스 안에서 열별 가장 깊은 머리 픽셀을 재고
     # 가운데 열(1-6)을 그 높이까지만 남긴다 — 이마가 사진처럼 드러난다.
     # 옆열(0,7)은 자르지 않는다: 옆머리 길이는 사진이 직접 보여준다.
@@ -158,12 +159,14 @@ def mask_stencil(
     for u in range(1, HEAD_GRID - 1):
         x0 = int(hb.x + u * cw)
         x1 = int(hb.x + (u + 1) * cw)
-        y0, y1 = max(0, face.y), min(seg_arr.shape[0], face.bottom)
+        # 얼굴 위쪽 55%만 — 턱 수염(hair)이 앞머리선으로 오인되지 않게.
+        y0 = max(0, face.y)
+        y1 = min(seg_arr.shape[0], face.y + int(0.55 * face.h))
         band_col = seg_arr[y0:y1, x0:x1]
         ys = np.flatnonzero(np.isin(band_col, HAIR_CLASSES).any(axis=1))
         t = float(ys[-1]) / max(1, face.h) if ys.size else 0.0
-        # ceil: 머리선이 걸친 행까지 머리. 최소 1행, 눈 보호로 최대 3행.
-        keep0[u] = min(3, max(1, math.ceil(t * HEAD_GRID))) - 1  # 행 수 → 마지막 행
+        # ceil: 머리선이 걸친 행까지 머리. 최소 1행, 눈(4-5행) 보호로 최대 4행.
+        keep0[u] = min(4, max(1, math.ceil(t * HEAD_GRID))) - 1  # 행 수 → 마지막 행
     if symmetry == "symmetrized":
         # 한쪽만 읽힌 옆머리선은 반대쪽도 (거울 최대: 머리 많은 쪽 기준).
         keep0 = {u: max(keep0[u], keep0[HEAD_GRID - 1 - u]) for u in keep0}

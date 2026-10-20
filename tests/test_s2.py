@@ -26,6 +26,7 @@ GOOD = {
     "pattern": "plain",
     "sleeve_len": "long",
     "hair_length": "long",
+    "beard": "full",
     "hair_bbox": [200, 50, 800, 600],
 }
 
@@ -95,6 +96,16 @@ def test_validate_accepts_good_payload():
     assert attrs.get("top_garment") == "hoodie"
     assert attrs.hair_bbox == (200, 50, 800, 600)
     assert attrs.coerced == () and attrs.missing == ()
+
+
+def test_validate_beard_defaults_and_coerces():
+    """수염 필드: full/stubble/none, 미지정·오값은 none (사용자 결정 2026-10-20)."""
+    assert A.ENUMS["beard"] == ("none", "stubble", "full")
+    assert A.DEFAULTS["beard"] == "none"
+    assert A.validate({**GOOD, "beard": "stubble"}).get("beard") == "stubble"
+    assert A.validate(GOOD).get("beard") == "full"
+    attrs = A.validate({**GOOD, "beard": "bushy"})
+    assert "beard" in attrs.coerced and attrs.get("beard") == "none"
 
 
 def test_validate_coerces_unknown_enum_value():

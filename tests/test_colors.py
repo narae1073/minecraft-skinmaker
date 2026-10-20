@@ -332,6 +332,27 @@ def _bust_photo():
     return Q.PhotoInput("t.jpg", img, face, Q.Quality(0.9, face.area, 120.0, 400.0, 110.0, True), ())
 
 
+def test_extract_measures_iris_color():
+    """눈 밴드의 어두운 픽셀에서 홍채색을 잰다 — 양쪽 눈이 읽히면 확신."""
+    img = Image.new("RGB", (320, 360), (224, 172, 105))
+    face = Q.FaceBox(80, 90, 160, 190)
+    for fx in (0.12, 0.62):
+        x0 = int(face.x + face.w * fx)
+        img.paste((40, 70, 140), (x0, int(face.y + face.h * 0.42), x0 + 10, int(face.y + face.h * 0.52)))
+    photo = Q.PhotoInput("t.jpg", img, face, Q.Quality(0.9, face.area, 120.0, 400.0, 110.0, True), ())
+    o = C.extract(photo)
+    assert o.iris.confident
+    r, g, b = o.iris.rgb
+    assert b > g > r and abs(r - 40) < 40 and abs(b - 140) < 40
+
+
+def test_extract_iris_missing_without_dark_eye_pixels():
+    img = Image.new("RGB", (320, 360), (224, 172, 105))
+    face = Q.FaceBox(80, 90, 160, 190)
+    photo = Q.PhotoInput("t.jpg", img, face, Q.Quality(0.9, face.area, 120.0, 400.0, 110.0, True), ())
+    assert C.extract(photo).iris.missing
+
+
 def test_extract_marks_lower_body_seen(monkeypatch):
     """파서 마스크가 하의(Pants/Skirt)나 맨다리 픽셀을 보면 True, 상체만 보면 False."""
     import numpy as np

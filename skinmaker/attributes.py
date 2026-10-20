@@ -16,6 +16,7 @@ ENUMS: dict[str, tuple[str, ...]] = {
     "pattern": ("plain", "vertical_stripe", "horizontal_stripe", "check", "plaid", "graphic"),
     "sleeve_len": ("none", "short", "three_quarter", "long"),
     "hair_length": ("short", "medium", "long", "very_long"),
+    "beard": ("none", "stubble", "full"),
 }
 
 DEFAULTS: dict[str, str] = {
@@ -24,9 +25,10 @@ DEFAULTS: dict[str, str] = {
     "pattern": "plain",
     "sleeve_len": "none",
     "hair_length": "short",
+    "beard": "none",
 }
 
-FIELD_ORDER: tuple[str, ...] = ("top_garment", "bottom_garment", "pattern", "sleeve_len", "hair_length")
+FIELD_ORDER: tuple[str, ...] = ("top_garment", "bottom_garment", "pattern", "sleeve_len", "hair_length", "beard")
 REVERSED_ORDER: tuple[str, ...] = tuple(reversed(FIELD_ORDER)) + ("hair_bbox",)
 NATURAL_ORDER: tuple[str, ...] = FIELD_ORDER + ("hair_bbox",)
 
@@ -39,6 +41,7 @@ _HINTS = {
     "pattern": "상의 무늬. 무늬 없으면 plain",
     "sleeve_len": "소매 길이. 어깨에서 끝나면 short, 손목이면 long",
     "hair_length": "머리 길이. 모자에 가렸으면 보이는 부분만",
+    "beard": "수염. 없으면 none, 짧은 수염·면도 그림자면 stubble, 뚜렷한 수염/콧수염이면 full",
     "hair_bbox": "머리카락만 있는 영역. 모자·헬멧·안경은 제외. HEAD 영역 관측용",
 }
 
