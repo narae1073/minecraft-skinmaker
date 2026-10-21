@@ -201,6 +201,42 @@ def test_hair_overlay_body_drape_and_switch_off():
     assert off.get("head", "front", 0, 0, 1)[3] == 0
 
 
+def test_viewer_js_uv_rects_match_layout():
+    """3D 뷰어의 UV rect 상수가 format.get_layout()과 일치 — L2 오프셋 드리프트 방지.
+
+    2026-10-21 버그: 왼팔/왼다리 L2 rect 를 (0,+16)으로 밀어 텍스처 밖을 샘플링해
+    한 팔·한 다리가 엉뚱한 색으로 칠해졌다. 좌표가 프론트에 중복돼 있어
+    레이아웃과 대조하는 테스트로 고정한다.
+    """
+    import re
+    from pathlib import Path
+
+    from skinmaker.format import get_layout
+
+    js = (Path(__file__).resolve().parent.parent / "frontend/src/components/Skin3DViewer.jsx").read_text()
+
+    def faces(name: str) -> dict[str, tuple[int, int, int, int]]:
+        m = re.search(rf"const {name} = \{{(.*?)\}};", js, re.S)
+        assert m, name
+        return {
+            key: tuple(int(v) for v in vals.split(","))
+            for key, vals in re.findall(r"(\w+): \[([\d, ]+)\]", m.group(1))
+        }
+
+    layout = get_layout("classic")
+    pairs = (("HEAD", "head"), ("BODY", "body"), ("ARM", "r_arm"), ("LARM", "l_arm"),
+             ("LEG", "r_leg"), ("LLEG", "l_leg"))
+    for js_name, part in pairs:
+        want = {f.rect for f in layout.part(part, 0).faces.values()}
+        assert set(faces(js_name).values()) == want, (part, "layer0")
+        m2 = re.search(rf"const {js_name}2 = shiftFaces\((\w+), (-?\d+), (-?\d+)\);", js)
+        assert m2, f"{js_name}2"
+        base, dx, dy = faces(m2.group(1)), int(m2.group(2)), int(m2.group(3))
+        shifted = {(x + dx, y + dy, w, h) for x, y, w, h in base.values()}
+        want2 = {f.rect for f in layout.part(part, 1).faces.values()}
+        assert shifted == want2, (part, "layer1", sorted(shifted ^ want2))
+
+
 def test_stencil_wiring_rule_path_identical():
     """observed.hair_stencil=rule_stencil 경로가 기본 경로와 픽셀 동일."""
     base = observed()

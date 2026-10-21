@@ -62,9 +62,9 @@ const LLEG = {
 };
 const BODY2 = shiftFaces(BODY, 0, 16);
 const ARM2 = shiftFaces(ARM, 0, 16);
-const LARM2 = shiftFaces(LARM, 0, 16);
+const LARM2 = shiftFaces(LARM, 16, 0);   // l_arm (32,48) -> overlay (48,48)
 const LEG2 = shiftFaces(LEG, 0, 16);
-const LLEG2 = shiftFaces(LLEG, 0, 16);
+const LLEG2 = shiftFaces(LLEG, -16, 0);  // l_leg (16,48) -> overlay (0,48)
 
 function MinecraftCharacter({ skinUrl }) {
   const groupRef = useRef();

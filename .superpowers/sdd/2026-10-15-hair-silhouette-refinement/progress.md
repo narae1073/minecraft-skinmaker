@@ -47,3 +47,7 @@ Final: Ruling: leave pale-hair colour confidence/fallback unchanged — this app
 - 배선: ObservedColors.hair_overlay → render()가 rule/mask 공통으로 L2 패스. 백엔드 폼 필드·응답 에코·시트 스탬프(overlay=on/off) — 진실 규칙 유지.
 - 프론트: 설정에 'L2 머리' 선택, 3D 뷰어에 오버레이 박스(레이어1 rect +0.0625) 추가. lint 통과(미뤄둔 Skin3DViewer immutability 3건도 이번에 수정: texture.clone useMemo).
 - 골든 재기록(L2 기본 on이 이미지 바이트를 바꾼다). 스위트 502 passed.
+
+## 후속 6: L2 사고 수정 (2026-10-21)
+- 사용자 보고: L2 on/off 무관하게 한 팔·한 다리가 이상한 색. 원인: Skin3DViewer 의 왼팔/왼다리 L2 rect 오프셋을 (0,+16)으로 적용 → 레이아웃의 (48,48)/(0,48) 대신 (32,64)/(16,64) = 텍스처 밖 → GPU 클램프로 가장자리 색이 칠해짐. 생성 PNG 자체는 정상(네 팔다리 L2 모두 투명 0px 확인).
+- 수정: LARM2 +16,0 / LLEG2 -16,0. 가드: JS rect 상수를 format.get_layout()과 대조하는 테스트 추가(과거 오프셋이면 실패 확인 — rect y=68). lint/빌드/스위트 503 passed.
