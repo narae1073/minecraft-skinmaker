@@ -57,6 +57,7 @@ _HINTS = {
 _RULES = (
     "확실하지 않으면 가장 가까운 것을 고른다. 설명하지 않는다.",
     "옷이 보이지 않으면 해당 항목은 none.",
+    "민소매·끈나시·탱크톱·캐미솔도 상의다 — 가장 가까운 종류(예: tee)로 고르고 sleeve_len은 none. 맨몸일 때만 top_garment는 none.",
     "이미지 전체에서 보이는 머리카락만 찾는다. 얼굴 상자가 아니라 머리카락 영역.",
     "모자·헬멧은 머리카락이 아니므로 hair_bbox에 포함하지 않는다.",
     "JSON 객체 하나만 출력한다. 마크다운 코드펜스 없이.",
@@ -149,7 +150,7 @@ class Attributes:
 
     def vary_fields(self) -> tuple[str, ...]:
         """후보 변형에 쓸 수 있는 필드. 얼굴 관련은 v1 에서 뺀다."""
-        return ("hair_length", "sleeve_len")
+        return ("top_garment", "hair_length", "sleeve_len")
 
 
 EMPTY = Attributes(dict(DEFAULTS), None, tuple(FIELD_ORDER), tuple(FIELD_ORDER))

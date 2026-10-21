@@ -155,9 +155,17 @@ def test_validate_clips_bbox_to_scale():
     assert attrs.hair_bbox == (0, 0, A.BBOX_SCALE, A.BBOX_SCALE)
 
 
-def test_vary_fields_excludes_face_fields():
+def test_vary_fields_includes_top_and_excludes_face_fields():
     assert "glasses" not in A.Attributes({**{n: "x" for n in A.FIELD_ORDER}}, None).vary_fields()
-    assert set(A.Attributes({}, None).vary_fields()) == {"hair_length", "sleeve_len"}
+    # 상의 유무 불일치는 옷 입은 대안 후보로 살린다 (2026-10-21 캐미솔 사진).
+    assert set(A.Attributes({}, None).vary_fields()) == {"top_garment", "hair_length", "sleeve_len"}
+
+
+def test_prompt_states_sleeveless_tops_are_tops():
+    """끈나시·민소매도 상의 — none은 맨몸일 때만 (2026-10-21 캐미솔 오분류 대응)."""
+    prompt = A.build_prompt()
+    assert "민소매" in prompt and "끈나시" in prompt
+    assert "none" in prompt
 
 
 # --- 불확실성 -------------------------------------------------------------

@@ -51,3 +51,8 @@ Final: Ruling: leave pale-hair colour confidence/fallback unchanged — this app
 ## 후속 6: L2 사고 수정 (2026-10-21)
 - 사용자 보고: L2 on/off 무관하게 한 팔·한 다리가 이상한 색. 원인: Skin3DViewer 의 왼팔/왼다리 L2 rect 오프셋을 (0,+16)으로 적용 → 레이아웃의 (48,48)/(0,48) 대신 (32,64)/(16,64) = 텍스처 밖 → GPU 클램프로 가장자리 색이 칠해짐. 생성 PNG 자체는 정상(네 팔다리 L2 모두 투명 0px 확인).
 - 수정: LARM2 +16,0 / LLEG2 -16,0. 가드: JS rect 상수를 format.get_layout()과 대조하는 테스트 추가(과거 오프셋이면 실패 확인 — rect y=68). lint/빌드/스위트 503 passed.
+
+## 후속 7: 민소매·끈나시 상의 오분류 (2026-10-21)
+- 사용자 질문: 목이 드러나는 사진에서 "상의 없음" — YuNet 탓인가? 아님. YuNet=얼굴 검출기(옷 무관). 실제 원인: VLM이 캐미솔 사진(images24.jpeg)을 top_garment=none으로 분류(두 질의 불일치, uncertain=top_garment), 후보 변형은 hair_length/sleeve_len만이라 대안이 안 나옴. S1은 상의색(#e9f5f1, confident)을 정상 측정.
+- 수정: 프롬프트 규칙 — 민소매/끈나시/탱크톱/캐미솔도 상의(가장 가까운 종류, sleeve_len=none); none은 맨몸만. vary_fields에 top_garment 추가(두 질의 불일치 시 옷 입은 대안 후보).
+- 검증: 같은 사진 재분류 → top_garment=tee, sleeve_len=none, uncertain=none. 스위트 505 passed.

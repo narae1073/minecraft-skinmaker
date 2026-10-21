@@ -64,6 +64,20 @@ def test_agreement_gives_single_candidate():
     assert out[0].ok
 
 
+def test_top_garment_disagreement_gives_clothed_variant():
+    """VLM 두 질의가 상의 유무에서 갈리면 옷 입은 대안 후보를 만든다 (2026-10-21)."""
+    first = dict(BASE, top_garment="none", sleeve_len="none")
+    second = dict(BASE, top_garment="tee", sleeve_len="none")
+    observed, result = setup(first, second)
+    assert "top_garment" in result.uncertain
+    out = S4.build(observed, result)
+    assert len(out) == 2
+    assert out[0].attributes.get("top_garment") == "none"
+    assert out[1].varied.startswith("top_garment=")
+    assert out[1].attributes.get("top_garment") == "tee"
+    assert all(c.ok for c in out)
+
+
 def test_uncertain_non_vary_field_gives_no_variant():
     first = dict(BASE)
     second = dict(BASE, pattern="vertical_stripe")
