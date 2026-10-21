@@ -17,6 +17,8 @@ ENUMS: dict[str, tuple[str, ...]] = {
     "sleeve_len": ("none", "short", "three_quarter", "long"),
     "hair_length": ("short", "medium", "long", "very_long"),
     "beard": ("none", "stubble", "full"),
+    "inner_top": ("none", "shirt", "tee", "knit"),
+    "neckwear": ("none", "tie"),
 }
 
 DEFAULTS: dict[str, str] = {
@@ -26,9 +28,14 @@ DEFAULTS: dict[str, str] = {
     "sleeve_len": "none",
     "hair_length": "short",
     "beard": "none",
+    "inner_top": "none",
+    "neckwear": "none",
 }
 
-FIELD_ORDER: tuple[str, ...] = ("top_garment", "bottom_garment", "pattern", "sleeve_len", "hair_length", "beard")
+FIELD_ORDER: tuple[str, ...] = (
+    "top_garment", "bottom_garment", "pattern", "sleeve_len", "hair_length", "beard",
+    "inner_top", "neckwear",
+)
 REVERSED_ORDER: tuple[str, ...] = tuple(reversed(FIELD_ORDER)) + ("hair_bbox",)
 NATURAL_ORDER: tuple[str, ...] = FIELD_ORDER + ("hair_bbox",)
 
@@ -42,6 +49,8 @@ _HINTS = {
     "sleeve_len": "소매 길이. 어깨에서 끝나면 short, 손목이면 long",
     "hair_length": "머리 길이. 모자에 가렸으면 보이는 부분만",
     "beard": "수염. 없으면 none, 짧은 수염·면도 그림자면 stubble, 뚜렷한 수염/콧수염이면 full",
+    "inner_top": "안에 껴입은 상의. 목/칼라에 겉옷과 다른 안쪽 옷이 보이면 shirt/tee/knit, 단일 상의·맨목이면 none",
+    "neckwear": "넥타이. 칼라 아래 타이가 보이면 tie, 없으면 none",
     "hair_bbox": "머리카락만 있는 영역. 모자·헬멧·안경은 제외. HEAD 영역 관측용",
 }
 

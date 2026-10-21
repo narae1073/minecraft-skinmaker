@@ -119,6 +119,64 @@ def test_beard_stubble_is_muted_and_keeps_center_cheeks():
     assert canvas.get("head", "front", 3, 6)[:3] == skin  # 가운데 볼은 피부
 
 
+def test_layered_top_renders_collar_tie_and_cuffs():
+    """겹쳐 입은 상의: 목 V·라펠에 안쪽 옷, 타이 1px, 소매 끝 커프스 (사용자 결정 2026-10-21)."""
+    base = dataclasses.replace(
+        observed(), inner=C.ColorSample("#e9eef3", 0.5, True, (233, 238, 243), 80),
+        tie=C.ColorSample("#8a1f2a", 0.3, True, (138, 31, 42), 30),
+    )
+    a = attrs(top_garment="jacket", inner_top="shirt", neckwear="tie", sleeve_len="long")
+    canvas = R.render(base, a, ())
+    inner = rgba("#e9eef3")[:3]
+    tie = rgba("#8a1f2a")[:3]
+    for u in (3, 4):
+        assert canvas.get("body", "front", u, 0)[:3] == inner
+    assert canvas.get("body", "front", 3, 1)[:3] == inner
+    assert canvas.get("body", "front", 4, 1)[:3] == tie   # 매듭
+    assert canvas.get("body", "front", 3, 2)[:3] == inner
+    assert canvas.get("body", "front", 4, 2)[:3] == tie   # 타이
+    # 커프스: 장袖 끝행(9) 네 면이 안쪽 색
+    for part in ("r_arm", "l_arm"):
+        for face, factor in (("front", 1.0), ("back", 0.90), ("right", 0.84), ("left", 0.84)):
+            assert canvas.get(part, face, 2, 9)[:3] == shade(rgba("#e9eef3"), factor)[:3], (part, face)
+
+
+def test_single_top_keeps_skin_neck():
+    """단일 상의(기본 inner_top=none)는 기존 목 = 피부 그대로 (회귀 방지)."""
+    base = observed()
+    canvas = R.render(base, attrs(), ())
+    skin = shade(rgba(base.skin.hex), 0.86)[:3]
+    assert canvas.get("body", "front", 3, 0)[:3] == skin
+    assert canvas.get("body", "front", 4, 1)[:3] == skin
+
+
+def test_tie_only_when_color_measured():
+    """타이 색이 측정되지 않았으면 그리지 않는다 (승인 규칙)."""
+    base = dataclasses.replace(observed(), inner=C.ColorSample("#e9eef3", 0.5, True, (233, 238, 243), 80))
+    a = attrs(top_garment="jacket", inner_top="shirt", neckwear="tie", sleeve_len="long")
+    canvas = R.render(base, a, ())
+    inner = rgba("#e9eef3")[:3]
+    assert canvas.get("body", "front", 4, 2)[:3] == inner  # 타이 자리도 셔츠
+    assert canvas.get("body", "front", 4, 1)[:3] == inner
+
+
+def test_jacket_prefers_background_rejected_outer_sample():
+    """재킷/레이어드면 배경 제거 겉옷 표본을 쓴다 (흰 셔츠/배경이 상의색을 오염시키는 문제)."""
+    base = dataclasses.replace(observed(), outer=sample("#24282e"))
+    canvas = R.render(base, attrs(top_garment="jacket"), ())
+    body = shade(rgba("#24282e"), R.FACE_SHADE["front"])[:3]
+    assert canvas.get("body", "front", 2, 6)[:3] == body
+    plain = R.render(dataclasses.replace(observed(), outer=sample("#24282e")), attrs(top_garment="tee"), ())
+    assert plain.get("body", "front", 2, 6)[:3] == shade(rgba(observed().top.hex), R.FACE_SHADE["front"])[:3]
+
+
+def test_cuffs_only_for_long_sleeves():
+    base = dataclasses.replace(observed(), inner=C.ColorSample("#e9eef3", 0.5, True, (233, 238, 243), 80))
+    a = attrs(top_garment="jacket", inner_top="shirt", sleeve_len="short")
+    canvas = R.render(base, a, ())
+    assert canvas.get("r_arm", "front", 2, 9)[:3] == shade(rgba(base.skin.hex), R.FACE_SHADE["front"])[:3]
+
+
 def test_stencil_wiring_rule_path_identical():
     """observed.hair_stencil=rule_stencil 경로가 기본 경로와 픽셀 동일."""
     base = observed()

@@ -27,6 +27,8 @@ GOOD = {
     "sleeve_len": "long",
     "hair_length": "long",
     "beard": "full",
+    "inner_top": "shirt",
+    "neckwear": "none",
     "hair_bbox": [200, 50, 800, 600],
 }
 
@@ -96,6 +98,16 @@ def test_validate_accepts_good_payload():
     assert attrs.get("top_garment") == "hoodie"
     assert attrs.hair_bbox == (200, 50, 800, 600)
     assert attrs.coerced == () and attrs.missing == ()
+
+
+def test_validate_layering_fields():
+    """겹쳐 입은 상의: inner_top/neckwear enum·기본값·강제 (사용자 결정 2026-10-21)."""
+    assert A.ENUMS["inner_top"] == ("none", "shirt", "tee", "knit")
+    assert A.ENUMS["neckwear"] == ("none", "tie")
+    assert A.DEFAULTS["inner_top"] == "none" and A.DEFAULTS["neckwear"] == "none"
+    assert A.validate({**GOOD, "neckwear": "tie"}).get("neckwear") == "tie"
+    attrs = A.validate({**GOOD, "inner_top": "blouse"})
+    assert "inner_top" in attrs.coerced and attrs.get("inner_top") == "none"
 
 
 def test_validate_beard_defaults_and_coerces():

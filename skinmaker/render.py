@@ -31,6 +31,9 @@ FACE_SHADE = {
 DEFAULT_SKIN = "#e0ac69"
 DEFAULT_HAIR = "#3a2a1c"
 DEFAULT_IRIS = "#3b2a1a"
+DEFAULT_INNER = "#e9eef3"  # 안쪽 옷 측정 실패 시 밝은 셔츠 (사용자 결정 2026-10-21)
+DEFAULT_TIE = "#3a3f4a"
+JACKET_LIKE = ("jacket", "uniform", "overalls", "apron")
 DEFAULT_TOP = "#5a5a5a"
 DEFAULT_BOTTOM = "#3c4450"
 DEFAULT_JEANS = "#3b5a86"  # 하체 미관측 jeans 기본 — 클래식 데님 청색 (사용자 결정)
@@ -92,6 +95,8 @@ def resolve_colors(observed: ObservedColors) -> dict[str, Color]:
         "skin": pick(observed.skin, DEFAULT_SKIN),
         "hair": pick(observed.hair, DEFAULT_HAIR),
         "iris": pick(observed.iris, DEFAULT_IRIS),
+        "inner": pick(observed.inner, DEFAULT_INNER),
+        "tie": pick(observed.tie, DEFAULT_TIE),
         "shoe": pick(observed.shoe, SHOE),
         "top": top,
         "top_alt": _hex_or(observed.top_alt.hex, DEFAULT_TOP) if not observed.top_alt.missing else shade(top, 0.72),
@@ -294,13 +299,34 @@ def render_body(
             for u in range(f.w):
                 canvas.put("body", face_name, u, v, _pattern_color(base, alt, u, v, f.w, f.h, p, face_name), 0)
     if top_garment != "none":
-        # 목 (앞 상단 중앙 2px) — 셔츠 위 맨살.
-        for u in (3, 4):
-            for v in (0, 1):
+        if attrs.get("inner_top") != "none":
+            # 겹쳐 입은 상의 (2026-10-21): 목 V·라펠에 안쪽 옷, 타이 1px.
+            inner_c = colors["inner"]
+            tie_c = colors["tie"] if attrs.get("neckwear") == "tie" else None
+            for u in (3, 4):
+                for v in (0, 1):
+                    try:
+                        canvas.put("body", "front", u, v, inner_c, 0)
+                    except ValueError:
+                        continue
+            for u, c in ((3, inner_c), (4, tie_c or inner_c)):
                 try:
-                    canvas.put("body", "front", u, v, shade(colors["skin"], 0.86), 0)
+                    canvas.put("body", "front", u, 2, c, 0)
                 except ValueError:
                     continue
+            if tie_c is not None:
+                try:
+                    canvas.put("body", "front", 4, 1, tie_c, 0)  # 매듭
+                except ValueError:
+                    pass
+        else:
+            # 목 (앞 상단 중앙 2px) — 셔츠 위 맨살.
+            for u in (3, 4):
+                for v in (0, 1):
+                    try:
+                        canvas.put("body", "front", u, v, shade(colors["skin"], 0.86), 0)
+                    except ValueError:
+                        continue
 
     # 관측된 긴 머리만 몸통으로 연장한다. 뒷면/옆면은 턱 아래 마스크 길이,
     # 앞면은 셔츠 중앙을 가리지 않도록 양쪽 바깥 2열에 어깨 가닥만 그린다.
@@ -342,6 +368,21 @@ def render_arms(canvas: SkinCanvas, colors: dict[str, Color], attrs: Attributes,
                     c = shade(colors["skin"], FACE_SHADE[face_name])
                 for u in range(f.w):
                     canvas.put(part, face_name, u, v, c, 0)
+    _render_cuffs(canvas, colors, attrs, sleeve)
+
+
+def _render_cuffs(canvas: SkinCanvas, colors: dict[str, Color], attrs: Attributes, sleeve: str) -> None:
+    """겹쳐 입은 상의: 긴/3-4 소매 끝행에 안쪽 옷(셔츠 커프스)이 보인다 (2026-10-21)."""
+    if attrs.get("inner_top") == "none" or sleeve not in ("long", "three_quarter"):
+        return
+    row = SLEEVE_ROWS.get(sleeve, -1)
+    if row < 0:
+        return
+    for part in ("r_arm", "l_arm"):
+        for face_name in ("front", "back", "right", "left"):
+            f = canvas.layout.face(part, face_name, 0)
+            for u in range(f.w):
+                canvas.put(part, face_name, u, min(row, f.h - 1), shade(colors["inner"], FACE_SHADE[face_name]), 0)
 
 
 def render_legs(canvas: SkinCanvas, colors: dict[str, Color], attrs: Attributes, bottom_garment: str | None = None, *, shoe_two_tone: bool = True) -> None:
@@ -390,6 +431,15 @@ def render(
     """
     canvas = SkinCanvas(model)
     colors = resolve_colors(observed)
+    # 겉옷색 구조: 재킷류/레이어드는 배경 제거 겉옷 표본 우선 (정장의 흰 셔츠 오염 대응).
+    if (
+        (attrs.get("inner_top") != "none" or attrs.get("top_garment") in JACKET_LIKE)
+        and not observed.outer.missing
+    ):
+        colors["top"] = _hex_or(observed.outer.hex, DEFAULT_TOP)
+    # 승인 규칙: 타이는 색이 실제로 측정된 경우에만 그린다 — 아니면 셔츠로 채운다.
+    if attrs.get("neckwear") == "tie" and (observed.tie.missing or not observed.tie.confident):
+        colors["tie"] = colors["inner"]
     resolved_bottom, bottom_is_default = resolve_bottom_ex(attrs, observed)
     if bottom_is_default:
         # 하체 미관측 jeans 기본: 관측 '하의' 샘플은 오탐(셔츠 꼬리 등)이므로

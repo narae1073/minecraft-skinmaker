@@ -222,6 +222,9 @@ class ObservedColors:
     lower_body_seen: bool | None = None  # 파서가 하의/맨다리 픽셀을 봤는가 (None=판단 불가)
     hair_stencil: "HairStencil | None" = None  # 사진 실루엣 스텐실 (None=규칙 폴백)
     iris: ColorSample = MISSING  # 눈 홍채색 (양쪽 눈이 읽혀야 확신)
+    outer: ColorSample = MISSING  # 겉옷 표본 (배경 제거 — 정장/레이어드)
+    inner: ColorSample = MISSING  # 안쪽 옷(칼라) 표본
+    tie: ColorSample = MISSING  # 타이 표본 (안쪽 옷과 구분될 때만)
 
     @property
     def top_confident(self) -> bool:
@@ -314,6 +317,100 @@ def _iris_sample(arr: np.ndarray, face: FaceBox) -> ColorSample:
     return ColorSample(hex_str, used / max(1, total), len(picks) == 2, ints, used)
 
 
+def _outer_sample(arr: np.ndarray, face: FaceBox, skin: ColorSample, bg_chroma) -> ColorSample:
+    """겉옷 표본: 넓은 상체 상자에서 배경 크로마를 뺀 최빈색.
+
+    흰 셔츠+흰 배경이 상의색을 오염시키는 정장 문제 대응 (2026-10-21).
+    피부(맨팔)로 읽히면 신뢰하지 않는다.
+    """
+    box = FaceBox(face.x - int(0.9 * face.w), face.bottom, int(2.8 * face.w), int(1.6 * face.h))
+    px = _crop_pixels(arr, box)
+    if px is None:
+        return MISSING
+    reject = tuple(c for c in (bg_chroma,) if c is not None)
+    sample = dominant_color(px, min_share=0.0, reject=reject)
+    if sample.missing or sample.pixels < 400:
+        return MISSING
+    if not skin.missing:
+        luma = np.asarray(LUMA, dtype=np.float32)
+        d_lum = abs(float(np.asarray(sample.rgb, dtype=np.float32) @ luma) - float(np.asarray(skin.rgb, dtype=np.float32) @ luma))
+        # 크로마만으로는 검정 정장과 피부가 가까워진다 — 명도까지 닮아야 '맨살'로 본다.
+        if d_lum < 40 and chroma_distance(
+            np.asarray(sample.rgb, dtype=np.float32), np.asarray(skin.rgb, dtype=np.float32)
+        ) <= CHROMA_TOL:
+            return MISSING
+    return sample
+
+
+def _layered_cluster(
+    pixels: np.ndarray,
+    reject: Sequence[tuple[float, float, float]],
+    reference: np.ndarray,
+    min_pixels: int,
+    min_distance: float = 0.18,  # RGB 거리 (0-1 스케일)
+) -> ColorSample:
+    """기준색(겉옷/안쪽 옷)과 대비되는 최대 군집 — 레이어링 표본용.
+
+    dominant_color 의 크로마 reject 는 회색끼리(검정 정장 vs 흰 셔츠)를 구분하지
+    못한다 — 명도를 안 보기 때문. 레이어는 '대비'로 보이므로 명도/크로마 대비를
+    함께 보고, 기준색과 구분되는 가장 큰 군집을 고른다.
+    """
+    if pixels.shape[0] == 0:
+        return MISSING
+    bins = CLUSTER_BINS
+    idx = np.clip((pixels[:, :3] * bins).astype(np.int32), 0, bins - 1)
+    codes = idx[:, 0] * bins * bins + idx[:, 1] * bins + idx[:, 2]
+    counts = np.bincount(codes, minlength=bins**3)
+    ref = np.asarray(reference, dtype=np.float32)
+    for code in np.argsort(-counts):
+        count = int(counts[code])
+        if count < min_pixels:
+            break
+        i = (code // (bins * bins)) % bins
+        j = (code // bins) % bins
+        k = code % bins
+        center = np.array([(i + 0.5) / bins, (j + 0.5) / bins, (k + 0.5) / bins])
+        if any(chroma_distance(center, r) <= CHROMA_TOL for r in reject):
+            continue
+        median = np.median(pixels[codes == code], axis=0)
+        if float(np.linalg.norm(median - ref)) < min_distance:
+            continue  # 기준색과 사실상 같은 색 (검정끼리의 미세한 크로마 차이 등)
+        hex_str, ints = _to_hex(median)
+        return ColorSample(hex_str, count / pixels.shape[0], True, ints, count)
+    return MISSING
+
+
+def _inner_tie_samples(
+    arr: np.ndarray, face: FaceBox, skin_chroma, outer: ColorSample
+) -> tuple[ColorSample, ColorSample]:
+    """목 아래 칼라 영역의 안쪽 옷·타이 표본 — 겉옷/안쪽과의 대비로 고른다.
+
+    영역이 작아 픽셀 게이트(안쪽 40px·타이 20px)를 통과해야 신뢰. 실패하면
+    렌더가 기본값(밝은 셔츠/어두운 타이)으로 폴백한다. 배경 크로마는 거르지
+    않는다 — 흰 셔츠가 흰 배경과 같은 색이라 함께 걸러지면 안 된다.
+    """
+    if outer.missing:
+        return MISSING, MISSING
+    skin_reject = (skin_chroma,) if skin_chroma is not None else ()
+
+    inner_box = FaceBox(face.x + int(0.15 * face.w), face.bottom - int(0.02 * face.h),
+                        max(2, int(0.70 * face.w)), max(2, int(0.32 * face.h)))
+    ipx = _crop_pixels(arr, inner_box)
+    inner = _layered_cluster(
+        ipx, skin_reject, np.asarray(outer.rgb, dtype=np.float32) / 255.0, 40
+    ) if ipx is not None else MISSING
+    if inner.missing:
+        return MISSING, MISSING
+
+    tie_box = FaceBox(face.x + int(0.42 * face.w), face.bottom + int(0.03 * face.h),
+                      max(2, int(0.16 * face.w)), max(2, int(0.27 * face.h)))
+    tpx = _crop_pixels(arr, tie_box)
+    if tpx is None:
+        return inner, MISSING
+    tie = _layered_cluster(tpx, skin_reject, np.asarray(inner.rgb, dtype=np.float32) / 255.0, 20)
+    return inner, tie
+
+
 def extract(
     photo: PhotoInput,
     patterned: bool = False,
@@ -361,6 +458,8 @@ def extract(
         hair_reject.append(skin_chroma)
     bg = background_chroma(arr)
     bg_luma = background_luma(arr)
+    outer = _outer_sample(arr, photo.face, skin, bg)
+    inner, tie = _inner_tie_samples(arr, photo.face, skin_chroma, outer)
     if bg is not None:
         hair_reject.append(bg)
 
@@ -501,6 +600,9 @@ def extract(
             if seg is not None and hair_source == "mask" else None
         ),
         iris=_iris_sample(arr, photo.face),
+        outer=outer,
+        inner=inner,
+        tie=tie,
     )
 
 

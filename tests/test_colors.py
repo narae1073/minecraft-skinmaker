@@ -332,6 +332,42 @@ def _bust_photo():
     return Q.PhotoInput("t.jpg", img, face, Q.Quality(0.9, face.area, 120.0, 400.0, 110.0, True), ())
 
 
+def test_extract_outer_sample_rejects_background():
+    """겉옷 표본: 상체 상자에서 배경을 빼고 최빈색 — 흰 배경+검은 정장에서 검정."""
+    img = Image.new("RGB", (400, 520), (250, 250, 250))
+    face = Q.FaceBox(150, 80, 100, 130)
+    img.paste((224, 172, 105), (150, 80, 250, 210))   # 얼굴
+    img.paste((40, 42, 48), (100, 214, 300, 470))     # 검은 상의 (배경 여백 남김)
+    photo = Q.PhotoInput("t.jpg", img, face, Q.Quality(0.9, face.area, 120.0, 400.0, 110.0, True), ())
+    o = C.extract(photo)
+    assert not o.outer.missing
+    assert max(o.outer.rgb) < 80, o.outer
+
+
+def test_extract_outer_missing_when_sample_is_skin():
+    """맨살(맨팔/민소매)을 겉옷으로 오인하지 않는다."""
+    img = Image.new("RGB", (400, 520), (250, 250, 250))
+    face = Q.FaceBox(150, 80, 100, 130)
+    img.paste((224, 172, 105), (150, 80, 250, 210))   # 얼굴
+    img.paste((224, 172, 105), (100, 214, 300, 470))  # 맨살
+    photo = Q.PhotoInput("t.jpg", img, face, Q.Quality(0.9, face.area, 120.0, 400.0, 110.0, True), ())
+    assert C.extract(photo).outer.missing
+
+
+def test_extract_inner_and_tie_collar_samples():
+    """칼라 영역에서 안쪽 옷(흰 셔츠)과 타이(빨강)를 잰다 (겹쳐 입은 상의, 2026-10-21)."""
+    img = Image.new("RGB", (400, 560), (250, 250, 250))
+    face = Q.FaceBox(150, 80, 100, 130)
+    img.paste((224, 172, 105), (150, 80, 250, 210))    # 얼굴
+    img.paste((40, 42, 48), (80, 214, 320, 520))       # 검은 겉옷
+    img.paste((242, 241, 238), (150, 208, 250, 240))   # 흰 셔츠 칼라
+    img.paste((150, 30, 40), (194, 224, 206, 280))     # 빨간 타이
+    photo = Q.PhotoInput("t.jpg", img, face, Q.Quality(0.9, face.area, 120.0, 400.0, 110.0, True), ())
+    o = C.extract(photo)
+    assert o.inner.confident and o.inner.rgb[0] > 220, o.inner
+    assert o.tie.confident and o.tie.rgb[0] > 120 and o.tie.rgb[1] < 80, o.tie
+
+
 def test_extract_measures_iris_color():
     """눈 밴드의 어두운 픽셀에서 홍채색을 잰다 — 양쪽 눈이 읽히면 확신."""
     img = Image.new("RGB", (320, 360), (224, 172, 105))
