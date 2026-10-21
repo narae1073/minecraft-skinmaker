@@ -17,6 +17,7 @@ function App() {
   const [showSteps, setShowSteps] = useState(false); // 처리 과정 표시 (기본 해제 — 사용자 결정)
   const [hairSource, setHairSource] = useState('mask'); // 머리 실루엣 근원 (Tier 0 기본 mask — 사용자 결정 2026-10-15)
   const [hairSymmetry, setHairSymmetry] = useState('symmetrized'); // 머리 대칭 (기본 대칭화 — 사용자 결정)
+  const [hairOverlay, setHairOverlay] = useState('on'); // L2 오버레이 헤어 (기본 켜기 — 사용자 결정 2026-10-21)
   const [catInfo, setCatInfo] = useState(null); // 분류 카테고리 {attributes, candidates, noiseLevel} (설계 §11)
   const [steps, setSteps] = useState(null); // 처리 과정 시트 {clean, full} (설계 §12)
 
@@ -62,6 +63,7 @@ function App() {
     formData.append('steps', showSteps ? '1' : '0');
     formData.append('hair_source', hairSource);
     formData.append('hair_symmetry', hairSymmetry);
+    formData.append('hair_overlay', hairOverlay);
 
     try {
       const response = await fetch('/api/v1/generate-skin', {
@@ -252,6 +254,17 @@ function App() {
             >
               <option value="symmetrized">대칭화</option>
               <option value="raw">사진 그대로</option>
+            </select>
+          </div>
+          <div className="config-row" title="L2(오버레이) 헤어: 부피 셸·앞머리 연장·몸통 드레이프 — 게임에서 반 픽셀 두껍게 보입니다">
+            <label htmlFor="hair-overlay">L2 머리</label>
+            <select
+              id="hair-overlay"
+              value={hairOverlay}
+              onChange={(e) => setHairOverlay(e.target.value)}
+            >
+              <option value="on">켜기</option>
+              <option value="off">끄기</option>
             </select>
           </div>
         </div>

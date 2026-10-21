@@ -66,7 +66,8 @@ def health():
 
 @app.post("/api/v1/generate-skin")
 async def generate_skin(file: UploadFile = File(...), noise_level: str = Form(None), steps: str = Form(None),
-                        hair_source: str = Form(None), hair_symmetry: str = Form(None)):
+                        hair_source: str = Form(None), hair_symmetry: str = Form(None),
+                        hair_overlay: str = Form(None)):
     if not (file.content_type or "").startswith("image/"):
         fail(400, "not_image", "이미지 파일을 올려주세요.")
     # 노이즈 세기 (설계 §9): 부재=1.0, 가비지=400, 범위 밖 숫자는 [0,1] 클램프.
@@ -89,6 +90,7 @@ async def generate_skin(file: UploadFile = File(...), noise_level: str = Form(No
 
     hair_source = _hair_option(hair_source, ("mask", "rule"), "mask", "hair_source")
     hair_symmetry = _hair_option(hair_symmetry, ("symmetrized", "raw"), "symmetrized", "hair_symmetry")
+    hair_overlay = _hair_option(hair_overlay, ("on", "off"), "on", "hair_overlay")
     # 처리 과정 시트 (설계 §12): 진위 규칙은 parsing_on 관례. 부재=생성 (기존 동작),
     # "0/false/off/no/빈값"=스킵 (설정 체크박스 기본 해제 → 웹이 명시 전송).
     want_steps = (steps is None) or (str(steps).strip().lower() not in ("0", "false", "off", "no", ""))
@@ -112,7 +114,8 @@ async def generate_skin(file: UploadFile = File(...), noise_level: str = Form(No
 
     seg = _parsing.bottom_mask(photo.image) if _parsing.parsing_on() else None
     observed = extract(photo, hair_bbox=result.hair_bbox_px, seg=seg,
-                       hair_source=hair_source, hair_symmetry=hair_symmetry)
+                       hair_source=hair_source, hair_symmetry=hair_symmetry,
+                       hair_overlay=hair_overlay == "on")
     # 하체 미관측 jeans 기본 (설계 §10): 요약이 텍스처와 어긋나지 않게 같은
     # resolve_bottom_ex 결정을 요약에도 반영한다 (derived 표기).
     resolved_bottom, bottom_is_default = resolve_bottom_ex(result.attributes, observed)
@@ -138,7 +141,7 @@ async def generate_skin(file: UploadFile = File(...), noise_level: str = Form(No
         clean_sheet, full_sheet = steps_sheets(
             photo, candidates[0].image, "classic", observed, seg,
             # 스탬프는 요청이 아니라 실제 사용 모드 — 마스크 근거 실패면 rule로 기록 (진실 규칙)
-            note="hair=" + ("mask+" + hair_symmetry if observed.hair_stencil else "rule"),
+            note="hair=" + ("mask+" + hair_symmetry if observed.hair_stencil else "rule") + " overlay=" + hair_overlay,
         )
         clean_sheet.convert("RGB").save(STEPS_DIR / f"{token}_steps.png")
         full_sheet.convert("RGB").save(STEPS_DIR / f"{token}_steps_full.png")
@@ -175,6 +178,7 @@ async def generate_skin(file: UploadFile = File(...), noise_level: str = Form(No
             "noise_level": level,
             "hair_source": hair_source,
             "hair_symmetry": hair_symmetry,
+            "hair_overlay": hair_overlay,
             "steps": steps_urls,
         },
     }

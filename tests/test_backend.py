@@ -206,7 +206,11 @@ def test_generate_echoes_hair_options():
     body = r_default.json()["data"]
     assert body["hair_source"] == "mask"
     assert body["hair_symmetry"] == "symmetrized"
+    assert body["hair_overlay"] == "on"
 
+    r_off = post(hair_overlay="off")
+    assert r_off.status_code == 200
+    assert r_off.json()["data"]["hair_overlay"] == "off"
     r_rule = post(hair_source="rule", hair_symmetry="raw")
     assert r_rule.status_code == 200
     body = r_rule.json()["data"]

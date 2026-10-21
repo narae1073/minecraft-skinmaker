@@ -413,6 +413,46 @@ def render_legs(canvas: SkinCanvas, colors: dict[str, Color], attrs: Attributes,
                     canvas.put(part, face_name, u, v, c, 0)
 
 
+def render_hair_overlay(canvas: SkinCanvas, colors: dict[str, Color], stencil) -> None:
+    """L2(오버레이) 헤어 장식 (사용자 결정 2026-10-21).
+
+    - 부피 셸: 기본 머리 실루엣을 오버레이 레이어에도 그린다 (게임에서 반 픽셀 두껍게 보임).
+    - 앞머리 연장: 가르마선이 2행 이하인 중앙 열은 한 행 더 — 눈(4-5행)은 절대 안 덮는다.
+    - 몸통 드레이프: 긴 머리의 몸통 행을 오버레이로도 덮어 셔츠 위에 머리가 뜨게.
+    """
+    hair_c = colors["hair"]
+    if stencil.top_hair:
+        canvas.fill_face("head", "top", shade(hair_c, FACE_SHADE["top"]), 1)
+    for v, row in enumerate(stencil.front):
+        for u, is_hair in enumerate(row):
+            if is_hair:
+                canvas.put("head", "front", u, v, shade(hair_c, FACE_SHADE["front"]), 1)
+    # 앞머리 장식: 가르마선이 낮은 중앙 열만 한 행 연장, 눈(4행)은 금지.
+    width = canvas.layout.face("head", "front", 1).w
+    for u in range(1, max(1, width - 1)):
+        if u >= len(stencil.front[0]):
+            break
+        rows = [v for v in range(len(stencil.front)) if stencil.front[v][u]]
+        if rows and max(rows) <= 2:
+            canvas.put("head", "front", u, max(rows) + 1, shade(hair_c, FACE_SHADE["front"]), 1)
+    for face_name in ("right", "left", "back"):
+        profile = stencil.side_profiles.get(face_name, ())
+        f = canvas.layout.face("head", face_name, 1)
+        for u, rows in enumerate(profile[:f.w]):
+            for v in range(min(rows, f.h)):
+                canvas.put("head", face_name, u, v, shade(hair_c, FACE_SHADE[face_name]), 1)
+    if stencil.body_rows:
+        for face_name in ("back", "right", "left"):
+            f = canvas.layout.face("body", face_name, 1)
+            for v in range(min(stencil.body_rows, f.h)):
+                for u in range(f.w):
+                    canvas.put("body", face_name, u, v, shade(hair_c, FACE_SHADE[face_name]), 1)
+        bf = canvas.layout.face("body", "front", 1)
+        for v in range(min(2, stencil.body_rows, bf.h)):
+            for u in (0, 1, bf.w - 2, bf.w - 1):
+                canvas.put("body", "front", u, v, shade(hair_c, FACE_SHADE["front"]), 1)
+
+
 def render(
     observed: ObservedColors,
     attrs: Attributes,
@@ -452,6 +492,13 @@ def render(
     render_body(canvas, colors, attrs, pattern, alt, observed.hair_stencil)
     render_arms(canvas, colors, attrs, pattern, resolve_sleeve(attrs, observed))
     render_legs(canvas, colors, attrs, resolved_bottom, shoe_two_tone=shoe_two_tone)
+    if observed.hair_overlay:
+        stencil = observed.hair_stencil
+        if stencil is None:
+            from .hairstencil import rule_stencil
+
+            stencil = rule_stencil(attrs.get("hair_length"))
+        render_hair_overlay(canvas, colors, stencil)
     if noise_seed is not None:
         _apply_noise(canvas, noise_seed, noise_level)
     return canvas

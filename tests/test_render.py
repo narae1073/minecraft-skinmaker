@@ -50,13 +50,13 @@ import hashlib
 
 from skinmaker import hairstencil as HS
 
-# rule 스텐실 렌더의 픽셀 베이스라인. 2026-10-20 얼굴 템플릿 변경(눈 4-5행,
-# 입 없음 — 사용자 결정)으로 재기록했다. 이후 rule 경로가 조용히 변하면 잡는다.
+# rule 스텐실 렌더의 픽셀 베이스라인. 2026-10-21 L2 헤어 오버레이(기본 on)로
+# 재기록 — 이전: 2026-10-20 얼굴 템플릿 변경. 이후 rule 경로가 조용히 변하면 잡는다.
 NOISE_OFF_GOLDEN = {
-    "short": "b4d6dbfa18a1adda",
-    "medium": "102b130dfcd6ba63",
-    "long": "8c514707514536d8",
-    "very_long": "ba94b70edf75d832",
+    "short": "caf97644ba68acc8",
+    "medium": "ec1f203435b90f11",
+    "long": "7048dd2c1f3ec782",
+    "very_long": "62f319c0c36f4475",
 }
 
 
@@ -177,6 +177,30 @@ def test_cuffs_only_for_long_sleeves():
     assert canvas.get("r_arm", "front", 2, 9)[:3] == shade(rgba(base.skin.hex), R.FACE_SHADE["front"])[:3]
 
 
+def test_hair_overlay_volume_shell_and_fringe():
+    """L2 헤어: 실루엣 복제(부피) + 가르마선 낮은 열은 1행 연장 — 눈(4-5행)은 금지."""
+    base = observed()
+    canvas = R.render(base, attrs(), ())
+    hair = shade(rgba(base.hair.hex), R.FACE_SHADE["front"])[:3]
+    for u, v in ((0, 0), (4, 1), (7, 1)):
+        assert canvas.get("head", "front", u, v, 1)[:3] == hair, (u, v)
+    assert canvas.get("head", "front", 4, 2, 1)[:3] == hair  # 연장 행
+    for v in (4, 5):  # 눈 행은 오버레이도 비어 있다
+        assert canvas.get("head", "front", 4, v, 1)[3] == 0, v
+    assert canvas.get("head", "right", 0, 1, 1)[:3] == shade(rgba(base.hair.hex), R.FACE_SHADE["right"])[:3]
+    assert canvas.get("head", "right", 0, 2, 1)[3] == 0  # short 옆면은 2행까지
+
+
+def test_hair_overlay_body_drape_and_switch_off():
+    st = dataclasses.replace(HS.rule_stencil("long"), body_rows=3)
+    base = dataclasses.replace(observed(), hair_stencil=st)
+    canvas = R.render(base, attrs(hair_length="long"), ())
+    assert canvas.get("body", "back", 4, 2, 1)[:3] == shade(rgba(base.hair.hex), R.FACE_SHADE["back"])[:3]
+    off = R.render(dataclasses.replace(base, hair_overlay=False), attrs(hair_length="long"), ())
+    assert off.get("body", "back", 4, 2, 1)[3] == 0
+    assert off.get("head", "front", 0, 0, 1)[3] == 0
+
+
 def test_stencil_wiring_rule_path_identical():
     """observed.hair_stencil=rule_stencil 경로가 기본 경로와 픽셀 동일."""
     base = observed()
@@ -238,8 +262,9 @@ def test_render_is_valid(model):
 
 
 @pytest.mark.parametrize("model", ["classic", "slim"])
-def test_head_overlay_transparent(model):
-    canvas = R.render(observed(), attrs(), (), model)
+def test_head_overlay_empty_when_switch_off(model):
+    """L2 스위치 off면 HEAD ACC.는 투명 — 기본(on)은 L2 헤어가 들어간다 (2026-10-21)."""
+    canvas = R.render(dataclasses.replace(observed(), hair_overlay=False), attrs(), (), model)
     px = canvas.image.load()
     for face in canvas.layout.part("head", 1).faces.values():
         for y in range(face.y, face.y + face.h):
@@ -247,13 +272,16 @@ def test_head_overlay_transparent(model):
                 assert px[x, y][3] == 0
 
 
-def test_hair_only_in_head_base():
+def test_hair_base_always_painted_and_overlay_follows_switch():
+    """기본 머리는 항상 레이어 0. L2 헤어는 스위치 off면 비어 있다 (2026-10-21)."""
     canvas = R.render(observed(hair="#112233"), attrs(hair_length="long"), (), "classic")
     hair = rgba("#112233")
     front = canvas.layout.face("head", "front", 0)
     assert canvas.image.getpixel((front.x + 4, front.y + 0))[:3] == shade(hair, 1.0)[:3]
-    overlay = canvas.layout.face("head", "front", 1)
-    assert canvas.image.getpixel((overlay.x + 4, overlay.y + 0))[3] == 0
+    off = R.render(dataclasses.replace(observed(hair="#112233"), hair_overlay=False),
+                   attrs(hair_length="long"), (), "classic")
+    overlay = off.layout.face("head", "front", 1)
+    assert off.image.getpixel((overlay.x + 4, overlay.y + 0))[3] == 0
 
 
 def test_long_hair_covers_more_than_short():

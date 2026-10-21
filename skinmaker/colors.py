@@ -225,6 +225,7 @@ class ObservedColors:
     outer: ColorSample = MISSING  # 겉옷 표본 (배경 제거 — 정장/레이어드)
     inner: ColorSample = MISSING  # 안쪽 옷(칼라) 표본
     tie: ColorSample = MISSING  # 타이 표본 (안쪽 옷과 구분될 때만)
+    hair_overlay: bool = True  # L2(오버레이) 헤어 장식 — 요청 스위치 (2026-10-21)
 
     @property
     def top_confident(self) -> bool:
@@ -419,6 +420,7 @@ def extract(
     seg=None,
     hair_source: str = "mask",
     hair_symmetry: str = "symmetrized",
+    hair_overlay: bool = True,
 ) -> ObservedColors:
     """사진 한 장에서 색 4개를 읽는다.
 
@@ -603,6 +605,7 @@ def extract(
         outer=outer,
         inner=inner,
         tie=tie,
+        hair_overlay=hair_overlay,
     )
 
 

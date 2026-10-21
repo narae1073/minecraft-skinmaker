@@ -41,3 +41,9 @@ Final: Ruling: leave pale-hair colour confidence/fallback unchanged — this app
 - 범위: 목 V·라펠 + 커프스 + 타이까지. VLM 필드 inner_top(none/shirt/tee/knit)·neckwear(none/tie) — 10장 검증(존재 8/9, 503 재시도 필요).
 - 색: 겉옷 표본 = 넓은 상체 상자에서 배경 크로마 제거 + 피부 오인 가드(명도 포함) — 흰 셔츠·배경이 정장색을 오염시키는 문제(310/43/8이 흰색으로 렌더) 해결. 안쪽/타이 = 기준색과 RGB 대비 군집(크로마 전용은 검정↔흰 구분 실패). 픽셀 게이트 미달 시 안쪽은 밝은 셔츠 기본, 타이는 그리지 않음(승인 규칙).
 - 룰링: 겉옷 표본은 재킷류/레이어드에만 적용(픽셀 ≥400). 타이는 색 측정 시에만 렌더. 실사진 측정은 부분 성공(43 안쪽 ✓; 310 타이 ✓; 61/4/8 안쪽 폴백) — 포즈 모델 비활성(pose_landmarker...disabled)이라 칼라 기하가 얼굴 비례라 한계. 스위트 500 passed.
+
+## 후속 5: L2(오버레이) 헤어 (2026-10-21, 사용자 선택 "all three")
+- 범위: 부피 셸(실루엣 복제) + 앞머리 1행 연장(가르마선 ≤2행 열만, 눈 4-5행 금지) + 몸통 드레이프(오버레이 레이어). 요청 스위치 hair_overlay=on|off (기본 on).
+- 배선: ObservedColors.hair_overlay → render()가 rule/mask 공통으로 L2 패스. 백엔드 폼 필드·응답 에코·시트 스탬프(overlay=on/off) — 진실 규칙 유지.
+- 프론트: 설정에 'L2 머리' 선택, 3D 뷰어에 오버레이 박스(레이어1 rect +0.0625) 추가. lint 통과(미뤄둔 Skin3DViewer immutability 3건도 이번에 수정: texture.clone useMemo).
+- 골든 재기록(L2 기본 on이 이미지 바이트를 바꾼다). 스위트 502 passed.
