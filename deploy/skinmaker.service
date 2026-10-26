@@ -6,10 +6,10 @@ After=network.target
 Type=simple
 User=achi
 Group=achi
-WorkingDirectory=/home/achi/Programming/skinmaker
-EnvironmentFile=/home/achi/Programming/skinmaker/.env
+WorkingDirectory=/home/achi/Programming/skinmaker-release
+EnvironmentFile=/home/achi/Programming/skinmaker-release/.env
 Environment=PYTHONUNBUFFERED=1
-ExecStart=/home/achi/Programming/skinmaker/.venv/bin/python -m uvicorn backend.app:app --host 127.0.0.1 --port 8001 --workers 1 --proxy-headers --forwarded-allow-ips 127.0.0.1
+ExecStart=/home/achi/Programming/skinmaker-release/.venv/bin/python -m uvicorn backend.app:app --host 127.0.0.1 --port 8001 --workers 1 --proxy-headers --forwarded-allow-ips 127.0.0.1
 Restart=on-failure
 RestartSec=5
 TimeoutStopSec=20
