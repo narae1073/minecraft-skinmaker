@@ -110,3 +110,9 @@ S0 quality/face detection (YuNet) → S1 colour measurement (white-balance + ban
 - Deployment: `docs/deployment.md`
 - Codex devbox: `docs/devbox.md`
 - This document: `docs/handover.md`
+
+## 12. Session update (2026-10-27)
+
+- Updated the main webpage heading in `frontend/src/App.jsx` to “마인크래프트 스킨 메이커”. Replaced the current “환영합니다!” heading with the requested title after rebasing on the latest `origin/master`.
+- Verification: `cd frontend && npm run lint` passed; `cd frontend && npm run build` passed (Vite emitted the existing large-chunk warning).
+- Risk: none identified; frontend build output remains generated and gitignored.
