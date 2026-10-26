@@ -10,3 +10,4 @@ assets/*.task*
 .env
 plans.txt
 backend/static/
+opencode.jsonc
