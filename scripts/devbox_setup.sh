@@ -40,8 +40,16 @@ fi
 if [ ! -f "$WORKSPACE/.env" ]; then
   cp "$WORKSPACE/.env.example" "$WORKSPACE/.env"
 fi
-grep -q '^SKINMAKER_TRANSPORT=' "$WORKSPACE/.env" \
-  || printf '\nSKINMAKER_TRANSPORT=mock\n' >> "$WORKSPACE/.env"
+# No Gemini key yet -> mock, so the dev app works without paid API calls.
+transport="$(grep '^SKINMAKER_TRANSPORT=' "$WORKSPACE/.env" 2>/dev/null | tail -n1 | cut -d= -f2-)"
+if ! grep -Eq '^GEMINI_API_KEY=.+' "$WORKSPACE/.env" \
+   && { [ -z "$transport" ] || [ "$transport" = "gemini" ]; }; then
+  if grep -q '^SKINMAKER_TRANSPORT=' "$WORKSPACE/.env"; then
+    sed -i 's/^SKINMAKER_TRANSPORT=.*/SKINMAKER_TRANSPORT=mock/' "$WORKSPACE/.env"
+  else
+    printf '\nSKINMAKER_TRANSPORT=mock\n' >> "$WORKSPACE/.env"
+  fi
+fi
 
 mkdir -p "$(dirname "$AUTH")"
 touch "$AUTH"

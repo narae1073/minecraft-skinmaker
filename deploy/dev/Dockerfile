@@ -40,9 +40,17 @@ RUN useradd -m -u 1000 -s /bin/bash -p '*' dev \
     && chmod 755 /etc/ssh/authorized_keys
 
 COPY sshd_config /etc/ssh/sshd_config
+COPY profile.sh /etc/profile.d/skinmaker.sh
 COPY entrypoint.sh /usr/local/bin/devbox-entrypoint
 RUN mkdir -p /run/sshd \
+    && chmod 644 /etc/profile.d/skinmaker.sh \
     && chmod +x /usr/local/bin/devbox-entrypoint \
+    && printf '%s\n' \
+        '[ -f /etc/profile.d/skinmaker.sh ] && . /etc/profile.d/skinmaker.sh' \
+        '[ -t 1 ] && [ -d /workspace ] && cd /workspace' \
+        >> /home/dev/.bashrc \
+    && chown dev:dev /home/dev/.bashrc \
+    && chmod 644 /home/dev/.bashrc \
     && ssh-keygen -A \
     && sshd -t
 
