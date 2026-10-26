@@ -1,0 +1,32 @@
+name: skinmaker-dev
+
+services:
+  codex:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: skinmaker-devbox:latest
+    container_name: skinmaker-codex
+    hostname: skinmaker-codex
+    init: true
+    restart: unless-stopped
+    ports:
+      # Only the tailnet IP; never 0.0.0.0 (Docker bypasses UFW).
+      - "${TAILSCALE_IP:?set TAILSCALE_IP in deploy/dev/.env}:2222:22"
+    volumes:
+      - "${WORKSPACE_PATH:-/home/achi/Programming/skinmaker-codex}:/workspace"
+      - skinmaker-codex-home:/home/dev
+      - "${AUTHORIZED_KEYS_FILE:-/home/achi/.ssh/skinmaker-codex_authorized_keys}:/etc/ssh/authorized_keys/dev:ro"
+    working_dir: /workspace
+    environment:
+      TZ: Asia/Seoul
+      LANG: C.UTF-8
+      SKINMAKER_TRANSPORT: mock
+    mem_limit: 4g
+    cpus: 2.0
+    pids_limit: 1024
+    security_opt:
+      - no-new-privileges:true
+
+volumes:
+  skinmaker-codex-home:

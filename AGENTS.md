@@ -32,6 +32,21 @@ Native Windows is supported for development, **not deployment**.
   deployment and retention are host-only (Linux).
 - A Windows CI job (`test-windows`) runs the suite on every PR.
 
+## Codex devbox (second developer)
+
+The trusted collaborator runs **Codex** inside a Docker container on this host.
+See `docs/devbox.md`.
+
+- Workspace inside the container: `/workspace` (a separate clone, not the
+  production checkout). SSH: `ssh -p 2222 dev@<tailnet-ip>`; key-only.
+- Codex is preinstalled. Log in with `codex login --device-auth` (or an API key);
+  because the container is the sandbox, bypass Codex's nested sandbox if needed.
+- GitHub auth is the collaborator's own account (`gh auth login`).
+- No production `.env`, Docker socket, systemd, or cloudflared credentials are
+  inside the container. Deploy from the host, not the container.
+- Production access is allowed for this trusted person via
+  `ssh achi@<tailnet-ip>`, but the Codex workspace remains a separate clone.
+
 ## Setup
 
 - Fresh clone or worktree: `./scripts/dev_setup.sh` (add `--with-schp` for the 66 MB parser model).

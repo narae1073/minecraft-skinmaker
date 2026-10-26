@@ -43,6 +43,18 @@ if [ ! -f "$ROOT/.env" ]; then
   echo "warning: no .env — copy .env.example and add GEMINI_API_KEY for real VLM calls"
 fi
 
+if [ ! -e "$ROOT/.venv" ]; then
+  PY="${PYTHON:-python3}"
+  command -v "$PY" >/dev/null 2>&1 || PY=python
+  echo "== venv ($PY)"
+  "$PY" -m venv "$ROOT/.venv"
+  if [ -x "$ROOT/.venv/bin/pip" ]; then
+    "$ROOT/.venv/bin/pip" install -q -r "$ROOT/requirements-dev.txt"
+  elif [ -x "$ROOT/.venv/Scripts/python.exe" ]; then
+    "$ROOT/.venv/Scripts/python.exe" -m pip install -q -r "$ROOT/requirements-dev.txt"
+  fi
+fi
+
 if [ "$WITH_SCHP" = 1 ]; then
   bash "$ROOT/scripts/fetch_assets.sh"
 else
