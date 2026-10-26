@@ -44,7 +44,9 @@ if [ ! -f "$ROOT/.env" ]; then
 fi
 
 if [ ! -e "$ROOT/.venv" ]; then
-  PY="${PYTHON:-python3}"
+  # The project targets 3.12; some hosts have a newer python3 without venv support.
+  PY="${PYTHON:-python3.12}"
+  command -v "$PY" >/dev/null 2>&1 || PY=python3
   command -v "$PY" >/dev/null 2>&1 || PY=python
   echo "== venv ($PY)"
   "$PY" -m venv "$ROOT/.venv"
