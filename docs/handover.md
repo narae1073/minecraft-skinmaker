@@ -13,8 +13,8 @@ S0 quality/face detection (YuNet) → S1 colour measurement (white-balance + ban
 - Parsing model: `out/models/schp-atr-18-int8-static.onnx` (66 MB, gitignored). YuNet: `assets/face_detection_yunet_2023mar.onnx` (228 KB, gitignored). Both fetched by `scripts/fetch_assets.sh`.
 - `mediapipe` was removed from requirements: the pose model is `assets/pose_landmarker_lite.task.disabled`, so `detect_pose()` always returns `None` and pose bands/cover measurement are dormant (code and tests remain).
 - Deployment: **live** at `https://skin.achijaser.date` (public, no auth). Tunnel `skinmaker` UUID `866fd5b7-5046-4fd7-80a1-2f7b0ae30502`; config in `~/.cloudflared/skinmaker.yml` (not git); services `skinmaker`, `cloudflared-skinmaker`, `skinmaker-cleanup.timer` active + enabled.
-- Codex devbox: Docker container `skinmaker-codex`, SSH on tailnet `100.110.156.108:2222`, separate workspace `/home/achi/Programming/skinmaker-codex`; verified 513 tests + app health. Partner key/Tailscale invite and Codex login are pending user actions.
-- Git: `master` has hygiene (PR #1), CI/agent workflow (PR #2), deployment hardening (PR #3), live docs (PR #4), Windows support (PR #5), and Windows docs (PR #6) merged; the Codex devbox is PR #7. Branch protection requires `test`, `test-windows`, `web`, 1 approval, linear history; admins can bypass for ops. `opencode.jsonc` is deleted and gitignored by the user.
+- Codex devbox: Docker container `skinmaker-codex`, SSH on tailnet `100.110.156.108:2222`, separate workspace `/home/achi/Programming/skinmaker-codex`; verified 513 tests + app health. The image has **no Codex CLI** by default — the Windows Codex GUI adds the remote project. Partner key/Tailscale invite and the GUI connection are pending user actions.
+- Git: `master` has hygiene (PR #1), CI/agent workflow (PR #2), deployment hardening (PR #3), live docs (PR #4), Windows support (PR #5), Windows docs (PR #6), and the devbox (PR #7) merged; the no-CLI cleanup is PR #8. Branch protection requires `test`, `test-windows`, `web`, 1 approval, linear history; admins can bypass for ops. `opencode.jsonc` is deleted and gitignored by the user.
 
 ## 3. Repo hygiene that landed (PR #1)
 
@@ -60,14 +60,14 @@ S0 quality/face detection (YuNet) → S1 colour measurement (white-balance + ban
 - Verified: root/health 200, real upload 200 with skin/input/steps URLs, public static assets 200, no-face 422, 16 MB 413, 429 after the 6/min limit (restart resets the in-memory limiter). `scripts/deploy.sh --no-pull --skip-tests` verified.
 - Not done: Cloudflare WAF rate-limit rule (dashboard-only; no API token used), and a reboot test (services are `enabled`; reboot and recheck when convenient).
 
-## 7. Codex devbox (PR #7)
+## 7. Codex devbox (PR #7; no CLI by default after PR #8)
 
-- `deploy/dev/`: Python 3.12 + Node 24 + Codex CLI 0.164 + git/gh/sshd image; Compose service `skinmaker-codex`.
+- `deploy/dev/`: Python 3.12 + Node 24 + git/gh/rsync/sshd image. The Codex CLI is **not installed by default**; the Windows Codex GUI adds the container as a remote project over SSH. `INSTALL_CODEX=1` is an opt-in fallback if the GUI asks for a remote helper.
 - Separate clone `/home/achi/Programming/skinmaker-codex` mounted at `/workspace`; **not** the production checkout. Container has no production `.env`, Docker socket, systemd, or cloudflared credentials.
 - SSH is key-only on `100.110.156.108:2222` (tailnet only); 4 GB / 2 CPU / 1024 pids; `no-new-privileges`.
-- Host setup: `./scripts/devbox_setup.sh --key /path/to/codex.pub` (clone, `.env` mock, bootstrap inside the container, compose up). Re-run if `tailscale ip -4` changes.
-- Verified: SSH, `pytest -q` 513 passed (5.5 min with SCHP), `npm run build`, uvicorn health `ok` / root 200 with mock, port/limits.
-- Pending user actions: invite partner to Tailscale; add their public key (a test key is currently authorized); partner runs `codex login --device-auth` and `gh auth login`.
+- Host setup: `./scripts/devbox_setup.sh --key /path/to/codex.pub` (clone, `.env` mock, bootstrap inside the container, compose up). It preserves `INSTALL_CODEX`; re-run if `tailscale ip -4` changes.
+- Verified: SSH, no `codex` binary, `pytest -q` 513 passed (5.5 min with SCHP), `npm run build`, uvicorn health `ok` / root 200 with mock, port/limits.
+- Pending user actions: invite partner to Tailscale; add their public key (a test key is currently authorized); partner adds the remote project in the Codex GUI and runs `gh auth login`.
 - Production access is intentionally allowed for this trusted person via `ssh achi@<tailnet>`; deployment still happens on the host.
 
 ## 8. Known issues / backlog
@@ -79,7 +79,7 @@ S0 quality/face detection (YuNet) → S1 colour measurement (white-balance + ban
 - Public no-auth deployment: rate limit + upload cap + retention are the mitigations. Revisit Cloudflare Access if abuse appears. The Cloudflare WAF outer rate-limit rule is still manual.
 - Branch protection requires 1 approval; admins can bypass (`enforce_admins=false`) for bootstrap/ops. Use `gh pr merge --admin` only for setup/ops, not feature work.
 - Old held-out photos remain in public git history; revisit only with a coordinated history rewrite.
-- Codex devbox: partner auth is not configured yet; `codex doctor` reports no credentials and a WebSocket warning (HTTPS fallback). Rebuilding the image changes the container SSH host key — `ssh-keygen -R "[100.110.156.108]:2222"`. The workspace `.venv` is container-specific; do not run host `dev_setup.sh` on that clone. A test key is currently in the authorized_keys file; add the partner's key with `scripts/devbox_setup.sh --key`.
+- Codex devbox: the partner's GUI remote-project connection is the remaining acceptance gate. The image intentionally has no Codex CLI; if the GUI asks for a remote helper, set `INSTALL_CODEX=1` in `deploy/dev/.env` and rerun `./scripts/devbox_setup.sh --no-bootstrap`. Rebuilding the image changes the container SSH host key — `ssh-keygen -R "[100.110.156.108]:2222"`. The workspace `.venv` is container-specific; do not run host `dev_setup.sh` on that clone. A test key is currently in the authorized_keys file; add the partner's key with `scripts/devbox_setup.sh --key`.
 
 ## 9. Working norms (do not violate)
 
