@@ -34,13 +34,14 @@ Native Windows is supported for development, **not deployment**.
 
 ## Codex devbox (second developer)
 
-The trusted collaborator runs **Codex** inside a Docker container on this host.
-See `docs/devbox.md`.
+The trusted collaborator runs the **Codex GUI on Windows** and adds the devbox
+as a **remote project over SSH**. See `docs/devbox.md`.
 
 - Workspace inside the container: `/workspace` (a separate clone, not the
   production checkout). SSH: `ssh -p 2222 dev@<tailnet-ip>`; key-only.
-- Codex is preinstalled. Log in with `codex login --device-auth` (or an API key);
-  because the container is the sandbox, bypass Codex's nested sandbox if needed.
+- The Codex CLI is **not installed** in the default image; model/auth stay in the
+  Windows GUI. Only if the GUI asks for a remote helper, rebuild with
+  `INSTALL_CODEX=1` (opt-in fallback).
 - GitHub auth is the collaborator's own account (`gh auth login`).
 - No production `.env`, Docker socket, systemd, or cloudflared credentials are
   inside the container. Deploy from the host, not the container.

@@ -1,4 +1,4 @@
-# Sourced by /etc/profile for SSH login shells inside the Codex devbox.
+# Sourced by /etc/profile for SSH login shells inside the remote devbox.
 # Loads the workspace .env and makes the app work without a Gemini key.
 if [ -f /workspace/.env ]; then
   set -a

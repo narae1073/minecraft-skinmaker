@@ -1,9 +1,14 @@
-# Codex devbox — Python 3.12 + Node 24 + Codex CLI + sshd.
+# Remote devbox — Python 3.12 + Node 24 + git/gh + sshd.
+#
+# The Windows Codex GUI adds this container as a remote project over SSH; the
+# image does not install the Codex CLI by default. If the GUI turns out to need
+# a remote helper, build with INSTALL_CODEX=1.
 #
 # Build context is deploy/dev only (the project is bind-mounted at /workspace),
 # so the image never contains the repo, .env, or model files.
 FROM python:3.12-slim-bookworm
 
+ARG INSTALL_CODEX=0
 ARG CODEX_VERSION=0.164.0
 ENV DEBIAN_FRONTEND=noninteractive \
     TZ=Asia/Seoul \
@@ -12,10 +17,10 @@ ENV DEBIAN_FRONTEND=noninteractive \
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
         ca-certificates curl git openssh-server openssh-client \
-        gnupg jq less nano procps ripgrep fd-find tmux unzip \
+        gnupg jq less nano procps ripgrep fd-find rsync tmux unzip \
     && rm -rf /var/lib/apt/lists/*
 
-# Node 24 (Codex CLI and the Vite frontend).
+# Node 24 for the Vite frontend.
 RUN curl -fsSL https://deb.nodesource.com/setup_24.x | bash - \
     && apt-get install -y --no-install-recommends nodejs \
     && rm -rf /var/lib/apt/lists/*
@@ -29,9 +34,12 @@ RUN curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg \
     && apt-get update && apt-get install -y --no-install-recommends gh \
     && rm -rf /var/lib/apt/lists/*
 
-# Codex CLI. Pinned so the devbox is reproducible; bump deliberately.
-RUN npm install -g "@openai/codex@${CODEX_VERSION}" \
-    && npm cache clean --force
+# No Codex CLI by default: the Windows GUI adds the remote project itself.
+# INSTALL_CODEX=1 is an opt-in fallback if the GUI asks for a remote helper.
+RUN if [ "$INSTALL_CODEX" = "1" ]; then \
+        npm install -g "@openai/codex@${CODEX_VERSION}" \
+        && npm cache clean --force; \
+    fi
 
 RUN useradd -m -u 1000 -s /bin/bash -p '*' dev \
     && mkdir -p /home/dev/.ssh /etc/ssh/authorized_keys \

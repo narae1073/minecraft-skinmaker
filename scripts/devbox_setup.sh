@@ -62,10 +62,15 @@ else
   echo "warning: no --key yet; add one with --key before SSH will work" >&2
 fi
 
+# Preserve the optional Codex helper fallback across runs.
+install_codex="$(grep '^INSTALL_CODEX=' "$ENV_FILE" 2>/dev/null | tail -n1 | cut -d= -f2- || true)"
+[ -n "$install_codex" ] || install_codex=0
+
 cat > "$ENV_FILE" <<EOF
 TAILSCALE_IP=$TAILSCALE_IP
 WORKSPACE_PATH=$WORKSPACE
 AUTHORIZED_KEYS_FILE=$AUTH
+INSTALL_CODEX=$install_codex
 EOF
 chmod 600 "$ENV_FILE"
 
@@ -82,14 +87,21 @@ fi
 
 cat <<EOF
 
-Codex devbox is up.
-  ssh -i <key> -p 2222 dev@${TAILSCALE_IP}
+Remote devbox is up.
+  SSH: dev@${TAILSCALE_IP}  port 2222
   (MagicDNS: dev@achijaser.tail63f807.ts.net)
 
-Partner first login:
-  codex login --device-auth       # or: printenv OPENAI_API_KEY | codex login --with-api-key
+In the Windows Codex GUI, add a remote project:
+  host ${TAILSCALE_IP}, port 2222, user dev, key ~/.ssh/skin_codex
+  project path /workspace
+
+Inside (GUI terminal or ssh):
   gh auth login
   cd /workspace && .venv/bin/python -m pytest -q
+
+No Codex CLI is installed in the image by default (the GUI brings its own
+remote-project support). If the GUI asks for a remote helper, set
+INSTALL_CODEX=1 in deploy/dev/.env and rerun this script.
 
 Production access (trusted, you allowed it): ssh achi@${TAILSCALE_IP}
 EOF

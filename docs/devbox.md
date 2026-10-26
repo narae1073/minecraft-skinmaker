@@ -1,29 +1,30 @@
-# Codex devbox (Docker + SSH over Tailscale)
+# Remote devbox for the Codex GUI (Docker + SSH over Tailscale)
 
-A dedicated Linux workspace for the second developer's **Codex** agent. It is a
-separate clone of the repo mounted into a container, reachable only on the
-Tailscale network, with Codex preinstalled. The host's public app, production
-`.env`, systemd units, Docker socket and cloudflared credentials are **not**
-inside the container.
+A dedicated Linux workspace for the second developer. **Codex runs in the
+Windows GUI**; the GUI adds this container as a **remote project over SSH**. The
+image is just the workspace: Python 3.12, Node 24, git, gh, sshd. The Codex CLI
+is **not installed by default**.
 
 ```
-Windows (Tailscale)
-  │ ssh -p 2222 dev@100.110.156.108
-  ▼
+Windows Codex GUI (local auth)
+   │ Tailscale + SSH :2222
+   ▼
 Docker container "skinmaker-codex"
   ├─ /workspace   separate clone (skinmaker-codex)
-  ├─ /home/dev    persistent volume (Codex auth, gh auth, SSH config)
-  ├─ Python 3.12 + Node 24 + git + gh + Codex CLI
-  └─ sshd :22  → host tailnet IP :2222
+  ├─ /home/dev    persistent volume (SSH/GitHub config)
+  ├─ Python 3.12 + Node 24 + git + gh + rsync + sshd
+  └─ no production .env / Docker socket / systemd / cloudflared
 ```
 
-The host owner still runs production: `./scripts/deploy.sh` on the host.
-The trusted collaborator may also `ssh achi@<tailnet>` for production access.
+The host's public app, production `.env`, systemd units, Docker socket and
+cloudflared credentials are **not** inside the container. The trusted
+collaborator may still `ssh achi@<tailnet>` for production access, but the
+devbox itself has no host credentials.
 
 ## 1. Host: one-time setup
 
-Prerequisites: Docker and Tailscale up on the host. Python/Node are **inside the
-image**, so the host does not need them for this workspace.
+Prerequisites: Docker and Tailscale up on the host. Python/Node are inside the
+image; the host does not need them for this workspace.
 
 ```bash
 cd /home/achi/Programming/skinmaker
@@ -44,8 +45,8 @@ This script:
 - writes `deploy/dev/.env` with the current Tailscale IPv4;
 - builds and starts `skinmaker-codex` on `<tailnet-ip>:2222`.
 
-`--no-bootstrap` starts the container without the dependency install (fast
-recreate). Adding a key later appends it and recreates the container:
+`--no-bootstrap` starts/recreates without the dependency install. Adding a key
+later appends it and recreates the container:
 
 ```bash
 ./scripts/devbox_setup.sh --key /path/to/another.pub --no-bootstrap
@@ -54,13 +55,15 @@ recreate). Adding a key later appends it and recreates the container:
 ### Verified 2026-10-26
 
 - SSH from the host with a test key works (`dev`, key-only).
-- `codex-cli 0.164.0`, Node 24.22, Python 3.12.15, `gh` 2.103 inside.
+- No `codex` binary in the image by default; Node 24.22, Python 3.12.15,
+  `gh` 2.103, `rsync` available.
 - `pytest -q` inside `/workspace`: **513 passed** (5.5 min with SCHP).
 - `npm run build` succeeds; `uvicorn` + health/root return `ok` / 200 with
   `SKINMAKER_TRANSPORT=mock`.
 - Port is bound only to `100.110.156.108:2222`; limits 4 GB / 2 CPU / 1024 pids;
   `no-new-privileges` enabled.
-- Codex auth is not configured (expected; the partner logs in).
+- The partner's Codex GUI remote-project connection is the remaining acceptance
+  gate (account-level; not testable from the host).
 
 ## 2. Partner: Windows setup
 
@@ -68,7 +71,7 @@ recreate). Adding a key later appends it and recreates the container:
 2. Install **OpenSSH client** if needed (`ssh` is built into Windows 10/11).
 3. Put the private key at `%USERPROFILE%\.ssh\skin_codex`.
 
-`%USERPROFILE%\.ssh\config`:
+`%USERPROFILE%\.ssh\config` (also lets the GUI use a host alias):
 
 ```
 Host skin-codex
@@ -80,35 +83,30 @@ Host skin-codex
   ServerAliveInterval 30
 ```
 
-MagicDNS name (`achijaser.tail63f807.ts.net`) works too, but the IP is the most
-predictable.
+MagicDNS (`achijaser.tail63f807.ts.net`) works too, but the IP is predictable.
 
-```powershell
-ssh skin-codex
-```
+### Add the remote project in the Codex GUI
 
-First login inside the container:
+Use these values:
+
+- **SSH host**: `100.110.156.108` (or `achijaser.tail63f807.ts.net`)
+- **Port**: `2222`
+- **User**: `dev`
+- **Key**: `~/.ssh/skin_codex`
+- **Project path**: `/workspace`
+
+Codex authentication/model choice stays in the **GUI on Windows**. There is no
+`codex login` / `~/.codex` on the devbox by default.
+
+### First terminal inside the project
 
 ```bash
-codex login --device-auth        # open the printed URL on Windows
-# or: printenv OPENAI_API_KEY | codex login --with-api-key
 gh auth login                    # their own GitHub account
 cd /workspace
 .venv/bin/python -m pytest -q    # 513 tests
 ```
 
-Codex can be run directly in `/workspace`:
-
-```bash
-codex
-```
-
-Because the container is the sandbox, do not try to nest Codex's own sandbox if
-it complains; use `codex --dangerously-bypass-approvals-and-sandbox` or set
-`sandbox_mode = "danger-full-access"` in `~/.codex/config.toml`. The container
-has no host credentials.
-
-## 3. VS Code Remote-SSH (recommended UI)
+## 3. VS Code Remote-SSH (optional)
 
 Remote-SSH → host `skin-codex` → open `/workspace`. VS Code forwards 8001/5173
 automatically. For a plain SSH session:
@@ -125,34 +123,53 @@ set -a; source .env; set +a
 cd frontend && npm run dev
 ```
 
-The host's production app also uses 8001, but the container has its own network
-namespace, so there is no conflict. Only port 2222 is published.
+The host's production app uses 8001, but the container has its own network
+namespace. Only port 2222 is published.
 
 ## 4. Workflow
 
-- The Codex clone is on `master`; create `feat/<topic>` branches and open PRs.
+- The clone is on `master`; create `feat/<topic>` branches and open PRs.
 - CI runs Ubuntu + Windows + web; `master` requires approval.
 - Merge from GitHub; the host owner deploys with `./scripts/deploy.sh`.
 - Production access (trusted): from Windows, `ssh achi@<tailnet-ip>` and run the
   deploy script. Do not mount the production checkout into the container.
-- Never commit `out/`, `backend/static/`, `frontend/dist/`, `.env`, models, or
-  `~/.codex`/gh credentials.
+- Never commit `out/`, `backend/static/`, `frontend/dist/`, `.env`, or models.
 
-## 5. Security / operations
+## 5. Fallback: GUI needs a remote helper
+
+The default image has **no Codex CLI**. If the GUI's remote-project feature
+reports that it needs a remote Codex helper, opt in explicitly:
+
+```bash
+# deploy/dev/.env
+INSTALL_CODEX=1
+```
+
+Then rebuild:
+
+```bash
+./scripts/devbox_setup.sh --no-bootstrap
+```
+
+`scripts/devbox_setup.sh` preserves `INSTALL_CODEX` across runs. The image then
+pins `@openai/codex@0.164.0`; authenticate via the GUI or
+`codex login --device-auth` inside the container. If you later remove it, set
+`INSTALL_CODEX=0` and rebuild.
+
+## 6. Security / operations
 
 - SSH is key-only, user `dev`, no root login, no password.
 - Port 2222 binds to the **Tailscale IPv4 only**; it is not public. Docker
   published ports bypass UFW, so never change it to `0.0.0.0`.
-- Limits: 2 CPUs, 4 GB RAM, 1024 pids. The container has no Docker socket, no
-  host network, no systemd, no cloudflared credentials, no production `.env`.
-- The host owner's Tailscale SSH remains enabled; the collaborator is trusted
-  and may access production.
-- Codex/GitHub credentials live in the `skinmaker-codex-home` volume, not the repo.
-- The image pins `@openai/codex@0.164.0`; bump it deliberately and rebuild.
+- Limits: 2 CPUs, 4 GB RAM, 1024 pids. No Docker socket, host network, systemd,
+  cloudflared credentials, or production `.env`.
+- The host owner's Tailscale SSH remains enabled; the collaborator is trusted and
+  may access production.
+- GitHub credentials live in the `skinmaker-codex-home` volume, not the repo.
 - Rebuilding the image changes the container's SSH host key; remove the old
   entry with `ssh-keygen -R "[100.110.156.108]:2222"` or accept the prompt.
 
-## 6. Troubleshooting
+## 7. Troubleshooting
 
 | Symptom | Check |
 |---|---|
@@ -160,6 +177,6 @@ namespace, so there is no conflict. Only port 2222 is published.
 | SSH permission denied | public key in `/home/achi/.ssh/skinmaker-codex_authorized_keys`; file mode 600; rerun setup |
 | `Connection refused` | `docker compose -f deploy/dev/compose.yaml ps`; `docker logs skinmaker-codex` |
 | Host key changed | image rebuilt; `ssh-keygen -R "[<ip>]:2222"` |
-| Codex cannot write | worktree ownership; container runs UID 1000, clone owned by `achi` |
-| Codex sandbox error | use `--dangerously-bypass-approvals-and-sandbox` (container is the sandbox) |
-| Tests slow | SCHP is installed; tests with it take ~3 min, without ~10 s |
+| GUI cannot add remote project | verify `ssh skin-codex` works first; then use the same host/port/user/key in the GUI |
+| GUI asks for a remote Codex helper | opt-in fallback in §5 (`INSTALL_CODEX=1`) |
+| Tests slow | SCHP is installed; tests with it take ~5 min in the 2-CPU container, without ~10 s |
