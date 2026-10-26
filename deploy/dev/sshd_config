@@ -1,8 +1,8 @@
 Port 22
 AddressFamily any
 
-HostKey /etc/ssh/ssh_host_ed25519_key
-HostKey /etc/ssh/ssh_host_rsa_key
+HostKey /etc/ssh/host_keys/ssh_host_ed25519_key
+HostKey /etc/ssh/host_keys/ssh_host_rsa_key
 
 PermitRootLogin no
 PasswordAuthentication no
