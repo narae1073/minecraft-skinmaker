@@ -1,0 +1,17 @@
+[Unit]
+Description=Cloudflare Tunnel for skin.achijaser.date (tunnel: skinmaker)
+After=network-online.target skinmaker.service
+Wants=network-online.target skinmaker.service
+
+[Service]
+Type=simple
+User=achi
+Group=achi
+Environment=HOME=/home/achi
+ExecStart=/usr/bin/cloudflared --no-autoupdate --config /home/achi/.cloudflared/skinmaker.yml tunnel run
+Restart=on-failure
+RestartSec=5
+TimeoutStopSec=15
+
+[Install]
+WantedBy=multi-user.target

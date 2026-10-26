@@ -5,7 +5,7 @@
 ## Verification
 
 <!-- paste commands and results, e.g.:
-- .venv/bin/python -m pytest -q → 505 passed
+- .venv/bin/python -m pytest -q → 513 passed
 - cd frontend && npm run lint && npm run build → green
 -->
 

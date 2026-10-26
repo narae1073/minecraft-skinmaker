@@ -1,4 +1,4 @@
-# handover — skinmaker (2026-10-26, repo-hygiene branch)
+# handover — skinmaker (2026-10-26, deployment branch)
 
 ## 1. Project in one paragraph
 
@@ -7,13 +7,13 @@ S0 quality/face detection (YuNet) → S1 colour measurement (white-balance + ban
 
 ## 2. Current state (verified 2026-10-26)
 
-- Tests: **505 passed in ~10 s** with `tests/fixtures/` committed. Tests no longer need the 66 MB SCHP model: the jeans-rule tests stub a zero mask and `test_parsing` uses a dummy model path with a fake session.
+- Tests: **513 passed** (`tests/fixtures/` committed; ~10 s without the SCHP model, ~3 min with it). Tests no longer need the 66 MB SCHP model: the jeans-rule tests stub a zero mask and `test_parsing` uses a dummy model path with a fake session.
 - Frontend: `npm run lint` clean, `npm run build` green (Vite 8 / Node 24).
 - Python 3.12.3 venv at `.venv`; do **not** use `python` or `uv`.
 - Parsing model: `out/models/schp-atr-18-int8-static.onnx` (66 MB, gitignored). YuNet: `assets/face_detection_yunet_2023mar.onnx` (228 KB, gitignored). Both fetched by `scripts/fetch_assets.sh`.
 - `mediapipe` was removed from requirements: the pose model is `assets/pose_landmarker_lite.task.disabled`, so `detect_pose()` always returns `None` and pose bands/cover measurement are dormant (code and tests remain).
-- Deployment target: home server + Cloudflare Tunnel `skin.achijaser.date` (public, no auth as of the decision). systemd units and tunnel setup are the next phase.
-- Git: `master` now has the hygiene merge. CI (`test` + `web`), `AGENTS.md`, `scripts/dev_setup.sh`, PR template, and `VITE_API_TARGET` are on `ci/two-agent-workflow`; branch protection is enabled after that PR merges. `opencode.jsonc` is deleted and gitignored by the user.
+- Deployment target: home server + Cloudflare Tunnel `skin.achijaser.date` (public, no auth). Tunnel creation + systemd install is the next step; units and scripts are ready.
+- Git: `master` has hygiene (PR #1) and CI/agent workflow (PR #2) merged. Branch protection is on (required `test`/`web`, 1 approval, linear history; admins can bypass for ops). `deploy/cloudflare-tunnel` is the current branch. `opencode.jsonc` is deleted and gitignored by the user.
 
 ## 3. Repo hygiene that landed (PR #1)
 
@@ -27,21 +27,32 @@ S0 quality/face detection (YuNet) → S1 colour measurement (white-balance + ban
 - Deleted the broken Pages workflow and disabled GitHub Pages (it deployed the repo root, not the app, and 404'd).
 - Deleted the two `ci-sync-*` branches that contained a secret-dumping workflow (runs were blocked; no secrets existed).
 
-## 4. CI + agent workflow (this branch)
+## 4. CI + agent workflow (PR #2, merged)
 
 - `.github/workflows/ci.yml`: `test` (Python 3.12, `requirements-dev.txt`, YuNet only, `pytest -q`) and `web` (`npm ci`, lint, build). Tests run in ~10 s without the SCHP model.
 - `AGENTS.md` + `.github/pull_request_template.md`: branch/PR rules, never-commit list, worktree/port guidance, deploy rules.
 - `scripts/dev_setup.sh`: fresh clone/worktree setup (symlinks `.env`, `out/s0_photos`, `out/models` from the main checkout; fetches YuNet; optional `--with-schp`).
 - `vite.config.js`: `VITE_API_TARGET` override for a second local backend port.
 - Two tests were made model-independent: the jeans-rule backend tests stub a zero mask; `test_parsing` uses a dummy model path with a fake session.
-- Branch protection (PR + 1 approval + required `test`/`web`) is configured immediately after this PR merges.
+- Branch protection is enabled on `master`: PR + 1 approval + required `test`/`web`, linear history, no force-push. Admins can bypass for bootstrap/ops (`enforce_admins=false`).
 
-## 5. Next phases (agreed plan)
+## 5. Deployment hardening (PR #3, this branch)
 
-1. **Deployment hardening**: upload cap (15 MB), in-app rate limit (6/min/IP), 14-day retention timer; `deploy/skinmaker.service`, `deploy/cloudflared-skinmaker.service`, `deploy/skinmaker-cleanup.*`, `scripts/deploy.sh`, `docs/deployment.md`.
-2. **Host setup**: create tunnel `skinmaker`, route `skin.achijaser.date`, install/enable services, verify end-to-end from the public URL.
+- `backend/limits.py` + `backend/app.py`: 15 MB upload cap (413) and 6/min/IP in-process limiter (429); `CF-Connecting-IP` is trusted only from loopback. Tests: `tests/test_limits.py`, two backend contract tests, `tests/conftest.py` disables the limiter for the rest of the suite.
+- `deploy/`: `skinmaker.service` (uvicorn on `127.0.0.1:8001`), `cloudflared-skinmaker.service` (tunnel `skinmaker`), `skinmaker-cleanup.service`/`.timer` (weekly retention), `skinmaker.yml.example`.
+- `scripts/deploy.sh` (master-only pull → pip → build → test → restart → health) and `scripts/cleanup_static.sh` (retention).
+- `docs/deployment.md`; footer notice for the public demo and retention. 513 tests.
 
-## 5. Known issues / backlog
+## 6. Next: host setup
+
+1. `cloudflared tunnel create skinmaker`; `cloudflared tunnel route dns skinmaker skin.achijaser.date`.
+2. Write `~/.cloudflared/skinmaker.yml` from `deploy/skinmaker.yml.example`; validate ingress.
+3. Copy `deploy/*.service` + `*.timer` to `/etc/systemd/system`, `daemon-reload`, `enable --now skinmaker cloudflared-skinmaker skinmaker-cleanup.timer`.
+4. Add the Cloudflare WAF rate-limit rule (10/min/IP on `POST /api/v1/generate-skin`).
+5. Verify local health, public URL, upload end-to-end, 429/413, reboot persistence. Record the tunnel UUID in ops notes (not git).
+6. Update this handover with the live URL and any deviations.
+
+## 7. Known issues / backlog
 
 - Pose path is dormant (model disabled, mediapipe removed). Re-enable deliberately: install `mediapipe`, restore `assets/pose_landmarker_lite.task`, re-add `requirements-pose.txt`.
 - S2 `top_garment` distinction (polo/shirt/tank) remains the weakest field.
@@ -50,7 +61,7 @@ S0 quality/face detection (YuNet) → S1 colour measurement (white-balance + ban
 - Public no-auth deployment: rate limit + upload cap + retention are the mitigations. Revisit Cloudflare Access if abuse appears.
 - Old held-out photos remain in public git history; revisit only with a coordinated history rewrite.
 
-## 6. Working norms (do not violate)
+## 8. Working norms (do not violate)
 
 - TDD: fail first → minimal implementation → green. Run commands unpiped and check exit codes.
 - `npm run lint` before frontend commits.
@@ -59,7 +70,7 @@ S0 quality/face detection (YuNet) → S1 colour measurement (white-balance + ban
 - Short-lived branches + PRs; never push `master` after protection is enabled.
 - Update this document at the end of a session; put task evidence in the PR description.
 
-## 7. Records map
+## 9. Records map
 
 - Design specs/plans: `docs/superpowers/specs/`, `docs/superpowers/plans/`
 - Ledger: `docs/ledger/`
