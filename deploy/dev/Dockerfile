@@ -33,7 +33,7 @@ RUN curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg \
 RUN npm install -g "@openai/codex@${CODEX_VERSION}" \
     && npm cache clean --force
 
-RUN useradd -m -u 1000 -s /bin/bash dev \
+RUN useradd -m -u 1000 -s /bin/bash -p '*' dev \
     && mkdir -p /home/dev/.ssh /etc/ssh/authorized_keys \
     && chown -R dev:dev /home/dev \
     && chmod 700 /home/dev/.ssh \
