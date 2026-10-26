@@ -6,6 +6,13 @@
 #   ./scripts/deploy.sh --no-pull       # deploy the current checkout
 set -euo pipefail
 
+case "$(uname -s 2>/dev/null || echo unknown)" in
+  MINGW*|MSYS*|CYGWIN*)
+    echo "deploy.sh runs on the Linux host only; open a PR from Windows instead." >&2
+    exit 1
+    ;;
+esac
+
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 SKIP_TESTS=0
 NO_PULL=0

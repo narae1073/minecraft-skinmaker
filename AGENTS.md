@@ -24,6 +24,7 @@ Native Windows is supported for development, **not deployment**.
   `python -m venv .venv` works too if that is the 3.12 interpreter.
 - Fetch models in Git Bash: `bash scripts/fetch_assets.sh --yunet-only`
   (add `--schp-only` for the 66 MB parser). All dependencies have Windows wheels.
+  If `bash` is not on PATH, use `"C:\Program Files\Git\bin\bash.exe" scripts/fetch_assets.sh --yunet-only`.
 - `npm ci` / `npm run lint` / `npm run build` work normally.
 - To run the local UI without a Gemini key, put `SKINMAKER_TRANSPORT=mock` in
   `.env`; tests already use the mock transport.
