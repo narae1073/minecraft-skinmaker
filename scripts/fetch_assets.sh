@@ -34,5 +34,9 @@ fetch() {
   echo "done    $dest ($(du -h "$dest" | cut -f1))"
 }
 
-[ "$want_yunet" = 1 ] && fetch "$YUNET_URL" "$YUNET"
-[ "$want_schp" = 1 ] && fetch "$SCHP_URL" "$SCHP"
+if [ "$want_yunet" = 1 ]; then
+  fetch "$YUNET_URL" "$YUNET"
+fi
+if [ "$want_schp" = 1 ]; then
+  fetch "$SCHP_URL" "$SCHP"
+fi
