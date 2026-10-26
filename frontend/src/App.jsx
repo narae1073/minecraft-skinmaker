@@ -198,7 +198,7 @@ function App() {
 
       {/* 메인 화면 컨테이너 */}
       <div className="container">
-        <h1>마인크래프트 세계로 들어가보자!</h1>
+        <h1>환영합니다!</h1>
         <p>당신의 전신 사진을 첨부해주세요!</p>
         
         <div className="upload-section">
