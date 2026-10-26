@@ -103,13 +103,21 @@ async def generate_skin(request: Request, file: UploadFile = File(...), noise_le
     # 공개 배포 가드: 파싱 전에 업로드 크기를 제한한다.
     if len(raw) > max_upload_bytes():
         fail(413, "too_large", f"이미지는 {max_upload_bytes() // (1024 * 1024)}MB 이하여야 해요.")
-    with tempfile.NamedTemporaryFile(suffix=Path(file.filename or "up.jpg").suffix or ".jpg") as tmp:
-        tmp.write(raw)
-        tmp.flush()
+    # Windows에서는 NamedTemporaryFile을 연 채로 다시 열 수 없다. mkstemp로
+    # 쓰고 닫은 뒤 inspect하고, 끝나면 지운다 (Linux/Windows 공통).
+    fd, tmp_name = tempfile.mkstemp(suffix=Path(file.filename or "up.jpg").suffix or ".jpg")
+    try:
+        with os.fdopen(fd, "wb") as tmp:
+            tmp.write(raw)
         try:
-            photo = inspect(tmp.name)
+            photo = inspect(tmp_name)
         except Exception as exc:
             fail(400, "unreadable", f"이미지를 읽지 못했어요: {type(exc).__name__}")
+    finally:
+        try:
+            os.unlink(tmp_name)
+        except OSError:
+            pass
     if photo.rejected:
         fail(422, "no_face", "사진에서 얼굴을 찾지 못했어요. 정면 실사 얼굴 사진으로 다시 시도해주세요.")
     transport = make_transport()

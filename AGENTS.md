@@ -12,7 +12,24 @@ cd frontend && npm run build           # production build (backend serves dist/)
 .venv/bin/python -m uvicorn backend.app:app --host 127.0.0.1 --port 8001
 ```
 
-Use `.venv/bin/python` — not `python`, not `uv`.
+Use `.venv/bin/python` (Windows: `.venv\Scripts\python.exe`) — not `python`, not `uv`.
+
+### Windows
+
+Native Windows is supported for development, **not deployment**.
+
+- Prefer **WSL2** (then all commands in this file work unchanged) or run the
+  `.sh` scripts from **Git Bash**; PowerShell/cmd cannot run them directly.
+- Native venv: `py -3.12 -m venv .venv`, then `.venv\Scripts\python.exe`.
+  `python -m venv .venv` works too if that is the 3.12 interpreter.
+- Fetch models in Git Bash: `bash scripts/fetch_assets.sh --yunet-only`
+  (add `--schp-only` for the 66 MB parser). All dependencies have Windows wheels.
+- `npm ci` / `npm run lint` / `npm run build` work normally.
+- To run the local UI without a Gemini key, put `SKINMAKER_TRANSPORT=mock` in
+  `.env`; tests already use the mock transport.
+- **Never run** `scripts/deploy.sh` or `scripts/cleanup_static.sh` on Windows;
+  deployment and retention are host-only (Linux).
+- A Windows CI job (`test-windows`) runs the suite on every PR.
 
 ## Setup
 

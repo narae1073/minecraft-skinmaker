@@ -51,6 +51,20 @@ scripts/fetch_assets.sh                 # YuNet + SCHP (66MB)
 
 `python`이나 `uv`가 아니라 `.venv/bin/python`을 씁니다. 모델은 classic(팔 4px)과 slim(팔 3px)입니다.
 
+### Windows
+
+WSL2를 권장합니다. WSL2 안에서는 위 명령이 그대로 동작합니다. 네이티브 Windows에서는:
+
+```powershell
+py -3.12 -m venv .venv
+.venv\Scripts\python.exe -m pip install -r requirements-dev.txt
+# Git Bash에서:
+bash scripts/fetch_assets.sh --yunet-only
+.venv\Scripts\python.exe -m pytest -q
+```
+
+`.sh` 스크립트는 PowerShell/cmd가 아니라 Git Bash(또는 WSL2)에서 실행합니다. Gemini 키 없이 UI를 띄우려면 `.env`에 `SKINMAKER_TRANSPORT=mock`을 넣습니다. `scripts/deploy.sh`와 `cleanup_static.sh`는 Linux 호스트 전용이므로 Windows에서 실행하지 마세요. Windows용 `test-windows` CI job이 PR마다 테스트를 돌립니다.
+
 `scripts/fetch_assets.sh --yunet-only`는 테스트/CI용(228KB)입니다. 테스트는 SCHP 모델 없이도 전부 돕니다(약 10초). SCHP 모델이 없으면 실제 파싱은 조용히 밴드 경로로 폴백합니다.
 
 ## 웹 (FastAPI + Vite)
