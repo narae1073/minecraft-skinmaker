@@ -11,6 +11,42 @@ browser ──TLS──> Cloudflare edge ──tunnel──> cloudflared (home) 
 The existing `me.achijaser.date` tunnel (`quartz-me`) is **not modified**; this
 app uses a separate tunnel named `skinmaker`.
 
+## Automatic merge + deploy (2026-10-27)
+
+```
+DSH dev checkout   /home/achi/Programming/skinmaker
+Codex devbox       /home/achi/Programming/skinmaker-codex  (container /home/dev/workspace)
+        │
+        ├─ PR → CI → 1 approval → gh pr merge --auto --rebase
+        ▼
+   master push
+        │
+        ▼
+self-hosted runner "skinmaker-home" (label skinmaker-deploy)
+  → /home/achi/Programming/skinmaker-release/scripts/deploy.sh
+       pull → pip → npm ci/build → pytest → systemctl restart skinmaker
+        ▼
+https://skin.achijaser.date
+```
+
+- Production uses a **dedicated release clone**:
+  `/home/achi/Programming/skinmaker-release`; systemd `WorkingDirectory` and
+  `ExecStart` point there, and `deploy.sh` lives there.
+- Dev checkouts are separate: DSH on `/home/achi/Programming/skinmaker` (mock
+  `.env`), Codex on the devbox clone. They never need to be clean for a deploy.
+- The self-hosted runner runs `.github/workflows/deploy.yml` on `push: master`.
+  It is registered with labels `self-hosted, linux, skinmaker-deploy`.
+- Agents enable auto-merge after opening a PR:
+  `gh pr merge --auto --rebase`; the other person/agent approves; GitHub merges
+  when CI is green; the deploy workflow runs.
+- Manual fallback on the host only:
+  `cd /home/achi/Programming/skinmaker-release && ./scripts/deploy.sh`.
+
+**Verified 2026-10-27:** production switched to the release clone; public
+`/` and health 200; runner `skinmaker-home` online. The release clone has its
+own venv, `.env`, `backend/static`, `out/models`, `assets`, and
+`frontend/dist`.
+
 **Verified 2026-10-26:** tunnel `skinmaker` (UUID
 `866fd5b7-5046-4fd7-80a1-2f7b0ae30502`) connected; `skinmaker`,
 `cloudflared-skinmaker`, and `skinmaker-cleanup.timer` active and enabled;
@@ -21,23 +57,36 @@ WAF rate-limit rule in §4 is still a manual dashboard step.
 
 ## Host assumptions
 
-- Repo at `/home/achi/Programming/skinmaker`, user `achi`, venv at `.venv`.
+- **Release** clone at `/home/achi/Programming/skinmaker-release`, user `achi`,
+  venv at `.venv`.
+- Dev clones: `/home/achi/Programming/skinmaker` (DSH) and
+  `/home/achi/Programming/skinmaker-codex` (Codex devbox). These are never the
+  deploy target.
+- Self-hosted GitHub Actions runner at `/home/achi/actions-runner`, service
+  `actions.runner.narae1073-minecraft-skinmaker.skinmaker-home`.
 - `cloudflared` installed at `/usr/bin/cloudflared` (2026.10.1+).
 - `achijaser.date` is on Cloudflare.
-- The machine stays on and has ~46 GB free disk.
+- The machine stays on and has ~40 GB free disk.
 
 ## One-time setup
 
-### 1. Assets, build, and `.env`
+### 1. Release clone, assets, build, and `.env`
 
 ```bash
-cd /home/achi/Programming/skinmaker
-.venv/bin/pip install -r requirements.txt
+git clone https://github.com/narae1073/minecraft-skinmaker.git \
+  /home/achi/Programming/skinmaker-release
+cd /home/achi/Programming/skinmaker-release
+python3.12 -m venv .venv          # or: virtualenv -p /usr/bin/python3.12 .venv
+.venv/bin/pip install -r requirements-dev.txt
 scripts/fetch_assets.sh              # YuNet + SCHP
 cp .env.example .env                 # then set GEMINI_API_KEY
 chmod 600 .env
 (cd frontend && npm ci && npm run build)
 ```
+
+The release clone needs its own `backend/static` (production uploads),
+`out/models`, `assets`, and `.env`. The dev checkouts keep their own mock
+`.env` and generated files.
 
 `.env` holds `GEMINI_API_KEY`, `SKINMAKER_TRANSPORT=gemini`,
 `SKINMAKER_PARSING=1`, and the public guards
@@ -113,24 +162,33 @@ SKINMAKER_MAX_UPLOAD_MB=1 curl -s -F "file=@tests/fixtures/messi5.jpg;type=image
 
 ## Deploy loop
 
-After a PR is merged to `master`:
+After a PR is merged to `master`, it is automatic:
+
+1. `push: master` triggers `.github/workflows/deploy.yml`.
+2. The self-hosted runner runs `/home/achi/Programming/skinmaker-release/scripts/deploy.sh`.
+3. That script pulls `master`, installs, builds, tests, restarts `skinmaker`,
+   and health-checks.
+
+Manual fallback on the host only:
 
 ```bash
-./scripts/deploy.sh            # pull, pip, build, test, restart, health check
-./scripts/deploy.sh --skip-tests   # emergency only
-./scripts/deploy.sh --no-pull      # deploy the current checkout (hotfix)
+cd /home/achi/Programming/skinmaker-release
+./scripts/deploy.sh                 # pull, pip, build, test, restart
+./scripts/deploy.sh --skip-tests    # emergency only
+./scripts/deploy.sh --no-pull       # current release checkout (hotfix)
 ```
 
-Agents never deploy from a feature branch; the script refuses non-`master`.
-Frontend changes require the build step, which the script always runs.
+Agents never deploy from a dev checkout. The deploy script refuses a non-`master`
+branch; the release clone must stay clean.
 
 ## Retention
 
-`backend/static/skins` and `backend/static/steps` grow with every request.
-`skinmaker-cleanup.timer` runs weekly and deletes files older than
-`SKINMAKER_RETENTION_DAYS` (default 14). Manual run:
+`backend/static/skins` and `backend/static/steps` in the **release clone** grow
+with every request. `skinmaker-cleanup.timer` runs weekly and deletes files older
+than `SKINMAKER_RETENTION_DAYS` (default 14). Manual run:
 
 ```bash
+cd /home/achi/Programming/skinmaker-release
 scripts/cleanup_static.sh
 du -sh backend/static
 ```
@@ -167,6 +225,7 @@ require code changes.
 ## Rollback
 
 ```bash
+cd /home/achi/Programming/skinmaker-release
 git log --oneline -5
 git reset --hard <previous-sha>
 ./scripts/deploy.sh --no-pull --skip-tests

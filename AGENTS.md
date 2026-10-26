@@ -59,6 +59,12 @@ as a **remote project over SSH**. See `docs/devbox.md`.
 ## Branches and PRs
 
 - **Never push to `master`.** Use `feat/<topic>` or `fix/<topic>`, open a PR, get one approval.
+- After approval and green CI, enable auto-merge:
+  ```bash
+  gh pr merge --auto --rebase
+  ```
+  GitHub merges when the required checks pass; the host's deploy workflow then
+  deploys automatically.
 - Rebase on `origin/master` before opening/merging. Keep PRs small.
 - Same machine, two agents: use separate worktrees and ports.
   ```bash
@@ -76,14 +82,22 @@ force-add them.
 
 ## Deploying
 
-Only the host owner deploys, after the PR is merged:
+Deployment is **automatic on merge to `master`**: the self-hosted runner
+`skinmaker-home` runs `/home/achi/Programming/skinmaker-release/scripts/deploy.sh`
+(`push: master` → `.github/workflows/deploy.yml`). It pulls, installs, builds,
+tests, restarts `skinmaker`, and health-checks.
+
+Manual fallback on the host only:
 
 ```bash
-./scripts/deploy.sh          # pull, install, build, test, restart systemd
+cd /home/achi/Programming/skinmaker-release
+./scripts/deploy.sh
 ```
 
-Never deploy from a branch. Do not restart `cloudflared-*` services while
-debugging the app.
+Never deploy from a dev checkout. The DSH checkout
+(`/home/achi/Programming/skinmaker`) and the Codex clone
+(`/home/achi/Programming/skinmaker-codex`) are development only. Do not restart
+`cloudflared-*` services while debugging the app.
 
 ## Public site
 
