@@ -18,7 +18,7 @@ X11Forwarding no
 AllowTcpForwarding yes
 GatewayPorts no
 PermitTunnel no
-PermitUserEnvironment no
+PermitUserEnvironment yes
 
 ClientAliveInterval 60
 ClientAliveCountMax 3
