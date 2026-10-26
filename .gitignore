@@ -12,3 +12,5 @@ plans.txt
 backend/static/
 *.log
 opencode.jsonc
+deploy/dev/.env
+deploy/dev/authorized_keys
