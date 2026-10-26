@@ -213,7 +213,7 @@ def test_viewer_js_uv_rects_match_layout():
 
     from skinmaker.format import get_layout
 
-    js = (Path(__file__).resolve().parent.parent / "frontend/src/components/Skin3DViewer.jsx").read_text()
+    js = (Path(__file__).resolve().parent.parent / "frontend/src/components/Skin3DViewer.jsx").read_text(encoding="utf-8")
 
     def faces(name: str) -> dict[str, tuple[int, int, int, int]]:
         m = re.search(rf"const {name} = \{{(.*?)\}};", js, re.S)
