@@ -11,6 +11,14 @@ browser ──TLS──> Cloudflare edge ──tunnel──> cloudflared (home) 
 The existing `me.achijaser.date` tunnel (`quartz-me`) is **not modified**; this
 app uses a separate tunnel named `skinmaker`.
 
+**Verified 2026-10-26:** tunnel `skinmaker` (UUID
+`866fd5b7-5046-4fd7-80a1-2f7b0ae30502`) connected; `skinmaker`,
+`cloudflared-skinmaker`, and `skinmaker-cleanup.timer` active and enabled;
+`https://skin.achijaser.date/` 200, health 200, one real upload 200 with skin /
+input / steps URLs, public static assets 200, no-face 422, 16 MB 413, 429 after
+the limit. `scripts/deploy.sh --no-pull --skip-tests` verified. The Cloudflare
+WAF rate-limit rule in §4 is still a manual dashboard step.
+
 ## Host assumptions
 
 - Repo at `/home/achi/Programming/skinmaker`, user `achi`, venv at `.venv`.
@@ -41,17 +49,21 @@ chmod 600 .env
 ```bash
 cloudflared tunnel create skinmaker
 # prints the UUID and writes ~/.cloudflared/<UUID>.json
-cloudflared tunnel route dns skinmaker skin.achijaser.date
 ```
 
 Create `~/.cloudflared/skinmaker.yml` from `deploy/skinmaker.yml.example`,
-replacing `<TUNNEL_UUID>`, then validate:
+replacing `<TUNNEL_UUID>`. **Pass `--config` before the subcommand**: the default
+`~/.cloudflared/config.yml` belongs to the existing `quartz-me` tunnel, and
+`route dns` / `info` will silently use that tunnel otherwise.
 
 ```bash
-cloudflared tunnel ingress validate --config ~/.cloudflared/skinmaker.yml
+CFG=~/.cloudflared/skinmaker.yml
+cloudflared tunnel --config "$CFG" ingress validate
+cloudflared tunnel --config "$CFG" route dns --overwrite-dns skinmaker skin.achijaser.date
 ```
 
-The ingress must point at `http://127.0.0.1:8001`.
+`--overwrite-dns` is needed if the hostname already has a CNAME (for example
+after an accidental route). The ingress must point at `http://127.0.0.1:8001`.
 
 ### 3. Install systemd units
 
