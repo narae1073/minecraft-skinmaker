@@ -16,11 +16,12 @@ services:
       # Only the tailnet IP; never 0.0.0.0 (Docker bypasses UFW).
       - "${TAILSCALE_IP:?set TAILSCALE_IP in deploy/dev/.env}:2222:22"
     volumes:
-      - "${WORKSPACE_PATH:-/home/achi/Programming/skinmaker-codex}:/workspace"
+      # Parent home volume first, then the project nested under it.
       - skinmaker-codex-home:/home/dev
+      - "${WORKSPACE_PATH:-/home/achi/Programming/skinmaker-codex}:/home/dev/workspace"
       - skinmaker-codex-ssh:/etc/ssh/host_keys
       - "${AUTHORIZED_KEYS_FILE:-/home/achi/.ssh/skinmaker-codex_authorized_keys}:/etc/ssh/authorized_keys/dev:ro"
-    working_dir: /workspace
+    working_dir: /home/dev/workspace
     environment:
       TZ: Asia/Seoul
       LANG: C.UTF-8

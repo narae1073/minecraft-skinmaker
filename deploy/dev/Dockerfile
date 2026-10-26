@@ -4,7 +4,7 @@
 # image does not install the Codex CLI by default. If the GUI turns out to need
 # a remote helper, build with INSTALL_CODEX=1.
 #
-# Build context is deploy/dev only (the project is bind-mounted at /workspace),
+# Build context is deploy/dev only (the project is bind-mounted at /home/dev/workspace),
 # so the image never contains the repo, .env, or model files.
 FROM python:3.12-slim-bookworm
 
@@ -56,7 +56,7 @@ RUN mkdir -p /run/sshd /etc/ssh/host_keys \
     && chmod +x /usr/local/bin/devbox-entrypoint \
     && printf '%s\n' \
         '[ -f /etc/profile.d/skinmaker.sh ] && . /etc/profile.d/skinmaker.sh' \
-        '[ -t 1 ] && [ -d /workspace ] && cd /workspace' \
+        '[ -t 1 ] && [ -d /home/dev/workspace ] && cd /home/dev/workspace' \
         >> /home/dev/.bashrc \
     && chown dev:dev /home/dev/.bashrc \
     && chmod 644 /home/dev/.bashrc
