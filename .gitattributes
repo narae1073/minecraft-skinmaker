@@ -1,0 +1,20 @@
+# Keep scripts and config LF even on Windows (Git Bash, systemd, CI).
+*.sh text eol=lf
+*.py text eol=lf
+*.service text eol=lf
+*.timer text eol=lf
+*.yml text eol=lf
+*.yaml text eol=lf
+*.md text eol=lf
+*.jsx text eol=lf
+*.js text eol=lf
+*.css text eol=lf
+*.json text eol=lf
+*.html text eol=lf
+
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.webp binary
+*.avif binary
+*.onnx binary
