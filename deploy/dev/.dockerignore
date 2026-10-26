@@ -1,0 +1,3 @@
+# Never bake local credentials into the image.
+.env
+authorized_keys

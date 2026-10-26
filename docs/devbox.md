@@ -22,8 +22,8 @@ The trusted collaborator may also `ssh achi@<tailnet>` for production access.
 
 ## 1. Host: one-time setup
 
-Prerequisites: Docker, Tailscale up, Node/Python on the host (for the initial
-venv/node_modules bootstrap).
+Prerequisites: Docker and Tailscale up on the host. Python/Node are **inside the
+image**, so the host does not need them for this workspace.
 
 ```bash
 cd /home/achi/Programming/skinmaker
@@ -36,14 +36,31 @@ This script:
 
 - clones `https://github.com/narae1073/minecraft-skinmaker.git` to
   `/home/achi/Programming/skinmaker-codex` (a **separate clone**);
-- creates a local `.env` with `SKINMAKER_TRANSPORT=mock` (never the production key);
-- bootstraps `.venv`, dependencies, YuNet + SCHP, and `frontend/node_modules`;
+- creates a local `.env` with `SKINMAKER_TRANSPORT=mock` when no Gemini key is
+  present (never the production key);
+- bootstraps `.venv`, dependencies, YuNet + SCHP, and `frontend/node_modules`
+  **inside the container** (the venv is container-specific; do not run
+  `dev_setup.sh` on the host for this clone);
 - writes `deploy/dev/.env` with the current Tailscale IPv4;
 - builds and starts `skinmaker-codex` on `<tailnet-ip>:2222`.
 
-Re-run it after `tailscale ip -4` changes. Add another key later with
-`./scripts/devbox_setup.sh --key other.pub` (it appends, then recreates the
-container).
+`--no-bootstrap` starts the container without the dependency install (fast
+recreate). Adding a key later appends it and recreates the container:
+
+```bash
+./scripts/devbox_setup.sh --key /path/to/another.pub --no-bootstrap
+```
+
+### Verified 2026-10-26
+
+- SSH from the host with a test key works (`dev`, key-only).
+- `codex-cli 0.164.0`, Node 24.22, Python 3.12.15, `gh` 2.103 inside.
+- `pytest -q` inside `/workspace`: **513 passed** (5.5 min with SCHP).
+- `npm run build` succeeds; `uvicorn` + health/root return `ok` / 200 with
+  `SKINMAKER_TRANSPORT=mock`.
+- Port is bound only to `100.110.156.108:2222`; limits 4 GB / 2 CPU / 1024 pids;
+  `no-new-privileges` enabled.
+- Codex auth is not configured (expected; the partner logs in).
 
 ## 2. Partner: Windows setup
 
