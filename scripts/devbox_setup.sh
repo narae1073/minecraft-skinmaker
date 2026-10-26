@@ -54,11 +54,6 @@ else
   echo "warning: no --key yet; add one with --key before SSH will work" >&2
 fi
 
-if [ "$BOOTSTRAP" = 1 ] && [ ! -e "$WORKSPACE/.venv" ]; then
-  echo "== bootstrapping workspace (venv, models, node_modules)"
-  (cd "$WORKSPACE" && ./scripts/dev_setup.sh --with-schp)
-fi
-
 cat > "$ENV_FILE" <<EOF
 TAILSCALE_IP=$TAILSCALE_IP
 WORKSPACE_PATH=$WORKSPACE
@@ -69,6 +64,13 @@ chmod 600 "$ENV_FILE"
 echo "== docker compose up"
 docker compose --env-file "$ENV_FILE" -f "$COMPOSE" up -d --build
 docker compose --env-file "$ENV_FILE" -f "$COMPOSE" ps
+
+if [ "$BOOTSTRAP" = 1 ]; then
+  echo "== bootstrapping inside the container (venv, models, node_modules)"
+  sleep 2
+  docker compose --env-file "$ENV_FILE" -f "$COMPOSE" exec -T -u dev codex \
+    bash -lc 'cd /workspace && ./scripts/dev_setup.sh --with-schp'
+fi
 
 cat <<EOF
 
