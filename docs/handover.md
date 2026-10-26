@@ -12,8 +12,8 @@ S0 quality/face detection (YuNet) → S1 colour measurement (white-balance + ban
 - Python 3.12.3 venv at `.venv`; do **not** use `python` or `uv`.
 - Parsing model: `out/models/schp-atr-18-int8-static.onnx` (66 MB, gitignored). YuNet: `assets/face_detection_yunet_2023mar.onnx` (228 KB, gitignored). Both fetched by `scripts/fetch_assets.sh`.
 - `mediapipe` was removed from requirements: the pose model is `assets/pose_landmarker_lite.task.disabled`, so `detect_pose()` always returns `None` and pose bands/cover measurement are dormant (code and tests remain).
-- Deployment target: home server + Cloudflare Tunnel `skin.achijaser.date` (public, no auth). Tunnel creation + systemd install is the next step; units and scripts are ready.
-- Git: `master` has hygiene (PR #1) and CI/agent workflow (PR #2) merged. Branch protection is on (required `test`/`web`, 1 approval, linear history; admins can bypass for ops). `deploy/cloudflare-tunnel` is the current branch. `opencode.jsonc` is deleted and gitignored by the user.
+- Deployment: **live** at `https://skin.achijaser.date` (public, no auth). Tunnel `skinmaker` UUID `866fd5b7-5046-4fd7-80a1-2f7b0ae30502`; config in `~/.cloudflared/skinmaker.yml` (not git); services `skinmaker`, `cloudflared-skinmaker`, `skinmaker-cleanup.timer` active + enabled.
+- Git: `master` has hygiene (PR #1), CI/agent workflow (PR #2), and deployment hardening (PR #3) merged. Branch protection is on (required `test`/`web`, 1 approval, linear history; admins can bypass for ops). `opencode.jsonc` is deleted and gitignored by the user.
 
 ## 3. Repo hygiene that landed (PR #1)
 
@@ -43,14 +43,13 @@ S0 quality/face detection (YuNet) → S1 colour measurement (white-balance + ban
 - `scripts/deploy.sh` (master-only pull → pip → build → test → restart → health) and `scripts/cleanup_static.sh` (retention).
 - `docs/deployment.md`; footer notice for the public demo and retention. 513 tests.
 
-## 6. Next: host setup
+## 6. Host setup (done 2026-10-26)
 
-1. `cloudflared tunnel create skinmaker`; `cloudflared tunnel route dns skinmaker skin.achijaser.date`.
-2. Write `~/.cloudflared/skinmaker.yml` from `deploy/skinmaker.yml.example`; validate ingress.
-3. Copy `deploy/*.service` + `*.timer` to `/etc/systemd/system`, `daemon-reload`, `enable --now skinmaker cloudflared-skinmaker skinmaker-cleanup.timer`.
-4. Add the Cloudflare WAF rate-limit rule (10/min/IP on `POST /api/v1/generate-skin`).
-5. Verify local health, public URL, upload end-to-end, 429/413, reboot persistence. Record the tunnel UUID in ops notes (not git).
-6. Update this handover with the live URL and any deviations.
+- Tunnel `skinmaker` created; DNS `skin.achijaser.date` points at it. Config `~/.cloudflared/skinmaker.yml` (mode 600) → `http://127.0.0.1:8001`.
+- **Gotcha:** `cloudflared tunnel route dns/info/validate` read the default `~/.cloudflared/config.yml` (`quartz-me`) unless `--config` is passed **before** the subcommand. The first DNS route went to `quartz-me`; fixed with `cloudflared tunnel --config ~/.cloudflared/skinmaker.yml route dns --overwrite-dns skinmaker skin.achijaser.date`. Documented in `docs/deployment.md`.
+- Units installed and enabled: `skinmaker`, `cloudflared-skinmaker`, `skinmaker-cleanup.timer`.
+- Verified: root/health 200, real upload 200 with skin/input/steps URLs, public static assets 200, no-face 422, 16 MB 413, 429 after the 6/min limit (restart resets the in-memory limiter). `scripts/deploy.sh --no-pull --skip-tests` verified.
+- Not done: Cloudflare WAF rate-limit rule (dashboard-only; no API token used), and a reboot test (services are `enabled`; reboot and recheck when convenient).
 
 ## 7. Known issues / backlog
 
@@ -58,7 +57,8 @@ S0 quality/face detection (YuNet) → S1 colour measurement (white-balance + ban
 - S2 `top_garment` distinction (polo/shirt/tank) remains the weakest field.
 - Editor expansion (live re-render, outfit/skin-tone options) is deferred; the option seam is in `SkinEditor.jsx`.
 - Deferred minors from the 2026-10-13 review (sidebar steps image, flatUrl guard, hard |Δ| in jeans test, eval tolerance) still apply.
-- Public no-auth deployment: rate limit + upload cap + retention are the mitigations. Revisit Cloudflare Access if abuse appears.
+- Public no-auth deployment: rate limit + upload cap + retention are the mitigations. Revisit Cloudflare Access if abuse appears. The Cloudflare WAF outer rate-limit rule is still manual.
+- Branch protection requires 1 approval; admins can bypass (`enforce_admins=false`) for bootstrap/ops. Use `gh pr merge --admin` only for setup/ops, not feature work.
 - Old held-out photos remain in public git history; revisit only with a coordinated history rewrite.
 
 ## 8. Working norms (do not violate)
@@ -76,4 +76,5 @@ S0 quality/face detection (YuNet) → S1 colour measurement (white-balance + ban
 - Ledger: `docs/ledger/`
 - Screenshots: `docs/assets/screenshots/`
 - Design mockups: `docs/design/mockups/`
+- Deployment: `docs/deployment.md`
 - This document: `docs/handover.md`
