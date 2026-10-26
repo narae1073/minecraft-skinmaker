@@ -78,11 +78,20 @@ echo "== docker compose up"
 docker compose --env-file "$ENV_FILE" -f "$COMPOSE" up -d --build
 docker compose --env-file "$ENV_FILE" -f "$COMPOSE" ps
 
+# Named home volumes don't pick up image .bashrc changes; migrate the old
+# /workspace cd path in an existing volume to /home/dev/workspace.
+sleep 1
+docker compose --env-file "$ENV_FILE" -f "$COMPOSE" exec -T -u dev codex sh -c '
+  if [ -f /home/dev/.bashrc ] && ! grep -q "/home/dev/workspace" /home/dev/.bashrc; then
+    sed -i "s#/workspace#/home/dev/workspace#g" /home/dev/.bashrc
+  fi
+' >/dev/null 2>&1 || true
+
 if [ "$BOOTSTRAP" = 1 ]; then
   echo "== bootstrapping inside the container (venv, models, node_modules)"
   sleep 2
   docker compose --env-file "$ENV_FILE" -f "$COMPOSE" exec -T -u dev codex \
-    bash -lc 'cd /workspace && ./scripts/dev_setup.sh --with-schp'
+    bash -lc 'cd /home/dev/workspace && ./scripts/dev_setup.sh --with-schp'
 fi
 
 cat <<EOF
@@ -93,11 +102,11 @@ Remote devbox is up.
 
 In the Windows Codex GUI, add a remote project:
   host ${TAILSCALE_IP}, port 2222, user dev, key ~/.ssh/skin_codex
-  project path /workspace
+  project path /home/dev/workspace
 
 Inside (GUI terminal or ssh):
   gh auth login
-  cd /workspace && .venv/bin/python -m pytest -q
+  cd /home/dev/workspace && .venv/bin/python -m pytest -q
 
 Production access (trusted, you allowed it): ssh achi@${TAILSCALE_IP}
 EOF

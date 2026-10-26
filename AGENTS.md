@@ -37,12 +37,12 @@ Native Windows is supported for development, **not deployment**.
 The trusted collaborator runs the **Codex GUI on Windows** and adds the devbox
 as a **remote project over SSH**. See `docs/devbox.md`.
 
-- Workspace inside the container: `/workspace` (a separate clone, not the
+- Workspace inside the container: `/home/dev/workspace` (a separate clone, not the
   production checkout). SSH: `ssh -p 2222 dev@<tailnet-ip>`; key-only.
 - The Codex CLI is **not installed in the default image**, but this host runs
   with `INSTALL_CODEX=1` because the GUI's remote-project mode requires the
   remote CLI (`codex-cli 0.164.0`). If the GUI asks for auth, run
-  `codex login --device-auth` inside `/workspace`.
+  `codex login --device-auth` inside `/home/dev/workspace`.
 - GitHub auth is the collaborator's own account (`gh auth login`).
 - No production `.env`, Docker socket, systemd, or cloudflared credentials are
   inside the container. Deploy from the host, not the container.

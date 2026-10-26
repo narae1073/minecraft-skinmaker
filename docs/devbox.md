@@ -11,7 +11,7 @@ Windows Codex GUI (local auth)
    │ Tailscale + SSH :2222
    ▼
 Docker container "skinmaker-codex"
-  ├─ /workspace   separate clone (skinmaker-codex)
+  ├─ /home/dev/workspace   separate clone (skinmaker-codex)
   ├─ /home/dev    persistent volume (SSH/GitHub config)
   ├─ Python 3.12 + Node 24 + git + gh + rsync + sshd
   └─ no production .env / Docker socket / systemd / cloudflared
@@ -62,7 +62,7 @@ later appends it and recreates the container:
 - `INSTALL_CODEX=1` on this host: **Codex CLI 0.164.0** at `/usr/bin/codex`
   (the GUI's remote-project mode requires it); login not configured yet.
   Node 24.22, Python 3.12.15, `gh` 2.103, `rsync` available.
-- `pytest -q` inside `/workspace`: **513 passed** (5.5 min with SCHP).
+- `pytest -q` inside `/home/dev/workspace`: **513 passed** (5.5 min with SCHP).
 - `npm run build` succeeds; `uvicorn` + health/root return `ok` / 200 with
   `SKINMAKER_TRANSPORT=mock`.
 - Port is bound only to `100.110.156.108:2222`; limits 4 GB / 2 CPU / 1024 pids;
@@ -98,7 +98,7 @@ Use these values:
 - **Port**: `2222`
 - **User**: `dev`
 - **Key**: `~/.ssh/skin_codex`
-- **Project path**: `/workspace`
+- **Project path**: `/home/dev/workspace`
 
 Codex authentication/model choice normally stays in the **GUI on Windows**. The
 GUI's remote-project mode requires the remote CLI; this host enables it with
@@ -115,13 +115,13 @@ persistent home volume).
 
 ```bash
 gh auth login                    # their own GitHub account
-cd /workspace
+cd /home/dev/workspace
 .venv/bin/python -m pytest -q    # 513 tests
 ```
 
 ## 3. VS Code Remote-SSH (optional)
 
-Remote-SSH → host `skin-codex` → open `/workspace`. VS Code forwards 8001/5173
+Remote-SSH → host `skin-codex` → open `/home/dev/workspace`. VS Code forwards 8001/5173
 automatically. For a plain SSH session:
 
 ```bash
