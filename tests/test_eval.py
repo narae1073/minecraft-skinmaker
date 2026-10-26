@@ -11,7 +11,7 @@ from skinmaker import eval as E
 from skinmaker import quality as Q
 from skinmaker.colors import ColorSample, ObservedColors, extract
 
-FLAG_PHOTO = Path(__file__).resolve().parent.parent / "out" / "s0_photos" / "7f18cb16d51f6228b635d23c18772c05.jpg"
+FLAG_PHOTO = Path(__file__).resolve().parent / "fixtures" / "7f18cb16d51f6228b635d23c18772c05.jpg"
 
 
 def photo():
@@ -134,7 +134,6 @@ def test_eval_accepts_fixed_hair_box():
     assert "hair" not in rows[0].fell_back
 
 
-@pytest.mark.skipif(not FLAG_PHOTO.exists(), reason="픽스처 없음(out/ 미포함 클론)")
 def test_eval_main_accepts_hair_box_flag(monkeypatch):
     # faceless synthetic 이미지로는 photo.rejected 조기 반환이라 --hair-box 배선을
     # 검증 못 한다. 실측 얼굴 사진 + extract 스파이로 bbox 도착을 고정한다.
