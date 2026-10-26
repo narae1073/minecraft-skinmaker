@@ -1,4 +1,4 @@
-# handover — skinmaker (2026-10-26, deployment branch)
+# handover — skinmaker (2026-10-26, master)
 
 ## 1. Project in one paragraph
 
@@ -13,7 +13,7 @@ S0 quality/face detection (YuNet) → S1 colour measurement (white-balance + ban
 - Parsing model: `out/models/schp-atr-18-int8-static.onnx` (66 MB, gitignored). YuNet: `assets/face_detection_yunet_2023mar.onnx` (228 KB, gitignored). Both fetched by `scripts/fetch_assets.sh`.
 - `mediapipe` was removed from requirements: the pose model is `assets/pose_landmarker_lite.task.disabled`, so `detect_pose()` always returns `None` and pose bands/cover measurement are dormant (code and tests remain).
 - Deployment: **live** at `https://skin.achijaser.date` (public, no auth). Tunnel `skinmaker` UUID `866fd5b7-5046-4fd7-80a1-2f7b0ae30502`; config in `~/.cloudflared/skinmaker.yml` (not git); services `skinmaker`, `cloudflared-skinmaker`, `skinmaker-cleanup.timer` active + enabled.
-- Git: `master` has hygiene (PR #1), CI/agent workflow (PR #2), and deployment hardening (PR #3) merged. Branch protection is on (required `test`/`web`, 1 approval, linear history; admins can bypass for ops). `opencode.jsonc` is deleted and gitignored by the user.
+- Git: `master` has hygiene (PR #1), CI/agent workflow (PR #2), deployment hardening (PR #3), live docs (PR #4), and Windows support (PR #5) merged. Branch protection requires `test`, `test-windows`, `web`, 1 approval, linear history; admins can bypass for ops. `opencode.jsonc` is deleted and gitignored by the user.
 
 ## 3. Repo hygiene that landed (PR #1)
 
@@ -34,9 +34,17 @@ S0 quality/face detection (YuNet) → S1 colour measurement (white-balance + ban
 - `scripts/dev_setup.sh`: fresh clone/worktree setup (symlinks `.env`, `out/s0_photos`, `out/models` from the main checkout; fetches YuNet; optional `--with-schp`).
 - `vite.config.js`: `VITE_API_TARGET` override for a second local backend port.
 - Two tests were made model-independent: the jeans-rule backend tests stub a zero mask; `test_parsing` uses a dummy model path with a fake session.
-- Branch protection is enabled on `master`: PR + 1 approval + required `test`/`web`, linear history, no force-push. Admins can bypass for bootstrap/ops (`enforce_admins=false`).
+- Branch protection is enabled on `master`: PR + 1 approval + required `test`/`test-windows`/`web`, linear history, no force-push. Admins can bypass for bootstrap/ops (`enforce_admins=false`).
 
-## 5. Deployment hardening (PR #3, this branch)
+### Windows development (PR #5)
+
+- `test-windows` runs the same 513 tests on `windows-latest`; it is a required check.
+- Native Windows: `py -3.12 -m venv .venv`, `.venv\Scripts\python.exe`; `.sh` scripts require Git Bash (or WSL2, recommended).
+- Upload temp file now uses `mkstemp` + close before `inspect` (`NamedTemporaryFile` cannot be reopened on Windows); `test_render` reads JSX as UTF-8; `.gitattributes` forces LF.
+- For local UI without a Gemini key: `SKINMAKER_TRANSPORT=mock` in `.env`.
+- Windows users open PRs and never deploy; deployment/retention stay on the Linux host.
+
+## 5. Deployment hardening (PR #3, merged)
 
 - `backend/limits.py` + `backend/app.py`: 15 MB upload cap (413) and 6/min/IP in-process limiter (429); `CF-Connecting-IP` is trusted only from loopback. Tests: `tests/test_limits.py`, two backend contract tests, `tests/conftest.py` disables the limiter for the rest of the suite.
 - `deploy/`: `skinmaker.service` (uvicorn on `127.0.0.1:8001`), `cloudflared-skinmaker.service` (tunnel `skinmaker`), `skinmaker-cleanup.service`/`.timer` (weekly retention), `skinmaker.yml.example`.
