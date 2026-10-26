@@ -43,7 +43,7 @@ deploy/        systemd/Cloudflare Tunnel 배포 파일 (예정)
 python3 -m venv .venv
 .venv/bin/pip install -r requirements-dev.txt
 scripts/fetch_assets.sh                 # YuNet + SCHP (66MB)
-.venv/bin/python -m pytest -q           # 505+ 테스트
+.venv/bin/python -m pytest -q           # 513+ 테스트
 .venv/bin/python -m skinmaker --model classic   # 더미 스킨 + 프리뷰 → out/
 ```
 
@@ -61,7 +61,7 @@ cd frontend && npm install && npm run dev   # http://localhost:5173/
 
 Vite 프록시가 8001을 바라봅니다. 포트를 바꾸려면 `VITE_API_TARGET=http://localhost:8002 npm run dev`와 `uvicorn --port 8002`를 함께 씁니다. `POST /api/v1/generate-skin`에 사진을 올리면 원본 옆에 후보 스킨을 3D 뷰어로 보여주고, 스킨 편집(투톤 신발), 분류 카테고리, 처리 과정 시트를 제공합니다.
 
-프로덕션에서는 `frontend`를 `npm run build`한 뒤 백엔드가 `frontend/dist`를 함께 서빙합니다. 배포는 홈 서버 + Cloudflare Tunnel(`skin.achijaser.date`)로 진행하며, 절차는 `docs/deployment.md`에 정리합니다.
+프로덕션에서는 `frontend`를 `npm run build`한 뒤 백엔드가 `frontend/dist`를 함께 서빙합니다. 배포는 홈 서버 + Cloudflare Tunnel(`skin.achijaser.date`)로 진행하며, 절차는 `docs/deployment.md`에 정리합니다. 공개 배포에는 업로드 15MB 제한, IP당 분당 6회 제한, 14일 보존이 걸려 있습니다.
 
 ## SCHP 파싱 (기본 켜짐)
 
@@ -95,10 +95,10 @@ export SKINMAKER_PARSER=out/models/schp-atr-18-int8-static.onnx   # 경로 지�
 
 ## CI
 
-`.github/workflows/ci.yml` — `test`는 Python 3.12 + YuNet만 받아 505개 테스트를 돌리고, `web`은 Node 24에서 `npm ci`/lint/build를 돌립니다. 모델·사진·생성물은 캐시/다운로드 대상이며 저장소에 커밋하지 않습니다.
+`.github/workflows/ci.yml` — `test`는 Python 3.12 + YuNet만 받아 513개 테스트를 돌리고, `web`은 Node 24에서 `npm ci`/lint/build를 돌립니다. 모델·사진·생성물은 캐시/다운로드 대상이며 저장소에 커밋하지 않습니다.
 
 ## 상태
 
-S0~S4와 웹까지 동작합니다. 테스트 505개 통과. 얼굴 검출(YuNet)과 SCHP 모델은 저장소에 없고 `scripts/fetch_assets.sh`로 받습니다.
+S0~S4와 웹까지 동작합니다. 테스트 513개 통과. 얼굴 검출(YuNet)과 SCHP 모델은 저장소에 없고 `scripts/fetch_assets.sh`로 받습니다.
 
 타인 사진에는 초상권 동의가 필요합니다. 공개 데모로 배포할 경우 민감한 사진을 올리지 마세요 — 업로드 파일은 서버에 저장되며 보존 기간 후 삭제됩니다.

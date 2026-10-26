@@ -368,3 +368,24 @@ def test_generate_returns_input_photo_url():
     saved = STATIC_DIR / Path(input_url).name
     assert saved.exists()
     assert saved.read_bytes() == PHOTO.read_bytes()  # 사진과 동일 바이트
+
+
+def test_generate_rejects_oversize_upload(monkeypatch):
+    monkeypatch.setenv("SKINMAKER_MAX_UPLOAD_MB", "1")
+    payload = b"\xff\xd8" + b"x" * (1024 * 1024 + 1)
+    r = client().post("/api/v1/generate-skin", files={"file": ("big.jpg", payload, "image/jpeg")})
+    assert r.status_code == 413, r.text
+    assert r.json()["detail"]["code"] == "too_large"
+
+
+def test_generate_rate_limited(monkeypatch):
+    from backend.limits import RateLimiter
+
+    monkeypatch.setattr(A, "_rate_limiter", RateLimiter(limit=1))
+    with PHOTO.open("rb") as f:
+        first = client().post("/api/v1/generate-skin", files={"file": ("m.jpg", f, "image/jpeg")})
+    assert first.status_code == 200, first.text
+    with PHOTO.open("rb") as f:
+        second = client().post("/api/v1/generate-skin", files={"file": ("m.jpg", f, "image/jpeg")})
+    assert second.status_code == 429, second.text
+    assert second.json()["detail"]["code"] == "rate_limited"

@@ -1,0 +1,18 @@
+[Unit]
+Description=skinmaker FastAPI (127.0.0.1:8001)
+After=network.target
+
+[Service]
+Type=simple
+User=achi
+Group=achi
+WorkingDirectory=/home/achi/Programming/skinmaker
+EnvironmentFile=/home/achi/Programming/skinmaker/.env
+Environment=PYTHONUNBUFFERED=1
+ExecStart=/home/achi/Programming/skinmaker/.venv/bin/python -m uvicorn backend.app:app --host 127.0.0.1 --port 8001 --workers 1 --proxy-headers --forwarded-allow-ips 127.0.0.1
+Restart=on-failure
+RestartSec=5
+TimeoutStopSec=20
+
+[Install]
+WantedBy=multi-user.target

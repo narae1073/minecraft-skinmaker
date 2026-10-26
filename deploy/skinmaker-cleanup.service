@@ -1,0 +1,10 @@
+[Unit]
+Description=skinmaker static retention cleanup
+
+[Service]
+Type=oneshot
+User=achi
+Group=achi
+EnvironmentFile=-/home/achi/Programming/skinmaker/.env
+ExecStart=/home/achi/Programming/skinmaker/scripts/cleanup_static.sh
+Nice=10

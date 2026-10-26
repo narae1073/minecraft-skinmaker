@@ -15,9 +15,10 @@ import tempfile
 import uuid
 from pathlib import Path
 
-from fastapi import FastAPI, File, Form, HTTPException, UploadFile
+from fastapi import FastAPI, File, Form, HTTPException, Request, UploadFile
 from fastapi.staticfiles import StaticFiles
 
+from backend.limits import RateLimiter, client_ip, max_upload_bytes
 from skinmaker.attributes import summarize
 from skinmaker.candidates import build
 from skinmaker.classify import classify
@@ -55,6 +56,7 @@ def classify_error_status(message: str) -> tuple[int, str, str]:
 
 
 app = FastAPI(title="skinmaker")
+_rate_limiter = RateLimiter()
 
 
 @app.get("/api/v1/health")
@@ -65,9 +67,12 @@ def health():
 
 
 @app.post("/api/v1/generate-skin")
-async def generate_skin(file: UploadFile = File(...), noise_level: str = Form(None), steps: str = Form(None),
+async def generate_skin(request: Request, file: UploadFile = File(...), noise_level: str = Form(None), steps: str = Form(None),
                         hair_source: str = Form(None), hair_symmetry: str = Form(None),
                         hair_overlay: str = Form(None)):
+    # 공개 배포 가드 (로그인 없음): IP당 분당 요청 제한.
+    if not _rate_limiter.allow(client_ip(request)):
+        fail(429, "rate_limited", "요청이 너무 잦아요. 잠시 후 다시 시도해주세요.")
     if not (file.content_type or "").startswith("image/"):
         fail(400, "not_image", "이미지 파일을 올려주세요.")
     # 노이즈 세기 (설계 §9): 부재=1.0, 가비지=400, 범위 밖 숫자는 [0,1] 클램프.
@@ -94,8 +99,11 @@ async def generate_skin(file: UploadFile = File(...), noise_level: str = Form(No
     # 처리 과정 시트 (설계 §12): 진위 규칙은 parsing_on 관례. 부재=생성 (기존 동작),
     # "0/false/off/no/빈값"=스킵 (설정 체크박스 기본 해제 → 웹이 명시 전송).
     want_steps = (steps is None) or (str(steps).strip().lower() not in ("0", "false", "off", "no", ""))
+    raw = await file.read()
+    # 공개 배포 가드: 파싱 전에 업로드 크기를 제한한다.
+    if len(raw) > max_upload_bytes():
+        fail(413, "too_large", f"이미지는 {max_upload_bytes() // (1024 * 1024)}MB 이하여야 해요.")
     with tempfile.NamedTemporaryFile(suffix=Path(file.filename or "up.jpg").suffix or ".jpg") as tmp:
-        raw = await file.read()
         tmp.write(raw)
         tmp.flush()
         try:
