@@ -2,8 +2,9 @@
 
 A dedicated Linux workspace for the second developer. **Codex runs in the
 Windows GUI**; the GUI adds this container as a **remote project over SSH**. The
-image is just the workspace: Python 3.12, Node 24, git, gh, sshd. The Codex CLI
-is **not installed by default**.
+image is the workspace: Python 3.12, Node 24, git, gh, sshd. The Codex CLI is
+**not installed by default**, but this host runs with `INSTALL_CODEX=1` because
+the GUI's remote-project mode requires the remote CLI.
 
 ```
 Windows Codex GUI (local auth)
@@ -55,8 +56,9 @@ later appends it and recreates the container:
 ### Verified 2026-10-26
 
 - SSH from the host with a test key works (`dev`, key-only).
-- No `codex` binary in the image by default; Node 24.22, Python 3.12.15,
-  `gh` 2.103, `rsync` available.
+- `INSTALL_CODEX=1` on this host: **Codex CLI 0.164.0** at `/usr/bin/codex`
+  (the GUI's remote-project mode requires it); login not configured yet.
+  Node 24.22, Python 3.12.15, `gh` 2.103, `rsync` available.
 - `pytest -q` inside `/workspace`: **513 passed** (5.5 min with SCHP).
 - `npm run build` succeeds; `uvicorn` + health/root return `ok` / 200 with
   `SKINMAKER_TRANSPORT=mock`.
@@ -95,8 +97,16 @@ Use these values:
 - **Key**: `~/.ssh/skin_codex`
 - **Project path**: `/workspace`
 
-Codex authentication/model choice stays in the **GUI on Windows**. There is no
-`codex login` / `~/.codex` on the devbox by default.
+Codex authentication/model choice normally stays in the **GUI on Windows**. The
+GUI's remote-project mode requires the remote CLI; this host enables it with
+`INSTALL_CODEX=1`. If the GUI (or the CLI) asks for a login:
+
+```bash
+codex login --device-auth
+```
+
+Open the printed URL on Windows; the auth lands in `/home/dev/.codex` (the
+persistent home volume).
 
 ### First terminal inside the project
 
@@ -135,10 +145,10 @@ namespace. Only port 2222 is published.
   deploy script. Do not mount the production checkout into the container.
 - Never commit `out/`, `backend/static/`, `frontend/dist/`, `.env`, or models.
 
-## 5. Fallback: GUI needs a remote helper
+## 5. Fallback: GUI needs a remote helper (enabled on this host)
 
-The default image has **no Codex CLI**. If the GUI's remote-project feature
-reports that it needs a remote Codex helper, opt in explicitly:
+The default image has **no Codex CLI**. The GUI's remote-project feature can
+require one; when that happens, opt in explicitly:
 
 ```bash
 # deploy/dev/.env
@@ -151,10 +161,11 @@ Then rebuild:
 ./scripts/devbox_setup.sh --no-bootstrap
 ```
 
-`scripts/devbox_setup.sh` preserves `INSTALL_CODEX` across runs. The image then
-pins `@openai/codex@0.164.0`; authenticate via the GUI or
-`codex login --device-auth` inside the container. If you later remove it, set
-`INSTALL_CODEX=0` and rebuild.
+**This host is currently running with `INSTALL_CODEX=1`** (the GUI reported
+"Codex CLI is not installed on this remote machine"). `scripts/devbox_setup.sh`
+preserves the value across runs. The image pins `@openai/codex@0.164.0`;
+authenticate with `codex login --device-auth` inside the container if the GUI
+asks. To remove it later, set `INSTALL_CODEX=0` and rebuild.
 
 ## 6. Security / operations
 
@@ -178,5 +189,5 @@ pins `@openai/codex@0.164.0`; authenticate via the GUI or
 | `Connection refused` | `docker compose -f deploy/dev/compose.yaml ps`; `docker logs skinmaker-codex` |
 | Host key changed | image rebuilt; `ssh-keygen -R "[<ip>]:2222"` |
 | GUI cannot add remote project | verify `ssh skin-codex` works first; then use the same host/port/user/key in the GUI |
-| GUI asks for a remote Codex helper | opt-in fallback in §5 (`INSTALL_CODEX=1`) |
+| GUI asks for a remote Codex helper | this host already has `INSTALL_CODEX=1`; if not, §5 |
 | Tests slow | SCHP is installed; tests with it take ~5 min in the 2-CPU container, without ~10 s |

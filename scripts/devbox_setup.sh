@@ -99,9 +99,19 @@ Inside (GUI terminal or ssh):
   gh auth login
   cd /workspace && .venv/bin/python -m pytest -q
 
-No Codex CLI is installed in the image by default (the GUI brings its own
-remote-project support). If the GUI asks for a remote helper, set
-INSTALL_CODEX=1 in deploy/dev/.env and rerun this script.
-
 Production access (trusted, you allowed it): ssh achi@${TAILSCALE_IP}
 EOF
+
+if [ "$install_codex" = "1" ]; then
+  cat <<EOF
+
+Codex CLI: installed (INSTALL_CODEX=1). If the GUI asks for auth:
+  codex login --device-auth
+EOF
+else
+  cat <<EOF
+
+Codex CLI: not installed (default). If the GUI requires a remote helper:
+  set INSTALL_CODEX=1 in deploy/dev/.env and rerun this script.
+EOF
+fi
