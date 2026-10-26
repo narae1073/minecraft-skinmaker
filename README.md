@@ -28,7 +28,7 @@ skinmaker/     코어 파이프라인 (S0~S4)
 backend/       FastAPI 앱
 frontend/      React + Vite + three.js
 tests/         계약 테스트 + tests/fixtures (커밋된 소형 픽스처)
-scripts/       fetch_assets.sh 등 개발/운영 스크립트
+scripts/       fetch_assets.sh, dev_setup.sh 등 개발/운영 스크립트
 docs/          설계 문서, 스크린샷, 디자인 목업, handover, ledger
 assets/        YuNet 모델 (gitignored, fetch_assets.sh로 다운로드)
 out/           로컬 산출물/사진/모델 (gitignored)
@@ -49,7 +49,7 @@ scripts/fetch_assets.sh                 # YuNet + SCHP (66MB)
 
 `python`이나 `uv`가 아니라 `.venv/bin/python`을 씁니다. 모델은 classic(팔 4px)과 slim(팔 3px)입니다.
 
-`scripts/fetch_assets.sh --yunet-only`는 테스트/CI용(228KB)입니다. SCHP 모델이 없으면 파싱은 조용히 밴드 경로로 폴백합니다.
+`scripts/fetch_assets.sh --yunet-only`는 테스트/CI용(228KB)입니다. 테스트는 SCHP 모델 없이도 전부 돕니다(약 10초). SCHP 모델이 없으면 실제 파싱은 조용히 밴드 경로로 폴백합니다.
 
 ## 웹 (FastAPI + Vite)
 
@@ -61,7 +61,7 @@ cd frontend && npm install && npm run dev   # http://localhost:5173/
 
 Vite 프록시가 8001을 바라봅니다. 포트를 바꾸려면 `VITE_API_TARGET=http://localhost:8002 npm run dev`와 `uvicorn --port 8002`를 함께 씁니다. `POST /api/v1/generate-skin`에 사진을 올리면 원본 옆에 후보 스킨을 3D 뷰어로 보여주고, 스킨 편집(투톤 신발), 분류 카테고리, 처리 과정 시트를 제공합니다.
 
-프로덕션에서는 `frontend`를 `npm run build`한 뒤 백엔드가 `frontend/dist`를 함께 서빙합니다. 배포는 홈 서버 + Cloudflare Tunnel이며 `docs/deployment.md`(예정)에 정리합니다.
+프로덕션에서는 `frontend`를 `npm run build`한 뒤 백엔드가 `frontend/dist`를 함께 서빙합니다. 배포는 홈 서버 + Cloudflare Tunnel(`skin.achijaser.date`)로 진행하며, 절차는 `docs/deployment.md`에 정리합니다.
 
 ## SCHP 파싱 (기본 켜짐)
 
@@ -90,7 +90,12 @@ export SKINMAKER_PARSER=out/models/schp-atr-18-int8-static.onnx   # 경로 지�
 - 프론트 커밋 전 `cd frontend && npm run lint`.
 - 정책·상수 변경은 기록된 A/B 근거가 필요합니다.
 - 생성물(`out/`, `backend/static/`, `frontend/dist/`)과 `.env`, `*.onnx`는 커밋하지 않습니다.
-- 두 에이전트가 함께 작업합니다. 브랜치/PR 규칙과 셋업은 `AGENTS.md`(예정)를 따릅니다.
+- 두 에이전트가 함께 작업합니다. 브랜치/PR 규칙과 셋업은 [AGENTS.md](AGENTS.md)를 따릅니다.
+- PR마다 GitHub Actions가 `test`(pytest)와 `web`(lint + build)를 돌립니다. `master`는 PR + 1 approval + green checks를 요구합니다.
+
+## CI
+
+`.github/workflows/ci.yml` — `test`는 Python 3.12 + YuNet만 받아 505개 테스트를 돌리고, `web`은 Node 24에서 `npm ci`/lint/build를 돌립니다. 모델·사진·생성물은 캐시/다운로드 대상이며 저장소에 커밋하지 않습니다.
 
 ## 상태
 

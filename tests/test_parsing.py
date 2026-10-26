@@ -101,6 +101,9 @@ def _logits(pants_from_y=256):
 
 def test_bottom_mask_resizes_class_map_to_photo(tmp_path, monkeypatch):
     monkeypatch.setenv(P.PARSING_ENV, "1")
+    dummy = tmp_path / "fake.onnx"
+    dummy.write_bytes(b"x")
+    monkeypatch.setenv(P.PARSER_ENV, str(dummy))  # available() needs a path; _session is stubbed
     image = Image.new("RGB", (200, 400), (200, 200, 200))
     monkeypatch.setattr(P, "_session", lambda: FakeSession(_logits(256)))
     P.reset()

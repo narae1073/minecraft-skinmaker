@@ -7,15 +7,15 @@ S0 quality/face detection (YuNet) → S1 colour measurement (white-balance + ban
 
 ## 2. Current state (verified 2026-10-26)
 
-- Tests: **505 passed** (~3 min) with `tests/fixtures/` committed; a fresh clone no longer skips fixtures.
+- Tests: **505 passed in ~10 s** with `tests/fixtures/` committed. Tests no longer need the 66 MB SCHP model: the jeans-rule tests stub a zero mask and `test_parsing` uses a dummy model path with a fake session.
 - Frontend: `npm run lint` clean, `npm run build` green (Vite 8 / Node 24).
 - Python 3.12.3 venv at `.venv`; do **not** use `python` or `uv`.
 - Parsing model: `out/models/schp-atr-18-int8-static.onnx` (66 MB, gitignored). YuNet: `assets/face_detection_yunet_2023mar.onnx` (228 KB, gitignored). Both fetched by `scripts/fetch_assets.sh`.
 - `mediapipe` was removed from requirements: the pose model is `assets/pose_landmarker_lite.task.disabled`, so `detect_pose()` always returns `None` and pose bands/cover measurement are dormant (code and tests remain).
 - Deployment target: home server + Cloudflare Tunnel `skin.achijaser.date` (public, no auth as of the decision). systemd units and tunnel setup are the next phase.
-- Git: work on branches/PRs; `master` protection and CI are being added in the next phase. `opencode.jsonc` is deleted and gitignored by the user.
+- Git: `master` now has the hygiene merge. CI (`test` + `web`), `AGENTS.md`, `scripts/dev_setup.sh`, PR template, and `VITE_API_TARGET` are on `ci/two-agent-workflow`; branch protection is enabled after that PR merges. `opencode.jsonc` is deleted and gitignored by the user.
 
-## 3. Repo hygiene that landed on this branch
+## 3. Repo hygiene that landed (PR #1)
 
 - Untracked **253 generated skin PNGs** under `backend/static/` (the folder is gitignored; the app recreates it). Local `backend/static` was purged (~547 MB).
 - Untracked **70 held-out photos** (public repo) and moved them to `out/heldout-photos/` (gitignored). History was **not** rewritten; old commits still contain them.
@@ -27,11 +27,19 @@ S0 quality/face detection (YuNet) → S1 colour measurement (white-balance + ban
 - Deleted the broken Pages workflow and disabled GitHub Pages (it deployed the repo root, not the app, and 404'd).
 - Deleted the two `ci-sync-*` branches that contained a secret-dumping workflow (runs were blocked; no secrets existed).
 
-## 4. Next phases (agreed plan)
+## 4. CI + agent workflow (this branch)
 
-1. **CI + agent workflow**: `.github/workflows/ci.yml` (pytest + lint + build), branch protection (PR, 1 approval, required checks), `AGENTS.md`, `scripts/dev_setup.sh`, PR template.
-2. **Deployment hardening**: upload cap (15 MB), in-app rate limit (6/min/IP), 14-day retention timer; `deploy/skinmaker.service`, `deploy/cloudflared-skinmaker.service`, `deploy/skinmaker-cleanup.*`, `scripts/deploy.sh`, `docs/deployment.md`.
-3. **Host setup**: create tunnel `skinmaker`, route `skin.achijaser.date`, install/enable services, verify end-to-end from the public URL.
+- `.github/workflows/ci.yml`: `test` (Python 3.12, `requirements-dev.txt`, YuNet only, `pytest -q`) and `web` (`npm ci`, lint, build). Tests run in ~10 s without the SCHP model.
+- `AGENTS.md` + `.github/pull_request_template.md`: branch/PR rules, never-commit list, worktree/port guidance, deploy rules.
+- `scripts/dev_setup.sh`: fresh clone/worktree setup (symlinks `.env`, `out/s0_photos`, `out/models` from the main checkout; fetches YuNet; optional `--with-schp`).
+- `vite.config.js`: `VITE_API_TARGET` override for a second local backend port.
+- Two tests were made model-independent: the jeans-rule backend tests stub a zero mask; `test_parsing` uses a dummy model path with a fake session.
+- Branch protection (PR + 1 approval + required `test`/`web`) is configured immediately after this PR merges.
+
+## 5. Next phases (agreed plan)
+
+1. **Deployment hardening**: upload cap (15 MB), in-app rate limit (6/min/IP), 14-day retention timer; `deploy/skinmaker.service`, `deploy/cloudflared-skinmaker.service`, `deploy/skinmaker-cleanup.*`, `scripts/deploy.sh`, `docs/deployment.md`.
+2. **Host setup**: create tunnel `skinmaker`, route `skin.achijaser.date`, install/enable services, verify end-to-end from the public URL.
 
 ## 5. Known issues / backlog
 

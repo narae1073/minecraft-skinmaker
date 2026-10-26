@@ -134,7 +134,22 @@ def test_generate_noise_level_contract():
 UPPER_PHOTO = FIXTURES / "ex6(half).png"
 
 
-def test_generate_upper_body_defaults_to_jeans():
+def _upper_body_seg(monkeypatch):
+    """하의/맨다리 픽셀이 하나도 없는 마스크 — 상반신 사진의 파서 관측을 대신한다.
+
+    실제 66MB SCHP 모델 없이도 jeans 기본 규칙(하체 미관측)을 검증한다.
+    """
+    import numpy as np
+
+    from skinmaker import parsing
+
+    monkeypatch.setattr(
+        parsing, "bottom_mask",
+        lambda im: np.zeros((im.height, im.width), dtype=np.uint8),
+    )
+
+
+def test_generate_upper_body_defaults_to_jeans(monkeypatch):
     """상반신 사진 + S2 bottom=none → 스킨은 jeans 행, summary도 jeans (설계 §10)."""
     from PIL import Image as PILImage
 
@@ -142,6 +157,7 @@ def test_generate_upper_body_defaults_to_jeans():
     from skinmaker.render import DEFAULT_JEANS, FACE_SHADE, NOISE_TOL
     from skinmaker.canvas import rgba, shade
 
+    _upper_body_seg(monkeypatch)
     with UPPER_PHOTO.open("rb") as f:
         r = client(dict(GOOD, bottom_garment="none"), None).post(
             "/api/v1/generate-skin", files={"file": ("m.png", f, "image/png")})
@@ -176,8 +192,9 @@ def test_generate_returns_category_payload():
     assert data["noise_level"] == 1.0
 
 
-def test_generate_category_payload_records_derived():
+def test_generate_category_payload_records_derived(monkeypatch):
     """하체 미관측 jeans 기본이 발동하면 derived에 표기된다 (설계 §10·§11)."""
+    _upper_body_seg(monkeypatch)
     with UPPER_PHOTO.open("rb") as f:
         r = client(dict(GOOD, bottom_garment="none"), None).post(
             "/api/v1/generate-skin", files={"file": ("m.png", f, "image/png")})
