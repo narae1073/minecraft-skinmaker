@@ -42,15 +42,16 @@ RUN if [ "$INSTALL_CODEX" = "1" ]; then \
     fi
 
 RUN useradd -m -u 1000 -s /bin/bash -p '*' dev \
-    && mkdir -p /home/dev/.ssh /etc/ssh/authorized_keys \
+    && mkdir -p /home/dev/.ssh /etc/ssh/authorized_keys /etc/ssh/host_keys \
     && chown -R dev:dev /home/dev \
-    && chmod 700 /home/dev/.ssh \
+    && chmod 700 /home/dev/.ssh /etc/ssh/host_keys \
     && chmod 755 /etc/ssh/authorized_keys
 
 COPY sshd_config /etc/ssh/sshd_config
 COPY profile.sh /etc/profile.d/skinmaker.sh
 COPY entrypoint.sh /usr/local/bin/devbox-entrypoint
-RUN mkdir -p /run/sshd \
+RUN mkdir -p /run/sshd /etc/ssh/host_keys \
+    && chmod 700 /etc/ssh/host_keys \
     && chmod 644 /etc/profile.d/skinmaker.sh \
     && chmod +x /usr/local/bin/devbox-entrypoint \
     && printf '%s\n' \
@@ -58,9 +59,7 @@ RUN mkdir -p /run/sshd \
         '[ -t 1 ] && [ -d /workspace ] && cd /workspace' \
         >> /home/dev/.bashrc \
     && chown dev:dev /home/dev/.bashrc \
-    && chmod 644 /home/dev/.bashrc \
-    && ssh-keygen -A \
-    && sshd -t
+    && chmod 644 /home/dev/.bashrc
 
 EXPOSE 22
 

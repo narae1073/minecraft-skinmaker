@@ -56,6 +56,9 @@ later appends it and recreates the container:
 ### Verified 2026-10-26
 
 - SSH from the host with a test key works (`dev`, key-only).
+- Host keys persist in the `skinmaker-codex-ssh` volume (ED25519
+  `SHA256:RG3rzByQ6WVLf5Li6xr+KMgzJQvm0t6SUUPCpVFGTps`); force-recreate and
+  image rebuild do not change the fingerprint.
 - `INSTALL_CODEX=1` on this host: **Codex CLI 0.164.0** at `/usr/bin/codex`
   (the GUI's remote-project mode requires it); login not configured yet.
   Node 24.22, Python 3.12.15, `gh` 2.103, `rsync` available.
@@ -177,8 +180,10 @@ asks. To remove it later, set `INSTALL_CODEX=0` and rebuild.
 - The host owner's Tailscale SSH remains enabled; the collaborator is trusted and
   may access production.
 - GitHub credentials live in the `skinmaker-codex-home` volume, not the repo.
-- Rebuilding the image changes the container's SSH host key; remove the old
-  entry with `ssh-keygen -R "[100.110.156.108]:2222"` or accept the prompt.
+- SSH host keys are persisted in the `skinmaker-codex-ssh` volume, so image
+  rebuilds do **not** change the fingerprint. Current ED25519:
+  `SHA256:RG3rzByQ6WVLf5Li6xr+KMgzJQvm0t6SUUPCpVFGTps`. If you delete that
+  volume, the key regenerates and clients need `ssh-keygen -R "[<ip>]:2222"`.
 
 ## 7. Troubleshooting
 
@@ -187,7 +192,7 @@ asks. To remove it later, set `INSTALL_CODEX=0` and rebuild.
 | `docker compose up` port bind fails | Tailscale IP changed → rerun `scripts/devbox_setup.sh` |
 | SSH permission denied | public key in `/home/achi/.ssh/skinmaker-codex_authorized_keys`; file mode 600; rerun setup |
 | `Connection refused` | `docker compose -f deploy/dev/compose.yaml ps`; `docker logs skinmaker-codex` |
-| Host key changed | image rebuilt; `ssh-keygen -R "[<ip>]:2222"` |
+| Host key changed | only if the `skinmaker-codex-ssh` volume was deleted; `ssh-keygen -R "[<ip>]:2222"` |
 | GUI cannot add remote project | verify `ssh skin-codex` works first; then use the same host/port/user/key in the GUI |
 | GUI asks for a remote Codex helper | this host already has `INSTALL_CODEX=1`; if not, §5 |
 | Tests slow | SCHP is installed; tests with it take ~5 min in the 2-CPU container, without ~10 s |

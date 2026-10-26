@@ -18,6 +18,7 @@ services:
     volumes:
       - "${WORKSPACE_PATH:-/home/achi/Programming/skinmaker-codex}:/workspace"
       - skinmaker-codex-home:/home/dev
+      - skinmaker-codex-ssh:/etc/ssh/host_keys
       - "${AUTHORIZED_KEYS_FILE:-/home/achi/.ssh/skinmaker-codex_authorized_keys}:/etc/ssh/authorized_keys/dev:ro"
     working_dir: /workspace
     environment:
@@ -32,3 +33,4 @@ services:
 
 volumes:
   skinmaker-codex-home:
+  skinmaker-codex-ssh:
