@@ -4,7 +4,6 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-import pytest
 from fastapi.testclient import TestClient
 
 import backend.app as A
@@ -19,13 +18,14 @@ GOOD = {
     "hair_bbox": [200, 50, 800, 600],
 }
 
-PHOTO = Path(__file__).resolve().parent.parent / "out" / "s0_photos" / "messi5.jpg"
+FIXTURES = Path(__file__).resolve().parent / "fixtures"
+PHOTO = FIXTURES / "messi5.jpg"
 
 # hair_bbox 배선용 픽스처. messi5+GOOD([200,50,800,600]) 조합은 brief 초안이었으나
 # 실측 불가: messi5의 머리카락이 짙고 작아 어떤 박스로도 점유율 0.18을 못 넘긴다
 # (최대 0.09). 대신 7f18 사진의 실측 확신 헤어 박스(239,46,30,45)를 쓴다.
 # 정규화 bbox [557,65,676,128]은 back_to_original 왕복이 정확히 일치한다.
-PHOTO_HAIR = Path(__file__).resolve().parent.parent / "out" / "s0_photos" / "7f18cb16d51f6228b635d23c18772c05.jpg"
+PHOTO_HAIR = FIXTURES / "7f18cb16d51f6228b635d23c18772c05.jpg"
 GOOD_HAIR = {
     "top_garment": "tee",
     "bottom_garment": "shorts",
@@ -49,7 +49,6 @@ def test_health_ok():
     assert r.json()["status"] == "ok"
 
 
-@pytest.mark.skipif(not PHOTO.exists(), reason="픽스처 없음(out/ 미포함 클론)")
 def test_generate_returns_three_urls():
     second = dict(GOOD, sleeve_len="long", hair_length="long")
     with PHOTO.open("rb") as f:
@@ -66,7 +65,6 @@ def test_generate_returns_three_urls():
         assert (STATIC_DIR / Path(u).name).exists()
 
 
-@pytest.mark.skipif(not PHOTO.exists(), reason="픽스처 없음(out/ 미포함 클론)")
 def test_generate_returns_flat_variants():
     """Edit Skin 토글 재료 (설계 §5): skins_flat이 skins와 같은 순서·길이,
     디스크에 실재하고, ON 파일과 신발 행 밖 픽셀이 동일하다."""
@@ -133,10 +131,9 @@ def test_generate_noise_level_contract():
     assert b7 == b1          # 7은 [0,1]로 클램프 → 1과 동일
 
 
-UPPER_PHOTO = Path(__file__).resolve().parent.parent / "out" / "fixed10" / "ex6(half).png"
+UPPER_PHOTO = FIXTURES / "ex6(half).png"
 
 
-@pytest.mark.skipif(not UPPER_PHOTO.exists(), reason="픽스처 없음(out/ 미포함 클론)")
 def test_generate_upper_body_defaults_to_jeans():
     """상반신 사진 + S2 bottom=none → 스킨은 jeans 행, summary도 jeans (설계 §10)."""
     from PIL import Image as PILImage
@@ -292,7 +289,6 @@ def test_no_face_reports_422_with_message(tmp_path):
     assert "얼굴" in body["message"]
 
 
-@pytest.mark.skipif(not PHOTO.exists(), reason="픽스처 없음(out/ 미포함 클론)")
 def test_classify_failure_maps_to_502():
     A.make_transport = lambda: MockTransport(fail=True)
     with PHOTO.open("rb") as f:
@@ -301,7 +297,6 @@ def test_classify_failure_maps_to_502():
     assert r.json()["detail"]["code"] == "classify_failed"
 
 
-@pytest.mark.skipif(not PHOTO.exists(), reason="픽스처 없음(out/ 미포함 클론)")
 def test_rate_limit_maps_to_503():
     A.make_transport = lambda: MockTransport(fail=True, error="HTTP 429: quota")
     with PHOTO.open("rb") as f:
@@ -310,7 +305,6 @@ def test_rate_limit_maps_to_503():
     assert r.json()["detail"]["code"] == "overloaded"
 
 
-@pytest.mark.skipif(not PHOTO_HAIR.exists(), reason="픽스처 없음(out/ 미포함 클론)")
 def test_generate_uses_hair_bbox_for_crown():
     # brief 초안의 `crown != (58,42,28,255)`는 틀렸다. 정수리는 FACE_SHADE[top]
     # 1.12가 적용되므로 배선 전 정수리는 shade(DEFAULT_HAIR)다. 그 값과 다르면 배선됨.
@@ -345,7 +339,6 @@ def test_generate_uses_hair_bbox_for_crown():
     assert all(abs(p - q) <= _NOISE_TOL for p, q in zip(crown[:3], expected[:3])), (crown, expected)
 
 
-@pytest.mark.skipif(not PHOTO.exists(), reason="픽스처 없음(out/ 미포함 클론)")
 def test_generate_returns_input_photo_url():
     with PHOTO.open("rb") as f:
         r = client().post("/api/v1/generate-skin", files={"file": ("m.jpg", f, "image/jpeg")})

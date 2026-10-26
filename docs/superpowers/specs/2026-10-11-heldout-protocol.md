@@ -92,7 +92,7 @@ python -m skinmaker.bottom_eval --labels docs/superpowers/specs/heldout_labels.j
 
 ## Addendum — 2026-10-11 (pre-labeling pin)
 
-- Pool: 49 face-detectable photos from heldout-photos/ (70 files, 21 no_face).
+- Pool: 49 face-detectable photos from out/heldout-photos/ (70 files, 21 no_face; untracked from git 2026-10-26).
 - n (gate denominator): scored count from `bottom_eval --labels`, after none/unclear exclusion.
 - Threshold: §4 formula 0.644 − 1.645·sqrt(0.644·0.356/n) at that exact n.
 - Floor: if scored < 30, no verdict.

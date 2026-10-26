@@ -11,7 +11,7 @@ from PIL import Image
 from skinmaker import quality as Q
 from skinmaker.measure import analyze, collect, report
 
-FIXTURES = Path(__file__).resolve().parent.parent / "out" / "s0_photos"
+FIXTURES = Path(__file__).resolve().parent / "fixtures"
 
 
 def solid(color, size=(64, 64)) -> Image.Image:
@@ -232,7 +232,6 @@ def test_yunet_model_loads():
     assert Q._detector() is not None
 
 
-@pytest.mark.skipif(not (FIXTURES / "lena.jpg").exists(), reason="픽스처 없음")
 def test_detects_real_face():
     result = Q.inspect(FIXTURES / "lena.jpg")
     assert not result.rejected
@@ -240,7 +239,6 @@ def test_detects_real_face():
     assert result.quality.measured
 
 
-@pytest.mark.skipif(not (FIXTURES / "messi5.jpg").exists(), reason="픽스처 없음")
 def test_flags_small_face_in_wide_shot():
     result = Q.inspect(FIXTURES / "messi5.jpg")
     assert not result.rejected
