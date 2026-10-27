@@ -206,7 +206,7 @@ def test_viewer_js_uv_rects_match_layout():
 
     2026-10-21 버그: 왼팔/왼다리 L2 rect 를 (0,+16)으로 밀어 텍스처 밖을 샘플링해
     한 팔·한 다리가 엉뚱한 색으로 칠해졌다. 좌표가 프론트에 중복돼 있어
-    레이아웃과 대조하는 테스트로 고정한다.
+    레이아웃과 대조하는 테스트로 고정한다. classic/slim 두 체형 모두 검사한다.
     """
     import re
     from pathlib import Path
@@ -223,18 +223,21 @@ def test_viewer_js_uv_rects_match_layout():
             for key, vals in re.findall(r"(\w+): \[([\d, ]+)\]", m.group(1))
         }
 
-    layout = get_layout("classic")
-    pairs = (("HEAD", "head"), ("BODY", "body"), ("ARM", "r_arm"), ("LARM", "l_arm"),
-             ("LEG", "r_leg"), ("LLEG", "l_leg"))
-    for js_name, part in pairs:
+    pairs = (
+        ("HEAD", "head", "classic"), ("BODY", "body", "classic"), ("ARM", "r_arm", "classic"),
+        ("LARM", "l_arm", "classic"), ("LEG", "r_leg", "classic"), ("LLEG", "l_leg", "classic"),
+        ("SLIM_ARM", "r_arm", "slim"), ("SLIM_LARM", "l_arm", "slim"),
+    )
+    for js_name, part, model in pairs:
+        layout = get_layout(model)
         want = {f.rect for f in layout.part(part, 0).faces.values()}
-        assert set(faces(js_name).values()) == want, (part, "layer0")
+        assert set(faces(js_name).values()) == want, (part, model, "layer0")
         m2 = re.search(rf"const {js_name}2 = shiftFaces\((\w+), (-?\d+), (-?\d+)\);", js)
         assert m2, f"{js_name}2"
         base, dx, dy = faces(m2.group(1)), int(m2.group(2)), int(m2.group(3))
         shifted = {(x + dx, y + dy, w, h) for x, y, w, h in base.values()}
         want2 = {f.rect for f in layout.part(part, 1).faces.values()}
-        assert shifted == want2, (part, "layer1", sorted(shifted ^ want2))
+        assert shifted == want2, (part, model, "layer1", sorted(shifted ^ want2))
 
 
 def test_stencil_wiring_rule_path_identical():

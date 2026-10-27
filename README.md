@@ -19,7 +19,7 @@ AI(VLM)는 사진에서 속성 JSON만 뽑습니다. 무엇을 입었는지(분�
 - S2 분류 (`s2.py`, `attributes.py`, `classify.py`): VLM이 8필드(상·하의 enum, 소매, 무늬, 기장, 수염, 안쪽 옷, 넥타이)와 `hair_bbox`를 채웁니다. 순서를 뒤집은 이중 질의가 어긋나면 불확실성으로 표시.
 - S3 렌더 (`render.py`): 파라메트릭 텍스처, 하의 폴백 정책, 결정적 노이즈 시드.
 - S4 후보 (`candidates.py`): 어긋난 필드만 변형해 1~3개 생성. 랭킹 없이 전부 검증을 통과해야 합니다.
-- 웹: FastAPI + React 19 + three.js.
+- 웹: FastAPI + React 19 + three.js. 클래식(팔 4px)/슬림(팔 3px) 체형을 선택할 수 있습니다.
 
 전송 계층(`vlm/`)은 mock, gemini, ollama, openrouter를 지원합니다.
 
@@ -119,5 +119,7 @@ export SKINMAKER_PARSER=out/models/schp-atr-18-int8-static.onnx   # 경로 지�
 ## 상태
 
 S0~S4와 웹까지 동작합니다. 테스트 516개 통과. 얼굴 검출(YuNet)과 SCHP 모델은 저장소에 없고 `scripts/fetch_assets.sh`로 받습니다.
+
+포즈 추정(`pose.py`)은 현재 비활성입니다. `mediapipe`와 포즈 모델이 빠져 있어 얼굴 비례 밴드로 폴백하며, 되살리려면 의존성과 `assets/pose_landmarker_lite.task`를 복구해야 합니다.
 
 타인 사진에는 초상권 동의가 필요합니다. 공개 데모로 배포할 경우 민감한 사진을 올리지 마세요 — 업로드 파일은 서버에 저장되며 보존 기간 후 삭제됩니다.

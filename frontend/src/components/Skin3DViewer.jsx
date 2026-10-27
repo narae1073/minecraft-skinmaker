@@ -66,7 +66,21 @@ const LARM2 = shiftFaces(LARM, 16, 0);   // l_arm (32,48) -> overlay (48,48)
 const LEG2 = shiftFaces(LEG, 0, 16);
 const LLEG2 = shiftFaces(LLEG, -16, 0);  // l_leg (16,48) -> overlay (0,48)
 
-function MinecraftCharacter({ skinUrl }) {
+// slim: 팔 폭 3px (classic 4px). 몸통·머리·다리는 동일하고 L2 오프셋 규칙도 같다.
+const SLIM_ARM = {
+  px: [47, 20, 4, 12], nx: [40, 20, 4, 12], py: [44, 16, 3, 4],
+  ny: [47, 16, 3, 4], pz: [44, 20, 3, 12], nz: [51, 20, 3, 12],
+};
+const SLIM_LARM = {
+  px: [39, 52, 4, 12], nx: [32, 52, 4, 12], py: [36, 48, 3, 4],
+  ny: [39, 48, 3, 4], pz: [36, 52, 3, 12], nz: [43, 52, 3, 12],
+};
+const SLIM_ARM2 = shiftFaces(SLIM_ARM, 0, 16);
+const SLIM_LARM2 = shiftFaces(SLIM_LARM, 16, 0);
+
+function MinecraftCharacter({ skinUrl, model = 'classic' }) {
+  const slim = model === 'slim';
+  const armX = slim ? 0.6875 : 0.75;
   const groupRef = useRef();
   const texture = useLoader(THREE.TextureLoader, skinUrl);
 
@@ -80,21 +94,24 @@ function MinecraftCharacter({ skinUrl }) {
     return t;
   }, [texture]);
 
-  const geos = useMemo(() => ({
-    head: boxWithUV(1, 1, 1, HEAD),
-    body: boxWithUV(1, 1.5, 0.5, BODY),
-    arm: boxWithUV(0.5, 1.5, 0.5, ARM),
-    larm: boxWithUV(0.5, 1.5, 0.5, LARM),
-    leg: boxWithUV(0.5, 1.5, 0.5, LEG),
-    lleg: boxWithUV(0.5, 1.5, 0.5, LLEG),
-    // L2 오버레이: 반 픽셀(0.0625 unit) 두껍게
-    head2: boxWithUV(1.0625, 1.0625, 1.0625, HEAD2),
-    body2: boxWithUV(1.0625, 1.5625, 0.5625, BODY2),
-    arm2: boxWithUV(0.5625, 1.5625, 0.5625, ARM2),
-    larm2: boxWithUV(0.5625, 1.5625, 0.5625, LARM2),
-    leg2: boxWithUV(0.5625, 1.5625, 0.5625, LEG2),
-    lleg2: boxWithUV(0.5625, 1.5625, 0.5625, LLEG2),
-  }), []);
+  const geos = useMemo(() => {
+    const armW = slim ? 0.375 : 0.5;
+    return {
+      head: boxWithUV(1, 1, 1, HEAD),
+      body: boxWithUV(1, 1.5, 0.5, BODY),
+      arm: boxWithUV(armW, 1.5, 0.5, slim ? SLIM_ARM : ARM),
+      larm: boxWithUV(armW, 1.5, 0.5, slim ? SLIM_LARM : LARM),
+      leg: boxWithUV(0.5, 1.5, 0.5, LEG),
+      lleg: boxWithUV(0.5, 1.5, 0.5, LLEG),
+      // L2 오버레이: 반 픽셀(0.0625 unit) 두껍게
+      head2: boxWithUV(1.0625, 1.0625, 1.0625, HEAD2),
+      body2: boxWithUV(1.0625, 1.5625, 0.5625, BODY2),
+      arm2: boxWithUV(armW + 0.0625, 1.5625, 0.5625, slim ? SLIM_ARM2 : ARM2),
+      larm2: boxWithUV(armW + 0.0625, 1.5625, 0.5625, slim ? SLIM_LARM2 : LARM2),
+      leg2: boxWithUV(0.5625, 1.5625, 0.5625, LEG2),
+      lleg2: boxWithUV(0.5625, 1.5625, 0.5625, LLEG2),
+    };
+  }, [slim]);
   const mat = useMemo(() => new THREE.MeshStandardMaterial({
     map: tex, transparent: true, alphaTest: 0.5,
   }), [tex]);
@@ -109,10 +126,10 @@ function MinecraftCharacter({ skinUrl }) {
       <mesh position={[0, 3.5, 0]} geometry={geos.head2} material={mat} />
       <mesh position={[0, 2.25, 0]} geometry={geos.body} material={mat} />
       <mesh position={[0, 2.25, 0]} geometry={geos.body2} material={mat} />
-      <mesh position={[-0.75, 2.25, 0]} geometry={geos.larm} material={mat} />
-      <mesh position={[-0.75, 2.25, 0]} geometry={geos.larm2} material={mat} />
-      <mesh position={[0.75, 2.25, 0]} geometry={geos.arm} material={mat} />
-      <mesh position={[0.75, 2.25, 0]} geometry={geos.arm2} material={mat} />
+      <mesh position={[-armX, 2.25, 0]} geometry={geos.larm} material={mat} />
+      <mesh position={[-armX, 2.25, 0]} geometry={geos.larm2} material={mat} />
+      <mesh position={[armX, 2.25, 0]} geometry={geos.arm} material={mat} />
+      <mesh position={[armX, 2.25, 0]} geometry={geos.arm2} material={mat} />
       <mesh position={[-0.25, 0.75, 0]} geometry={geos.lleg} material={mat} />
       <mesh position={[-0.25, 0.75, 0]} geometry={geos.lleg2} material={mat} />
       <mesh position={[0.25, 0.75, 0]} geometry={geos.leg} material={mat} />
@@ -121,7 +138,7 @@ function MinecraftCharacter({ skinUrl }) {
   );
 }
 
-export default function Skin3DViewer({ skinUrl, width = 200, height = 300 }) {
+export default function Skin3DViewer({ skinUrl, model = 'classic', width = 200, height = 300 }) {
   if (!skinUrl) return <div style={{ width, height, background: '#e2e8f0' }} />;
 
   return (
@@ -130,7 +147,7 @@ export default function Skin3DViewer({ skinUrl, width = 200, height = 300 }) {
         <ambientLight intensity={0.6} />
         <directionalLight position={[5, 10, 5]} intensity={1.2} />
         <React.Suspense fallback={null}>
-          <MinecraftCharacter skinUrl={skinUrl} />
+          <MinecraftCharacter skinUrl={skinUrl} model={model} />
         </React.Suspense>
         <OrbitControls enableZoom={true} enablePan={false} />
       </Canvas>
