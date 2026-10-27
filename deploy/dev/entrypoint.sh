@@ -23,4 +23,14 @@ if [ ! -f /home/dev/.ssh/environment ]; then
   chmod 600 /home/dev/.ssh/environment
 fi
 
+# The Codex GUI remote project connects to the *managed* app-server (control
+# socket), not a bare `codex app-server`. Recreate it on every container start;
+# the package and auth live in the persistent home volume.
+if command -v codex >/dev/null 2>&1; then
+  su -s /bin/sh dev -c 'HOME=/home/dev codex app-server daemon bootstrap' \
+    >/tmp/codex-daemon-bootstrap.log 2>&1 || true
+  su -s /bin/sh dev -c 'HOME=/home/dev codex app-server daemon start' \
+    >/tmp/codex-daemon-start.log 2>&1 || true
+fi
+
 exec /usr/sbin/sshd -D -e

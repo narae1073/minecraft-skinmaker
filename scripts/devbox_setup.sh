@@ -91,6 +91,14 @@ docker compose --env-file "$ENV_FILE" -f "$COMPOSE" exec -T -u dev codex sh -c '
   fi
 ' >/dev/null 2>&1 || true
 
+if [ "$install_codex" = "1" ]; then
+  # The GUI expects the managed app-server/control socket.
+  docker compose --env-file "$ENV_FILE" -f "$COMPOSE" exec -T -u dev codex \
+    sh -c 'HOME=/home/dev codex app-server daemon bootstrap' >/dev/null 2>&1 || true
+  docker compose --env-file "$ENV_FILE" -f "$COMPOSE" exec -T -u dev codex \
+    sh -c 'HOME=/home/dev codex app-server daemon start' >/dev/null 2>&1 || true
+fi
+
 if [ "$BOOTSTRAP" = 1 ]; then
   echo "== bootstrapping inside the container (venv, models, node_modules)"
   sleep 2
@@ -107,7 +115,7 @@ Remote devbox is up.
 In the Windows Codex GUI, add a remote project:
   host ${TAILSCALE_IP}, port 2222, user dev
   key: the private key matching the public key you added
-       (Windows: %USERPROFILE%\.ssh\${KEY_BASENAME})
+       (Windows: %USERPROFILE%\.ssh\\${KEY_BASENAME})
   project path /home/dev/workspace
 
 Inside (GUI terminal or ssh):
