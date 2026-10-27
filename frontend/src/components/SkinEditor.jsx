@@ -21,7 +21,7 @@ export default function SkinEditor({ skin, steps, onClose }) {
           <button className="close-btn" onClick={onClose}>✕</button>
         </div>
         <div className="editor-body">
-          <Skin3DViewer skinUrl={texture} width={360} height={480} />
+          <Skin3DViewer skinUrl={texture} model={skin.model || 'classic'} width={360} height={480} />
         </div>
         <div className="editor-options">
           <label className="option-row">

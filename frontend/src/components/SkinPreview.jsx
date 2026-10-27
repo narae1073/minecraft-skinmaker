@@ -29,7 +29,7 @@ export default function SkinPreview({ skins, onClose }) {
         </label>
       )}
       <div className="preview-model">
-        <Skin3DViewer skinUrl={skin.url} width={200} height={300} />
+        <Skin3DViewer skinUrl={skin.url} model={skin.model || 'classic'} width={200} height={300} />
       </div>
       <div className="preview-actions">
         <a className="download-btn" href={skin.url} download={`skin_option_${selected + 1}.png`}>이 스킨 다운로드</a>

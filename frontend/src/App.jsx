@@ -34,8 +34,9 @@ function App() {
   const [skins, setSkins] = useState([]); // 현재 결과: {url, flatUrl} 쌍 배열
   const [previewOpen, setPreviewOpen] = useState(false);
   const [inputPhoto, setInputPhoto] = useState(null);
-  const [editorItem, setEditorItem] = useState(null); // SkinEditor 모달 대상 ({url, flatUrl, steps})
+  const [editorItem, setEditorItem] = useState(null); // SkinEditor 모달 대상 ({url, flatUrl, steps, model})
   const [noiseLevel, setNoiseLevel] = useState(50); // 노이즈 세기 % (기본 50 — 사용자 결정 2026-10-13)
+  const [skinModel, setSkinModel] = useState('classic'); // 체형: classic(4px 팔) | slim(3px 팔)
   const [showSteps, setShowSteps] = useState(false); // 처리 과정 표시 (기본 해제 — 사용자 결정)
   const [hairSource, setHairSource] = useState('mask'); // 머리 실루엣 근원 (Tier 0 기본 mask — 사용자 결정 2026-10-15)
   const [hairSymmetry, setHairSymmetry] = useState('symmetrized'); // 머리 대칭 (기본 대칭화 — 사용자 결정)
@@ -87,6 +88,7 @@ function App() {
     formData.append('hair_source', hairSource);
     formData.append('hair_symmetry', hairSymmetry);
     formData.append('hair_overlay', hairOverlay);
+    formData.append('skin_model', skinModel);
 
     try {
       const response = await fetch('/api/v1/generate-skin', {
@@ -102,11 +104,13 @@ function App() {
       }
       if (data.status === 'success') {
         // 스킨을 {url, flatUrl} 쌍으로 보관 — Edit Skin 토글이 두 변형을 스왑한다 (설계 §5)
+        const resultModel = data.data.skin_model || 'classic';
         const pairs = (data.data.skins || []).map((url, i) => ({
           url,
           flatUrl: (data.data.skins_flat || [])[i] || null,
           varied: (data.data.candidates || [])[i]?.varied || "",
           steps: data.data.steps || null, // 이 생성의 처리 과정 시트 — 사이드바 편집이 자기 세대의 시트를 연다 (후속 검토 1)
+          model: resultModel, // 3D 뷰어 체형 (classic | slim)
         }));
         setSkins(pairs);
         setPreviewOpen(pairs.length > 0);
@@ -291,6 +295,19 @@ function App() {
           </div>
           <p id="noise-help" className="config-help">높일수록 픽셀마다 밝기 차이를 더해 질감을 표현해요. 0%는 이 효과를 끕니다.</p>
           <div className="config-row">
+            <label htmlFor="skin-model">스킨 모델</label>
+            <select
+              id="skin-model"
+              aria-describedby="skin-model-help"
+              value={skinModel}
+              onChange={(e) => setSkinModel(e.target.value)}
+            >
+              <option value="classic">클래식 (팔 4px)</option>
+              <option value="slim">슬림 (팔 3px)</option>
+            </select>
+          </div>
+          <p id="skin-model-help" className="config-help">클래식은 기본 체형, 슬림은 팔이 3px 얇은 체형이에요.</p>
+          <div className="config-row">
             <label htmlFor="show-steps">
               <input
                 id="show-steps"
@@ -371,7 +388,7 @@ function App() {
                   {skin.varied && skin.varied !== "as-answered" && (
                     <p className="varied-note">{skin.varied}</p>
                   )}
-                  <Skin3DViewer skinUrl={skin.url} />
+                  <Skin3DViewer skinUrl={skin.url} model={skin.model} />
                   <div className="card-actions">
                     <button className="edit-btn" onClick={() => setEditorItem(skin)}>
                       스킨 편집 ✏️
