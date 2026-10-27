@@ -211,6 +211,18 @@ def test_mock_transport_failure_mode():
     assert t.complete(Image.new("RGB", (4, 4)), "p", {}) is None
 
 
+def test_registry_mock_without_scenario_uses_default():
+    """env/CLI 경로(get_transport)로 만든 mock 은 기본 시나리오를 갖는다.
+
+    시나리오 주입은 테스트가 직접 MockTransport(first=...) 로 한다. 주입 없이
+    레지스트리로 만들 때만 기본값을 채워 오프라인 개발이 동작하게 한다.
+    """
+    t = get_transport("mock")
+    payload = t.complete(Image.new("RGB", (10, 10)), "p", {})
+    assert payload is not None
+    assert payload["top_garment"] == "tee"
+
+
 def test_gemini_requires_api_key(monkeypatch):
     for var in ("GEMINI_API_KEY", "GOOGLE_API_KEY"):
         monkeypatch.delenv(var, raising=False)

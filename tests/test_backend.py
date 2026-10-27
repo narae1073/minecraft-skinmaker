@@ -42,11 +42,31 @@ def client(first=None, second=None):
     return TestClient(A.app)
 
 
+# client() 가 A.make_transport 를 덮어쓰므로, env 기반 경로를 검사하려면 원본을 보관한다.
+_REAL_MAKE_TRANSPORT = A.make_transport
+
+
 def test_health_ok():
     A.make_transport = lambda: MockTransport(first=GOOD)
     r = TestClient(A.app).get("/api/v1/health")
     assert r.status_code == 200
     assert r.json()["status"] == "ok"
+
+
+def test_env_mock_transport_generates_with_default_scenario(monkeypatch):
+    """SKINMAKER_TRANSPORT=mock 만으로도 로컬 생성이 끝까지 간다 (기본 시나리오).
+
+    시나리오를 주입하지 않은 mock 은 complete() 가 None 을 돌려줘 502 가 됐다.
+    .env 에 mock 만 넣는 오프라인 개발 경로(AGENTS.md)가 실제로 동작해야 한다.
+    """
+    monkeypatch.setattr(A, "make_transport", _REAL_MAKE_TRANSPORT)
+    monkeypatch.setenv("SKINMAKER_TRANSPORT", "mock")
+    with PHOTO.open("rb") as f:
+        r = TestClient(A.app).post("/api/v1/generate-skin", files={"file": ("m.jpg", f, "image/jpeg")})
+    assert r.status_code == 200, r.text
+    body = r.json()
+    assert body["status"] == "success"
+    assert body["data"]["skins"]
 
 
 def test_generate_returns_three_urls():
