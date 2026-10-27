@@ -110,6 +110,7 @@ export SKINMAKER_PARSER=out/models/schp-atr-18-int8-static.onnx   # 경로 지�
 - 생성물(`out/`, `backend/static/`, `frontend/dist/`)과 `.env`, `*.onnx`는 커밋하지 않습니다.
 - 두 에이전트가 함께 작업합니다. 브랜치/PR 규칙과 셋업은 [AGENTS.md](AGENTS.md)를 따릅니다.
 - 두 번째 개발자(Codex)는 Tailscale로 접속하는 Docker devbox를 씁니다: [docs/devbox.md](docs/devbox.md).
+- 3D 시각 QA: `.venv/bin/python -m skinmaker.qarender <skin.png>` — 카메라 계약·출력·옵션은 [docs/qa-render.md](docs/qa-render.md).
 - PR마다 GitHub Actions가 `test`(pytest)와 `web`(lint + build)를 돌립니다. `master`는 PR + 1 approval + green checks를 요구합니다.
 
 ## CI
