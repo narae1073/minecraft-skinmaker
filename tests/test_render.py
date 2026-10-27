@@ -50,13 +50,13 @@ import hashlib
 
 from skinmaker import hairstencil as HS
 
-# rule 스텐실 렌더의 픽셀 베이스라인. 2026-10-21 L2 헤어 오버레이(기본 on)로
-# 재기록 — 이전: 2026-10-20 얼굴 템플릿 변경. 이후 rule 경로가 조용히 변하면 잡는다.
+# rule 스텐실 렌더의 픽셀 베이스라인. 2026-10-27 L2 헤어를 성긴 가닥으로 개정하며
+# 재기록 — 이전: 2026-10-21 L2 부피 셸 도입. 이후 rule 경로가 조용히 변하면 잡는다.
 NOISE_OFF_GOLDEN = {
-    "short": "caf97644ba68acc8",
-    "medium": "ec1f203435b90f11",
-    "long": "7048dd2c1f3ec782",
-    "very_long": "62f319c0c36f4475",
+    "short": "1f81ccee28f0ec2b",
+    "medium": "b1176e7cd4bea326",
+    "long": "6f3cf7d88103b717",
+    "very_long": "8d0c94c2ec3ed01a",
 }
 
 
@@ -177,43 +177,105 @@ def test_cuffs_only_for_long_sleeves():
     assert canvas.get("r_arm", "front", 2, 9)[:3] == shade(rgba(base.skin.hex), R.FACE_SHADE["front"])[:3]
 
 
-def test_hair_overlay_volume_shell_and_fringe():
-    """L2 헤어: 실루엣 복제(부피) + 가르마선 낮은 열은 1행 연장 — 눈(4-5행)은 금지."""
-    base = observed()
-    canvas = R.render(base, attrs(), ())
-    hair = shade(rgba(base.hair.hex), R.FACE_SHADE["front"])[:3]
-    for u, v in ((0, 0), (4, 1), (7, 1)):
-        assert canvas.get("head", "front", u, v, 1)[:3] == hair, (u, v)
-    assert canvas.get("head", "front", 4, 2, 1)[:3] == hair  # 연장 행
-    for v in (4, 5):  # 눈 행은 오버레이도 비어 있다
-        assert canvas.get("head", "front", 4, v, 1)[3] == 0, v
-    assert canvas.get("head", "right", 0, 1, 1)[:3] == shade(rgba(base.hair.hex), R.FACE_SHADE["right"])[:3]
-    assert canvas.get("head", "right", 0, 2, 1)[3] == 0  # short 옆면은 2행까지
+def _opaque_cells(canvas, part: str, layer: int) -> set[tuple[str, int, int]]:
+    cells = set()
+    for face in canvas.layout.part(part, layer).faces.values():
+        for v in range(face.h):
+            for u in range(face.w):
+                if canvas.image.getpixel((face.x + u, face.y + v))[3]:
+                    cells.add((face.name, u, v))
+    return cells
 
 
-def test_hair_overlay_body_drape_and_switch_off():
+def test_hair_overlay_is_sparse_strands_over_layer1():
+    """L2 는 L1 실루엣 복제가 아니라 성긴 하이라이트 가닥이다 (2026-10-27).
+
+    L1(레이어0)이 머리 실루엣 전체를 계속 담당하고, L2 는 틈이 있는 장식 셸이라
+    아래 L1 이 비쳐 보여야 한다. 예전 '부피 셸'(실루엣 전체 복제)은 머리를
+    불투명 블록으로 덮었다.
+    """
+    base = observed(hair="#112233")
+    canvas = R.render(base, attrs(hair_length="short"), ())
+    stencil = HS.rule_stencil("short")
+    silhouette = (
+        sum(sum(row) for row in stencil.front)
+        + sum(sum(profile) for profile in stencil.side_profiles.values())
+        + (64 if stencil.top_hair else 0)
+    )
+    l2 = len(_opaque_cells(canvas, "head", 1))
+    assert 0 < l2 < silhouette * 0.75, (l2, silhouette)
+
+    # L1 실루엣 안에 L2 가 비운 구멍이 있어야 한다.
+    holes = [
+        (u, v)
+        for v, row in enumerate(stencil.front)
+        for u, on in enumerate(row)
+        if on and canvas.get("head", "front", u, v, 1)[3] == 0
+    ]
+    assert holes, "L2 must leave gaps over the L1 silhouette"
+
+    # L2 는 L1 위의 하이라이트(더 밝은 톤)다 — 같은 색 복제가 아니다.
+    painted = [
+        (u, v)
+        for v in range(canvas.layout.face("head", "front", 1).h)
+        for u in range(canvas.layout.face("head", "front", 1).w)
+        if canvas.get("head", "front", u, v, 1)[3]
+    ]
+    assert painted
+    u, v = painted[0]
+    assert sum(canvas.get("head", "front", u, v, 1)[:3]) > sum(canvas.get("head", "front", u, v, 0)[:3])
+
+    # 눈(4-5행)은 L2 로 덮지 않는다.
+    for u in (1, 2, 5, 6):
+        for v in (4, 5):
+            assert canvas.get("head", "front", u, v, 1)[3] == 0, (u, v)
+
+    # 프린지 연장은 홀수 열에만 (가르마선이 낮을 때 1행).
+    assert canvas.get("head", "front", 3, 2, 1)[3] != 0
+
+    # L1(레이어0)은 on/off 와 무관하게 픽셀 동일 — L2 는 덧칠만 한다.
+    off = R.render(dataclasses.replace(base, hair_overlay=False), attrs(hair_length="short"), ())
+    for part in ("head", "body"):
+        for face in canvas.layout.part(part, 0).faces.values():
+            for v in range(face.h):
+                for u in range(face.w):
+                    assert (canvas.image.getpixel((face.x + u, face.y + v))
+                            == off.image.getpixel((face.x + u, face.y + v))), (part, face.name, u, v)
+
+
+def test_hair_overlay_body_drape_is_sparse_and_switch_off():
     st = dataclasses.replace(HS.rule_stencil("long"), body_rows=3)
     base = dataclasses.replace(observed(), hair_stencil=st)
     canvas = R.render(base, attrs(hair_length="long"), ())
-    assert canvas.get("body", "back", 4, 2, 1)[:3] == shade(rgba(base.hair.hex), R.FACE_SHADE["back"])[:3]
+    cells = _opaque_cells(canvas, "body", 1)
+    assert 0 < len(cells) < 3 * 8 * 3  # 전체 드레이프(행 복제)보다 성기다
+    assert any(name == "back" and v == 0 for name, _u, v in cells)
+    holes = [
+        (u, v)
+        for v in range(3)
+        for u in range(canvas.layout.face("body", "back", 1).w)
+        if canvas.get("body", "back", u, v, 1)[3] == 0
+    ]
+    assert holes
     off = R.render(dataclasses.replace(base, hair_overlay=False), attrs(hair_length="long"), ())
-    assert off.get("body", "back", 4, 2, 1)[3] == 0
+    assert off.get("body", "back", 2, 0, 1)[3] == 0
     assert off.get("head", "front", 0, 0, 1)[3] == 0
 
 
 def test_viewer_js_uv_rects_match_layout():
-    """3D 뷰어의 UV rect 상수가 format.get_layout()과 일치 — L2 오프셋 드리프트 방지.
+    """3D 모델의 UV rect 상수(skinModel.js)가 format.get_layout()과 일치 — 드리프트 방지.
 
     2026-10-21 버그: 왼팔/왼다리 L2 rect 를 (0,+16)으로 밀어 텍스처 밖을 샘플링해
     한 팔·한 다리가 엉뚱한 색으로 칠해졌다. 좌표가 프론트에 중복돼 있어
     레이아웃과 대조하는 테스트로 고정한다. classic/slim 두 체형 모두 검사한다.
+    2026-10-27: 뷰어와 QA 하네스가 같은 skinModel.js 를 쓰도록 추출 — 검사 대상도 그 파일이다.
     """
     import re
     from pathlib import Path
 
     from skinmaker.format import get_layout
 
-    js = (Path(__file__).resolve().parent.parent / "frontend/src/components/Skin3DViewer.jsx").read_text(encoding="utf-8")
+    js = (Path(__file__).resolve().parent.parent / "frontend/src/skinModel.js").read_text(encoding="utf-8")
 
     def faces(name: str) -> dict[str, tuple[int, int, int, int]]:
         m = re.search(rf"const {name} = \{{(.*?)\}};", js, re.S)

@@ -413,44 +413,122 @@ def render_legs(canvas: SkinCanvas, colors: dict[str, Color], attrs: Attributes,
                     canvas.put(part, face_name, u, v, c, 0)
 
 
-def render_hair_overlay(canvas: SkinCanvas, colors: dict[str, Color], stencil) -> None:
-    """L2(오버레이) 헤어 장식 (사용자 결정 2026-10-21).
+# L2 는 L1 위의 하이라이트 셸이다 (2026-10-27 개정). 실루엣 전체를 복제하면
+# 머리가 불투명 블록으로 보인다 — 가닥/테두리만 남기고 나머지는 투명으로 둬서
+# L1 이 비치게 한다. 색도 L1 보다 밝게 해 겹친 층이 읽히게 한다.
+L2_HIGHLIGHT = 1.20
+L2_HIGHLIGHT_ALT = 1.10
+L2_FRONT_COLS = (2, 5)
+# 면마다 가닥 열과 짧아지는 행이 다르다 — 규칙적인 빗살이 아니라 불규칙한 끝단.
+L2_PROFILE_COLUMNS = {
+    "right": (0, 2, 5, 7),
+    "back": (0, 3, 4, 7),
+    "left": (0, 1, 6, 7),
+}
+L2_PROFILE_SHORTEN = {
+    "right": (0, 2, 1, 0),
+    "back": (1, 0, 2, 0),
+    "left": (0, 1, 0, 2),
+}
 
-    - 부피 셸: 기본 머리 실루엣을 오버레이 레이어에도 그린다 (게임에서 반 픽셀 두껍게 보임).
-    - 앞머리 연장: 가르마선이 2행 이하인 중앙 열은 한 행 더 — 눈(4-5행)은 절대 안 덮는다.
-    - 몸통 드레이프: 긴 머리의 몸통 행을 오버레이로도 덮어 셔츠 위에 머리가 뜨게.
+
+def _l2_color(hair_c: Color, face_name: str, u: int, v: int) -> Color:
+    """L2 가닥 색: L1 음영 위에 밝은 톤을 얹어 층을 구분한다 (열 단위 2톤)."""
+    base = shade(hair_c, FACE_SHADE[face_name])
+    if face_name == "top":
+        return shade(base, 1.14)
+    return shade(base, L2_HIGHLIGHT if u % 2 == 0 else L2_HIGHLIGHT_ALT)
+
+
+def _front_strand(u: int, v: int, width: int) -> bool:
+    """앞면: 양끝 사이드록 + 눈 위(0-1행)의 두 가닥만."""
+    if u in (0, width - 1):
+        return True
+    if v >= 4:  # 눈(4-5행)은 장식 레이어로 덮지 않는다
+        return False
+    return u in L2_FRONT_COLS and v <= 1
+
+
+def _profile_rows(u: int, rows: int, face_name: str) -> int:
+    """옆/뒤: 면별 4개 가닥 열, 열마다 0-2행 짧아져 끝단이 불규칙하다."""
+    if rows <= 0:
+        return 0
+    columns = L2_PROFILE_COLUMNS[face_name]
+    if u not in columns:
+        return 0
+    return max(1, rows - L2_PROFILE_SHORTEN[face_name][columns.index(u)])
+
+
+def _top_strand(u: int, v: int, width: int, height: int) -> bool:
+    """정수리: 전체 채움 대신 테두리 링만 (가운데는 L1 이 보인다)."""
+    return u in (0, width - 1) or v in (0, height - 1)
+
+
+def _body_strand(u: int, v: int, phase: int) -> bool:
+    return (u + phase) % 2 == 0 and (u + v) % 2 == 0
+
+
+def render_hair_overlay(canvas: SkinCanvas, colors: dict[str, Color], stencil) -> None:
+    """L2(오버레이) 헤어 장식 (2026-10-21 도입, 2026-10-27 성긴 가닥으로 개정).
+
+    L1(레이어0)이 머리 실루엣 전체를 담당한다. L2 는 그 위의 장식 셸로,
+    틈이 있는 가닥·테두리·프린지만 그려 아래 L1(과 피부)이 비치게 한다.
+    - 앞면: 사이드록 + 눈 위 두 가닥, 가르마선이 낮은 열은 1행 연장.
+    - 옆/뒤: 면별 4개 가닥 열, 열마다 길이가 달라 끝단이 불규칙하다.
+    - 정수리: 테두리 링만 (전체 채움 금지).
+    - 몸통 드레이프: 성긴 가닥만 (행 전체 복제 금지).
     """
     hair_c = colors["hair"]
+
+    def put(part: str, face_name: str, u: int, v: int) -> None:
+        canvas.put(part, face_name, u, v, _l2_color(hair_c, face_name, u, v), 1)
+
+    # 정수리: 테두리 링만 남겨 가운데 L1 이 비친다.
     if stencil.top_hair:
-        canvas.fill_face("head", "top", shade(hair_c, FACE_SHADE["top"]), 1)
+        top = canvas.layout.face("head", "top", 1)
+        for v in range(top.h):
+            for u in range(top.w):
+                if _top_strand(u, v, top.w, top.h):
+                    put("head", "top", u, v)
+
+    # 앞면: 사이드록 + 성긴 앞머리 가닥.
+    front = canvas.layout.face("head", "front", 1)
     for v, row in enumerate(stencil.front):
-        for u, is_hair in enumerate(row):
-            if is_hair:
-                canvas.put("head", "front", u, v, shade(hair_c, FACE_SHADE["front"]), 1)
-    # 앞머리 장식: 가르마선이 낮은 중앙 열만 한 행 연장, 눈(4행)은 금지.
-    width = canvas.layout.face("head", "front", 1).w
-    for u in range(1, max(1, width - 1)):
-        if u >= len(stencil.front[0]):
-            break
+        for u, is_hair in enumerate(row[: front.w]):
+            if is_hair and _front_strand(u, v, front.w):
+                put("head", "front", u, v)
+    # 프린지 연장: 가르마선이 낮은 두 열만 1행 (눈 4행 금지).
+    for u in (3, 5):
+        if u >= front.w - 1:
+            continue
         rows = [v for v in range(len(stencil.front)) if stencil.front[v][u]]
         if rows and max(rows) <= 2:
-            canvas.put("head", "front", u, max(rows) + 1, shade(hair_c, FACE_SHADE["front"]), 1)
-    for face_name in ("right", "left", "back"):
+            ext = max(rows) + 1
+            if ext < 4:
+                put("head", "front", u, ext)
+
+    # 옆/뒤: 면별 가닥 열 + 불규칙한 끝단.
+    for face_name in ("right", "back", "left"):
         profile = stencil.side_profiles.get(face_name, ())
         f = canvas.layout.face("head", face_name, 1)
-        for u, rows in enumerate(profile[:f.w]):
-            for v in range(min(rows, f.h)):
-                canvas.put("head", face_name, u, v, shade(hair_c, FACE_SHADE[face_name]), 1)
-    if stencil.body_rows:
-        for face_name in ("back", "right", "left"):
+        for u, rows in enumerate(profile[: f.w]):
+            limit = min(f.h, _profile_rows(u, rows, face_name))
+            for v in range(limit):
+                put("head", face_name, u, v)
+
+    # 몸통 드레이프: 성긴 가닥만 (행 전체 복제 금지).
+    body_rows = min(6, max(0, getattr(stencil, "body_rows", 0)))
+    if body_rows:
+        for phase, face_name in enumerate(("back", "right", "left")):
             f = canvas.layout.face("body", face_name, 1)
-            for v in range(min(stencil.body_rows, f.h)):
+            for v in range(min(body_rows, f.h)):
                 for u in range(f.w):
-                    canvas.put("body", face_name, u, v, shade(hair_c, FACE_SHADE[face_name]), 1)
-        bf = canvas.layout.face("body", "front", 1)
-        for v in range(min(2, stencil.body_rows, bf.h)):
-            for u in (0, 1, bf.w - 2, bf.w - 1):
-                canvas.put("body", "front", u, v, shade(hair_c, FACE_SHADE["front"]), 1)
+                    if _body_strand(u, v, phase):
+                        put("body", face_name, u, v)
+        front_body = canvas.layout.face("body", "front", 1)
+        for v in range(min(2, body_rows, front_body.h)):
+            for u in (0, front_body.w - 1):
+                put("body", "front", u, v)
 
 
 def render(
