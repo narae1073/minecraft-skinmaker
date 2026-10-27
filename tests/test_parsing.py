@@ -293,3 +293,74 @@ def test_render_shoes_use_mask_colour(monkeypatch):
     sole = [canvas.get("r_leg", "front", u, 11) for u in range(front.w)]
     assert all(c[:3] == R.shade(shoe, 1.35)[:3] for c in top), top
     assert all(c[:3] == R.shade(shoe, 0.62)[:3] for c in sole), sole
+
+
+# --- 치마 밑단(hem) 측정 (2026-10-28) ---------------------------------------
+
+def _hem_seg(skirt_end: int, legs_end: int = 380, height: int = 400, width: int = 200):
+    """치마 + 그 아래 맨다리. skirt_end=0 이면 치마 없음."""
+    import numpy as np
+
+    arr = np.zeros((height, width), np.uint8)
+    arr[150:legs_end, 80:120] = 12  # bare legs (Shoe/leg classes)
+    arr[150:skirt_end, 80:120] = P.SKIRT
+    return arr
+
+
+def test_skirt_hem_rows_track_short_and_long_skirts():
+    face = Q.FaceBox(70, 20, 60, 80)
+    assert P.skirt_hem_rows(_hem_seg(210), face) == 3      # 미니
+    assert P.skirt_hem_rows(_hem_seg(330), face) == 8      # 롱
+    assert P.skirt_hem_rows(_hem_seg(155), face) == 1      # 아주 짧음
+
+
+def test_skirt_hem_rows_none_without_lower_clothing():
+    face = Q.FaceBox(70, 20, 60, 80)
+    seg = _hem_seg(0)
+    assert P.skirt_hem_rows(seg, face) is None
+
+
+def test_skirt_hem_rows_falls_back_to_dominant_clothing():
+    """긴 치마가 Pants 로 보이면(파서 노이즈) 옷 전체 밑단을 쓴다 — 미니로 자르지 않는다."""
+    import numpy as np
+
+    face = Q.FaceBox(70, 20, 60, 80)
+    seg = np.zeros((400, 200), np.uint8)
+    seg[150:380, 80:120] = P.PANTS   # 긴 치마가 pants 로 분류
+    seg[150:160, 80:120] = P.SKIRT   # skirt 픽셀이 거의 없음 (2.6%)
+    assert P.skirt_hem_rows(seg, face) == 9
+
+
+def test_skirt_hem_rows_ignores_tiny_noise():
+    face = Q.FaceBox(70, 20, 60, 80)
+    import numpy as np
+
+    seg = np.zeros((400, 200), np.uint8)
+    seg[200:203, 90:92] = P.SKIRT
+    assert P.skirt_hem_rows(seg, face) is None
+
+
+def test_skirt_hem_normalizes_to_shoe_top():
+    """미디 치마가 발끝까지 정규화돼 짧아지지 않는다 — 신발 시작이 하한."""
+    import numpy as np
+
+    face = Q.FaceBox(70, 20, 60, 80)
+    seg = np.zeros((400, 200), np.uint8)
+    seg[150:300, 80:120] = P.SKIRT   # 무릎 아래까지 오는 미디
+    seg[300:350, 80:120] = 12        # 맨다리
+    seg[350:380, 80:120] = 9         # 신발
+    # top=50, shoe_top=250, skirt_bottom=149 -> frac 0.75 -> 7행
+    assert P.skirt_hem_rows(seg, face) == 7
+
+
+def test_skirt_hem_keeps_mini_short_with_shoes():
+    """미니(ratio<0.72)는 신발 하한을 쓰지 않는다 — 무릎까지 늘리지 않는다."""
+    import numpy as np
+
+    face = Q.FaceBox(70, 20, 60, 80)
+    seg = np.zeros((400, 200), np.uint8)
+    seg[150:230, 80:120] = P.SKIRT   # 미니: skirt_bottom/shoe_top ≈ 0.45
+    seg[230:350, 80:120] = 12
+    seg[350:380, 80:120] = 9
+    # top=50, shoe_top=250, skirt_bottom=129 -> ratio 0.40 -> feet(f) 0.35 -> 4
+    assert P.skirt_hem_rows(seg, face) == 4

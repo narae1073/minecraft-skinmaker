@@ -28,9 +28,12 @@ DEFAULT_MODEL = Path(__file__).resolve().parent.parent / "out" / "models" / "sch
 
 PANTS, SKIRT = 6, 5
 BOTTOM_CLASSES = (PANTS, SKIRT)
+DRESS = 7  # ATR dress class — 하체 덮음 증거 + 밑단 측정 보조 (2026-10-28 실사진 프로브)
+CLOTHED_CLASSES = (SKIRT, PANTS, DRESS)
 HAIR = 2
 BARE_LEGS = (12, 13)  # Left/Right-leg 맨다리 피부 — 하체 관측 신호 (jeans 기본 룰)
 SHOES = (9, 10)  # Left-shoe, Right-shoe
+LOWER_CLASSES = (SKIRT, PANTS, DRESS) + SHOES + BARE_LEGS
 
 MEAN = np.array([0.406, 0.456, 0.485], np.float32)  # RGB 순서, BGR 인덱스 관례 (repo 문서)
 STD = np.array([0.225, 0.224, 0.229], np.float32)
@@ -107,3 +110,54 @@ def bottom_mask(image: Image.Image) -> np.ndarray | None:
         return np.asarray(Image.fromarray(seg512).resize((w, h), Image.NEAREST))
     except Exception:
         return None
+
+
+def skirt_hem_rows(seg: np.ndarray | None, face, min_pixels: int = 40) -> int | None:
+    """사진 속 치마 밑단을 다리 텍스처 행(0-8, 신발 위)으로 환산한다 (2026-10-28).
+
+    치마는 드레스처럼 늘리지 않는다 — 사진의 밑단 길이를 따라가고 그 아래는
+    맨다리로 남긴다. VLM이 skirt 라고 한 사진에만 렌더가 이 값을 쓴다.
+
+    - 얼굴 아래 Skirt(5) 픽셀이 충분하고 옷 픽셀의 20% 이상이면 그 밑단을 쓴다.
+    - Skirt 픽셀이 적으면(파서가 긴 치마를 Pants/Dress 로 오분류) 옷 클래스
+      전체(5/6/7)의 가장 낮은 행을 쓴다 — 미니로 잘못 자르지 않는다.
+    - 하체 옷 픽셀 자체가 없으면 None (호출부 기본값).
+    - 하체 클래스(치마·바지·드레스·신발·맨다리)의 세로 범위로 정규화하고
+      0-8 행으로 ceil 매핑. 발이 잘린 사진은 이미지 하단이 끝이다.
+    """
+    if seg is None or face is None:
+        return None
+    arr = np.asarray(seg)
+    if arr.ndim != 2 or arr.size == 0:
+        return None
+    y0 = max(0, min(arr.shape[0] - 1, int(face.bottom)))
+    sub = arr[y0:]
+    skirt = sub == SKIRT
+    clothed = np.isin(sub, CLOTHED_CLASSES)
+    skirt_count = int(skirt.sum())
+    clothed_count = int(clothed.sum())
+    if clothed_count < min_pixels:
+        return None
+    if skirt_count >= min_pixels and skirt_count / clothed_count >= 0.2:
+        hem_mask = skirt
+    else:
+        hem_mask = clothed  # 치마가 Pants/Dress 로 보인 경우 — 옷 전체 밑단
+    rows = np.flatnonzero(np.isin(sub, LOWER_CLASSES).any(axis=1))
+    if rows.size < 2:
+        return None
+    top, bottom = int(rows[0]), int(rows[-1])
+    if bottom - top < 2:
+        return None
+    hem_rows = np.flatnonzero(hem_mask.any(axis=1))
+    if hem_rows.size == 0:
+        return None
+    # 다리 텍스처의 0-8행은 신발(9행) 위다. 정규화 하한을 '발끝'이 아니라
+    # '신발 시작'으로 잡아야 미디/롱 치마가 짧게(허벅지) 그려지지 않는다.
+    # QA 재검(2026-10-28): 401/404/419/422/424 hems PASS with this mapping.
+    leg_bottom = bottom
+    shoes = np.flatnonzero(np.isin(sub, SHOES).any(axis=1))
+    if shoes.size and int(shoes[0]) - top >= 3:
+        leg_bottom = int(shoes[0])
+    fraction = (int(hem_rows[-1]) - top) / float(leg_bottom - top)
+    rows_above_shoes = int(np.ceil(min(1.0, max(0.0, fraction)) * 9))
+    return max(1, min(9, rows_above_shoes))

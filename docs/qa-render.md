@@ -97,3 +97,30 @@ change is visual.
 smoke render. The browser smoke test is skipped when Chrome is absent and on CI
 (`CI=true`) because software WebGL on hosted runners is flaky; run it locally
 before shipping visual changes.
+
+## Batch runs (`skinmaker.batch`)
+
+For photo-set QA, `skinmaker/batch.py` runs the full pipeline per photo, saves
+JSON + skins, optionally renders the QA pair, and writes a manifest plus a
+selection file:
+
+```bash
+python -m skinmaker.batch --photos out/people_photos_original \
+  --photo-list out/qa_batch/curated_photos.txt --out out/qa_batch \
+  --transport gemini --sleep 3 --render --render-out out/qa_render_batch
+
+# final validation: one VLM query per photo, no renders
+python -m skinmaker.batch --photos out/people_photos_original \
+  --out out/qa_full --transport gemini --single --max-side 1024
+```
+
+- Resumable: completed `result.json` entries are skipped; errors are retried on
+  the next run. `--replay` reprocesses locally from the stored VLM JSON (no API
+  calls) after renderer/policy changes.
+- Outputs per photo: `result.json` (classification, lower-body evidence,
+  resolved bottom, observed colours, skin/render paths) and `skin_c1.png` (+
+  candidates). With `--render`, a `compare.png` sheet
+  ([original | front | back]) lands next to the two renders.
+- `qa_selection.json` groups photos into dress / skirt / upper-body fallback /
+  measured trousers / bare legs for visual QA. `batch_manifest.json` aggregates
+  status counts.

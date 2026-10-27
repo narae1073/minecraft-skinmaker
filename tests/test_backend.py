@@ -310,6 +310,63 @@ def test_generate_upper_body_defaults_to_jeans(monkeypatch):
         assert all(abs(p - q) <= NOISE_TOL for p, q in zip(got, jeans)), (v, got, jeans)
 
 
+def test_generate_upper_body_missing_bottom_defaults_to_jeans(monkeypatch):
+    """VLM이 bottom 필드를 아예 안 주거나 null/빈 값이어도 상반신은 jeans (2026-10-28)."""
+    from PIL import Image as PILImage
+
+    from skinmaker.format import get_layout
+    from skinmaker.render import DEFAULT_JEANS, FACE_SHADE, NOISE_TOL
+    from skinmaker.canvas import rgba, shade
+
+    _upper_body_seg(monkeypatch)
+    scenario = {k: v for k, v in GOOD.items() if k != "bottom_garment"}  # 필드 결측
+    with UPPER_PHOTO.open("rb") as f:
+        r = client(scenario, None).post(
+            "/api/v1/generate-skin", files={"file": ("m.png", f, "image/png")})
+    assert r.status_code == 200, r.text
+    body = r.json()["data"]
+    assert "bottom_garment=jeans" in body["summary"], body["summary"]
+    img = PILImage.open(A.STATIC_DIR / Path(body["skins"][0]).name).convert("RGBA")
+    f = get_layout("classic").face("r_leg", "front", 0)
+    jeans = shade(rgba(DEFAULT_JEANS), FACE_SHADE["front"])[:3]
+    for v in range(9):
+        got = img.getpixel((f.x + 1, f.y + v))[:3]
+        assert all(abs(p - q) <= NOISE_TOL for p, q in zip(got, jeans)), (v, got, jeans)
+
+
+def test_generate_dress_covers_legs(monkeypatch):
+    """드레스(top_garment=dress)면 다리 행이 피부색이 아니라 드레스로 덮인다 (2026-10-28).
+
+    messi5 는 상의(#213699)·하의(#67923a)와 피부(#8d7365)가 뚜렷이 달라
+    '피부가 아님'을 노이즈 톨러런스 밖에서 확인할 수 있다.
+    """
+    from PIL import Image as PILImage
+
+    from skinmaker.format import get_layout
+    from skinmaker.quality import inspect
+    from skinmaker.render import FACE_SHADE, NOISE_TOL
+    from skinmaker.canvas import rgba, shade
+
+    _upper_body_seg(monkeypatch)
+    scenario = dict(GOOD, top_garment="dress", bottom_garment="none")
+    with PHOTO.open("rb") as f:
+        r = client(scenario, None).post(
+            "/api/v1/generate-skin", files={"file": ("m.jpg", f, "image/jpeg")})
+    assert r.status_code == 200, r.text
+    body = r.json()["data"]
+    img = PILImage.open(A.STATIC_DIR / Path(body["skins"][0]).name).convert("RGBA")
+    leg = get_layout("classic").face("r_leg", "front", 0)
+
+    photo = inspect(PHOTO)
+    from skinmaker import colors as C
+
+    skin = C.extract(photo).skin
+    skin_rgb = shade(rgba(skin.hex), FACE_SHADE["front"])[:3]
+    for v in range(9):
+        got = img.getpixel((leg.x + 1, leg.y + v))[:3]
+        assert not all(abs(p - q) <= NOISE_TOL for p, q in zip(got, skin_rgb)), (v, got, skin_rgb)
+
+
 def test_generate_returns_category_payload():
     """설계 §11: 분류 카테고리를 구조화 JSON으로 — 사용자가 본다."""
     second = dict(GOOD, sleeve_len="long", hair_length="long")

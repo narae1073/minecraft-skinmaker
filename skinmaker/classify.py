@@ -23,12 +23,11 @@ from .attributes import (
     is_uncertain,
     validate,
 )
-from .quality import FaceBox, PhotoInput, clip_to
+from .quality import FaceBox, PhotoInput, clip_to, is_fullbody
 from .vlm import Transport, TransportError
 
 MODEL_MAX_PX = 768
 FULLBODY_MAX_PX = 1536
-FRAMING_FULLBODY_MAX_RATIO = 0.12
 
 
 @dataclass(frozen=True)
@@ -79,14 +78,7 @@ def model_region(face: FaceBox, size: tuple[int, int], up: float = 1.25, down: f
 
 def framing(photo: PhotoInput) -> str:
     """구도 판정. 얼굴이 작으면 전신으로 보고 고해상도로 전송한다."""
-    if photo.face is None:
-        return "portrait"
-    img_w, img_h = photo.image.size
-    if img_h <= 0:
-        return "portrait"
-    if photo.face.h / img_h < FRAMING_FULLBODY_MAX_RATIO:
-        return "fullbody"
-    return "portrait"
+    return "fullbody" if is_fullbody(photo) else "portrait"
 
 
 def prepare(photo: PhotoInput, max_px: int | None = None) -> ModelCrop | None:
