@@ -114,6 +114,26 @@ codex login --device-auth
 Open the printed URL on Windows; the auth lands in `/home/dev/.codex` (the
 persistent home volume).
 
+The devbox entrypoint starts the **managed** app-server automatically
+(`codex app-server daemon bootstrap` / `start`). The GUI's SSH-driven remote
+project needs that control socket (`~/.codex/app-server-control/`), not a bare
+`codex app-server`. If the GUI reports a missing `app-server-control.sock` or a
+connection failure, run inside the container:
+
+```bash
+cd /home/dev/workspace
+codex app-server daemon bootstrap
+codex app-server daemon start
+codex app-server daemon version
+```
+
+To verify the daemon from a normal SSH session:
+
+```bash
+codex login status
+codex app-server daemon version
+```
+
 ### First terminal inside the project
 
 ```bash
@@ -198,4 +218,6 @@ asks. To remove it later, set `INSTALL_CODEX=0` and rebuild.
 | Host key changed | only if the `skinmaker-codex-ssh` volume was deleted; `ssh-keygen -R "[<ip>]:2222"` |
 | GUI cannot add remote project | verify `ssh skin-codex` works first; then use the same host/port/user/key in the GUI |
 | GUI asks for a remote Codex helper | this host already has `INSTALL_CODEX=1`; if not, §5 |
+| GUI says `app-server-control.sock` missing | run `codex app-server daemon bootstrap` then `start` inside the container; the entrypoint normally does this |
+| GUI can log in but Codex workspace fails | check `codex login status`; use the partner's own account, not the tester's |
 | Tests slow | SCHP is installed; tests with it take ~5 min in the 2-CPU container, without ~10 s |

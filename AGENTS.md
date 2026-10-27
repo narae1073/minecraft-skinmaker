@@ -42,7 +42,10 @@ as a **remote project over SSH**. See `docs/devbox.md`.
 - The Codex CLI is **not installed in the default image**, but this host runs
   with `INSTALL_CODEX=1` because the GUI's remote-project mode requires the
   remote CLI (`codex-cli 0.164.0`). If the GUI asks for auth, run
-  `codex login --device-auth` inside `/home/dev/workspace`.
+  `codex login --device-auth` inside `/home/dev/workspace`. The entrypoint
+  starts the managed app-server (`codex app-server daemon bootstrap`/`start`);
+  if the GUI reports a missing `app-server-control.sock`, run those two
+  commands inside the container.
 - GitHub auth is the collaborator's own account (`gh auth login`).
 - No production `.env`, Docker socket, systemd, or cloudflared credentials are
   inside the container. Deploy from the host, not the container.
