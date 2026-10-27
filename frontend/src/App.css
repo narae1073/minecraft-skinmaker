@@ -213,6 +213,18 @@ h1 {
   cursor: not-allowed;
 }
 
+@media (max-width: 720px) {
+  .upload-panel .generate-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    padding: 12px 8px;
+    line-height: 1.5;
+    overflow-wrap: anywhere;
+  }
+}
+
 .camera-dialog {
   width: min(640px, 92vw);
   max-height: 90vh;
