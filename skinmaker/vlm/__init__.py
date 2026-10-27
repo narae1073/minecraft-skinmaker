@@ -58,4 +58,8 @@ def get_transport(name: str, **cfg: Any) -> Transport:
     unknown = set(cfg) - accepted
     for dropped in unknown:
         cfg.pop(dropped, None)
+    # 오프라인 개발 경로(.env 의 SKINMAKER_TRANSPORT=mock, CLI --transport mock)는
+    # 시나리오를 주입할 방법이 없다. 주입이 없을 때만 기본 시나리오를 채운다.
+    if key == "mock" and not cfg.get("first"):
+        cfg["first"] = module.DEFAULT_SCENARIO
     return cls(**cfg)
