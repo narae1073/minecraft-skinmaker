@@ -531,21 +531,116 @@ def test_shoe_two_tone_off_is_flat():
 
 # --- 하체 미관측 → jeans 기본 (사용자 요청 2026-10-13) ----------------------
 
+def _flags(**kw):
+    """관측 플래그만 바꾼 ObservedColors. 새 증거 필드는 기본 None."""
+    base = dict(lower_body_seen=None, lower_body_clothed=None, lower_body_bare=None, fullbody=None)
+    base.update(kw)
+    return dataclasses.replace(observed(), **base)
+
+
+def _missing_bottom(top="tee"):
+    return A.validate({
+        "top_garment": top,
+        "pattern": "plain",
+        "sleeve_len": "short",
+        "hair_length": "short",
+        "beard": "none",
+        "inner_top": "none",
+        "neckwear": "none",
+        "hair_bbox": [0, 0, 1000, 1000],
+    })
+
+
 def test_resolve_bottom_defaults_jeans_when_lower_body_unseen():
-    obs = dataclasses.replace(observed(), lower_body_seen=False)
-    assert R.resolve_bottom(attrs(bottom_garment="none"), obs) == "jeans"
+    obs = _flags(lower_body_seen=False, lower_body_clothed=False, lower_body_bare=False, fullbody=False)
+    assert R.resolve_bottom_ex(_missing_bottom(), obs) == ("jeans", True)
 
 
-def test_resolve_bottom_keeps_none_when_legs_visible():
+def test_resolve_bottom_missing_null_defaults_jeans_when_upper_body():
+    """VLM이 bottom을 비우거나 null/빈 문자열로 줘도 상반신이면 jeans (2026-10-28)."""
+    obs = _flags(lower_body_seen=False, lower_body_clothed=False, lower_body_bare=False, fullbody=False)
+    assert R.resolve_bottom_ex(_missing_bottom(), obs) == ("jeans", True)
+    empty = A.validate({**{k: v for k, v in {"top_garment": "tee", "pattern": "plain",
+                                             "sleeve_len": "short", "hair_length": "short"}.items()},
+                        "bottom_garment": ""})
+    assert R.resolve_bottom_ex(empty, obs) == ("jeans", True)
+    null = A.validate({"top_garment": "tee", "bottom_garment": None, "pattern": "plain",
+                       "sleeve_len": "short", "hair_length": "short"})
+    assert R.resolve_bottom_ex(null, obs) == ("jeans", True)
+
+
+def test_resolve_bottom_missing_defaults_jeans_when_parser_off_portrait():
+    obs = _flags(fullbody=False)  # 파서 꺼짐 → 모든 증거 None
+    assert R.resolve_bottom_ex(_missing_bottom(), obs) == ("jeans", True)
+
+
+def test_resolve_bottom_missing_keeps_none_when_parser_off_fullbody():
+    obs = _flags(fullbody=True)
+    assert R.resolve_bottom_ex(_missing_bottom(), obs) == ("none", False)
+
+
+def test_resolve_bottom_missing_uses_measured_pants_when_clothed():
+    """VLM은 비었지만 파서가 바지를 봤다 → 측정색 바지, bare skin 아님."""
+    obs = _flags(lower_body_seen=True, lower_body_clothed=True, lower_body_bare=False, fullbody=True)
+    assert R.resolve_bottom_ex(_missing_bottom(), obs) == ("pants", False)
+
+
+def test_resolve_bottom_keeps_none_when_only_legs_seen():
     """맨다리가 보이는 전신 사진은 여전히 none (설계 D3 유지)."""
-    obs = dataclasses.replace(observed(), lower_body_seen=True)
-    assert R.resolve_bottom(attrs(bottom_garment="none"), obs) == "none"
+    obs = _flags(lower_body_seen=True, lower_body_clothed=False, lower_body_bare=True, fullbody=True)
+    assert R.resolve_bottom_ex(attrs(bottom_garment="none"), obs) == ("none", False)
 
 
-def test_resolve_bottom_dress_guard():
-    """드레스 아래 청바지가 밀려 나오지 않게 — dress면 none 유지."""
-    obs = dataclasses.replace(observed(), lower_body_seen=False)
-    assert R.resolve_bottom(attrs(bottom_garment="none", top_garment="dress"), obs) == "none"
+def test_resolve_bottom_dress_is_dress_not_jeans():
+    """드레스는 jeans 기본도, bare legs도 아니다 — 다리를 드레스로 덮는다 (2026-10-28)."""
+    obs = _flags(lower_body_seen=False, lower_body_clothed=False, lower_body_bare=False, fullbody=False)
+    assert R.resolve_bottom_ex(attrs(bottom_garment="none", top_garment="dress"), obs) == ("dress", False)
+
+
+def test_render_dress_covers_legs_without_skin_gap():
+    obs = _flags(lower_body_seen=False, lower_body_clothed=False, lower_body_bare=False, fullbody=False)
+    canvas = R.render(obs, attrs(bottom_garment="none", top_garment="dress"), (), "classic")
+    f = get_layout("classic").face("r_leg", "front", 0)
+    skin = shade(rgba(obs.skin.hex), R.FACE_SHADE["front"])[:3]
+    for v in range(9):
+        assert canvas.image.getpixel((f.x + 1, f.y + v))[:3] != skin, v
+
+
+def test_render_dress_beats_conflicting_jeans_bottom():
+    obs = _flags(lower_body_seen=False, lower_body_clothed=False, lower_body_bare=False, fullbody=False)
+    assert R.resolve_bottom_ex(attrs(top_garment="dress", bottom_garment="jeans"), obs) == ("dress", False)
+
+
+def test_render_skirt_short_hem_leaves_bare_legs_below():
+    """짧은 치마는 밑단까지만 덮고 아래는 맨다리 — 드레스처럼 늘리지 않는다."""
+    obs = dataclasses.replace(observed(), skirt_hem_rows=3)
+    canvas = R.render(obs, attrs(bottom_garment="skirt"), (), "classic")
+    f = get_layout("classic").face("r_leg", "front", 0)
+    skirt = shade(rgba(obs.bottom.hex), R.FACE_SHADE["front"])[:3]
+    skin = shade(rgba(obs.skin.hex), R.FACE_SHADE["front"])[:3]
+    for v in range(2):
+        assert canvas.image.getpixel((f.x + 1, f.y + v))[:3] == skirt, v
+    assert canvas.image.getpixel((f.x + 1, f.y + 2))[:3] == shade(rgba(obs.bottom.hex), 0.82)[:3]  # hem
+    for v in range(3, 9):
+        assert canvas.image.getpixel((f.x + 1, f.y + v))[:3] == skin, v
+
+
+def test_render_skirt_long_hem_covers_to_shoes():
+    obs = dataclasses.replace(observed(), skirt_hem_rows=9)
+    canvas = R.render(obs, attrs(bottom_garment="skirt"), (), "classic")
+    f = get_layout("classic").face("r_leg", "front", 0)
+    skin = shade(rgba(obs.skin.hex), R.FACE_SHADE["front"])[:3]
+    for v in range(9):
+        assert canvas.image.getpixel((f.x + 1, f.y + v))[:3] != skin, v
+
+
+def test_render_skirt_hem_falls_back_when_no_mask():
+    obs = dataclasses.replace(observed(), skirt_hem_rows=None)
+    canvas = R.render(obs, attrs(bottom_garment="skirt"), (), "classic")
+    f = get_layout("classic").face("r_leg", "front", 0)
+    skin = shade(rgba(obs.skin.hex), R.FACE_SHADE["front"])[:3]
+    assert canvas.image.getpixel((f.x + 1, f.y + R.DEFAULT_SKIRT_ROWS - 1))[:3] != skin
+    assert canvas.image.getpixel((f.x + 1, f.y + R.DEFAULT_SKIRT_ROWS))[:3] == skin
 
 
 def test_render_jeans_default_colour_and_rows():
@@ -679,3 +774,33 @@ def test_all_garment_combos_valid(top, bottom):
     sleeve = "none" if top == "none" else "short"
     canvas = R.render(observed(), attrs(top_garment=top, bottom_garment=bottom, sleeve_len=sleeve), (), "classic")
     assert validate_image(canvas.image, "classic") == []
+
+
+def test_render_skirt_uses_skirt_mask_colour_not_skin_bottom():
+    """치마 렌더는 Skirt(5) 마스크 색을 쓴다 — 바지 클래스가 맨다리를 덮어도 오염 없음."""
+    obs = dataclasses.replace(
+        observed(), skirt_hem_rows=4,
+        bottom=sample("#a3715e"), skirt_sample=sample("#3b3b67"),
+    )
+    canvas = R.render(obs, attrs(bottom_garment="skirt"), (), "classic")
+    f = get_layout("classic").face("r_leg", "front", 0)
+    assert canvas.image.getpixel((f.x + 1, f.y + 0))[:3] == shade(rgba("#3b3b67"), 1.0)[:3]
+
+
+def test_render_skirt_falls_back_to_dress_mask_colour():
+    obs = dataclasses.replace(
+        observed(), skirt_hem_rows=6,
+        bottom=sample("#a3715e"), dress_sample=sample("#eeeeee"),
+    )
+    canvas = R.render(obs, attrs(bottom_garment="skirt"), (), "classic")
+    f = get_layout("classic").face("r_leg", "front", 0)
+    assert canvas.image.getpixel((f.x + 1, f.y + 0))[:3] == shade(rgba("#eeeeee"), 1.0)[:3]
+
+
+def test_render_dress_uses_dress_mask_colour():
+    obs = dataclasses.replace(
+        observed(), bottom=sample("#a3715e"), dress_sample=sample("#eeeeee"),
+    )
+    canvas = R.render(obs, attrs(top_garment="dress", bottom_garment="none"), (), "classic")
+    f = get_layout("classic").face("r_leg", "front", 0)
+    assert canvas.image.getpixel((f.x + 1, f.y + 0))[:3] == shade(rgba("#eeeeee"), 1.0)[:3]

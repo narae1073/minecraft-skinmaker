@@ -54,8 +54,13 @@ BOTTOM_ROWS = {
     "pants": (11, 9),
     "shorts": (5, 9),
     "skirt": (1, 9),
+    "dress": (11, 9),
     "none": (-1, 9),
 }
+
+# 치마 밑단 측정(parsing.skirt_hem_rows)이 없을 때의 기본 행 수 (0-8 중).
+# 예전 고정 1행(매우 짧은 치마)은 사진과 무관해 2026-10-28 중간값으로 교체.
+DEFAULT_SKIRT_ROWS = 3
 
 CONSERVATIVE_DEGRADE = ("blur", "dark", "bright", "small", "flat")
 
@@ -80,6 +85,16 @@ def bottom_usable(sample, plausible: bool) -> bool:
     if sample.missing:
         return False
     return sample.confident or plausible
+
+
+def _pick_color_sample(samples, plausible: bool):
+    """마스크 전용 색(치마/드레스) 우선, 없으면 하의 측정색. 사용 불가면 None."""
+    for sample in samples:
+        if sample is None or sample.missing:
+            continue
+        if sample.confident or plausible:
+            return sample
+    return None
 
 
 def resolve_colors(observed: ObservedColors) -> dict[str, Color]:
@@ -124,25 +139,41 @@ def resolve_sleeve(attrs: Attributes, observed: ObservedColors) -> str:
 
 
 def resolve_bottom_ex(attrs: Attributes, observed: ObservedColors) -> tuple[str, bool]:
-    """VLM 확신값 > S1 측정(길이만) > 기본값. 측정은 스타일이 아니라 길이만 본다.
+    """VLM 확신값 > S1 증거 > 기본값 (2026-10-28 개정).
 
-    반환: (bottom_garment, 하체미관측_기본_발동여부). 발동 시 렌더가 jeans 기본색
-    (#3b5a86)을 쓴다 — 상반신 사진의 관측 '하의' 샘플은 셔츠 꼬리 같은 오탐이다.
+    반환: (bottom_garment, 기본값_발동여부). "dress"/"skirt" 는 다리 렌더가
+    각각 전체 덮음/측정 밑단으로 처리한다. jeans 기본은 2번째 값이 True.
     """
-    seen = observed.lower_body_seen
-    def _default(v: str) -> tuple[str, bool]:
-        # 맨다리가 보이는 전신 사진은 none 유지 (D3); 드레스는 밑단 가림 (가드).
-        if v == "none" and seen is False and attrs.get("top_garment") != "dress":
+    def _fallback() -> tuple[str, bool]:
+        """쓸 만한 VLM 하의가 없을 때 마스크 증거로 결정한다."""
+        if observed.lower_body_clothed:
+            # 파서가 바지/치마/드레스를 봤다 → 맨다리로 그리지 않는다.
+            if observed.bottom_plausible and not observed.bottom.missing:
+                return "pants", False
             return "jeans", True
-        return v, False
-    if "bottom_garment" not in attrs.coerced and "bottom_garment" not in attrs.missing:
-        return _default(attrs.get("bottom_garment"))
-    cover = observed.cover
-    if cover is not None and cover.bottom_len == "long":
-        return "jeans" if denim_like(observed.bottom.rgb) else "pants", False
-    if cover is not None and cover.bottom_len == "short":
-        return "shorts", False
-    return _default(attrs.get("bottom_garment"))
+        if observed.lower_body_bare:
+            return "none", False  # 진짜 맨다리 (설계 D3)
+        if observed.fullbody:
+            return "none", False  # 전신인데 증거 없음 — 보수적으로 피부 유지
+        return "jeans", True      # 상반신/판단 불가 — 기본 청바지
+
+    if attrs.get("top_garment") == "dress":
+        return "dress", False
+
+    if "bottom_garment" in attrs.coerced or "bottom_garment" in attrs.missing:
+        cover = observed.cover
+        if cover is not None and cover.bottom_len == "long":
+            return "jeans" if denim_like(observed.bottom.rgb) else "pants", False
+        if cover is not None and cover.bottom_len == "short":
+            return "shorts", False
+        return _fallback()
+
+    value = attrs.get("bottom_garment")
+    if value == "none":
+        return _fallback()
+    if value == "skirt":
+        return "skirt", False
+    return value, False
 
 
 def resolve_bottom(attrs: Attributes, observed: ObservedColors) -> str:
@@ -385,10 +416,66 @@ def _render_cuffs(canvas: SkinCanvas, colors: dict[str, Color], attrs: Attribute
                 canvas.put(part, face_name, u, min(row, f.h - 1), shade(colors["inner"], FACE_SHADE[face_name]), 0)
 
 
-def render_legs(canvas: SkinCanvas, colors: dict[str, Color], attrs: Attributes, bottom_garment: str | None = None, *, shoe_two_tone: bool = True) -> None:
+def render_legs(canvas: SkinCanvas, colors: dict[str, Color], attrs: Attributes, bottom_garment: str | None = None, *, shoe_two_tone: bool = True,
+                skirt_rows: int | None = None, pattern: str | None = None, alt: Color | None = None) -> None:
+    """다리 레이어. jeans/pants/shorts/none 은 기존 경로 그대로 (2026-10-28).
+
+    - dress: 0-8행을 드레스 천으로 연속 채움 (패턴은 몸통에서 이어짐).
+    - skirt: 측정된 밑단(skirt_rows)까지만 치마색, 그 아래는 맨다리.
+    """
     bottom_garment = bottom_garment or attrs.get("bottom_garment")
-    pants_end, shoe_start = BOTTOM_ROWS.get(bottom_garment, (11, 9))
     pants_c = colors["bottom"]
+
+    def shoe_color(face_name: str, v: int, fh: int) -> Color:
+        c = shade(colors["shoe"], FACE_SHADE[face_name])
+        if shoe_two_tone:
+            # 2톤 신발 (폴리시 C): 바닥 행은 어둡게, 나머지는 밝게.
+            return shade(c, 0.62) if v == fh - 1 else shade(c, 1.35)
+        return c
+
+    if bottom_garment == "dress":
+        for part in ("r_leg", "l_leg"):
+            for face_name in canvas.layout.part(part, 0).faces:
+                f = canvas.layout.face(part, face_name, 0)
+                if f.h < 12:
+                    _shaded_face(canvas, part, face_name, pants_c, 0)
+                    continue
+                for v in range(f.h):
+                    if v >= 9:
+                        for u in range(f.w):
+                            canvas.put(part, face_name, u, v, shoe_color(face_name, v, f.h), 0)
+                        continue
+                    for u in range(f.w):
+                        c = _pattern_color(
+                            pants_c, alt, u, v + 12, f.w, f.h, pattern or "plain", face_name
+                        )
+                        if v == 8:  # 밑단 그림자
+                            c = shade(c, 0.82)
+                        canvas.put(part, face_name, u, v, c, 0)
+        return
+
+    if bottom_garment == "skirt":
+        rows = max(1, min(9, skirt_rows if skirt_rows is not None else DEFAULT_SKIRT_ROWS))
+        for part in ("r_leg", "l_leg"):
+            for face_name in canvas.layout.part(part, 0).faces:
+                f = canvas.layout.face(part, face_name, 0)
+                if f.h < 12:
+                    _shaded_face(canvas, part, face_name, pants_c, 0)
+                    continue
+                for v in range(f.h):
+                    if v >= 9:
+                        c = shoe_color(face_name, v, f.h)
+                    elif v < rows:
+                        c = shade(pants_c, FACE_SHADE[face_name])
+                        if v == rows - 1:  # 밑단 그림자
+                            c = shade(pants_c, 0.82)
+                    else:
+                        c = shade(colors["skin"], FACE_SHADE[face_name])
+                    for u in range(f.w):
+                        canvas.put(part, face_name, u, v, c, 0)
+        return
+
+    pants_end, shoe_start = BOTTOM_ROWS.get(bottom_garment, (11, 9))
     for part in ("r_leg", "l_leg"):
         for face_name in canvas.layout.part(part, 0).faces:
             f = canvas.layout.face(part, face_name, 0)
@@ -397,12 +484,7 @@ def render_legs(canvas: SkinCanvas, colors: dict[str, Color], attrs: Attributes,
                 continue
             for v in range(f.h):
                 if v >= shoe_start:
-                    if shoe_two_tone:
-                        # 2톤 신발 (폴리시 C): 바닥 행은 어둡게, 나머지는 밝게.
-                        c = shade(colors["shoe"], FACE_SHADE[face_name])
-                        c = shade(c, 0.62) if v == f.h - 1 else shade(c, 1.35)
-                    else:
-                        c = shade(colors["shoe"], FACE_SHADE[face_name])
+                    c = shoe_color(face_name, v, f.h)
                 elif v <= pants_end:
                     c = shade(pants_c, FACE_SHADE[face_name])
                 else:
@@ -563,13 +645,31 @@ def render(
         # 하체 미관측 jeans 기본: 관측 '하의' 샘플은 오탐(셔츠 꼬리 등)이므로
         # 측정색 대신 클래식 데님 청색을 쓴다 (사용자 결정 2026-10-13).
         colors["bottom"] = rgba(DEFAULT_JEANS)
+    elif resolved_bottom == "dress":
+        # 원피스: Dress(7) 마스크 색 > 하의 측정색 > 상의(드레스) 색.
+        sample = _pick_color_sample(
+            (observed.dress_sample, observed.bottom), observed.bottom_plausible
+        )
+        colors["bottom"] = _hex_or(sample.hex, DEFAULT_BOTTOM) if sample is not None else colors["top"]
+    elif resolved_bottom == "skirt":
+        # 치마: Skirt(5) 마스크 색 우선 — 바지 클래스가 맨다리를 덮어도
+        # 하의색이 피부색으로 오염되지 않는다 (image405 2026-10-28).
+        sample = _pick_color_sample(
+            (observed.skirt_sample, observed.dress_sample, observed.bottom),
+            observed.bottom_plausible,
+        )
+        if sample is not None:
+            colors["bottom"] = _hex_or(sample.hex, DEFAULT_BOTTOM)
     pattern = effective_pattern(attrs.get("pattern"), observed, attrs, tuple(degrade))
     # 측정 2색(줄무늬)이 있을 때만 실측 보조색. 없으면 합성 음영.
     alt = colors["top_alt"] if not observed.top_alt.missing and pattern in ("vertical_stripe", "horizontal_stripe") else None
     render_head(canvas, colors, attrs, observed.hair_stencil)
     render_body(canvas, colors, attrs, pattern, alt, observed.hair_stencil)
     render_arms(canvas, colors, attrs, pattern, resolve_sleeve(attrs, observed))
-    render_legs(canvas, colors, attrs, resolved_bottom, shoe_two_tone=shoe_two_tone)
+    render_legs(
+        canvas, colors, attrs, resolved_bottom, shoe_two_tone=shoe_two_tone,
+        skirt_rows=observed.skirt_hem_rows, pattern=pattern, alt=alt,
+    )
     if observed.hair_overlay:
         stencil = observed.hair_stencil
         if stencil is None:

@@ -88,6 +88,19 @@ class PhotoInput:
 
 _UNMEASURED = Quality(0.0, 0, 0.0, 0.0, 0.0, False)
 
+# 얼굴 높이 / 이미지 높이. 이보다 작으면 전신으로 본다 (classify.framing 과 공유).
+FULLBODY_MAX_RATIO = 0.12
+
+
+def is_fullbody(photo: PhotoInput) -> bool:
+    """전신 구도인가. 프레임 판정과 하체 미관측 폴백이 같은 기준을 쓴다."""
+    if photo.face is None:
+        return False
+    img_h = photo.image.size[1]
+    if img_h <= 0:
+        return False
+    return photo.face.h / img_h < FULLBODY_MAX_RATIO
+
 
 def yunet_path() -> Path:
     return Path(os.environ.get("SKINMAKER_YUNET") or (ASSET_DIR / YUNET_FILE))

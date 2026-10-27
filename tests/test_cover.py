@@ -156,7 +156,8 @@ def test_resolve_vlm_wins_over_cover():
     assert R.resolve_bottom(attrs, obs) == "jeans"
 
 
-def test_resolve_no_cover_falls_back_to_default():
+def test_resolve_no_cover_falls_back_to_jeans_default():
+    """하체 증거도 cover 도 없으면 jeans 기본 (2026-10-28 정책)."""
     obs = _obs_with_cover(None, None)
     assert R.resolve_sleeve(A.EMPTY, obs) == A.DEFAULTS["sleeve_len"]
-    assert R.resolve_bottom(A.EMPTY, obs) == A.DEFAULTS["bottom_garment"]
+    assert R.resolve_bottom(A.EMPTY, obs) == "jeans"

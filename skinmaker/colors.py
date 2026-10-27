@@ -12,7 +12,7 @@ import cv2
 import numpy as np
 from PIL import Image
 
-from .quality import FaceBox, PhotoInput, clip_to, hair_region, skin_region, shirt_bands
+from .quality import FaceBox, PhotoInput, clip_to, hair_region, is_fullbody, shirt_bands, skin_region
 from . import hairstencil as HS
 from . import parsing
 
@@ -226,6 +226,13 @@ class ObservedColors:
     inner: ColorSample = MISSING  # 안쪽 옷(칼라) 표본
     tie: ColorSample = MISSING  # 타이 표본 (안쪽 옷과 구분될 때만)
     hair_overlay: bool = True  # L2(오버레이) 헤어 장식 — 요청 스위치 (2026-10-21)
+    # 하체 증거 (2026-10-28): VLM bottom 이 비었을 때 jeans/맨다리/측정바지를 가른다.
+    lower_body_clothed: bool | None = None  # 파서가 Skirt/Pants/Dress 를 봤는가
+    lower_body_bare: bool | None = None     # 파서가 맨다리(12/13)를 봤는가
+    fullbody: bool | None = None            # 얼굴 비율 기준 전신 구도 (quality.is_fullbody)
+    skirt_hem_rows: int | None = None       # 사진 치마 밑단 → 다리 행(0-8), 없으면 None
+    skirt_sample: ColorSample = MISSING      # Skirt(5) 마스크 색 — 치마 전용 (2026-10-28)
+    dress_sample: ColorSample = MISSING      # Dress(7) 마스크 색 — 원피스 전용
 
     @property
     def top_confident(self) -> bool:
@@ -527,15 +534,28 @@ def extract(
     # bottom_plausible은 아래 공통 경로로 일관 재계산된다.
     shoe = MISSING
     lower_body_seen = None  # 파서 꺼짐/실패 → 판단 불가 (jeans 기본 미적용)
+    lower_body_clothed = None
+    lower_body_bare = None
+    skirt_hem_rows = None
+    skirt_sample = MISSING
+    dress_sample = MISSING
     if parsing.parsing_on():
         seg = seg if seg is not None else parsing.bottom_mask(photo.image)
         if seg is not None:
-            # 하체 관측 신호 (사용자 룰 2026-10-13): 하의(Pants/Skirt)나 맨다리
-            # 피부 픽셀이 하나라도 있으면 하체가 프레임에 있다.
-            lower_body_seen = bool(
-                np.isin(seg, parsing.BOTTOM_CLASSES).any()
-                or np.isin(seg, parsing.BARE_LEGS).any()
-            )
+            # 하체 관측 신호 (사용자 룰 2026-10-13): 옷(Skirt/Pants/Dress)과
+            # 맨다리 피부를 분리해 기록한다 — VLM bottom 결측 폴백의 입력.
+            lower_body_clothed = bool(np.isin(seg, parsing.CLOTHED_CLASSES).any())
+            lower_body_bare = bool(np.isin(seg, parsing.BARE_LEGS).any())
+            lower_body_seen = lower_body_clothed or lower_body_bare
+            skirt_hem_rows = parsing.skirt_hem_rows(seg, photo.face)
+            # 치마/드레스는 전용 마스크 색을 쓴다 — 바지 클래스가 맨다리를
+            # 덮는 사진(image405)에서 하의색이 피부색으로 오염되는 것을 막는다.
+            skirt_mask = seg == parsing.SKIRT
+            if skirt_mask.any():
+                skirt_sample = dominant_color(rgb[skirt_mask], bins=bins)
+            dress_mask = seg == parsing.DRESS
+            if dress_mask.any():
+                dress_sample = dominant_color(rgb[dress_mask], bins=bins)
             cls_mask = np.isin(seg, parsing.BOTTOM_CLASSES)
             if cls_mask.any():
                 # SKIN_REF 앵커 WB는 따뜻한 피부를 중립으로 밀며 옅은 노랑까지
@@ -597,6 +617,12 @@ def extract(
         bottom_plausible=_bottom_plausible(bottom, parsing_bg, parsing_bg_luma),
         shoe=shoe,
         lower_body_seen=lower_body_seen,
+        lower_body_clothed=lower_body_clothed,
+        lower_body_bare=lower_body_bare,
+        fullbody=is_fullbody(photo),
+        skirt_hem_rows=skirt_hem_rows,
+        skirt_sample=skirt_sample,
+        dress_sample=dress_sample,
         hair_stencil=(
             HS.mask_stencil(seg, photo.face, photo.image.size, symmetry=hair_symmetry)
             if seg is not None and hair_source == "mask" else None

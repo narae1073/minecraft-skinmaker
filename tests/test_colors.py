@@ -755,3 +755,56 @@ def test_harness_black_slight_blue_cast_stays_dark():
     # 게이트를 내리는 것의 인하 한계: luma < 25 인 검정·청조는 dark 유지
     # (images2 실측 #0d171a, luma 21).
     assert _cat("#0d171a") == "dark"
+
+
+# --- 하체 증거 플래그 (2026-10-28) -----------------------------------------
+
+def test_extract_lower_body_clothed_bare_flags(monkeypatch):
+    """clothed(5/6/7)와 bare(12/13)를 구분한다 — null bottom 폴백의 입력."""
+    import numpy as np
+    from skinmaker import parsing as P
+
+    monkeypatch.setenv(P.PARSING_ENV, "1")
+    photo = _bust_photo()
+    seg = np.zeros((512, 512), np.uint8)
+
+    seg[390:500, 200:300] = P.PANTS
+    monkeypatch.setattr(P, "bottom_mask", lambda im: seg)
+    o = C.extract(photo)
+    assert o.lower_body_clothed is True and o.lower_body_bare is False
+    assert o.lower_body_seen is True and o.fullbody is False
+
+    seg[:] = 0
+    seg[390:500, 200:300] = P.SKIRT
+    assert C.extract(photo).lower_body_clothed is True
+
+    seg[:] = 0
+    seg[390:500, 200:300] = 12
+    o = C.extract(photo)
+    assert o.lower_body_clothed is False and o.lower_body_bare is True
+
+
+def test_extract_fullbody_flag_from_face_ratio():
+    import numpy as np
+    from skinmaker import parsing as P
+
+    img = Image.new("RGB", (512, 512), (180, 150, 140))
+    face = Q.FaceBox(240, 100, 24, 30)  # 30/512 < 0.12 → fullbody
+    photo = Q.PhotoInput("t.jpg", img, face, Q.Quality(0.9, face.area, 120.0, 400.0, 110.0, True), ())
+    assert C.extract(photo).fullbody is True
+
+    bust = _bust_photo()  # 191/512 → portrait
+    assert C.extract(bust).fullbody is False
+
+
+def test_extract_skirt_hem_rows_from_mask(monkeypatch):
+    import numpy as np
+    from skinmaker import parsing as P
+
+    monkeypatch.setenv(P.PARSING_ENV, "1")
+    photo = _bust_photo()  # face.bottom = 389
+    seg = np.zeros((512, 512), np.uint8)
+    seg[390:500, 200:300] = P.PANTS
+    seg[390:420, 200:300] = P.SKIRT
+    monkeypatch.setattr(P, "bottom_mask", lambda im: seg)
+    assert C.extract(photo).skirt_hem_rows == 3

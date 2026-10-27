@@ -167,3 +167,13 @@ S0 quality/face detection (YuNet) → S1 colour measurement (white-balance + ban
 - QA 도구: `skinmaker/qarender.py` (+`frontend/qa/render.{html,js}`) — 헤드리스 Chrome 으로 약한 원근(fov 12°, 거리 24) front-right(+24° yaw/+30° pitch)와 back-right(+204°/+30°)를 렌더해 `front_right.png`, `back_right.png`, `contact_sheet.png`, `render.json` 을 쓴다. 사용법/카메라 계약은 `docs/qa-render.md`. 로컬 바이너리 스모크 테스트는 CI 에서 skip.
 - 서브에이전트 시각 QA: 위 두 이미지로 1회전 — PASS. 보고서는 "L2 실루엣은 여전히 solid"라고 관찰했는데, 이는 L2 틈으로 같은 색의 L1 이 보이기 때문이고 텍스처 수준에서는 L2 137 vs L1 736 불투명 픽셀(약 19%)이다. 지적된 것은 기존 렌더러의 sub-pixel AA 이음새뿐이며 헤어 레이어 결함은 없다고 판정했다.
 - A/B: 같은 사진/시나리오에서 수정 전에는 머리 전체가 단색 셸(정면 이목구비만 노출), 수정 후에는 정수리 볼륨 + 불규칙 끝단/가닥이 보이고 L1 이 아래에서 비친다. 골든 해시 재기록(2026-10-27). 검증: `pytest -q` → 539 passed(로컬, 브라우저 스모크 포함), `npm run lint`/`npm run build` green, `git diff --check` clean. 이 브랜치는 PR #19–#21 병합 후 `master` 기준이며 539 passed.
+
+- 2026-10-28: 하체 생성 정책 개편(jeans 기본·드레스·치마 밑단) + 배치 QA 도구.
+  - 원인: 상반신 jeans 기본은 있었지만 (a) VLM bottom 결측 시 파서가 '하체 옷'과 '맨다리'를 구분하지 못해 `lower_body_seen=True` 하나로 뭉뚱그렸고, (b) `top_garment=dress` 는 명시적 가드로 `none`(맨다리), (c) 치마는 `BOTTOM_ROWS["skirt"]=(1,9)` 고정 1행이었다.
+  - 증거/정책: `ObservedColors` 에 `lower_body_clothed`(5/6/7), `lower_body_bare`(12/13), `fullbody`(`quality.is_fullbody`), `skirt_hem_rows`, `skirt_sample`(5), `dress_sample`(7) 추가. `resolve_bottom_ex`: dress→`dress`(전체 다리), bottom 결측/빈값/null/none → clothed면 측정 바지, bare면 맨다리(D3 유지), 상반신/판단불가면 **jeans 기본**, fullbody+판단불가면 `none`. skirt→측정 hem, 유효 skirt/jeans/pants/shorts는 그대로.
+  - 렌더: dress 는 0-8행을 드레스 색/패턴(몸통에서 v+12 연속)으로 채우고 hem 음영; skirt 는 측정 hem까지 치마색(마스크 색 우선)+hem 음영, 그 아래 피부; jeans/pants/shorts 경로 불변. hem 은 신발 시작선으로 정규화(발끝 기준이면 미디가 허벅지로 잘림)하고 skirt 픽셀이 옷의 20% 미만이면 옷 전체(Pants/Dress 오분류) 밑단을 쓴다.
+  - 배치 도구: `skinmaker/batch.py` — 재귀 수집, resume, `--single`, `--replay`(저장된 VLM JSON 재처리, API 0회), `--render`, `result.json`/manifest/`qa_selection.json`, `compare.png`([원본|front|back]). 사용법은 `docs/qa-render.md` 확장.
+  - Curated QA(37장 = 25 skirt + fixed10 + extras, Gemini 3.1 double): 33 ok / 4 no-face. 서브에이전트 3청크: upper-body jeans PASS, skirt 커버리지 PASS. 1차에서 미디 3장(401/404/419)이 짧게 렌더 → 신발선 정규화 후 5장 재검 **HEMS PASS**. dress 실사진 쌍은 없음(VLM이 dress 로 분류한 사진 0) — dress 는 unit/API 테스트로 고정.
+  - General accuracy: 서브에이전트 FAIL — whites/creams 회색화, 피부 톤 어둡게, floral/plaid 소실·오배치(image413/421). 이는 하체 정책이 아니라 기존 색 측정/패턴 스키마(패턴 필드 1개)의 한계다. 후속 과제로 남긴다.
+  - Full validation(277장 single query): Gemini 3.1 quota 429, 3.5-flash-lite 도 동일 quota → 부분 결과만. 키/quota 확보 후 `skinmaker.batch --single` 재실행 필요. (release `.env` 키는 환경변수로만 사용, 출력/커밋 없음.)
+  - 검증: `pytest -q` → **567 passed**(3:22, 로컬). 프론트 변경 없음. 테스트: resolver/evidence/hem/render/batch/backend 계약.
