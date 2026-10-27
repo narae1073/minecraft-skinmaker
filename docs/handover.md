@@ -15,8 +15,11 @@ S0 quality/face detection (YuNet) → S1 colour measurement (white-balance + ban
 - Deployment: **live** at `https://skin.achijaser.date` (public, no auth). Production runs from the **release clone** `/home/achi/Programming/skinmaker-release` (systemd `skinmaker`); dev checkouts are the DSH checkout and the Codex clone. Tunnel `skinmaker` UUID `866fd5b7-5046-4fd7-80a1-2f7b0ae30502`; `cloudflared-skinmaker` and `skinmaker-cleanup.timer` active + enabled.
 - CI/CD: self-hosted runner `skinmaker-home` (label `skinmaker-deploy`) runs `.github/workflows/deploy.yml` on every merge to `master`; auto-merge is enabled after 1 approval (`gh pr merge --auto --rebase`).
 - Codex devbox: Docker container `skinmaker-codex`, SSH on tailnet `100.110.156.108:2222`, separate workspace `/home/achi/Programming/skinmaker-codex`; verified 513 tests + app health. The GUI's remote-project mode requires the remote CLI, so the host runs with `INSTALL_CODEX=1` (`codex-cli 0.164.0`); auth is pending. Partner key/Tailscale invite and the GUI connection are pending user actions.
-- 2026-10-27: 메인 화면 `<h1>` 은 `마인크래프트 스킨 메이커` (PR #13 에서 `환영합니다!` 로 바꿨다가 이후 커밋에서 대체됨). 로컬 프리뷰는 이 체크아웃에서 `set -a; . ./.env; set +a; .venv/bin/python -m uvicorn backend.app:app --host 0.0.0.0 --port 8002` (8001 은 프로덕션 릴리스 클론) 또는 `cd frontend && npm run dev -- --host` (5173, ufw 허용됨). 백엔드는 `.env` 를 스스로 읽지 않으므로 `set -a` 로 감싸야 mock 전송 계층이 적용된다.
+- 2026-10-27: 메인 화면 `<h1>` 은 `마인크래프트 스킨 메이커` (PR #13 에서 `환영합니다!` 로 바꿨다가 이후 커밋에서 대체됨). 로컬 프리뷰는 `uvicorn` 이 저장소 루트 `.env` 를 자동으로 읽으므로(실제 환경변수 우선, pytest 제외) `set -a` 없이 `.venv/bin/python -m uvicorn backend.app:app --host 0.0.0.0 --port 8002` (8001 은 프로덕션 릴리스 클론) 또는 `cd frontend && npm run dev -- --host` (5173, ufw 허용됨).
 - 2026-10-27: `SKINMAKER_TRANSPORT=mock` 만으로 로컬 생성이 끝까지 동작하도록 mock 기본 시나리오 추가 (PR #18, `skinmaker/vlm/mock.py` 의 `DEFAULT_SCENARIO` + `get_transport()` 주입; 테스트 주입 경로는 불변).
+- 2026-10-27: 요청 경로 견고성 (PR #19) — `TransportError`(키 누락)를 500 대신 503 `ai_unavailable` 로 구조화, health 는 네트워크 프로브 없이 `configured()` 만 사용, RateLimiter 가 창당 1회 sweep 으로 만료 키 제거, YuNet 안내 메시지의 `None`/mkdir 부작용 제거, `measure` 독스트링 오타 수정.
+- 2026-10-27: `.env` 자동 로드 + `frontend/dist` 상시 마운트 (PR #20) — `python-dotenv` 명시 의존성, 빌드 전에는 404·빌드 후 재시작 없이 서빙. `:8765` 수동 스모크에서 `set -a` 없이 health mock + 생성 200.
+- 2026-10-27: 웹 slim 체형 (PR #21) — `skin_model=classic|slim` 폼/응답, `build`·`steps_sheets`·3D 뷰어 지오메트리 배선, UI 선택. 잘못된 값은 400 `bad_model`. 포즈는 계속 휴면.
 - Git: `master` has hygiene (PR #1), CI/agent workflow (PR #2), deployment hardening (PR #3), live docs (PR #4), Windows support (PR #5), Windows docs (PR #6), devbox (PR #7), no-CLI cleanup (PR #8), Codex CLI enabled (PR #9), persistent SSH host keys (PR #10), workspace move (PR #11), and auto-deploy (PR #12). Branch protection requires `test`, `test-windows`, `web`, 1 approval, linear history; admins can bypass for ops. `opencode.jsonc` is deleted and gitignored by the user.
 
 ## 3. Repo hygiene that landed (PR #1)
@@ -113,6 +116,8 @@ S0 quality/face detection (YuNet) → S1 colour measurement (white-balance + ban
 - This document: `docs/handover.md`
 
 ## 12. Session update (2026-10-27)
+
+- 2026-10-27 (seven-issue cleanup, PR #19–#21): combined integration branch (PR #19 + #20 + #21) `pytest -q` → **534 passed in 191.52s**; `npm run lint` exit 0 and `npm run build` green (existing chunk warning). Manual uvicorn on `127.0.0.1:8766` with `SKINMAKER_TRANSPORT`/`SKINMAKER_PARSING` unset (no `set -a`) returned health `{"status":"ok","transport":"mock (오프라인)"}` and a slim generation HTTP 200 (`skin_model=slim`; 0 slim validation problems, 41 classic problems proving the 3px geometry). Risks: slim viewer mesh dimensions have no browser/phone visual check in this container; `/health` now reports configuration, not upstream reachability; merge order 19 → 20 → 21 expected, with handover updated in #21 after a combined run.
 
 - PR #17 follow-up: explicitly center camera/conversion button text horizontally and vertically at widths ≤720px using flex alignment and centered multiline text. Reduce horizontal padding and allow long words to wrap so labels fit narrow panels. Frontend lint/build and whitespace check validate the change; phone visual check remains manual.
 
