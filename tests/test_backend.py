@@ -1,4 +1,5 @@
 """backend API 계약 (네트워크 없음. transport는 mock으로 주입)."""
+import os
 import sys
 from pathlib import Path
 
@@ -90,6 +91,54 @@ def test_env_mock_transport_generates_with_default_scenario(monkeypatch):
     body = r.json()
     assert body["status"] == "success"
     assert body["data"]["skins"]
+
+
+def test_env_file_loader_sets_missing_values_without_overriding(tmp_path, monkeypatch):
+    env = tmp_path / ".env"
+    env.write_text("SKINMAKER_TEST_ALPHA=alpha\nSKINMAKER_TEST_BETA=from-file\n", encoding="utf-8")
+    monkeypatch.delenv("SKINMAKER_TEST_ALPHA", raising=False)
+    monkeypatch.setenv("SKINMAKER_TEST_BETA", "from-env")
+    try:
+        assert A.load_env_file(env, enabled=True) is True
+        assert os.environ["SKINMAKER_TEST_ALPHA"] == "alpha"
+        assert os.environ["SKINMAKER_TEST_BETA"] == "from-env"
+    finally:
+        os.environ.pop("SKINMAKER_TEST_ALPHA", None)
+        os.environ.pop("SKINMAKER_TEST_BETA", None)
+
+
+def test_env_file_loader_is_noop_when_disabled(tmp_path):
+    env = tmp_path / ".env"
+    env.write_text("SKINMAKER_TEST_GAMMA=gamma\n", encoding="utf-8")
+    assert A.load_env_file(env, enabled=False) is False
+    assert "SKINMAKER_TEST_GAMMA" not in os.environ
+
+
+def test_env_file_loader_skips_under_pytest(tmp_path):
+    """개발자 .env 가 테스트 환경을 바꾸지 않는다 — 스위트는 hermetic 해야 한다."""
+    env = tmp_path / ".env"
+    env.write_text("SKINMAKER_TEST_DELTA=delta\n", encoding="utf-8")
+    assert A.load_env_file(env) is False
+    assert "SKINMAKER_TEST_DELTA" not in os.environ
+
+
+def test_mount_frontend_creates_dist_and_registers_mount(tmp_path):
+    """dist 가 아직 없어도 앱은 뜨고, 나중 빌드가 재시작 없이 서빙된다."""
+    from fastapi import FastAPI
+    from starlette.routing import Mount
+
+    dist = tmp_path / "dist"
+    app = FastAPI()
+    A.mount_frontend(app, dist)
+    assert dist.is_dir()
+    assert any(isinstance(route, Mount) and route.name == "frontend" for route in app.routes)
+
+
+def test_app_always_mounts_frontend():
+    from starlette.routing import Mount
+
+    assert A.FRONTEND_DIST.is_dir()
+    assert any(isinstance(route, Mount) and route.name == "frontend" for route in A.app.routes)
 
 
 def test_generate_returns_three_urls():
