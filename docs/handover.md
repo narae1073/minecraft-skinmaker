@@ -113,6 +113,33 @@ S0 quality/face detection (YuNet) → S1 colour measurement (white-balance + ban
 
 ## 12. Session update (2026-10-27)
 
+- Made setting labels bold to distinguish control names from help text; inline checkbox help remains normal weight, as do detailed `.config-help` paragraphs. Validation: frontend lint/build.
+
+- Refined upload-panel alignment with shared CSS subgrid rows: camera guidance and file-picker controls center vertically in the same top row, while both action buttons stretch across the same bottom row. Replaces independent flex layouts so wrapped camera guidance cannot shift one button independently. Validation: frontend lint/build and whitespace check.
+
+- Aligned camera/conversion action buttons at the bottom of their equal-height upload panels and added “PC 웹캠 또는 모바일 카메라로 촬영할 수 있어요.” above the camera button. Both buttons share a minimum height (48px desktop / 72px narrow layouts). Verification: frontend lint/build and whitespace check.
+
+- Corrected file-picker centering: replaced visible native file input (with browser-dependent trailing space) with a centered button/filename group backed by a hidden native input. Long names truncate inside the panel; the full filename and thumbnail remain below. Frontend lint/build validation recorded with this change.
+
+- Added `SelectedPhoto.jsx` to display a 56×56, uncropped original-photo thumbnail immediately left of the selected filename. Works with file picker and camera photos using local object URLs; URLs are revoked on replacement/unmount. Frontend lint/build passed (existing bundle warning); browser visual check remains manual.
+
+- Added `SkinPreview.jsx`: successful generation opens a native modal with a rotatable 3D result, candidate selector when multiple skins exist, explicit PNG download link, and a no-download close action. Escape closes; results/history remain available, with a reopen button. Underlying result viewers mount after the preview closes to avoid duplicate active 3D canvases. Shared generation flow also covers camera photos. Frontend lint/build passed; physical/browser interaction has not been exercised here.
+
+- Reworded four generation settings with visible, `aria-describedby`-linked Korean help: 노이즈 강도 → 픽셀 질감, 머리 형태 → 헤어스타일 표현, 머리 대칭 → 머리 좌우 모양, L2 머리 → 머리카락 볼륨. Simplified option labels, documented mask fallback and symmetry applicability, and allowed controls to wrap on narrow screens. Behavior/defaults/API values remain unchanged. Verified descriptions against `render.py` and `hairstencil.py`; frontend lint/build passed (existing chunk warning).
+
+- Added a mobile-access QR/link beside the title using locally rendered `qrcode.react` SVG with a four-module margin. User chose the production site as destination. URL baseline A: no QR. B: Vite development or loopback host → `https://skin.achijaser.date`; deployed non-loopback host → `window.location.origin`, refreshed on page load so scheme/hostname/port changes are reflected without rebuilding. Development localhost URLs are never encoded. This does not establish network reachability for arbitrary hosts.
+- QR verification: `npm run lint`, `npm run build`, and `git diff --check` passed; real phone scanning has not been exercised. `npm audit --omit=dev --json` reports zero vulnerabilities; full audit reports one high-severity advisory in existing dev-only `zod` (unrelated to the added QR dependency). Existing bundle-size warning remains.
+
+- Centered the file picker horizontally within the right upload panel using intrinsic width and `align-self: center`, retaining the panel-width cap.
+
+- Desktop camera support: `CameraCapture.jsx` opens a native modal dialog, requests video only, shows webcam preview, and captures a JPEG into the existing selected-file state. Mobile keeps the native capture input. Closing/capturing/unmounting releases camera tracks, including late permission responses; denied permissions/missing devices show a file-selection fallback.
+- Webcam verification: frontend lint/build and `git diff --check` passed (existing chunk-size warning). Physical camera capture and browser permission UI have not been exercised in this remote container. Webcam requires HTTPS or localhost; test using Chrome on the user's PC, allow camera, capture, then convert. Also check deny permission, close/Escape, and mobile native capture.
+
+- Follow-up upload layout: split the upload controls into two equal-width dashed panels, camera on the left and file picker plus conversion button on the right. Selected filename remains below both panels.
+
+- Added “카메라로 사진 찍어 업로드” immediately left of the conversion button, with equal-width action buttons. A separate hidden image input requests the rear camera (`capture="environment"`) on supporting mobile browsers and feeds the existing file selection/upload flow. The selected filename is shown for both upload sources; conversion remains a separate user action.
+- Camera button verification: `cd frontend && npm run lint` and `npm run build` passed; `git diff --check` passed. Existing large-chunk build warning remains. Physical mobile camera behavior has not been verified and depends on browser support (desktop falls back to file selection).
+
 - Updated the main webpage heading in `frontend/src/App.jsx` to “마인크래프트 스킨 메이커”. Replaced the current “환영합니다!” heading with the requested title after rebasing on the latest `origin/master`.
 - Verification: `cd frontend && npm run lint` passed; `cd frontend && npm run build` passed (Vite emitted the existing large-chunk warning).
 - Risk: none identified; frontend build output remains generated and gitignored.
