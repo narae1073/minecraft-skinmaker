@@ -64,6 +64,7 @@ load_env_file()
 
 TRANSPORT_ENV = "SKINMAKER_TRANSPORT"
 MODEL_ENV = "SKINMAKER_MODEL"
+SKIN_MODELS = ("classic", "slim")
 
 
 def make_transport():
@@ -85,6 +86,16 @@ def classify_error_status(message: str) -> tuple[int, str, str]:
     return 502, "classify_failed", f"분류 실패: {message[:200]}"
 
 
+def resolve_skin_model(value: str | None) -> str:
+    """스킨 체형 (classic 4px 팔 / slim 3px 팔). 부재=classic, 모르는 값=400."""
+    if value is None:
+        return "classic"
+    v = str(value).strip().lower()
+    if v not in SKIN_MODELS:
+        fail(400, "bad_model", f"skin_model 값은 {SKIN_MODELS} 중 하나여야 해요: {value!r}")
+    return v
+
+
 app = FastAPI(title="skinmaker")
 _rate_limiter = RateLimiter()
 
@@ -101,7 +112,7 @@ def health():
 @app.post("/api/v1/generate-skin")
 async def generate_skin(request: Request, file: UploadFile = File(...), noise_level: str = Form(None), steps: str = Form(None),
                         hair_source: str = Form(None), hair_symmetry: str = Form(None),
-                        hair_overlay: str = Form(None)):
+                        hair_overlay: str = Form(None), skin_model: str = Form(None)):
     # 공개 배포 가드 (로그인 없음): IP당 분당 요청 제한.
     if not _rate_limiter.allow(client_ip(request)):
         fail(429, "rate_limited", "요청이 너무 잦아요. 잠시 후 다시 시도해주세요.")
@@ -128,6 +139,7 @@ async def generate_skin(request: Request, file: UploadFile = File(...), noise_le
     hair_source = _hair_option(hair_source, ("mask", "rule"), "mask", "hair_source")
     hair_symmetry = _hair_option(hair_symmetry, ("symmetrized", "raw"), "symmetrized", "hair_symmetry")
     hair_overlay = _hair_option(hair_overlay, ("on", "off"), "on", "hair_overlay")
+    skin_model = resolve_skin_model(skin_model)
     # 처리 과정 시트 (설계 §12): 진위 규칙은 parsing_on 관례. 부재=생성 (기존 동작),
     # "0/false/off/no/빈값"=스킵 (설정 체크박스 기본 해제 → 웹이 명시 전송).
     want_steps = (steps is None) or (str(steps).strip().lower() not in ("0", "false", "off", "no", ""))
@@ -178,7 +190,7 @@ async def generate_skin(request: Request, file: UploadFile = File(...), noise_le
             result.attributes, values=values,
             derived=(*result.attributes.derived, "bottom_garment=jeans (하체 미관측 기본)"),
         )
-    candidates = build(observed, result, photo.degrade, noise_level=level)
+    candidates = build(observed, result, photo.degrade, model=skin_model, noise_level=level)
     if not candidates or not all(c.ok for c in candidates):
         fail(500, "render_failed", "렌더 검증 실패. 같은 사진으로 다시 시도해주세요.")
     token = uuid.uuid4().hex[:12]
@@ -190,7 +202,7 @@ async def generate_skin(request: Request, file: UploadFile = File(...), noise_le
         STEPS_DIR = ROOT / "static" / "steps"  # /static 마운트 위치와 일치 (실앱 404 수정 2026-10-13)
         STEPS_DIR.mkdir(exist_ok=True)
         clean_sheet, full_sheet = steps_sheets(
-            photo, candidates[0].image, "classic", observed, seg,
+            photo, candidates[0].image, skin_model, observed, seg,
             # 스탬프는 요청이 아니라 실제 사용 모드 — 마스크 근거 실패면 rule로 기록 (진실 규칙)
             note="hair=" + ("mask+" + hair_symmetry if observed.hair_stencil else "rule") + " overlay=" + hair_overlay,
         )
@@ -227,6 +239,7 @@ async def generate_skin(request: Request, file: UploadFile = File(...), noise_le
                 {"index": c.index, "varied": c.varied} for c in candidates
             ],
             "noise_level": level,
+            "skin_model": skin_model,
             "hair_source": hair_source,
             "hair_symmetry": hair_symmetry,
             "hair_overlay": hair_overlay,

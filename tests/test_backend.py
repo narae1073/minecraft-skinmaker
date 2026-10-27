@@ -157,6 +157,50 @@ def test_generate_returns_three_urls():
         assert (STATIC_DIR / Path(u).name).exists()
 
 
+def test_generate_defaults_to_classic_model():
+    with PHOTO.open("rb") as f:
+        r = client().post("/api/v1/generate-skin", files={"file": ("m.jpg", f, "image/jpeg")})
+    assert r.status_code == 200, r.text
+    assert r.json()["data"]["skin_model"] == "classic"
+
+
+def test_generate_slim_model_contract():
+    """skin_model=slim 은 슬림 레이아웃으로 렌더·검증되고 응답에 에코된다."""
+    from PIL import Image as PILImage
+
+    from skinmaker.validate import validate_image
+
+    with PHOTO.open("rb") as f:
+        r = client().post(
+            "/api/v1/generate-skin",
+            data={"skin_model": "slim"},
+            files={"file": ("m.jpg", f, "image/jpeg")},
+        )
+    assert r.status_code == 200, r.text
+    data = r.json()["data"]
+    assert data["skin_model"] == "slim"
+    assert data["skins"] and len(data["skins"]) == len(data["skins_flat"])
+    assert data["steps"] is not None
+    for url in data["skins"]:
+        image = PILImage.open(A.STATIC_DIR / Path(url).name).convert("RGBA")
+        assert validate_image(image, "slim") == []
+        # 3px 슬림 팔은 클래식 4px 면을 채우지 못한다 — 모델 배선 증거.
+        assert validate_image(image, "classic")
+
+
+def test_generate_rejects_bad_skin_model():
+    with PHOTO.open("rb") as f:
+        r = client().post(
+            "/api/v1/generate-skin",
+            data={"skin_model": "tiny"},
+            files={"file": ("m.jpg", f, "image/jpeg")},
+        )
+    assert r.status_code == 400
+    body = r.json()["detail"]
+    assert body["code"] == "bad_model"
+    assert "skin_model" in body["message"]
+
+
 def test_generate_returns_flat_variants():
     """Edit Skin 토글 재료 (설계 §5): skins_flat이 skins와 같은 순서·길이,
     디스크에 실재하고, ON 파일과 신발 행 밖 픽셀이 동일하다."""
