@@ -67,6 +67,12 @@ h1 {
 
 .mobile-site-qr:focus-visible { outline: 3px solid #2563eb; outline-offset: 3px; }
 
+@media (max-width: 720px) {
+  .mobile-site-qr { display: none; }
+  .upload-panel .file-picker { flex-direction: column; }
+  .upload-panel .file-picker-name { max-width: 100%; }
+}
+
 .upload-section {
   margin: 20px 0;
   display: grid;
