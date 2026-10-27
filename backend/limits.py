@@ -44,13 +44,33 @@ class RateLimiter:
         self.limit = rate_limit_per_min() if limit is None else max(0, int(limit))
         self.window = window
         self._hits: dict[str, deque[float]] = defaultdict(deque)
+        self._next_sweep = 0.0
         self._lock = Lock()
+
+    @property
+    def tracked_keys(self) -> int:
+        """관측/테스트용: 현재 메모리에 남아 있는 키 수."""
+        with self._lock:
+            return len(self._hits)
+
+    def _sweep(self, now: float) -> None:
+        """만료된 키를 제거한다. 호출자는 반드시 self._lock 을 잡고 있어야 한다."""
+        for key in list(self._hits):
+            hits = self._hits[key]
+            while hits and now - hits[0] >= self.window:
+                hits.popleft()
+            if not hits:
+                del self._hits[key]
 
     def allow(self, key: str, now: float | None = None) -> bool:
         if self.limit <= 0:
             return True
         t = time.monotonic() if now is None else now
         with self._lock:
+            # O(keys) sweep 을 매 요청마다 하지 않는다 — 창당 한 번이면 충분하다.
+            if t >= self._next_sweep:
+                self._sweep(t)
+                self._next_sweep = t + self.window
             hits = self._hits[key]
             while hits and t - hits[0] >= self.window:
                 hits.popleft()

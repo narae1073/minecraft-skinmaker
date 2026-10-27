@@ -232,6 +232,19 @@ def test_yunet_model_loads():
     assert Q._detector() is not None
 
 
+def test_missing_yunet_message_names_path_without_creating_it(tmp_path, monkeypatch):
+    """에러 메시지가 mkdir 반환값(None)을 찍거나 디렉터리를 만들면 안 된다."""
+    missing = tmp_path / "nested" / "yunet.onnx"
+    monkeypatch.setenv("SKINMAKER_YUNET", str(missing))
+    monkeypatch.setattr(Q, "_DETECTOR", None)
+    with pytest.raises(FileNotFoundError) as excinfo:
+        Q.detect_face(solid((128, 128, 128)))
+    text = str(excinfo.value)
+    assert str(missing) in text
+    assert "None" not in text
+    assert not missing.parent.exists()
+
+
 def test_detects_real_face():
     result = Q.inspect(FIXTURES / "lena.jpg")
     assert not result.rejected

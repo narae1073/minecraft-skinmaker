@@ -18,8 +18,11 @@ class TransportError(RuntimeError):
 class Transport(Protocol):
     name: str
 
+    def configured(self) -> tuple[bool, str]:
+        """자격증명·설정이 갖춰졌는지. 네트워크를 호출하지 않는다 (health 용)."""
+
     def available(self) -> tuple[bool, str]:
-        """사용 가능한지, 아니면 왜 안 되는지."""
+        """실제로 호출 가능한지, 아니면 왜 안 되는지 (CLI 진단용 — 프로브 가능)."""
 
     def complete(self, image: Image.Image, prompt: str, schema: dict[str, Any]) -> dict | None:
         """원시 JSON 객체. 파싱 실패는 None."""

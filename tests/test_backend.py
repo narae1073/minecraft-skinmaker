@@ -7,6 +7,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from fastapi.testclient import TestClient
 
 import backend.app as A
+from skinmaker.vlm import TransportError
 from skinmaker.vlm.mock import MockTransport
 
 GOOD = {
@@ -51,6 +52,28 @@ def test_health_ok():
     r = TestClient(A.app).get("/api/v1/health")
     assert r.status_code == 200
     assert r.json()["status"] == "ok"
+
+
+def test_health_checks_configuration_without_probing(monkeypatch):
+    """health 는 살아 있음을 확인하는 경로다 — 외부 전송 계층을 호출하면 안 된다."""
+
+    class NoProbeTransport(MockTransport):
+        def available(self):
+            raise AssertionError("health must not call available()")
+
+    monkeypatch.setattr(A, "make_transport", lambda: NoProbeTransport(first=GOOD))
+    r = TestClient(A.app).get("/api/v1/health")
+    assert r.status_code == 200
+    assert r.json()["status"] == "ok"
+
+
+def test_health_reports_unconfigured_transport(monkeypatch):
+    monkeypatch.setattr(A, "make_transport", lambda: MockTransport(fail=True, error="API 키 없음"))
+    r = TestClient(A.app).get("/api/v1/health")
+    assert r.status_code == 200
+    body = r.json()
+    assert body["status"] == "unavailable"
+    assert "API 키" in body["transport"]
 
 
 def test_env_mock_transport_generates_with_default_scenario(monkeypatch):
@@ -332,6 +355,28 @@ def test_classify_failure_maps_to_502():
         r = TestClient(A.app).post("/api/v1/generate-skin", files={"file": ("m.jpg", f, "image/jpeg")})
     assert r.status_code == 502
     assert r.json()["detail"]["code"] == "classify_failed"
+
+
+class _MissingCredentialTransport:
+    """API 키 누락처럼 TransportError 를 던진다 (네트워크 없음)."""
+
+    name = "missing-credential"
+
+    def available(self):
+        return False, "API 키 없음"
+
+    def complete(self, image, prompt, schema):
+        raise TransportError("Gemini API 키가 없다")
+
+
+def test_missing_credential_maps_to_503(monkeypatch):
+    monkeypatch.setattr(A, "make_transport", lambda: _MissingCredentialTransport())
+    with PHOTO.open("rb") as f:
+        r = TestClient(A.app).post("/api/v1/generate-skin", files={"file": ("m.jpg", f, "image/jpeg")})
+    assert r.status_code == 503
+    body = r.json()["detail"]
+    assert body["code"] == "ai_unavailable"
+    assert "AI" in body["message"]
 
 
 def test_rate_limit_maps_to_503():

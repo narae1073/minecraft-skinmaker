@@ -28,6 +28,27 @@ def test_window_slides():
 def test_zero_limit_disables():
     rl = RateLimiter(limit=0)
     assert all(rl.allow("a", now=float(i)) for i in range(100))
+    assert rl.tracked_keys == 0
+
+
+def test_idle_keys_are_evicted_after_the_window():
+    """키가 무한정 쌓이지 않는다 — 창이 지난 키는 다음 sweep 에서 사라진다."""
+    rl = RateLimiter(limit=10, window=60)
+    for i in range(50):
+        assert rl.allow(f"ip-{i}", now=0.0)
+    assert rl.tracked_keys == 50
+    assert rl.allow("new", now=61.0)
+    assert rl.tracked_keys == 1
+
+
+def test_sweep_does_not_reset_active_counts():
+    """sweep 은 만료된 hit 만 지운다 — 최근 hit 의 한도 계산은 유지된다."""
+    rl = RateLimiter(limit=2, window=60)
+    assert rl.allow("a", now=0.0)
+    assert rl.allow("a", now=1.0)
+    # t=60 sweep 은 t=0 hit 만 만료시킨다. t=1 hit + 새 hit 까지 2회가 한도.
+    assert rl.allow("a", now=60.0)
+    assert not rl.allow("a", now=60.1)
 
 
 def test_env_limit_and_upload_cap(monkeypatch):

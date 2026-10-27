@@ -38,6 +38,10 @@ class OllamaTransport:
         self.session = session or requests
         self.last_error: str | None = None
 
+    def configured(self) -> tuple[bool, str]:
+        # 호스트 설정만 확인한다 — 모델 서버 도달 여부는 available() 프로브의 몫.
+        return True, f"{self.model} @ {self.host} (연결 미확인)"
+
     def available(self) -> tuple[bool, str]:
         try:
             resp = self.session.get(f"{self.host}/api/tags", timeout=3)

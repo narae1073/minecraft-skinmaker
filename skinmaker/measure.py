@@ -1,4 +1,4 @@
-"""S0 계측 도구. 폴더의 사진에拒绝율과 품질 신호 분포를 뽑는다.
+"""S0 계측 도구. 폴더 사진의 거절율과 품질 신호 분포를 뽑는다.
 
     .venv/bin/python -m skinmaker.measure path/to/photos
 """

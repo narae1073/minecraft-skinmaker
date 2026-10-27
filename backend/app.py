@@ -62,7 +62,9 @@ _rate_limiter = RateLimiter()
 @app.get("/api/v1/health")
 def health():
     transport = make_transport()
-    ok, detail = transport.available()
+    # health 는 앱 생존 확인 경로다. available() 은 OpenRouter/Ollama 에서
+    # 외부 네트워크를 타므로, 설정만 보는 configured() 를 쓴다.
+    ok, detail = transport.configured()
     return {"status": "ok" if ok else "unavailable", "transport": detail}
 
 
@@ -123,6 +125,9 @@ async def generate_skin(request: Request, file: UploadFile = File(...), noise_le
     transport = make_transport()
     result = classify(photo, transport)
     if not result.ok:
+        # 자격증명/설정 누락은 재시도로 풀리지 않는다 — 502 분류 실패와 구분한다.
+        if result.error_kind == "transport":
+            fail(503, "ai_unavailable", "AI 연결이 설정되지 않았어요. 잠시 후 다시 시도해주세요.")
         fail(*classify_error_status(result.error or ""))
     # 파서 마스크는 요청당 1회 — 색 추출과 마스크 패널이 같은 세그먼트를 공유한다 (설계 §12).
     from skinmaker import parsing as _parsing

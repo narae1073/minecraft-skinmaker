@@ -66,10 +66,13 @@ class GeminiTransport:
         self.session = session or requests
         self.last_error: str | None = None
 
-    def available(self) -> tuple[bool, str]:
+    def configured(self) -> tuple[bool, str]:
         if not self.api_key:
             return False, f"API 키 없음 ({' 또는 '.join(API_KEY_ENV)})"
         return True, f"{self.model} (키 있음)"
+
+    def available(self) -> tuple[bool, str]:
+        return self.configured()
 
     def complete(self, image: Image.Image, prompt: str, schema: dict[str, Any]) -> dict | None:
         if not self.api_key:
