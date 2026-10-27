@@ -45,7 +45,7 @@ deploy/        systemd/Cloudflare Tunnel 배포 파일 (예정)
 python3 -m venv .venv
 .venv/bin/pip install -r requirements-dev.txt
 scripts/fetch_assets.sh                 # YuNet + SCHP (66MB)
-.venv/bin/python -m pytest -q           # 513+ 테스트
+.venv/bin/python -m pytest -q           # 516 테스트
 .venv/bin/python -m skinmaker --model classic   # 더미 스킨 + 프리뷰 → out/
 ```
 
@@ -112,10 +112,10 @@ export SKINMAKER_PARSER=out/models/schp-atr-18-int8-static.onnx   # 경로 지�
 
 ## CI
 
-`.github/workflows/ci.yml` — `test`는 Python 3.12 + YuNet만 받아 513개 테스트를 돌리고, `web`은 Node 24에서 `npm ci`/lint/build를 돌립니다. 모델·사진·생성물은 캐시/다운로드 대상이며 저장소에 커밋하지 않습니다.
+`.github/workflows/ci.yml` — `test`는 Python 3.12 + YuNet만 받아 516개 테스트를 돌리고, `web`은 Node 24에서 `npm ci`/lint/build를 돌립니다. 모델·사진·생성물은 캐시/다운로드 대상이며 저장소에 커밋하지 않습니다.
 
 ## 상태
 
-S0~S4와 웹까지 동작합니다. 테스트 513개 통과. 얼굴 검출(YuNet)과 SCHP 모델은 저장소에 없고 `scripts/fetch_assets.sh`로 받습니다.
+S0~S4와 웹까지 동작합니다. 테스트 516개 통과. 얼굴 검출(YuNet)과 SCHP 모델은 저장소에 없고 `scripts/fetch_assets.sh`로 받습니다.
 
 타인 사진에는 초상권 동의가 필요합니다. 공개 데모로 배포할 경우 민감한 사진을 올리지 마세요 — 업로드 파일은 서버에 저장되며 보존 기간 후 삭제됩니다.

@@ -15,7 +15,7 @@ from skinmaker import quality as Q
 from skinmaker.vlm import get_transport
 from skinmaker.vlm.gemini import _gemini_schema
 from skinmaker.vlm.gemini import GeminiTransport
-from skinmaker.vlm.mock import MockTransport
+from skinmaker.vlm.mock import DEFAULT_SCENARIO, MockTransport
 from skinmaker.vlm.ollama import OllamaTransport
 from skinmaker.vlm.openrouter import DEFAULT_MODELS
 from skinmaker.vlm.openrouter import OpenRouterTransport
@@ -221,6 +221,14 @@ def test_registry_mock_without_scenario_uses_default():
     payload = t.complete(Image.new("RGB", (10, 10)), "p", {})
     assert payload is not None
     assert payload["top_garment"] == "tee"
+
+
+def test_default_scenario_has_no_uncertain_fields():
+    """기본 시나리오는 8필드를 모두 채운다 — 오프라인 mock 실행이 거짓 불확실성을 만들지 않는다."""
+    assert A.is_uncertain(A.validate(DEFAULT_SCENARIO)) == ()
+    result = C.classify(photo(), get_transport("mock"), double_check=True)
+    assert result.ok
+    assert result.uncertain == ()
 
 
 def test_gemini_requires_api_key(monkeypatch):
