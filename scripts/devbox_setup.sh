@@ -62,6 +62,10 @@ else
   echo "warning: no --key yet; add one with --key before SSH will work" >&2
 fi
 
+# The GUI needs the private key on the user's computer, not the .pub file that
+# was appended here. Use the same basename unless the user chose another name.
+KEY_BASENAME="$(basename "${KEY_FILE:-id_ed25519.pub}" .pub)"
+
 # Preserve the optional Codex helper fallback across runs.
 install_codex="$(grep '^INSTALL_CODEX=' "$ENV_FILE" 2>/dev/null | tail -n1 | cut -d= -f2- || true)"
 [ -n "$install_codex" ] || install_codex=0
@@ -101,7 +105,9 @@ Remote devbox is up.
   (MagicDNS: dev@achijaser.tail63f807.ts.net)
 
 In the Windows Codex GUI, add a remote project:
-  host ${TAILSCALE_IP}, port 2222, user dev, key ~/.ssh/skin_codex
+  host ${TAILSCALE_IP}, port 2222, user dev
+  key: the private key matching the public key you added
+       (Windows: %USERPROFILE%\.ssh\${KEY_BASENAME})
   project path /home/dev/workspace
 
 Inside (GUI terminal or ssh):
