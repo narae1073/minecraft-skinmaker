@@ -74,7 +74,9 @@ later appends it and recreates the container:
 
 1. Install **Tailscale** and accept the owner's tailnet invite.
 2. Install **OpenSSH client** if needed (`ssh` is built into Windows 10/11).
-3. Put the private key at `%USERPROFILE%\.ssh\skin_codex`.
+3. Keep your private key at its normal path (for example
+   `%USERPROFILE%\.ssh\id_ed25519`). The filename is arbitrary; the GUI
+   must point at the private key that matches the public key you added.
 
 `%USERPROFILE%\.ssh\config` (also lets the GUI use a host alias):
 
@@ -83,7 +85,7 @@ Host skin-codex
   HostName 100.110.156.108
   Port 2222
   User dev
-  IdentityFile ~/.ssh/skin_codex
+  IdentityFile ~/.ssh/id_ed25519   # or your actual key path
   IdentitiesOnly yes
   ServerAliveInterval 30
 ```
@@ -97,7 +99,8 @@ Use these values:
 - **SSH host**: `100.110.156.108` (or `achijaser.tail63f807.ts.net`)
 - **Port**: `2222`
 - **User**: `dev`
-- **Key**: `~/.ssh/skin_codex`
+- **Key**: your private key, e.g. `%USERPROFILE%\.ssh\id_ed25519`
+  (name is arbitrary; it must match the public key that was authorized)
 - **Project path**: `/home/dev/workspace`
 
 Codex authentication/model choice normally stays in the **GUI on Windows**. The
