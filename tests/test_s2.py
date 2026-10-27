@@ -12,7 +12,7 @@ from PIL import Image
 from skinmaker import attributes as A
 from skinmaker import classify as C
 from skinmaker import quality as Q
-from skinmaker.vlm import get_transport
+from skinmaker.vlm import TransportError, get_transport
 from skinmaker.vlm.gemini import _gemini_schema
 from skinmaker.vlm.gemini import GeminiTransport
 from skinmaker.vlm.mock import DEFAULT_SCENARIO, MockTransport
@@ -237,6 +237,13 @@ def test_gemini_requires_api_key(monkeypatch):
     t = GeminiTransport()
     ok, detail = t.available()
     assert ok is False and "키 없음" in detail
+    assert t.configured()[0] is False
+
+
+def test_gemini_configured_accepts_key_without_network():
+    t = GeminiTransport(api_key="k")
+    ok, detail = t.configured()
+    assert ok is True and "키 있음" in detail
 
 
 def test_gemini_schema_conversion():
@@ -264,6 +271,20 @@ def test_ollama_availablity_reports_unreachable():
 
     ok, detail = OllamaTransport(host="http://127.0.0.1:1", session=Boom()).available()
     assert ok is False and "연결 실패" in detail
+
+
+def test_ollama_configured_does_not_probe():
+    class Boom:
+        def get(self, *a, **k):
+            raise AssertionError("configured() must not probe")
+
+    ok, detail = OllamaTransport(host="http://127.0.0.1:1", session=Boom()).configured()
+    assert ok is True and "연결 미확인" in detail
+
+
+def test_mock_configured_reports_failure_mode():
+    ok, detail = MockTransport(fail=True, error="boom").configured()
+    assert ok is False and "boom" in detail
 
 
 # --- 모델 크롭 ------------------------------------------------------------
@@ -389,11 +410,49 @@ def test_classify_merge_keeps_first_when_both_valid():
     assert r.raw_first == GOOD
 
 
+class RaisingTransport:
+    """설정 누락처럼 TransportError 를 던지는 전송 계층 (네트워크 없음)."""
+
+    name = "raising"
+
+    def __init__(self, fail_on: int = 1, message: str = "Gemini API 키가 없다"):
+        self.fail_on = fail_on
+        self.message = message
+        self.calls = 0
+
+    def available(self) -> tuple[bool, str]:
+        return True, "raising"
+
+    def complete(self, image, prompt, schema):
+        self.calls += 1
+        if self.calls == self.fail_on:
+            raise TransportError(self.message)
+        return dict(GOOD)
+
+
 def test_classify_reports_transport_failure():
     t = MockTransport(fail=True, error="HTTP 429")
     r = C.classify(photo(), t, double_check=False)
     assert r.ok is False
     assert "HTTP 429" in r.error
+    assert r.error_kind is None
+
+
+def test_classify_reports_transport_exception_instead_of_raising():
+    r = C.classify(photo(), RaisingTransport(fail_on=1), double_check=False)
+    assert r.ok is False
+    assert r.error_kind == "transport"
+    assert "API 키" in r.error
+
+
+def test_classify_second_query_exception_degrades_to_single_query():
+    t = RaisingTransport(fail_on=2)
+    r = C.classify(photo(), t, double_check=True)
+    assert t.calls == 2
+    assert r.ok is True
+    assert r.double_checked is False
+    assert r.raw_second is None
+    assert r.attributes.get("top_garment") == "hoodie"
 
 
 def test_classify_reports_parse_failure():
@@ -474,6 +533,7 @@ def test_openrouter_requires_api_key(monkeypatch):
     t = OpenRouterTransport()
     ok, detail = t.available()
     assert ok is False and "API 키 없음" in detail
+    assert t.configured()[0] is False
 
 
 def test_openrouter_default_fallback_chain():

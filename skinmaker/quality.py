@@ -102,7 +102,8 @@ def _detector():
         path = yunet_path()
         if not path.exists():
             raise FileNotFoundError(
-                f"YuNet 모델 없음: {path}\n{path.parent.mkdir(parents=True, exist_ok=True)}\n"
+                f"YuNet 모델 없음: {path}\n"
+                f"내려받을 폴더: {path.parent}\n"
                 f"curl -sSLf -o {path} {YUNET_URL}"
             )
         _DETECTOR = cv2.FaceDetectorYN.create(str(path), "", (320, 320), DETECT_SCORE_MIN, 0.3, 5000)

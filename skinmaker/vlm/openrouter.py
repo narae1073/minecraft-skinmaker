@@ -56,9 +56,15 @@ class OpenRouterTransport:
         self.last_error: str | None = None
         self.last_model: str | None = None
 
-    def available(self) -> tuple[bool, str]:
+    def configured(self) -> tuple[bool, str]:
         if not self.api_key:
             return False, f"API 키 없음 ({API_KEY_ENV})"
+        return True, f"{self.model} (키 있음, 폴백 {len(self._models)}개)"
+
+    def available(self) -> tuple[bool, str]:
+        ok, detail = self.configured()
+        if not ok:
+            return ok, detail
         try:
             resp = self.session.get(
                 self.host.replace("/chat/completions", "/models"),
@@ -69,7 +75,7 @@ class OpenRouterTransport:
             return False, f"프로브 실패: {type(exc).__name__}"
         if resp.status_code >= 400:
             return False, f"API 키 확인 실패 (HTTP {resp.status_code})"
-        return True, f"{self.model} (키 있음, 폴백 {len(self._models)}개)"
+        return True, detail
 
     def complete(self, image: Image.Image, prompt: str, schema: dict[str, Any]) -> dict | None:
         if image is None:

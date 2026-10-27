@@ -24,7 +24,7 @@ from .attributes import (
     validate,
 )
 from .quality import FaceBox, PhotoInput, clip_to
-from .vlm import Transport
+from .vlm import Transport, TransportError
 
 MODEL_MAX_PX = 768
 FULLBODY_MAX_PX = 1536
@@ -117,6 +117,7 @@ class Classification:
     elapsed: float
     ok: bool
     error: str | None = None
+    error_kind: str | None = None  # "transport" = 자격증명/설정 누락 (재시도 무의미)
     raw_first: dict | None = field(default=None, repr=False)
     raw_second: dict | None = field(default=None, repr=False)
 
@@ -125,6 +126,19 @@ class Classification:
         return self._hair_px
 
     _hair_px: FaceBox | None = field(default=None, repr=False)
+
+
+def _complete(transport: Transport, image: Image.Image, prompt: str, schema: dict) -> tuple[dict | None, str | None]:
+    """전송 계층 호출. TransportError 는 데이터로 바꾸고, 그 밖의 예외는 그대로 올린다.
+
+    네트워크 실패는 각 전송 계층이 이미 None 으로 흡수한다. TransportError 는
+    API 키 누락처럼 요청을 계속해도 성공할 수 없는 설정 오류다 — 웹이 500 대신
+    구조화된 오류를 돌려주도록 여기서 잡는다.
+    """
+    try:
+        return transport.complete(image, prompt, schema), None
+    except TransportError as exc:
+        return None, str(exc) or "전송 계층 설정 오류"
 
 
 def classify(
@@ -141,19 +155,25 @@ def classify(
         )
 
     started = time.monotonic()
-    first_raw = transport.complete(crop.image, build_prompt(NATURAL_ORDER), build_schema(NATURAL_ORDER))
+    first_raw, first_err = _complete(
+        transport, crop.image, build_prompt(NATURAL_ORDER), build_schema(NATURAL_ORDER)
+    )
     if first_raw is None:
-        err = getattr(transport, "last_error", None) or "모델 응답 파싱 실패"
+        err = first_err or getattr(transport, "last_error", None) or "모델 응답 파싱 실패"
         return Classification(
             Attributes(dict(), None), tuple(FIELD_ORDER), getattr(transport, "name", "?"), False,
             time.monotonic() - started, False, error=err,
+            error_kind="transport" if first_err else None,
         )
     first = validate(first_raw)
 
     second_raw = None
     uncertain = is_uncertain(first)
     if double_check:
-        second_raw = transport.complete(crop.image, build_prompt(REVERSED_ORDER), build_schema(REVERSED_ORDER))
+        # 둘째 질의 실패는 치명적이지 않다 — 첫 답만으로 진행한다 (None 반환과 동일).
+        second_raw, _second_err = _complete(
+            transport, crop.image, build_prompt(REVERSED_ORDER), build_schema(REVERSED_ORDER)
+        )
         if second_raw is not None:
             second = validate(second_raw)
             uncertain = tuple(n for n in agreement(first, second) if n != BBOX_FIELD)

@@ -45,10 +45,13 @@ class MockTransport:
         self.calls: list[dict] = []
         self.last_error: str | None = None
 
-    def available(self) -> tuple[bool, str]:
+    def configured(self) -> tuple[bool, str]:
         if self.fail:
             return False, self.error or "mock 실패 모드"
         return True, "mock (오프라인)"
+
+    def available(self) -> tuple[bool, str]:
+        return self.configured()
 
     def complete(self, image: Image.Image, prompt: str, schema: dict[str, Any]) -> dict | None:
         self.calls.append({"prompt": prompt, "schema": schema, "size": image.size})
