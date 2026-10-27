@@ -45,7 +45,7 @@ deploy/        systemd/Cloudflare Tunnel 배포 파일 (예정)
 python3 -m venv .venv
 .venv/bin/pip install -r requirements-dev.txt
 scripts/fetch_assets.sh                 # YuNet + SCHP (66MB)
-.venv/bin/python -m pytest -q           # 516 테스트
+.venv/bin/python -m pytest -q           # 535 테스트
 .venv/bin/python -m skinmaker --model classic   # 더미 스킨 + 프리뷰 → out/
 ```
 
