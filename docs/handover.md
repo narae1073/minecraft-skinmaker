@@ -45,7 +45,7 @@ S0 quality/face detection (YuNet) → S1 colour measurement (white-balance + ban
 
 ### Windows development (PR #5)
 
-- `test-windows` runs the same 516 tests on `windows-latest`; it is a required check.
+- `test-windows` runs the same 535 tests on `windows-latest`; it is a required check.
 - Native Windows: `py -3.12 -m venv .venv`, `.venv\Scripts\python.exe`; `.sh` scripts require Git Bash (or WSL2, recommended).
 - Upload temp file now uses `mkstemp` + close before `inspect` (`NamedTemporaryFile` cannot be reopened on Windows); `test_render` reads JSX as UTF-8; `.gitattributes` forces LF.
 - For local UI without a Gemini key: `SKINMAKER_TRANSPORT=mock` in `.env`.
@@ -117,7 +117,7 @@ S0 quality/face detection (YuNet) → S1 colour measurement (white-balance + ban
 
 ## 12. Session update (2026-10-27)
 
-- 2026-10-27 (seven-issue cleanup, PR #19–#21): combined integration branch (PR #19 + #20 + #21) `pytest -q` → **534 passed in 191.52s**; `npm run lint` exit 0 and `npm run build` green (existing chunk warning). Manual uvicorn on `127.0.0.1:8766` with `SKINMAKER_TRANSPORT`/`SKINMAKER_PARSING` unset (no `set -a`) returned health `{"status":"ok","transport":"mock (오프라인)"}` and a slim generation HTTP 200 (`skin_model=slim`; 0 slim validation problems, 41 classic problems proving the 3px geometry). Risks: slim viewer mesh dimensions have no browser/phone visual check in this container; `/health` now reports configuration, not upstream reachability; merge order 19 → 20 → 21 expected, with handover updated in #21 after a combined run.
+- 2026-10-27 (seven-issue cleanup, PR #19–#21): combined integration branch (PR #19 + #20 + #21) `pytest -q` → **535 passed in 191.52s**; `npm run lint` exit 0 and `npm run build` green (existing chunk warning). Manual uvicorn on `127.0.0.1:8766` with `SKINMAKER_TRANSPORT`/`SKINMAKER_PARSING` unset (no `set -a`) returned health `{"status":"ok","transport":"mock (오프라인)"}` and a slim generation HTTP 200 (`skin_model=slim`; 0 slim validation problems, 41 classic problems proving the 3px geometry). Risks: slim viewer mesh dimensions have no browser/phone visual check in this container; `/health` now reports configuration, not upstream reachability; merge order 19 → 20 → 21 expected, with handover updated in #21 after a combined run.
 
 - PR #17 follow-up: explicitly center camera/conversion button text horizontally and vertically at widths ≤720px using flex alignment and centered multiline text. Reduce horizontal padding and allow long words to wrap so labels fit narrow panels. Frontend lint/build and whitespace check validate the change; phone visual check remains manual.
 
@@ -160,4 +160,4 @@ S0 quality/face detection (YuNet) → S1 colour measurement (white-balance + ban
 - Verification: `cd frontend && npm run lint` passed; `cd frontend && npm run build` passed (Vite emitted the existing large-chunk warning).
 - Risk: none identified; frontend build output remains generated and gitignored.
 
-- 2026-10-27: mock 기본 시나리오 드리프트 수정 + 테스트 수 갱신. `DEFAULT_SCENARIO` 가 `beard`/`inner_top`/`neckwear` 를 빠뜨려 `SKINMAKER_TRANSPORT=mock` 실행마다 `uncertain=(beard, inner_top, neckwear)` 가 보고됐다 (주석은 플래그가 없다고 서술). 세 필드를 `none` 으로 채우고 회귀 테스트 `tests/test_s2.py::test_default_scenario_has_no_uncertain_fields` 를 추가했다 — 수정 전 시나리오에서 실패하고, `is_uncertain(validate(DEFAULT_SCENARIO)) == ()` 와 이중 질의 `classify` 의 `uncertain == ()` 를 함께 고정한다. 테스트 수는 이 브랜치(origin/master + 이 수정) 기준 **516** — README 의 513 은 PR #18 이후 두 테스트 뒤처져 있었고 handover 의 515 는 master 값이었다. `integration/seven-issues`(PR #19–#21 포함) 에서는 535 이므로, 그 PR 들이 머지되면 수치를 다시 갱신한다. 검증: `.venv/bin/python -m pytest -q` → **535 passed** (2:59).
+- 2026-10-27: mock 기본 시나리오 드리프트 수정 + 테스트 수 갱신. `DEFAULT_SCENARIO` 가 `beard`/`inner_top`/`neckwear` 를 빠뜨려 `SKINMAKER_TRANSPORT=mock` 실행마다 `uncertain=(beard, inner_top, neckwear)` 가 보고됐다 (주석은 플래그가 없다고 서술). 세 필드를 `none` 으로 채우고 회귀 테스트 `tests/test_s2.py::test_default_scenario_has_no_uncertain_fields` 를 추가했다 — 수정 전 시나리오에서 실패하고, `is_uncertain(validate(DEFAULT_SCENARIO)) == ()` 와 이중 질의 `classify` 의 `uncertain == ()` 를 함께 고정한다. 테스트 수는 이 브랜치(origin/master + 이 수정) 기준 **535** — README 의 513 은 PR #18 이후 두 테스트 뒤처져 있었고 handover 의 515 는 master 값이었다. `integration/seven-issues`(PR #19–#21 포함) 에서는 535 이므로, 그 PR 들이 머지되면 수치를 다시 갱신한다. 검증: `.venv/bin/python -m pytest -q` → **535 passed** (2:59).
