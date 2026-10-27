@@ -113,6 +113,8 @@ S0 quality/face detection (YuNet) → S1 colour measurement (white-balance + ban
 
 ## 12. Session update (2026-10-27)
 
+- Upload attempt: changes committed on `feat/camera-upload-preview` and rebased on `origin/master` (`98836b6`). User explicitly approved pushing to public `narae1073/minecraft-skinmaker`, but push failed because GitHub credentials are absent; `gh pr status` also requires `gh auth login`. No remote branch/PR/deployment was created. Final frontend lint/build passed; full `.venv/bin/python -m pytest -q` was started and remains pending at this handoff. After authentication, finish checking the suite, push, create/attach PR with evidence, and follow required approval/CI before auto-merge.
+
 - Made setting labels bold to distinguish control names from help text; inline checkbox help remains normal weight, as do detailed `.config-help` paragraphs. Validation: frontend lint/build.
 
 - Refined upload-panel alignment with shared CSS subgrid rows: camera guidance and file-picker controls center vertically in the same top row, while both action buttons stretch across the same bottom row. Replaces independent flex layouts so wrapped camera guidance cannot shift one button independently. Validation: frontend lint/build and whitespace check.
