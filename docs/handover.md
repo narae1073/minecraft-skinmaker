@@ -113,6 +113,8 @@ S0 quality/face detection (YuNet) → S1 colour measurement (white-balance + ban
 
 ## 12. Session update (2026-10-27)
 
+- PR #17 follow-up: use the user-supplied 1080×1920 PNG (`frontend/public/wallpaper-mobile.png`) as the mobile background at widths ≤720px, keeping the desktop wallpaper. Original attachment copied without editing; existing cover/center behavior applies. A/B: previously all widths used `/wallpaper.png`; now mobile uses `/wallpaper-mobile.png`. Frontend lint/build and whitespace check validate the change; phone visual check remains manual.
+
 - PR #16 merged and deployed successfully (deployment run 40453371519); required test/test-windows/web checks passed and public health returned ok. Follow-up mobile UI: at viewport widths up to 720px, hide the site QR link and stack the filename below the centered file-selection button. Above 720px retain the desktop layout. A/B: QR previously visible and picker inline at all widths; now the two requested mobile-only changes apply. Verification: frontend lint/build and whitespace check; physical phone visual verification remains manual.
 
 - GitHub authentication completed; branch `feat/camera-upload-preview` pushed and PR #16 created: https://github.com/narae1073/minecraft-skinmaker/pull/16 . Frontend lint/build passed; full local pytest final output could not be recovered after the process session disappeared, so required CI must establish the suite result. Device/browser checks remain manual. Deployment awaits one review approval, green CI, and merge; do not bypass protection.
