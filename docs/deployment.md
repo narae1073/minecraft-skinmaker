@@ -93,6 +93,10 @@ The release clone needs its own `backend/static` (production uploads),
 (`SKINMAKER_RATE_LIMIT_PER_MIN`, `SKINMAKER_MAX_UPLOAD_MB`,
 `SKINMAKER_RETENTION_DAYS`). It is gitignored and must stay `600`.
 
+The systemd unit passes `.env` via `EnvironmentFile`; the app also loads the
+repo-root `.env` at import for plain `uvicorn` runs, with `override=False`, so
+systemd values win. Tests skip the app-level loader.
+
 ### 2. Create the tunnel and DNS
 
 ```bash

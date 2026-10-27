@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import dataclasses
 import os
+import sys
 import tempfile
 import uuid
 from pathlib import Path
@@ -30,7 +31,36 @@ from skinmaker.vlm import get_transport
 ROOT = Path(__file__).resolve().parent
 STATIC_DIR = ROOT / "static" / "skins"
 STATIC_DIR.mkdir(parents=True, exist_ok=True)
-FRONTEND_DIST = Path(__file__).resolve().parent.parent / "frontend" / "dist"
+REPO_ROOT = Path(__file__).resolve().parent.parent
+FRONTEND_DIST = REPO_ROOT / "frontend" / "dist"
+
+
+def load_env_file(path: Path | None = None, *, enabled: bool | None = None) -> bool:
+    """실서버에서 저장소 루트 `.env` 를 읽는다 (실제 환경변수가 우선).
+
+    `uvicorn backend.app:app` 만으로 mock 전송 계층/키가 적용되게 한다.
+    pytest 중에는 로컬 `.env` 가 스위트 환경을 바꾸지 않도록 건너뛴다.
+    반환값은 실제로 파일을 읽었는지 여부다 (테스트용).
+    """
+    if enabled is None:
+        enabled = "pytest" not in sys.modules
+    if not enabled:
+        return False
+    target = Path(path) if path is not None else REPO_ROOT / ".env"
+    if not target.is_file():
+        return False
+    try:
+        from dotenv import load_dotenv
+    except ImportError:
+        return False
+    try:
+        load_dotenv(target, override=False)
+    except OSError:
+        return False
+    return True
+
+
+load_env_file()
 
 TRANSPORT_ENV = "SKINMAKER_TRANSPORT"
 MODEL_ENV = "SKINMAKER_MODEL"
@@ -205,6 +235,11 @@ async def generate_skin(request: Request, file: UploadFile = File(...), noise_le
     }
 
 
+def mount_frontend(application: FastAPI, dist: Path = FRONTEND_DIST) -> None:
+    """dist 가 없어도 마운트한다. 빌드 전에는 404, 빌드 후에는 재시작 없이 서빙."""
+    dist.mkdir(parents=True, exist_ok=True)
+    application.mount("/", StaticFiles(directory=dist, html=True), name="frontend")
+
+
 app.mount("/static", StaticFiles(directory=ROOT / "static"), name="static")
-if FRONTEND_DIST.is_dir():
-    app.mount("/", StaticFiles(directory=FRONTEND_DIST, html=True), name="frontend")
+mount_frontend(app)

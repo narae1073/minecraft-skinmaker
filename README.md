@@ -77,7 +77,9 @@ cd frontend && npm install && npm run dev   # http://localhost:5173/
 
 Vite 프록시가 8001을 바라봅니다. 포트를 바꾸려면 `VITE_API_TARGET=http://localhost:8002 npm run dev`와 `uvicorn --port 8002`를 함께 씁니다. `POST /api/v1/generate-skin`에 사진을 올리면 원본 옆에 후보 스킨을 3D 뷰어로 보여주고, 스킨 편집(투톤 신발), 분류 카테고리, 처리 과정 시트를 제공합니다.
 
-프로덕션에서는 `frontend`를 `npm run build`한 뒤 백엔드가 `frontend/dist`를 함께 서빙합니다. 배포는 홈 서버 + Cloudflare Tunnel(`skin.achijaser.date`)로 진행하며, 절차는 `docs/deployment.md`에 정리합니다. 공개 배포에는 업로드 15MB 제한, IP당 분당 6회 제한, 14일 보존이 걸려 있습니다.
+백엔드는 `uvicorn`으로 실행할 때 저장소 루트의 `.env`를 자동으로 읽습니다. 이미 설정된 실제 환경변수가 우선하며, pytest 중에는 읽지 않습니다.
+
+프로덕션에서는 `frontend`를 `npm run build`한 뒤 백엔드가 `frontend/dist`를 함께 서빙합니다. `dist`가 아직 없어도 서버는 뜨고, 빌드 후에는 재시작 없이 서빙됩니다. 배포는 홈 서버 + Cloudflare Tunnel(`skin.achijaser.date`)로 진행하며, 절차는 `docs/deployment.md`에 정리합니다. 공개 배포에는 업로드 15MB 제한, IP당 분당 6회 제한, 14일 보존이 걸려 있습니다.
 
 ## SCHP 파싱 (기본 켜짐)
 
