@@ -32,8 +32,9 @@ def test_camera_positions_are_mirrored_across_y():
 
 
 def test_find_browser_override(monkeypatch):
-    monkeypatch.setenv("SKINMAKER_CHROME", "/bin/true")
-    assert QR.find_browser() == "/bin/true"
+    # 플랫폼 독립: 실행 중인 파이썬 인터프리터는 항상 파일로 존재한다 (Windows CI 포함).
+    monkeypatch.setenv("SKINMAKER_CHROME", sys.executable)
+    assert QR.find_browser() == sys.executable
 
 
 def _synthetic_skin(path: Path) -> None:
