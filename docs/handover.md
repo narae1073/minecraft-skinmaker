@@ -7,7 +7,7 @@ S0 quality/face detection (YuNet) → S1 colour measurement (white-balance + ban
 
 ## 2. Current state (verified 2026-10-27)
 
-- Tests: **516 passed** (`tests/fixtures/` committed; ~10 s without the SCHP model, ~3 min with it). Tests no longer need the 66 MB SCHP model: the jeans-rule tests stub a zero mask and `test_parsing` uses a dummy model path with a fake session.
+- Tests: **535 passed** (`tests/fixtures/` committed; ~10 s without the SCHP model, ~3 min with it). Tests no longer need the 66 MB SCHP model: the jeans-rule tests stub a zero mask and `test_parsing` uses a dummy model path with a fake session.
 - Frontend: `npm run lint` clean, `npm run build` green (Vite 8 / Node 24).
 - Python 3.12.3 venv at `.venv`; do **not** use `python` or `uv`.
 - Parsing model: `out/models/schp-atr-18-int8-static.onnx` (66 MB, gitignored). YuNet: `assets/face_detection_yunet_2023mar.onnx` (228 KB, gitignored). Both fetched by `scripts/fetch_assets.sh`.
@@ -160,4 +160,4 @@ S0 quality/face detection (YuNet) → S1 colour measurement (white-balance + ban
 - Verification: `cd frontend && npm run lint` passed; `cd frontend && npm run build` passed (Vite emitted the existing large-chunk warning).
 - Risk: none identified; frontend build output remains generated and gitignored.
 
-- 2026-10-27: mock 기본 시나리오 드리프트 수정 + 테스트 수 갱신. `DEFAULT_SCENARIO` 가 `beard`/`inner_top`/`neckwear` 를 빠뜨려 `SKINMAKER_TRANSPORT=mock` 실행마다 `uncertain=(beard, inner_top, neckwear)` 가 보고됐다 (주석은 플래그가 없다고 서술). 세 필드를 `none` 으로 채우고 회귀 테스트 `tests/test_s2.py::test_default_scenario_has_no_uncertain_fields` 를 추가했다 — 수정 전 시나리오에서 실패하고, `is_uncertain(validate(DEFAULT_SCENARIO)) == ()` 와 이중 질의 `classify` 의 `uncertain == ()` 를 함께 고정한다. 테스트 수는 이 브랜치(origin/master + 이 수정) 기준 **516** — README 의 513 은 PR #18 이후 두 테스트 뒤처져 있었고 handover 의 515 는 master 값이었다. `integration/seven-issues`(PR #19–#21 포함) 에서는 535 이므로, 그 PR 들이 머지되면 수치를 다시 갱신한다. 검증: `.venv/bin/python -m pytest -q` → **516 passed** (2:59).
+- 2026-10-27: mock 기본 시나리오 드리프트 수정 + 테스트 수 갱신. `DEFAULT_SCENARIO` 가 `beard`/`inner_top`/`neckwear` 를 빠뜨려 `SKINMAKER_TRANSPORT=mock` 실행마다 `uncertain=(beard, inner_top, neckwear)` 가 보고됐다 (주석은 플래그가 없다고 서술). 세 필드를 `none` 으로 채우고 회귀 테스트 `tests/test_s2.py::test_default_scenario_has_no_uncertain_fields` 를 추가했다 — 수정 전 시나리오에서 실패하고, `is_uncertain(validate(DEFAULT_SCENARIO)) == ()` 와 이중 질의 `classify` 의 `uncertain == ()` 를 함께 고정한다. 테스트 수는 이 브랜치(origin/master + 이 수정) 기준 **516** — README 의 513 은 PR #18 이후 두 테스트 뒤처져 있었고 handover 의 515 는 master 값이었다. `integration/seven-issues`(PR #19–#21 포함) 에서는 535 이므로, 그 PR 들이 머지되면 수치를 다시 갱신한다. 검증: `.venv/bin/python -m pytest -q` → **535 passed** (2:59).
