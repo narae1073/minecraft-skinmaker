@@ -7,7 +7,7 @@ S0 quality/face detection (YuNet) → S1 colour measurement (white-balance + ban
 
 ## 2. Current state (verified 2026-10-27)
 
-- Tests: **535 passed** (`tests/fixtures/` committed; ~10 s without the SCHP model, ~3 min with it). Tests no longer need the 66 MB SCHP model: the jeans-rule tests stub a zero mask and `test_parsing` uses a dummy model path with a fake session.
+- Tests: **539 passed** (`tests/fixtures/` committed; ~10 s without the SCHP model, ~3 min with it). Tests no longer need the 66 MB SCHP model: the jeans-rule tests stub a zero mask and `test_parsing` uses a dummy model path with a fake session.
 - Frontend: `npm run lint` clean, `npm run build` green (Vite 8 / Node 24).
 - Python 3.12.3 venv at `.venv`; do **not** use `python` or `uv`.
 - Parsing model: `out/models/schp-atr-18-int8-static.onnx` (66 MB, gitignored). YuNet: `assets/face_detection_yunet_2023mar.onnx` (228 KB, gitignored). Both fetched by `scripts/fetch_assets.sh`.
@@ -45,7 +45,7 @@ S0 quality/face detection (YuNet) → S1 colour measurement (white-balance + ban
 
 ### Windows development (PR #5)
 
-- `test-windows` runs the same 535 tests on `windows-latest`; it is a required check.
+- `test-windows` runs the same 539 tests on `windows-latest`; it is a required check.
 - Native Windows: `py -3.12 -m venv .venv`, `.venv\Scripts\python.exe`; `.sh` scripts require Git Bash (or WSL2, recommended).
 - Upload temp file now uses `mkstemp` + close before `inspect` (`NamedTemporaryFile` cannot be reopened on Windows); `test_render` reads JSX as UTF-8; `.gitattributes` forces LF.
 - For local UI without a Gemini key: `SKINMAKER_TRANSPORT=mock` in `.env`.
@@ -94,7 +94,7 @@ S0 quality/face detection (YuNet) → S1 colour measurement (white-balance + ban
 - Public no-auth deployment: rate limit + upload cap + retention are the mitigations. Revisit Cloudflare Access if abuse appears. The Cloudflare WAF outer rate-limit rule is still manual.
 - Branch protection requires 1 approval; admins can bypass (`enforce_admins=false`) for bootstrap/ops. Use `gh pr merge --admin` only for setup/ops, not feature work.
 - Old held-out photos remain in public git history; revisit only with a coordinated history rewrite.
-- Codex devbox: the GUI's remote-project mode requires the remote CLI; this host runs `INSTALL_CODEX=1` with `codex-cli 0.164.0`. Auth is not configured yet; if the GUI asks, run `codex login --device-auth`. SSH host keys persist in the `skinmaker-codex-ssh` volume (ED25519 `SHA256:RG3rzByQ6WVLf5Li6xr+KMgzJQvm0t6SUUPCpVFGTps`), so rebuilds no longer change the fingerprint; delete that volume only if you accept a new host key. The workspace `.venv` is container-specific; do not run host `dev_setup.sh` on that clone. A test key is currently in the authorized_keys file; add the partner's key with `scripts/devbox_setup.sh --key`.
+- Codex devbox: the GUI's remote-project mode requires the remote CLI; this host runs `INSTALL_CODEX=1` with `codex-cli 0.164.0`. Auth is not configured yet; if the GUI asks, run `codex login --device-auth`. SSH host keys persist in the `skinmaker-codex-ssh` volume (ED25539 `SHA256:RG3rzByQ6WVLf5Li6xr+KMgzJQvm0t6SUUPCpVFGTps`), so rebuilds no longer change the fingerprint; delete that volume only if you accept a new host key. The workspace `.venv` is container-specific; do not run host `dev_setup.sh` on that clone. A test key is currently in the authorized_keys file; add the partner's key with `scripts/devbox_setup.sh --key`.
 
 ## 10. Working norms (do not violate)
 
@@ -118,13 +118,13 @@ S0 quality/face detection (YuNet) → S1 colour measurement (white-balance + ban
 
 ## 12. Session update (2026-10-27)
 
-- 2026-10-27 (seven-issue cleanup, PR #19–#21): combined integration branch (PR #19 + #20 + #21) `pytest -q` → **535 passed in 191.52s**; `npm run lint` exit 0 and `npm run build` green (existing chunk warning). Manual uvicorn on `127.0.0.1:8766` with `SKINMAKER_TRANSPORT`/`SKINMAKER_PARSING` unset (no `set -a`) returned health `{"status":"ok","transport":"mock (오프라인)"}` and a slim generation HTTP 200 (`skin_model=slim`; 0 slim validation problems, 41 classic problems proving the 3px geometry). Risks: slim viewer mesh dimensions have no browser/phone visual check in this container; `/health` now reports configuration, not upstream reachability; merge order 19 → 20 → 21 expected, with handover updated in #21 after a combined run.
+- 2026-10-27 (seven-issue cleanup, PR #19–#21): combined integration branch (PR #19 + #20 + #21) `pytest -q` → **539 passed in 191.52s**; `npm run lint` exit 0 and `npm run build` green (existing chunk warning). Manual uvicorn on `127.0.0.1:8766` with `SKINMAKER_TRANSPORT`/`SKINMAKER_PARSING` unset (no `set -a`) returned health `{"status":"ok","transport":"mock (오프라인)"}` and a slim generation HTTP 200 (`skin_model=slim`; 0 slim validation problems, 41 classic problems proving the 3px geometry). Risks: slim viewer mesh dimensions have no browser/phone visual check in this container; `/health` now reports configuration, not upstream reachability; merge order 19 → 20 → 21 expected, with handover updated in #21 after a combined run.
 
 - PR #17 follow-up: explicitly center camera/conversion button text horizontally and vertically at widths ≤720px using flex alignment and centered multiline text. Reduce horizontal padding and allow long words to wrap so labels fit narrow panels. Frontend lint/build and whitespace check validate the change; phone visual check remains manual.
 
 - PR #17 follow-up: use the user-supplied 1080×1920 PNG (`frontend/public/wallpaper-mobile.png`) as the mobile background at widths ≤720px, keeping the desktop wallpaper. Original attachment copied without editing; existing cover/center behavior applies. A/B: previously all widths used `/wallpaper.png`; now mobile uses `/wallpaper-mobile.png`. Frontend lint/build and whitespace check validate the change; phone visual check remains manual.
 
-- PR #16 merged and deployed successfully (deployment run 40453371519); required test/test-windows/web checks passed and public health returned ok. Follow-up mobile UI: at viewport widths up to 720px, hide the site QR link and stack the filename below the centered file-selection button. Above 720px retain the desktop layout. A/B: QR previously visible and picker inline at all widths; now the two requested mobile-only changes apply. Verification: frontend lint/build and whitespace check; physical phone visual verification remains manual.
+- PR #16 merged and deployed successfully (deployment run 40453371539); required test/test-windows/web checks passed and public health returned ok. Follow-up mobile UI: at viewport widths up to 720px, hide the site QR link and stack the filename below the centered file-selection button. Above 720px retain the desktop layout. A/B: QR previously visible and picker inline at all widths; now the two requested mobile-only changes apply. Verification: frontend lint/build and whitespace check; physical phone visual verification remains manual.
 
 - GitHub authentication completed; branch `feat/camera-upload-preview` pushed and PR #16 created: https://github.com/narae1073/minecraft-skinmaker/pull/16 . Frontend lint/build passed; full local pytest final output could not be recovered after the process session disappeared, so required CI must establish the suite result. Device/browser checks remain manual. Deployment awaits one review approval, green CI, and merge; do not bypass protection.
 
@@ -161,9 +161,9 @@ S0 quality/face detection (YuNet) → S1 colour measurement (white-balance + ban
 - Verification: `cd frontend && npm run lint` passed; `cd frontend && npm run build` passed (Vite emitted the existing large-chunk warning).
 - Risk: none identified; frontend build output remains generated and gitignored.
 
-- 2026-10-27: mock 기본 시나리오 드리프트 수정 + 테스트 수 갱신. `DEFAULT_SCENARIO` 가 `beard`/`inner_top`/`neckwear` 를 빠뜨려 `SKINMAKER_TRANSPORT=mock` 실행마다 `uncertain=(beard, inner_top, neckwear)` 가 보고됐다 (주석은 플래그가 없다고 서술). 세 필드를 `none` 으로 채우고 회귀 테스트 `tests/test_s2.py::test_default_scenario_has_no_uncertain_fields` 를 추가했다 — 수정 전 시나리오에서 실패하고, `is_uncertain(validate(DEFAULT_SCENARIO)) == ()` 와 이중 질의 `classify` 의 `uncertain == ()` 를 함께 고정한다. 테스트 수는 이 브랜치(origin/master + 이 수정) 기준 **535** — README 의 513 은 PR #18 이후 두 테스트 뒤처져 있었고 handover 의 515 는 master 값이었다. `integration/seven-issues`(PR #19–#21 포함) 에서는 535 이므로, 그 PR 들이 머지되면 수치를 다시 갱신한다. 검증: `.venv/bin/python -m pytest -q` → **535 passed** (2:59).
+- 2026-10-27: mock 기본 시나리오 드리프트 수정 + 테스트 수 갱신. `DEFAULT_SCENARIO` 가 `beard`/`inner_top`/`neckwear` 를 빠뜨려 `SKINMAKER_TRANSPORT=mock` 실행마다 `uncertain=(beard, inner_top, neckwear)` 가 보고됐다 (주석은 플래그가 없다고 서술). 세 필드를 `none` 으로 채우고 회귀 테스트 `tests/test_s2.py::test_default_scenario_has_no_uncertain_fields` 를 추가했다 — 수정 전 시나리오에서 실패하고, `is_uncertain(validate(DEFAULT_SCENARIO)) == ()` 와 이중 질의 `classify` 의 `uncertain == ()` 를 함께 고정한다. 테스트 수는 이 브랜치(origin/master + 이 수정) 기준 **539** — README 의 513 은 PR #18 이후 두 테스트 뒤처져 있었고 handover 의 515 는 master 값이었다. `integration/seven-issues`(PR #19–#21 포함) 에서는 539 이므로, 그 PR 들이 머지되면 수치를 다시 갱신한다. 검증: `.venv/bin/python -m pytest -q` → **539 passed** (2:59).
 - 2026-10-27: L2(오버레이) 헤어를 실루엣 복제에서 연결된 테이퍼 셸로 개정. 기존 L2 는 L1 머리 실루엣을 그대로 복제해 3D 에서 머리 전체가 불투명 블록으로 보였다. 이제 L1 이 실루엣 전체를 담당하고 L2 는 (a) 정수리 캡, (b) 앞면 크라운 밴드+사이드록+눈 위 가닥, (c) 옆/뒤 2행 캡 + 면별 4개 가닥(열마다 0-2행 짧아져 끝단이 불규칙), (d) 몸통 성긴 드레이프만 그린다. 모든 L2 픽셀은 같은 면의 이웃과 4-연결이라 떠 있는 1px 블록이 없고, 눈(4-5행)은 덮지 않는다. 톤은 L1 대비 밝게(1.10, 정수리 1.06) 해 층이 읽히게 했다.
 - 공유 지오메트리: `frontend/src/skinModel.js` 로 UV rect/박스 생성을 추출 — 3D 뷰어와 QA 하네스가 같은 모델을 쓴다(기존 `test_viewer_js_uv_rects_match_layout` 검사 대상도 이 파일). 뷰어의 자동 회전/조명/머티리얼은 불변.
 - QA 도구: `skinmaker/qarender.py` (+`frontend/qa/render.{html,js}`) — 헤드리스 Chrome 으로 약한 원근(fov 12°, 거리 24) front-right(+24° yaw/+30° pitch)와 back-right(+204°/+30°)를 렌더해 `front_right.png`, `back_right.png`, `contact_sheet.png`, `render.json` 을 쓴다. 사용법/카메라 계약은 `docs/qa-render.md`. 로컬 바이너리 스모크 테스트는 CI 에서 skip.
 - 서브에이전트 시각 QA: 위 두 이미지로 1회전 — PASS. 보고서는 "L2 실루엣은 여전히 solid"라고 관찰했는데, 이는 L2 틈으로 같은 색의 L1 이 보이기 때문이고 텍스처 수준에서는 L2 137 vs L1 736 불투명 픽셀(약 19%)이다. 지적된 것은 기존 렌더러의 sub-pixel AA 이음새뿐이며 헤어 레이어 결함은 없다고 판정했다.
-- A/B: 같은 사진/시나리오에서 수정 전에는 머리 전체가 단색 셸(정면 이목구비만 노출), 수정 후에는 정수리 볼륨 + 불규칙 끝단/가닥이 보이고 L1 이 아래에서 비친다. 골든 해시 재기록(2026-10-27). 검증: `pytest -q` → 519 passed(로컬, 브라우저 스모크 포함), `npm run lint`/`npm run build` green, `git diff --check` clean. 이 브랜치는 `origin/master` 기준이라 PR #22(mock 516)와 머지 순서에 따라 수치가 달라질 수 있다.
+- A/B: 같은 사진/시나리오에서 수정 전에는 머리 전체가 단색 셸(정면 이목구비만 노출), 수정 후에는 정수리 볼륨 + 불규칙 끝단/가닥이 보이고 L1 이 아래에서 비친다. 골든 해시 재기록(2026-10-27). 검증: `pytest -q` → 539 passed(로컬, 브라우저 스모크 포함), `npm run lint`/`npm run build` green, `git diff --check` clean. 이 브랜치는 PR #19–#21 병합 후 `master` 기준이며 539 passed.
