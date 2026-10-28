@@ -36,6 +36,16 @@ LOWER_BODY_FG_MIN = 0.20  # 전경 픽셀이 이보다 적으면 측정 포기
 WB_APPLY_CLIPPED = False  # 평가 하네스 A/B 토글. True 면 클립된 WB 게인도 적용 (F1 이전 동작)
 LOWER_BODY_MASK_ENABLED = True  # 평가 하네스의 A/B 토글. 운영 경로는 항상 True
 LIGHT_PERCENTILE = {"skin": 40.0, "hair": 30.0, "top": 20.0, "bottom": 20.0}
+# 피부 표본 (2026-10-29): 아랫볼(수염·입술·긴머리) 대신 코+윗볼을 쓴다.
+# 각 영역 중 밝은 60%의 중앙값을 모아 중앙값을 취하고, 너무 어두우면
+# 기존 아랫볼 표본으로 폴백한다 (야간/그늘 사진 보존).
+SKIN_UPPER_BOXES = (
+    (0.42, 0.58, 0.42, 0.66),  # nose bridge
+    (0.05, 0.30, 0.48, 0.66),  # left upper cheek
+    (0.70, 0.95, 0.48, 0.66),  # right upper cheek
+)
+SKIN_FOREHEAD_BOX = (0.25, 0.75, 0.12, 0.40)
+SKIN_MIN_LUM = 0.28
 
 
 def luma(rgb: np.ndarray) -> float:
@@ -292,6 +302,74 @@ def _crop_pixels(arr: np.ndarray, box: FaceBox) -> np.ndarray | None:
     return patch.reshape(-1, 3).astype(np.float32)
 
 
+def _fraction_box(face: FaceBox, spec: tuple[float, float, float, float]) -> FaceBox:
+    x0, x1, y0, y1 = spec
+    return FaceBox(
+        face.x + int(face.w * x0),
+        face.y + int(face.h * y0),
+        max(2, int(face.w * (x1 - x0))),
+        max(2, int(face.h * (y1 - y0))),
+    )
+
+
+def _skin_like(color: np.ndarray) -> bool:
+    lum = float(color @ np.asarray(LUMA, dtype=np.float32))
+    chroma = float(np.max(color) - np.min(color))
+    r, g, b = (float(v) for v in color[:3])
+    return (
+        0.08 <= lum <= 0.97
+        and 0.035 <= chroma <= 0.60
+        and r >= g * 1.03
+        and g >= b * 0.98
+    )
+
+
+def _skin_box_median(arr: np.ndarray, face: FaceBox, spec: tuple[float, float, float, float]) -> tuple[np.ndarray, int] | None:
+    px = _region_pixels(arr, _fraction_box(face, spec), 60.0)
+    if px.shape[0] < 12:
+        return None
+    lum = px @ np.asarray(LUMA, dtype=np.float32)
+    chroma = px.max(axis=1) - px.min(axis=1)
+    keep = (lum >= 0.08) & (lum <= 0.97) & (chroma >= 0.035) & (chroma <= 0.60)
+    px = px[keep]
+    if px.shape[0] < 8:
+        return None
+    med = np.median(px, axis=0)
+    if not _skin_like(med):
+        return None
+    return med, int(px.shape[0])
+
+
+def measure_skin(arr: np.ndarray, face: FaceBox, bins: int = CLUSTER_BINS) -> ColorSample:
+    """코·윗볼의 밝은 표본으로 피부색을 잰다.
+
+    수염/입술/긴머리가 섞이는 아랫볼 대신, 수염이 닿지 않는 코와 윗볼을
+    쓴다. 각 영역의 밝은 60% 중앙값 중 **가장 밝은 유효 영역**을 골라
+    그림자·수염 쪽으로 끌리는 것을 막고, 피부다운 난색(R>G>B)만 받는다.
+    가장 밝은 영역도 너무 어두우면(야간·역광) 기존 아랫볼 표본으로
+    폴백해 사진의 노출을 존중한다.
+    """
+    candidates: list[tuple[np.ndarray, int]] = []
+    for spec in SKIN_UPPER_BOXES:
+        got = _skin_box_median(arr, face, spec)
+        if got is not None:
+            candidates.append(got)
+    if len(candidates) < 2:
+        got = _skin_box_median(arr, face, SKIN_FOREHEAD_BOX)
+        if got is not None:
+            candidates.append(got)
+    if not candidates:
+        return dominant_color(_region_pixels(arr, skin_region(face), LIGHT_PERCENTILE["skin"]), bins=bins)
+    # 가장 밝은 유효 영역을 쓴다. 수염/옷/머리카락이 섞인 어두운 영역을
+    # 피하면서, 얼굴 조명이 어두운 사진에서도 실제 피부 톤에 가깝게 간다.
+    med, count = max(candidates, key=lambda cn: float(cn[0] @ np.asarray(LUMA, dtype=np.float32)))
+    lum = float(med @ np.asarray(LUMA, dtype=np.float32))
+    if lum < SKIN_MIN_LUM:
+        return dominant_color(_region_pixels(arr, skin_region(face), LIGHT_PERCENTILE["skin"]), bins=bins)
+    hex_str, ints = _to_hex(med)
+    return ColorSample(hex_str, 1.0, True, ints, count)
+
+
 def _iris_sample(arr: np.ndarray, face: FaceBox) -> ColorSample:
     """눈 밴드(얼굴 높이 38-60%)의 어두운 픽셀에서 홍채색을 잰다.
 
@@ -461,7 +539,7 @@ def extract(
     applied = gain if (wb_ok or WB_APPLY_CLIPPED) else (1.0, 1.0, 1.0)
     arr = apply_gain(rgb, applied)
 
-    skin = dominant_color(_region_pixels(arr, skin_region(photo.face), LIGHT_PERCENTILE["skin"]), bins=bins)
+    skin = measure_skin(arr, photo.face, bins=bins)
     skin_chroma = chromaticity(np.asarray(skin.rgb, dtype=np.float32) / 255.0) if not skin.missing else (0.0, 0.0, 0.0)
 
     tiny = "small" in photo.degrade
