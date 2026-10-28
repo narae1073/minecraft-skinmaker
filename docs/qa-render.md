@@ -124,3 +124,25 @@ python -m skinmaker.batch --photos out/people_photos_original \
 - `qa_selection.json` groups photos into dress / skirt / upper-body fallback /
   measured trousers / bare legs for visual QA. `batch_manifest.json` aggregates
   status counts.
+
+## Similarity scoring (`skinmaker.score`)
+
+Renders are scored against the original photo with the VLM using the
+`compare.png` sheet ([original | front | back]):
+
+```bash
+python -m skinmaker.score --batch out/qa_full_final \
+  --renders out/qa_render_full_all --out out/qa_scores.json \
+  --transport gemini --jobs 3
+```
+
+- Categories: `head`, `top`, `bottom`, `overall` (1–10) plus up to three
+  `issues`. Equal-weight mean; tie-break on `overall`.
+- Output is ranked **worst → best** (`ranking`), with pattern/top/bottom
+  metadata and render paths. Resumable (cached by source), `--only`, `--limit`,
+  `--repeat` (median), `--force`.
+- Requires a `compare.png` per source; render first with
+  `python -m skinmaker.batch --replay --render`.
+- Scores are subjective prioritisation signals, not a release gate. Use them to
+  pick the worst cases for fixes and to measure before/after (e.g. `image413`
+  4.75 → 6.0 after the cropped-fabric fallback).

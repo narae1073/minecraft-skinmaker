@@ -179,3 +179,11 @@ S0 quality/face detection (YuNet) → S1 colour measurement (white-balance + ban
   - General accuracy: 서브에이전트 FAIL — whites/creams 회색화, 피부 톤 어둡게, floral/plaid 소실·오배치(image413/421). 이는 하체 정책이 아니라 기존 색 측정/패턴 스키마(패턴 필드 1개)의 한계다. 후속 과제로 남긴다.
   - Full validation(2026-10-28, 277장 single query, Gemini 3.1, quota top-up 후): **236 ok / 41 no-face / 0 error**. 결정론 감사 0 실패 — default jeans 22장(모든 다리 9행 jeans), dress 5장(전 다리 커버, 렌더 육안 확인), skirt 33장(밑단 위 천/아래 피부). 신규 skirt 12장도 렌더 확인. image315(VLM skirt 인데 Skirt 픽셀 0·Dress 15%)는 knee fallback(6행)으로 보정. General accuracy 한계(색/패턴)는 별도 과제로 유지. (release `.env` 키는 환경변수로만 사용, 출력/커밋 없음.)
   - 검증: `pytest -q` → **567 passed**(3:22, 로컬). 프론트 변경 없음. 테스트: resolver/evidence/hem/render/batch/backend 계약.
+
+- 2026-10-28 (패턴 충실도·크롭 천·유사도 스코어링, Phase 1–3):
+  - graphic: 세부 정보 없는 graphic 태그가 그리던 `#f2f2f2` 4x4 사각형 제거. 크롭 천이 있으면 앞면에 적용하고, 없으면 측정 상의색 plain.
+  - 두께: stripe/check/plaid 의 고정 2px 주기를 **1px 기본**으로 바꾸고, 몸통 run-length 로 측정한 `stripe_px`(1–3) 를 적용. 측정 불가는 1px.
+  - 크롭 천(`skinmaker/texture.py`): SCHP 마스크 → 마스크 밀도×분산 최적 패치 → 8x12/4x12 → 12색 median-cut. HF 복잡도 게이트(플로럴 23.5·플레이드 20.1·흰 티 7.2·청바지 3.4, 임계 10). 상의는 VLM 복잡 pattern 또는 HF≥10, 하의는 HF≥10. 캔버스 미러가 좌우 팔다리 대칭을 유지. `ObservedColors.top_texture/bottom_texture`.
+  - 스코어링(`skinmaker/score.py`): compare.png 를 VLM 에 보내 head/top/bottom/overall 1–10 + issues, worst→best ranking, resume/--jobs/--repeat, `out/qa_scores.json`. 문서는 `docs/qa-render.md`.
+  - A/B(3-worst): image413 4.75→**6.0**(bottom 2→5), image421 4.5→**5.5**(bottom 3→4), floral dress 306 4.75→**6.0**(top 3→6, overall 4→6). 테스트 **588 passed**.
+  - Phase 4(구조 태그 스키마 + zipper/button/collar/pocket 드로어)는 다음 단계.

@@ -808,3 +808,47 @@ def test_extract_skirt_hem_rows_from_mask(monkeypatch):
     seg[390:420, 200:300] = P.SKIRT
     monkeypatch.setattr(P, "bottom_mask", lambda im: seg)
     assert C.extract(photo).skirt_hem_rows == 3
+
+
+# --- 줄무늬 두께 측정 (2026-10-28) ------------------------------------------
+
+def _stripe_image(width: int, size: int = 40):
+    import numpy as np
+
+    arr = np.zeros((size, size, 3), dtype=np.float32)
+    for x in range(size):
+        if (x // width) % 2 == 1:
+            arr[:, x] = 1.0
+    return arr
+
+
+def test_stripe_width_measures_one_and_two_pixels():
+    from skinmaker.colors import ColorSample
+
+    primary = ColorSample("#000000", 0.5, True, (0, 0, 0), 400)
+    secondary = ColorSample("#ffffff", 0.5, True, (255, 255, 255), 400)
+    box = Q.FaceBox(0, 0, 40, 40)
+    assert C.stripe_width(_stripe_image(1), box, primary, secondary, "vertical_stripe") == 1
+    assert C.stripe_width(_stripe_image(2), box, primary, secondary, "vertical_stripe") == 2
+
+
+def test_extract_builds_fabric_texture_for_patterned_top(monkeypatch):
+    """복잡 무늬 상의면 top_texture 가 만들어진다 (Phase 3 배선)."""
+    import numpy as np
+    from skinmaker import parsing as P
+
+    monkeypatch.setenv(P.PARSING_ENV, "1")
+    img = Image.new("RGB", (200, 300), (240, 240, 240))
+    px = img.load()
+    for y in range(100, 220):
+        for x in range(60, 140):
+            px[x, y] = (200, 40, 60) if ((x // 4) + (y // 4)) % 2 else (240, 200, 40)
+    face = Q.FaceBox(80, 40, 40, 50)
+    photo = Q.PhotoInput("t.jpg", img, face, Q.Quality(0.9, face.area, 120.0, 400.0, 110.0, True), ())
+    seg = np.zeros((300, 200), np.uint8)
+    seg[100:220, 60:140] = 4
+    monkeypatch.setattr(P, "bottom_mask", lambda im: seg)
+    obs = C.extract(photo)
+    assert obs.top_texture is not None
+    assert obs.top_texture.usable
+    assert obs.top_texture.body.size == (8, 12)
