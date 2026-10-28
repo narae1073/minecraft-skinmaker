@@ -852,3 +852,36 @@ def test_extract_builds_fabric_texture_for_patterned_top(monkeypatch):
     assert obs.top_texture is not None
     assert obs.top_texture.usable
     assert obs.top_texture.body.size == (8, 12)
+
+
+# --- 피부 표본: 수염/아랫볼 회피 (2026-10-29) ------------------------------
+
+def _face_arr(fill_upper="#e0ac69", fill_lower="#3a2a1c"):
+    import numpy as np
+
+    face = Q.FaceBox(40, 30, 100, 120)
+    arr = np.zeros((200, 200, 3), dtype=np.float32)
+    rgb_u = np.array([int(fill_upper[i:i + 2], 16) for i in (1, 3, 5)], dtype=np.float32) / 255
+    rgb_l = np.array([int(fill_lower[i:i + 2], 16) for i in (1, 3, 5)], dtype=np.float32) / 255
+    arr[:, :] = rgb_u
+    arr[face.y + int(face.h * 0.55): face.bottom, face.x: face.right] = rgb_l
+    return arr, face
+
+
+def test_skin_sample_ignores_beard_lower_face():
+    arr, face = _face_arr()
+    got = C.measure_skin(arr, face)
+    assert got.rgb[0] > 180, got  # upper skin, not #3a2a1c
+
+
+def test_skin_sample_preserves_dark_skin():
+    arr, face = _face_arr("#6b4a3a", "#3a2a1c")
+    got = C.measure_skin(arr, face)
+    assert 70 <= got.rgb[0] <= 130, got
+
+
+def test_skin_sample_low_light_falls_back_to_lower():
+    arr, face = _face_arr("#241a16", "#6b4a3a")
+    got = C.measure_skin(arr, face)
+    # upper is too dark → fallback lower-face sample (lighter here)
+    assert got.rgb[0] > 80, got
