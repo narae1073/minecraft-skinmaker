@@ -885,3 +885,19 @@ def test_skin_sample_low_light_falls_back_to_lower():
     got = C.measure_skin(arr, face)
     # upper is too dark → fallback lower-face sample (lighter here)
     assert got.rgb[0] > 80, got
+
+
+def test_skin_prefers_warm_cheek_over_bright_grey_highlight():
+    """밝은 회색 하이라이트보다 약간 어두운 난색 피부를 고른다."""
+    import numpy as np
+
+    face = Q.FaceBox(40, 30, 100, 120)
+    arr = np.zeros((200, 200, 3), dtype=np.float32)
+    arr[:, :] = np.array([0.72, 0.70, 0.69])  # grey
+    # nose warm, right cheek grey-bright
+    nose = C._fraction_box(face, C.SKIN_UPPER_BOXES[0])
+    arr[nose.y:nose.bottom, nose.x:nose.right] = np.array([0.70, 0.55, 0.48])
+    ch_r = C._fraction_box(face, C.SKIN_UPPER_BOXES[2])
+    arr[ch_r.y:ch_r.bottom, ch_r.x:ch_r.right] = np.array([0.78, 0.74, 0.72])
+    got = C.measure_skin(arr, face)
+    assert got.rgb[0] - got.rgb[2] > 25, got

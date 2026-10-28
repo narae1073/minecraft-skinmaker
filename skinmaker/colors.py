@@ -318,7 +318,7 @@ def _skin_like(color: np.ndarray) -> bool:
     r, g, b = (float(v) for v in color[:3])
     return (
         0.08 <= lum <= 0.97
-        and 0.035 <= chroma <= 0.60
+        and 0.050 <= chroma <= 0.60
         and r >= g * 1.03
         and g >= b * 0.98
     )
@@ -354,15 +354,33 @@ def measure_skin(arr: np.ndarray, face: FaceBox, bins: int = CLUSTER_BINS) -> Co
         got = _skin_box_median(arr, face, spec)
         if got is not None:
             candidates.append(got)
-    if len(candidates) < 2:
+    if not candidates:
         got = _skin_box_median(arr, face, SKIN_FOREHEAD_BOX)
         if got is not None:
             candidates.append(got)
     if not candidates:
         return dominant_color(_region_pixels(arr, skin_region(face), LIGHT_PERCENTILE["skin"]), bins=bins)
-    # 가장 밝은 유효 영역을 쓴다. 수염/옷/머리카락이 섞인 어두운 영역을
-    # 피하면서, 얼굴 조명이 어두운 사진에서도 실제 피부 톤에 가깝게 간다.
-    med, count = max(candidates, key=lambda cn: float(cn[0] @ np.asarray(LUMA, dtype=np.float32)))
+
+    def score(item: tuple[np.ndarray, int]) -> float:
+        c = item[0]
+        lum = float(c @ np.asarray(LUMA, dtype=np.float32))
+        chroma = float(np.max(c) - np.min(c))
+        # 밝기만 좇으면 하이라이트(회색)로 간다. 채도에 더 큰 가중치를 둬
+        # 자연스러운 난색 피부를 고르고, 밝은 회색 하이라이트는 감점한다.
+        penalty = max(0.0, lum - 0.82) * 1.5
+        return 0.5 * lum + 1.5 * chroma - penalty
+
+    best = max(candidates, key=score)
+    best_chroma = float(np.max(best[0]) - np.min(best[0]))
+    best_lum = float(best[0] @ np.asarray(LUMA, dtype=np.float32))
+    # 이마는 모자/앞머리에 가리기 쉬워 기본 후보에서 뺀다. 다만 볼·코가
+    # 회색이거나 너무 어두우면 이마를 추가해 과도한 어둡기를 보정한다.
+    if len(candidates) < 2 or best_chroma < 0.10 or best_lum < 0.40:
+        got = _skin_box_median(arr, face, SKIN_FOREHEAD_BOX)
+        if got is not None:
+            candidates.append(got)
+            best = max(candidates, key=score)
+    med, count = best
     lum = float(med @ np.asarray(LUMA, dtype=np.float32))
     if lum < SKIN_MIN_LUM:
         return dominant_color(_region_pixels(arr, skin_region(face), LIGHT_PERCENTILE["skin"]), bins=bins)
