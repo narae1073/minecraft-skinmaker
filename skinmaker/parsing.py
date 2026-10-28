@@ -138,6 +138,14 @@ def skirt_hem_rows(seg: np.ndarray | None, face, min_pixels: int = 40) -> int | 
     clothed_count = int(clothed.sum())
     if clothed_count < min_pixels:
         return None
+    # VLM 은 skirt 인데 파서가 Skirt 를 못 봤다. Dress 클래스가 하체 옷의
+    # 절반 이상이면 긴 원피스로 보고 그 범위를 쓰고, 아니면(베스트/맨다리가
+    # Pants/Dress 로 섞인 경우) 바지 끝까지 늘리지 않고 무릎 기본값을 쓴다
+    # (image315: pants 3856 + dress 672 → 6, image409: dress 지배 → 9).
+    if skirt_count < min_pixels:
+        dress_count = int(np.isin(sub, (DRESS,)).sum())
+        if dress_count < 0.5 * clothed_count:
+            return 6
     if skirt_count >= min_pixels and skirt_count / clothed_count >= 0.2:
         hem_mask = skirt
     else:

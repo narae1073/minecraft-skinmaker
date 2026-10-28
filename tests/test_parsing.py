@@ -364,3 +364,35 @@ def test_skirt_hem_keeps_mini_short_with_shoes():
     seg[350:380, 80:120] = 9
     # top=50, shoe_top=250, skirt_bottom=129 -> ratio 0.40 -> feet(f) 0.35 -> 4
     assert P.skirt_hem_rows(seg, face) == 4
+
+
+def test_skirt_hem_defaults_to_knee_without_skirt_localization():
+    """VLM skirt + 파서에 Skirt/Dress 없음 → 바지 끝이 아니라 무릎(6)."""
+    import numpy as np
+
+    face = Q.FaceBox(70, 20, 60, 80)
+    seg = np.zeros((400, 200), np.uint8)
+    seg[150:380, 80:120] = P.PANTS   # 맨다리를 pants 로 오분류
+    assert P.skirt_hem_rows(seg, face) == 6
+
+
+def test_skirt_hem_uses_dominant_dress_extent():
+    """Skirt 픽셀은 없지만 Dress 가 하체 옷을 지배하면 긴 원피스로 본다."""
+    import numpy as np
+
+    face = Q.FaceBox(70, 20, 60, 80)
+    seg = np.zeros((400, 200), np.uint8)
+    seg[150:360, 80:120] = P.DRESS
+    seg[360:380, 80:120] = 9
+    assert P.skirt_hem_rows(seg, face) >= 8
+
+
+def test_skirt_hem_ignores_minority_dress_noise():
+    """Dress 픽셀이 소수(베스트 오분류)면 무릎 기본값."""
+    import numpy as np
+
+    face = Q.FaceBox(70, 20, 60, 80)
+    seg = np.zeros((400, 200), np.uint8)
+    seg[150:380, 80:120] = P.PANTS
+    seg[150:160, 80:120] = P.DRESS
+    assert P.skirt_hem_rows(seg, face) == 6
