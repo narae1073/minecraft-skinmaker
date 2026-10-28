@@ -6,6 +6,8 @@
 from __future__ import annotations
 
 from collections.abc import Sequence
+from itertools import groupby
+import statistics
 from dataclasses import dataclass, replace
 
 import cv2
@@ -15,6 +17,7 @@ from PIL import Image
 from .quality import FaceBox, PhotoInput, clip_to, hair_region, is_fullbody, shirt_bands, skin_region
 from . import hairstencil as HS
 from . import parsing
+from .texture import FabricTexture, crop_fabric
 
 LUMA = (0.2126, 0.7152, 0.0722)
 
@@ -233,6 +236,9 @@ class ObservedColors:
     skirt_hem_rows: int | None = None       # 사진 치마 밑단 → 다리 행(0-8), 없으면 None
     skirt_sample: ColorSample = MISSING      # Skirt(5) 마스크 색 — 치마 전용 (2026-10-28)
     dress_sample: ColorSample = MISSING      # Dress(7) 마스크 색 — 원피스 전용
+    stripe_px: int = 1                       # 측정된 줄무늬 두께 (1-3px, 2026-10-28)
+    top_texture: FabricTexture | None = None    # 복잡 무늬 상의 크롭 (Phase 3)
+    bottom_texture: FabricTexture | None = None # 복잡 무늬 하의/드레스 크롭
 
     @property
     def top_confident(self) -> bool:
@@ -539,6 +545,8 @@ def extract(
     skirt_hem_rows = None
     skirt_sample = MISSING
     dress_sample = MISSING
+    top_texture = None
+    bottom_texture = None
     if parsing.parsing_on():
         seg = seg if seg is not None else parsing.bottom_mask(photo.image)
         if seg is not None:
@@ -556,6 +564,9 @@ def extract(
             dress_mask = seg == parsing.DRESS
             if dress_mask.any():
                 dress_sample = dominant_color(rgb[dress_mask], bins=bins)
+            # 복잡 무늬 폴백 (2026-10-28): 마스크 영역에서 실제 천 패치를 뜬다.
+            top_texture = crop_fabric(photo.image, seg, (4, 7))
+            bottom_texture = crop_fabric(photo.image, seg, (5, 6, 7))
             cls_mask = np.isin(seg, parsing.BOTTOM_CLASSES)
             if cls_mask.any():
                 # SKIN_REF 앵커 WB는 따뜻한 피부를 중립으로 밀며 옅은 노랑까지
@@ -592,6 +603,7 @@ def extract(
     # 만족하고 방향까지 나오면 top_alt + stripe에 담는다.
     top_alt = MISSING
     stripe = "plain"
+    stripe_px = 1
     if not top.missing:
         torso_px = [p for b in shirt_boxes for p in [_region_pixels(arr, b, LIGHT_PERCENTILE["top"])] if p.shape[0]]
         if torso_px:
@@ -602,6 +614,8 @@ def extract(
                 stripe = stripe_orientation(arr, biggest, top, top_alt)
                 if stripe == "plain":
                     top_alt = MISSING
+                else:
+                    stripe_px = stripe_width(arr, biggest, top, top_alt, stripe)
 
     # 소매/하의 커버 측정. 줄무늬면 보조색도 fabric 후보에 넣는다.
     cover = measure_cover(
@@ -623,6 +637,9 @@ def extract(
         skirt_hem_rows=skirt_hem_rows,
         skirt_sample=skirt_sample,
         dress_sample=dress_sample,
+        stripe_px=stripe_px,
+        top_texture=top_texture,
+        bottom_texture=bottom_texture,
         hair_stencil=(
             HS.mask_stencil(seg, photo.face, photo.image.size, symmetry=hair_symmetry)
             if seg is not None and hair_source == "mask" else None
@@ -804,6 +821,38 @@ def measure_cover(arr: np.ndarray, pose, top_refs: list | None, skin_ref, bottom
     sleeve = max(sleeves, key=SLEEVE_COVER_ORDER.index) if sleeves else None
     bottom = "long" if legs and all(v == "long" for v in legs) else ("short" if legs else None)
     return CoverEstimate(sleeve, bottom, len(sleeves), len(legs))
+
+
+def stripe_width(
+    arr: np.ndarray,
+    box: FaceBox,
+    primary: ColorSample,
+    secondary: ColorSample,
+    direction: str,
+    min_share: float = 0.5,
+) -> int:
+    """줄무늬 두께(px)를 이차색 픽셀의 열/행 점유율 run-length 로 잰다.
+
+    direction 은 stripe_orientation 의 반환값을 쓴다. 측정 불가/모호하면 1px.
+    """
+    if primary.missing or secondary.missing or direction not in ("vertical_stripe", "horizontal_stripe"):
+        return 1
+    clipped = clip_to(box, (arr.shape[1], arr.shape[0]))
+    if clipped is None or clipped.w < 4 or clipped.h < 4:
+        return 1
+    patch = arr[clipped.y : clipped.y + clipped.h, clipped.x : clipped.x + clipped.w, :3]
+    flat = patch.reshape(-1, 3)
+    pc = np.asarray(primary.rgb, dtype=np.float32) / 255.0
+    sc = np.asarray(secondary.rgb, dtype=np.float32) / 255.0
+    dp = np.abs(flat - pc).max(axis=1)
+    ds = np.abs(flat - sc).max(axis=1)
+    mask = (ds < dp).reshape(clipped.h, clipped.w)
+    profile = mask.mean(axis=0) if direction == "vertical_stripe" else mask.mean(axis=1)
+    runs = [(value, len(list(group))) for value, group in groupby(profile >= min_share)]
+    widths = [length for value, length in runs if value]
+    if not widths:
+        return 1
+    return max(1, min(3, int(round(statistics.median(widths)))))
 
 
 def stripe_orientation(

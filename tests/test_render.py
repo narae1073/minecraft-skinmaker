@@ -15,6 +15,7 @@ from skinmaker import render as R
 from skinmaker.canvas import rgba, shade
 from skinmaker.format import get_layout
 from skinmaker.validate import validate_image
+from skinmaker import texture as TX
 
 
 def sample(hex_value, share=0.5, confident=True, n=100):
@@ -411,20 +412,52 @@ def test_top_none_renders_bare_body():
     assert canvas.image.getpixel((f.x + 1, f.y + 6))[:3] == shade(rgba("#e0ac69"), 1.0)[:3]
 
 
-def test_graphic_back_is_plain_while_front_has_print():
-    canvas = R.render(observed(), attrs(pattern="graphic"), (), "classic")
+def test_graphic_has_no_placeholder_square():
+    """graphic 태그만으로는 회색 사각형을 그리지 않는다 (2026-10-28).
+
+    세부 정보가 없으면 측정 상의색 단색으로 접는다 — Phase 3 의 크롭 텍스처가
+    있으면 그쪽이 실제 무늬를 공급한다.
+    """
+    obs = observed()
+    canvas = R.render(obs, attrs(pattern="graphic"), (), "classic")
     front = get_layout("classic").face("body", "front", 0)
-    back = get_layout("classic").face("body", "back", 0)
-    assert canvas.image.getpixel((front.x + 4, front.y + 6))[:3] == (242, 242, 242)
-    assert canvas.image.getpixel((back.x + 4, back.y + 6))[:3] != (242, 242, 242)
+    base = shade(rgba(obs.top.hex), R.FACE_SHADE["front"])[:3]
+    neck = {(3, 0), (4, 0), (3, 1), (4, 1)}  # inner_top=none → 맨목
+    for v in range(12):
+        for u in range(8):
+            got = canvas.image.getpixel((front.x + u, front.y + v))[:3]
+            assert got != (242, 242, 242), (u, v)
+            if (u, v) not in neck:
+                assert got == base, (u, v, got, base)
+
+
+def test_stripe_defaults_to_one_pixel():
+    canvas = R.render(observed(top="#445566"), attrs(pattern="vertical_stripe"), (), "classic")
+    f = get_layout("classic").face("body", "front", 0)
+    cols = [canvas.image.getpixel((f.x + u, f.y + 6))[:3] for u in range(4)]
+    assert cols[0] != cols[1] and cols[1] != cols[2], cols
+
+
+def test_stripe_thickness_follows_measurement():
+    obs = dataclasses.replace(observed(top="#445566"), stripe_px=2)
+    canvas = R.render(obs, attrs(pattern="vertical_stripe"), (), "classic")
+    f = get_layout("classic").face("body", "front", 0)
+    cols = [canvas.image.getpixel((f.x + u, f.y + 6))[:3] for u in range(4)]
+    assert cols[0] == cols[1] and cols[1] != cols[2], cols
+
+
+def test_check_defaults_to_one_pixel():
+    canvas = R.render(observed(top="#445566"), attrs(pattern="check"), (), "classic")
+    f = get_layout("classic").face("body", "front", 0)
+    assert canvas.image.getpixel((f.x + 0, f.y + 6)) != canvas.image.getpixel((f.x + 1, f.y + 6))
 
 
 def test_stripe_reaches_back_but_graphic_does_not():
     stripe = R.render(observed(top="#445566"), attrs(pattern="vertical_stripe"), (), "classic")
     front = get_layout("classic").face("body", "front", 0)
     back = get_layout("classic").face("body", "back", 0)
-    assert stripe.image.getpixel((front.x + 0, front.y + 6)) != stripe.image.getpixel((front.x + 2, front.y + 6))
-    assert stripe.image.getpixel((back.x + 0, back.y + 6)) != stripe.image.getpixel((back.x + 2, back.y + 6))
+    assert stripe.image.getpixel((front.x + 0, front.y + 6)) != stripe.image.getpixel((front.x + 1, front.y + 6))
+    assert stripe.image.getpixel((back.x + 0, back.y + 6)) != stripe.image.getpixel((back.x + 1, back.y + 6))
 
 
 def test_degrade_forces_plain():
@@ -432,8 +465,8 @@ def test_degrade_forces_plain():
     patterned = R.render(obs, attrs(pattern="check"), (), "classic")
     conservative = R.render(obs, attrs(pattern="check"), ("blur",), "classic")
     f = get_layout("classic").face("body", "front", 0)
-    assert patterned.image.getpixel((f.x + 0, f.y + 6)) != patterned.image.getpixel((f.x + 2, f.y + 6))
-    assert conservative.image.getpixel((f.x + 0, f.y + 6)) == conservative.image.getpixel((f.x + 2, f.y + 6))
+    assert patterned.image.getpixel((f.x + 0, f.y + 6)) != patterned.image.getpixel((f.x + 1, f.y + 6))
+    assert conservative.image.getpixel((f.x + 0, f.y + 6)) == conservative.image.getpixel((f.x + 1, f.y + 6))
 
 
 def test_uncertain_pattern_forces_plain():
@@ -481,7 +514,7 @@ def test_vlm_pattern_wins_over_measurement():
                             obs.wb_gain, obs.wb_confident, obs.skin_chroma, alt, "vertical_stripe")
     canvas = R.render(obs2, attrs(pattern="check"), (), "classic")
     f = get_layout("classic").face("body", "front", 0)
-    assert canvas.image.getpixel((f.x + 0, f.y + 6)) != canvas.image.getpixel((f.x + 2, f.y + 6))
+    assert canvas.image.getpixel((f.x + 0, f.y + 6)) != canvas.image.getpixel((f.x + 1, f.y + 6))
 
 
 def test_vlm_plain_vetoes_measured_stripes():
@@ -804,3 +837,56 @@ def test_render_dress_uses_dress_mask_colour():
     canvas = R.render(obs, attrs(top_garment="dress", bottom_garment="none"), (), "classic")
     f = get_layout("classic").face("r_leg", "front", 0)
     assert canvas.image.getpixel((f.x + 1, f.y + 0))[:3] == shade(rgba("#eeeeee"), 1.0)[:3]
+
+
+# --- Phase 3: 크롭 천 텍스처 (2026-10-28) -----------------------------------
+
+def _fabric(complexity=20.0):
+    from PIL import Image
+
+    def tile(w, h):
+        img = Image.new("RGB", (w, h))
+        px = img.load()
+        for v in range(h):
+            for u in range(w):
+                px[u, v] = (200, 40, 60) if (u + v) % 2 else (40, 90, 160)
+        return img
+
+    return TX.FabricTexture(tile(8, 12), tile(4, 12), tile(4, 12), complexity, (0, 0, 8, 8))
+
+
+def test_graphic_uses_cropped_texture_front_only():
+    obs = dataclasses.replace(observed(), top_texture=_fabric())
+    canvas = R.render(obs, attrs(pattern="graphic"), (), "classic")
+    front = get_layout("classic").face("body", "front", 0)
+    back = get_layout("classic").face("body", "back", 0)
+    fcols = {canvas.image.getpixel((front.x + u, front.y + 6))[:3] for u in range(8)}
+    assert len(fcols) > 1
+    assert (242, 242, 242) not in fcols
+    base = shade(rgba(obs.top.hex), R.FACE_SHADE["back"])[:3]
+    assert canvas.image.getpixel((back.x + 2, back.y + 6))[:3] == base
+
+
+def test_plain_unusable_texture_stays_flat():
+    obs = dataclasses.replace(observed(), top_texture=_fabric(complexity=5.0))
+    canvas = R.render(obs, attrs(pattern="plain"), (), "classic")
+    front = get_layout("classic").face("body", "front", 0)
+    cols = {canvas.image.getpixel((front.x + u, front.y + 6))[:3] for u in range(8)}
+    assert len(cols) == 1
+
+
+def test_skirt_uses_bottom_texture_above_hem_only():
+    obs = dataclasses.replace(observed(), bottom_texture=_fabric(), skirt_hem_rows=4)
+    canvas = R.render(obs, attrs(bottom_garment="skirt"), (), "classic")
+    f = get_layout("classic").face("r_leg", "front", 0)
+    rows = [[canvas.image.getpixel((f.x + u, f.y + v))[:3] for u in range(f.w)] for v in range(9)]
+    assert len({tuple(r) for r in rows[:2]}) == 2  # 체커 두 색
+    skin = shade(rgba(obs.skin.hex), R.FACE_SHADE["front"])[:3]
+    for v in range(4, 9):
+        assert all(px == skin for px in rows[v]), v
+
+
+def test_textured_skin_passes_validation():
+    obs = dataclasses.replace(observed(), top_texture=_fabric(), bottom_texture=_fabric())
+    canvas = R.render(obs, attrs(pattern="plaid", bottom_garment="jeans"), (), "classic")
+    assert validate_image(canvas.image, "classic") == []

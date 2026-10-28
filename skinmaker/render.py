@@ -14,9 +14,12 @@ import hashlib
 import json
 import random
 
+from PIL import Image
+
 from .attributes import Attributes
 from .canvas import Color, SkinCanvas, rgba, shade
 from .colors import MISSING, ObservedColors
+from .texture import COMPLEX_PATTERNS, FabricTexture
 from .format import HEAD_ACCESSORY_LAYER  # noqa: F401  (규칙 문서화용: ACC.는 손대지 않는다)
 
 FACE_SHADE = {
@@ -288,25 +291,29 @@ def render_head(canvas: SkinCanvas, colors: dict[str, Color], attrs: Attributes,
     # HEAD ACC.(layer=1)는 손대지 않는다. 기본 투명 유지.
 
 
-def _pattern_color(base: Color, alt: Color | None, u: int, v: int, w: int, h: int, pattern: str, face_name: str) -> Color:
+def _pattern_color(base: Color, alt: Color | None, u: int, v: int, w: int, h: int, pattern: str, face_name: str,
+                   thickness: int = 1) -> Color:
+    """패턴 픽셀. thickness 는 줄/격자 두께(px) — 기본 1px, 측정값 1-3 (2026-10-28).
+
+    graphic 은 세부 정보가 없으므로 여기서 아무것도 그리지 않는다. 실제 무늬는
+    크롭 텍스처(Phase 3)가 공급하고, 없으면 측정 상의색 단색으로 접힌다.
+    """
     shaded = shade(base, FACE_SHADE[face_name])
     if pattern == "plain":
         return shaded
+    t = max(1, int(thickness))
     secondary = shade(alt, FACE_SHADE[face_name]) if alt is not None else shade(base, 0.72)
     if pattern == "vertical_stripe":
-        return secondary if (u // 2) % 2 == 1 else shaded
+        return secondary if (u // t) % 2 == 1 else shaded
     if pattern == "horizontal_stripe":
-        return secondary if (v // 2) % 2 == 1 else shaded
+        return secondary if (v // t) % 2 == 1 else shaded
     if pattern == "check":
-        return secondary if ((u // 2) + (v // 2)) % 2 == 1 else shaded
+        return secondary if ((u // t) + (v // t)) % 2 == 1 else shaded
     if pattern == "plaid":
-        if ((u // 2) + (v // 2)) % 2 == 1:
+        if ((u // t) + (v // t)) % 2 == 1:
             return secondary
-        return shade(base, 1.08) if u % 4 == 0 else shaded
+        return shade(base, 1.08) if u % (2 * t) == 0 else shaded
     if pattern == "graphic":
-        # 앞면 가슴 프린트만. 뒷면은 호출자가 plain으로 넘긴다.
-        if 2 <= u < w - 2 and 4 <= v < 8:
-            return shade(rgba("#f2f2f2"), FACE_SHADE[face_name])
         return shaded
     return shaded
 
@@ -318,17 +325,28 @@ def render_body(
     pattern: str,
     alt: Color | None = None,
     hair_stencil=None,
+    thickness: int = 1,
+    texture: FabricTexture | None = None,
 ) -> None:
     top_garment = attrs.get("top_garment")
     base = colors["skin"] if top_garment == "none" else colors["top"]
+    use_texture = texture is not None and (pattern in COMPLEX_PATTERNS or texture.usable)
     # dress는 상의색 그대로. overalls/uniform/apron도 v1은 단색 베이스.
     for face_name in canvas.layout.part("body", 0).faces:
         f = canvas.layout.face("body", face_name, 0)
         # 75% 규칙: graphic은 앞면만, 뒷면·측면은 plain.
-        p = pattern if not (pattern == "graphic" and face_name in ("back", "right", "left", "top", "bottom")) else "plain"
-        for v in range(f.h):
-            for u in range(f.w):
-                canvas.put("body", face_name, u, v, _pattern_color(base, alt, u, v, f.w, f.h, p, face_name), 0)
+        front_only = pattern == "graphic" and face_name != "front"
+        p = pattern if not front_only else "plain"
+        if use_texture and not front_only:
+            tile = texture.body.resize((f.w, f.h), Image.NEAREST)
+            for v in range(f.h):
+                for u in range(f.w):
+                    c = shade(tile.getpixel((u, v)) + (255,), FACE_SHADE[face_name])
+                    canvas.put("body", face_name, u, v, c, 0)
+        else:
+            for v in range(f.h):
+                for u in range(f.w):
+                    canvas.put("body", face_name, u, v, _pattern_color(base, alt, u, v, f.w, f.h, p, face_name, thickness), 0)
     if top_garment != "none":
         if attrs.get("inner_top") != "none":
             # 겹쳐 입은 상의 (2026-10-21): 목 V·라펠에 안쪽 옷, 타이 1px.
@@ -417,14 +435,17 @@ def _render_cuffs(canvas: SkinCanvas, colors: dict[str, Color], attrs: Attribute
 
 
 def render_legs(canvas: SkinCanvas, colors: dict[str, Color], attrs: Attributes, bottom_garment: str | None = None, *, shoe_two_tone: bool = True,
-                skirt_rows: int | None = None, pattern: str | None = None, alt: Color | None = None) -> None:
+                skirt_rows: int | None = None, pattern: str | None = None, alt: Color | None = None,
+                texture: FabricTexture | None = None) -> None:
     """다리 레이어. jeans/pants/shorts/none 은 기존 경로 그대로 (2026-10-28).
 
     - dress: 0-8행을 드레스 천으로 연속 채움 (패턴은 몸통에서 이어짐).
     - skirt: 측정된 밑단(skirt_rows)까지만 치마색, 그 아래는 맨다리.
+    - complex texture (Phase 3): 크롭 천이 있으면 옷 행을 그 픽셀로 채운다.
     """
     bottom_garment = bottom_garment or attrs.get("bottom_garment")
     pants_c = colors["bottom"]
+    use_texture = texture is not None and texture.usable
 
     def shoe_color(face_name: str, v: int, fh: int) -> Color:
         c = shade(colors["shoe"], FACE_SHADE[face_name])
@@ -433,12 +454,24 @@ def render_legs(canvas: SkinCanvas, colors: dict[str, Color], attrs: Attributes,
             return shade(c, 0.62) if v == fh - 1 else shade(c, 1.35)
         return c
 
+    def fabric_color(part: str, face_name: str, u: int, v: int, f) -> Color:
+        if use_texture:
+            tile = texture.leg.resize((f.w, f.h), Image.NEAREST)
+            return shade(tile.getpixel((u, v)) + (255,), FACE_SHADE[face_name])
+        return shade(pants_c, FACE_SHADE[face_name])
+
     if bottom_garment == "dress":
         for part in ("r_leg", "l_leg"):
             for face_name in canvas.layout.part(part, 0).faces:
                 f = canvas.layout.face(part, face_name, 0)
                 if f.h < 12:
-                    _shaded_face(canvas, part, face_name, pants_c, 0)
+                    if use_texture:
+                        tile = texture.leg.resize((f.w, f.h), Image.NEAREST)
+                        for v in range(f.h):
+                            for u in range(f.w):
+                                canvas.put(part, face_name, u, v, shade(tile.getpixel((u, v)) + (255,), FACE_SHADE[face_name]), 0)
+                    else:
+                        _shaded_face(canvas, part, face_name, pants_c, 0)
                     continue
                 for v in range(f.h):
                     if v >= 9:
@@ -446,9 +479,10 @@ def render_legs(canvas: SkinCanvas, colors: dict[str, Color], attrs: Attributes,
                             canvas.put(part, face_name, u, v, shoe_color(face_name, v, f.h), 0)
                         continue
                     for u in range(f.w):
-                        c = _pattern_color(
-                            pants_c, alt, u, v + 12, f.w, f.h, pattern or "plain", face_name
-                        )
+                        if use_texture:
+                            c = fabric_color(part, face_name, u, v, f)
+                        else:
+                            c = _pattern_color(pants_c, alt, u, v + 12, f.w, f.h, pattern or "plain", face_name)
                         if v == 8:  # 밑단 그림자
                             c = shade(c, 0.82)
                         canvas.put(part, face_name, u, v, c, 0)
@@ -460,19 +494,34 @@ def render_legs(canvas: SkinCanvas, colors: dict[str, Color], attrs: Attributes,
             for face_name in canvas.layout.part(part, 0).faces:
                 f = canvas.layout.face(part, face_name, 0)
                 if f.h < 12:
-                    _shaded_face(canvas, part, face_name, pants_c, 0)
+                    if use_texture:
+                        tile = texture.leg.resize((f.w, f.h), Image.NEAREST)
+                        for v in range(f.h):
+                            for u in range(f.w):
+                                canvas.put(part, face_name, u, v, shade(tile.getpixel((u, v)) + (255,), FACE_SHADE[face_name]), 0)
+                    else:
+                        _shaded_face(canvas, part, face_name, pants_c, 0)
                     continue
                 for v in range(f.h):
                     if v >= 9:
                         c = shoe_color(face_name, v, f.h)
                     elif v < rows:
-                        c = shade(pants_c, FACE_SHADE[face_name])
+                        c = fabric_color(part, face_name, 0, v, f) if use_texture else shade(pants_c, FACE_SHADE[face_name])
+                        if use_texture:
+                            # fabric_color is per-column; compute per u below
+                            pass
                         if v == rows - 1:  # 밑단 그림자
-                            c = shade(pants_c, 0.82)
+                            c = shade(c, 0.82)
                     else:
                         c = shade(colors["skin"], FACE_SHADE[face_name])
                     for u in range(f.w):
-                        canvas.put(part, face_name, u, v, c, 0)
+                        if use_texture and v < rows and v < 9:
+                            cu = fabric_color(part, face_name, u, v, f)
+                            if v == rows - 1:
+                                cu = shade(cu, 0.82)
+                            canvas.put(part, face_name, u, v, cu, 0)
+                        else:
+                            canvas.put(part, face_name, u, v, c, 0)
         return
 
     pants_end, shoe_start = BOTTOM_ROWS.get(bottom_garment, (11, 9))
@@ -480,19 +529,29 @@ def render_legs(canvas: SkinCanvas, colors: dict[str, Color], attrs: Attributes,
         for face_name in canvas.layout.part(part, 0).faces:
             f = canvas.layout.face(part, face_name, 0)
             if f.h < 12:
-                _shaded_face(canvas, part, face_name, pants_c if pants_end >= 0 else colors["skin"], 0)
+                if use_texture and pants_end >= 0:
+                    tile = texture.leg.resize((f.w, f.h), Image.NEAREST)
+                    for v in range(f.h):
+                        for u in range(f.w):
+                            canvas.put(part, face_name, u, v, shade(tile.getpixel((u, v)) + (255,), FACE_SHADE[face_name]), 0)
+                else:
+                    _shaded_face(canvas, part, face_name, pants_c if pants_end >= 0 else colors["skin"], 0)
                 continue
             for v in range(f.h):
                 if v >= shoe_start:
                     c = shoe_color(face_name, v, f.h)
                 elif v <= pants_end:
-                    c = shade(pants_c, FACE_SHADE[face_name])
+                    c = fabric_color(part, face_name, 0, v, f) if use_texture else shade(pants_c, FACE_SHADE[face_name])
                 else:
                     c = shade(colors["skin"], FACE_SHADE[face_name])
-                if v == pants_end and 0 <= pants_end < shoe_start - 1:
+                if v == pants_end and 0 <= pants_end < shoe_start - 1 and not use_texture:
                     c = shade(pants_c, 0.66)
                 for u in range(f.w):
-                    canvas.put(part, face_name, u, v, c, 0)
+                    if use_texture and pants_end >= 0 and pants_end >= v and v < shoe_start:
+                        cu = fabric_color(part, face_name, u, v, f)
+                        canvas.put(part, face_name, u, v, cu, 0)
+                    else:
+                        canvas.put(part, face_name, u, v, c, 0)
 
 
 # L2 는 L1 위의 하이라이트 셸이다 (2026-10-27 개정). 실루엣 전체를 복제하면
@@ -664,11 +723,14 @@ def render(
     # 측정 2색(줄무늬)이 있을 때만 실측 보조색. 없으면 합성 음영.
     alt = colors["top_alt"] if not observed.top_alt.missing and pattern in ("vertical_stripe", "horizontal_stripe") else None
     render_head(canvas, colors, attrs, observed.hair_stencil)
-    render_body(canvas, colors, attrs, pattern, alt, observed.hair_stencil)
+    thickness = observed.stripe_px if pattern in ("vertical_stripe", "horizontal_stripe", "check", "plaid") else 1
+    render_body(canvas, colors, attrs, pattern, alt, observed.hair_stencil, thickness,
+                texture=observed.top_texture)
     render_arms(canvas, colors, attrs, pattern, resolve_sleeve(attrs, observed))
     render_legs(
         canvas, colors, attrs, resolved_bottom, shoe_two_tone=shoe_two_tone,
         skirt_rows=observed.skirt_hem_rows, pattern=pattern, alt=alt,
+        texture=observed.bottom_texture,
     )
     if observed.hair_overlay:
         stencil = observed.hair_stencil
