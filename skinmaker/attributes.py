@@ -13,12 +13,17 @@ from typing import Any
 ENUMS: dict[str, tuple[str, ...]] = {
     "top_garment": ("tee", "hoodie", "jacket", "shirt", "sweater", "vest", "uniform", "apron", "overalls", "dress", "none"),
     "bottom_garment": ("jeans", "shorts", "skirt", "pants", "none"),
-    "pattern": ("plain", "vertical_stripe", "horizontal_stripe", "check", "plaid", "graphic"),
+    "pattern": ("plain", "vertical_stripe", "horizontal_stripe", "check", "plaid", "graphic", "floral"),
     "sleeve_len": ("none", "short", "three_quarter", "long"),
     "hair_length": ("short", "medium", "long", "very_long"),
     "beard": ("none", "stubble", "full"),
     "inner_top": ("none", "shirt", "tee", "knit"),
     "neckwear": ("none", "tie"),
+    # 구조 (2026-10-28): 옷의 여밈/칼라/주머니/대칭. 크롭 천 위에 1px 로 얹는다.
+    "closure_type": ("none", "zipper", "buttons"),
+    "collar_type": ("none", "crew", "v_neck", "shirt", "hood"),
+    "pocket_type": ("none", "patch"),
+    "symmetry": ("symmetric", "asymmetric"),
 }
 
 DEFAULTS: dict[str, str] = {
@@ -30,11 +35,15 @@ DEFAULTS: dict[str, str] = {
     "beard": "none",
     "inner_top": "none",
     "neckwear": "none",
+    "closure_type": "none",
+    "collar_type": "none",
+    "pocket_type": "none",
+    "symmetry": "symmetric",
 }
 
 FIELD_ORDER: tuple[str, ...] = (
     "top_garment", "bottom_garment", "pattern", "sleeve_len", "hair_length", "beard",
-    "inner_top", "neckwear",
+    "inner_top", "neckwear", "closure_type", "collar_type", "pocket_type", "symmetry",
 )
 REVERSED_ORDER: tuple[str, ...] = tuple(reversed(FIELD_ORDER)) + ("hair_bbox",)
 NATURAL_ORDER: tuple[str, ...] = FIELD_ORDER + ("hair_bbox",)
@@ -51,6 +60,10 @@ _HINTS = {
     "beard": "수염. 없으면 none, 짧은 수염·면도 그림자면 stubble, 뚜렷한 수염/콧수염이면 full",
     "inner_top": "안에 껴입은 상의. 목/칼라에 겉옷과 다른 안쪽 옷이 보이면 shirt/tee/knit, 단일 상의·맨목이면 none",
     "neckwear": "넥타이. 칼라 아래 타이가 보이면 tie, 없으면 none",
+    "closure_type": "앞여밈. 지퍼가 보이면 zipper, 단추가 보이면 buttons, 없으면 none",
+    "collar_type": "칼라. 라운드=crew, 브이넥=v_neck, 셔츠칼라=shirt, 후드=hood, 없으면 none",
+    "pocket_type": "주머니. 겉으로 붙은 사각 주머니가 보이면 patch, 없으면 none",
+    "symmetry": "옷/무늬가 좌우 대칭으로 보이면 symmetric, 한쪽만 다르면 asymmetric",
     "hair_bbox": "머리카락만 있는 영역. 모자·헬멧·안경은 제외. HEAD 영역 관측용",
 }
 
@@ -60,6 +73,8 @@ _RULES = (
     "민소매·끈나시·탱크톱·캐미솔도 상의다 — 가장 가까운 종류(예: tee)로 고르고 sleeve_len은 none. 맨몸일 때만 top_garment는 none.",
     "이미지 전체에서 보이는 머리카락만 찾는다. 얼굴 상자가 아니라 머리카락 영역.",
     "모자·헬멧은 머리카락이 아니므로 hair_bbox에 포함하지 않는다.",
+    "closure/collar/pocket 은 실제로 보일 때만 고른다. 확실하지 않으면 none.",
+    "대칭은 옷과 무늬의 좌우 차이를 본다. 판단이 어려우면 symmetric.",
     "JSON 객체 하나만 출력한다. 마크다운 코드펜스 없이.",
 )
 
@@ -208,6 +223,9 @@ class Derived:
 CROSS_RULES: tuple[tuple[str, str, str, str], ...] = (
     ("top_garment", "none", "sleeve_len", "none"),
     ("top_garment", "none", "pattern", "plain"),
+    ("top_garment", "none", "closure_type", "none"),
+    ("top_garment", "none", "collar_type", "none"),
+    ("top_garment", "none", "pocket_type", "none"),
 )
 
 

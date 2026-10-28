@@ -867,8 +867,9 @@ def test_graphic_uses_cropped_texture_front_only():
     assert canvas.image.getpixel((back.x + 2, back.y + 6))[:3] == base
 
 
-def test_plain_unusable_texture_stays_flat():
-    obs = dataclasses.replace(observed(), top_texture=_fabric(complexity=5.0))
+def test_plain_pattern_ignores_usable_texture():
+    """흰 셔츠 주름처럼 HF 가 높아도 VLM pattern=plain 이면 크롭하지 않는다."""
+    obs = dataclasses.replace(observed(), top_texture=_fabric(complexity=20.0))
     canvas = R.render(obs, attrs(pattern="plain"), (), "classic")
     front = get_layout("classic").face("body", "front", 0)
     cols = {canvas.image.getpixel((front.x + u, front.y + 6))[:3] for u in range(8)}

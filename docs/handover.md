@@ -187,3 +187,10 @@ S0 quality/face detection (YuNet) → S1 colour measurement (white-balance + ban
   - 스코어링(`skinmaker/score.py`): compare.png 를 VLM 에 보내 head/top/bottom/overall 1–10 + issues, worst→best ranking, resume/--jobs/--repeat, `out/qa_scores.json`. 문서는 `docs/qa-render.md`.
   - A/B(3-worst): image413 4.75→**6.0**(bottom 2→5), image421 4.5→**5.5**(bottom 3→4), floral dress 306 4.75→**6.0**(top 3→6, overall 4→6). 테스트 **588 passed**.
   - Phase 4(구조 태그 스키마 + zipper/button/collar/pocket 드로어)는 다음 단계.
+
+- 2026-10-28 (Phase 4, 하이브리드 구조):
+  - VLM 스키마 확장: `closure_type`(none/zipper/buttons), `collar_type`(none/crew/v_neck/shirt/hood), `pocket_type`(none/patch), `symmetry`(symmetric/asymmetric), `pattern`+floral. top=none → 구조 필드 none 교차 규칙. 테스트 고정값/mock 기본 시나리오 갱신, Gemini 스키마/prompt 테스트 추가.
+  - `skinmaker/structure.py`: 1px 지퍼(중앙 4열, 교대 이빨), 단추(u4 행 1/4/7/10 + placket u3), 칼라(crew/v/shirt/hood), 패치 주머니(1px 외곽). 크롭 천/패턴 위에, 긴 머리 드레이프 아래에 오버레이. VLM 태그가 없거나 none 이면 no-op; 셔츠 칼라+closure none 은 단추로 보수적 보정(지퍼 임의 추정 금지).
+  - 크롭 개선: 창을 옷 bbox 중앙 35%로 고정(폰/손 오염 제거), 상의 크롭은 VLM pattern 복잡일 때만(흰 셔츠 주름 HF 10.2 오탐 방지), 하의는 HF 게이트 유지.
+  - 실사진 A/B: 버튼 셔츠(연한 셔츠+placket/단추), 지퍼 재킷(1px 금속 지퍼), 블레이저(단추+패치 주머니), 플로럴 드레스(크롭 유지; 구조 태그 없음). 렌더는 `out/qa_structure_render2/`.
+  - 테스트: `pytest -q` → **595 passed** 예정/기록. Phase 5(전체 236 렌더+스코어 ranking)는 다음 단계.

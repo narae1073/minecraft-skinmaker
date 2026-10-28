@@ -23,6 +23,10 @@ BASE = {
     "beard": "none",
     "inner_top": "none",
     "neckwear": "none",
+    "closure_type": "buttons",
+    "collar_type": "crew",
+    "pocket_type": "none",
+    "symmetry": "symmetric",
     "hair_bbox": [200, 50, 800, 600],
 }
 
