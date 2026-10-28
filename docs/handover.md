@@ -199,4 +199,4 @@ S0 quality/face detection (YuNet) → S1 colour measurement (white-balance + ban
   - `measure_skin`: 코+윗볼(수염이 닿지 않는 영역)의 밝은 60% 중앙값을 영역별로 재고, **가장 밝은 유효 영역**을 선택. 난색 필터(R>G>B, 채도 0.035–0.60, 휘도 0.08–0.97)로 머리카락·장신구·회색 그림자를 거른다. 선택 휘도 <0.28(야간·역광)이면 기존 아랫볼 최빈색으로 폴백. WB 앵커는 기존 아랫볼 그대로(과보정 방지).
   - 표본 변화: messi5 `#8d7365→#b99692`, images10 `#b5756a→#de9b8f`, images15 `#e0b59d→#e9d6c5`, lena `#e27876→#ecb3aa`; 어두운 피부 images8 `#73635e→#6e5649`(난색 유지), image417/158(그늘·야간)은 기존값 유지.
   - A/B(10장 × 3회 중앙값): mean **4.38→4.62**, head **4.40→4.60**. images10 6.5→**8.0**(head 4→6), messi5 3.5→**4.25**(head 4→6), images15 3.25→**4.0**; images8/417/158/people/istock 유지. image141 8.75→8.0은 회귀(피부 외 요인 혼재).
-  - 테스트: `pytest -q` → **598 passed**. 전체 236 재랭킹은 별도.
+  - 테스트: `pytest -q` → **598 passed**. 전체 236 재랭킹(동일 4축 rubric): mean **5.87→5.89**, head **5.81→5.90** (top 5.84→5.83·bottom 6.07→6.09·overall 5.74→5.75). 80 개선/74 악화/82 동일. skin 이슈 76→56, 'darker' 106→88, 'grey' 48→59. 표적: images10 8.0, messi5 4.25, images15 4.0. 회색/과보정 여지는 후속(채도/하이라이트 선택).
