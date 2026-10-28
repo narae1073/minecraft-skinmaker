@@ -193,4 +193,4 @@ S0 quality/face detection (YuNet) → S1 colour measurement (white-balance + ban
   - `skinmaker/structure.py`: 1px 지퍼(중앙 4열, 교대 이빨), 단추(u4 행 1/4/7/10 + placket u3), 칼라(crew/v/shirt/hood), 패치 주머니(1px 외곽). 크롭 천/패턴 위에, 긴 머리 드레이프 아래에 오버레이. VLM 태그가 없거나 none 이면 no-op; 셔츠 칼라+closure none 은 단추로 보수적 보정(지퍼 임의 추정 금지).
   - 크롭 개선: 창을 옷 bbox 중앙 35%로 고정(폰/손 오염 제거), 상의 크롭은 VLM pattern 복잡일 때만(흰 셔츠 주름 HF 10.2 오탐 방지), 하의는 HF 게이트 유지.
   - 실사진 A/B: 버튼 셔츠(연한 셔츠+placket/단추), 지퍼 재킷(1px 금속 지퍼), 블레이저(단추+패치 주머니), 플로럴 드레스(크롭 유지; 구조 태그 없음). 렌더는 `out/qa_structure_render2/`.
-  - 테스트: `pytest -q` → **595 passed** 예정/기록. Phase 5(전체 236 렌더+스코어 ranking)는 다음 단계.
+  - 테스트: `pytest -q` → **595 passed**. Phase 5: 277 재분류 **236 ok / 41 no-face / 0 error** → 236 렌더 + **236 스코어 / 0 error**. mean **5.87**, median **6.00** (head 5.81·top 5.84·bottom 6.07·overall 5.74), worst 2.25(images8/image142), best 8.75(141/146/161/169). `out/qa_scores.json`(gitignored) worst→best. 다음 우선순위: 피부톤 71·헤어색 63·안경 47·모자 ~28 이슈.
