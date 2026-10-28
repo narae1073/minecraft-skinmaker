@@ -29,6 +29,10 @@ GOOD = {
     "beard": "full",
     "inner_top": "shirt",
     "neckwear": "none",
+    "closure_type": "buttons",
+    "collar_type": "crew",
+    "pocket_type": "none",
+    "symmetry": "symmetric",
     "hair_bbox": [200, 50, 800, 600],
 }
 
@@ -251,6 +255,15 @@ def test_gemini_schema_conversion():
     assert out["type"] == "OBJECT"
     assert out["properties"]["top_garment"]["enum"] == list(A.ENUMS["top_garment"])
     assert out["properties"]["hair_bbox"]["items"] == {"type": "INTEGER"}
+    assert out["properties"]["closure_type"]["enum"] == list(A.ENUMS["closure_type"])
+    assert out["properties"]["collar_type"]["enum"] == list(A.ENUMS["collar_type"])
+    assert "floral" in out["properties"]["pattern"]["enum"]
+
+
+def test_prompt_lists_structure_fields():
+    prompt = A.build_prompt()
+    for name in ("closure_type", "collar_type", "pocket_type", "symmetry"):
+        assert name in prompt
 
 
 def test_gemini_extracts_text_part():
@@ -505,7 +518,9 @@ def test_cross_rule_leaves_valid_payload_untouched():
 
 def test_cross_rule_reports_both_applications():
     a = A.validate({**GOOD, "top_garment": "none", "pattern": "check", "sleeve_len": "short"})
-    assert len(a.derived) == 2
+    # sleeve/pattern + closure/collar (top=none) — pocket already none
+    assert len(a.derived) == 4
+    assert any(d.startswith("closure_type") for d in a.derived)
 
 
 def test_apply_cross_rules_is_pure():

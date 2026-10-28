@@ -20,6 +20,7 @@ from .attributes import Attributes
 from .canvas import Color, SkinCanvas, rgba, shade
 from .colors import MISSING, ObservedColors
 from .texture import COMPLEX_PATTERNS, FabricTexture
+from .structure import apply_structure
 from .format import HEAD_ACCESSORY_LAYER  # noqa: F401  (규칙 문서화용: ACC.는 손대지 않는다)
 
 FACE_SHADE = {
@@ -330,7 +331,9 @@ def render_body(
 ) -> None:
     top_garment = attrs.get("top_garment")
     base = colors["skin"] if top_garment == "none" else colors["top"]
-    use_texture = texture is not None and (pattern in COMPLEX_PATTERNS or texture.usable)
+    # 상의 크롭은 VLM pattern 이 복잡할 때만 — 흰 셔츠 주름(HF 10.2)이
+    # plain 인데도 크롭되던 오탐을 막는다. 하의는 pattern 필드가 없어 HF 게이트.
+    use_texture = texture is not None and pattern in COMPLEX_PATTERNS
     # dress는 상의색 그대로. overalls/uniform/apron도 v1은 단색 베이스.
     for face_name in canvas.layout.part("body", 0).faces:
         f = canvas.layout.face("body", face_name, 0)
@@ -376,6 +379,8 @@ def render_body(
                         canvas.put("body", "front", u, v, shade(colors["skin"], 0.86), 0)
                     except ValueError:
                         continue
+
+    apply_structure(canvas, attrs, colors)
 
     # 관측된 긴 머리만 몸통으로 연장한다. 뒷면/옆면은 턱 아래 마스크 길이,
     # 앞면은 셔츠 중앙을 가리지 않도록 양쪽 바깥 2열에 어깨 가닥만 그린다.

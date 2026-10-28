@@ -70,41 +70,20 @@ def _complexity(patch: Image.Image) -> float:
 
 
 def _best_window(image: Image.Image, mask: np.ndarray, bbox: tuple[int, int, int, int]) -> tuple[int, int, int, int]:
-    """Pick a window with high garment density and colour variance.
+    """Central fabric window of the garment bbox.
 
-    A full-garment bbox resized to 8x12 averages several pattern repeats into
-    noise; a smaller patch keeps one or two repeats readable.
+    A sliding max-variance window can land on a phone/hand and poison the tile;
+    the garment centre is fabric by construction. 35% keeps one or two pattern
+    repeats instead of averaging the whole garment.
     """
     x0, y0, x1, y1 = bbox
     width, height = x1 - x0, y1 - y0
     size = max(16, int(min(width, height) * PATCH_FRACTION))
     size = min(size, width, height)
-    stride = max(4, size // 4)
-    rgb = np.asarray(image.convert("RGB"), dtype=np.float32)
-    best = None
-    best_score = -1.0
-    for wy in range(y0, max(y0 + 1, y1 - size + 1), stride):
-        for wx in range(x0, max(x0 + 1, x1 - size + 1), stride):
-            m = mask[wy : wy + size, wx : wx + size]
-            if m.size == 0:
-                continue
-            density = float(m.mean())
-            if density <= 0.0:
-                continue
-            patch = rgb[wy : wy + size, wx : wx + size][m]
-            if patch.size < 12:
-                continue
-            variance = float(patch.std(axis=0).mean())
-            score = density * (1.0 + variance / 64.0)
-            if score > best_score:
-                best_score = score
-                best = (wx, wy, wx + size, wy + size)
-    if best is None:
-        cx, cy = (x0 + x1) // 2, (y0 + y1) // 2
-        half = max(8, size // 2)
-        best = (max(0, cx - half), max(0, cy - half), min(image.width, cx + half), min(image.height, cy + half))
-    return best
-
+    cx, cy = (x0 + x1) // 2, (y0 + y1) // 2
+    left = max(x0, min(cx - size // 2, x1 - size))
+    top = max(y0, min(cy - size // 2, y1 - size))
+    return (left, top, left + size, top + size)
 
 def _masked_patch(image: Image.Image, mask: np.ndarray, window: tuple[int, int, int, int]) -> Image.Image:
     """Fabric-only patch: non-garment pixels filled with the median fabric colour."""
