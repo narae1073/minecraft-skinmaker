@@ -216,3 +216,9 @@ S0 quality/face detection (YuNet) → S1 colour measurement (white-balance + ban
   - VLM 스키마 `hair_style`: short/pixie/bob/long_straight/long_wavy/curly/ponytail/bun. 값이 없거나 강제되면 길이에서 bob/long_straight/long_wavy 로 폴백(성별 추론 없음). mock/fixture/prompt/schema 테스트 갱신.
   - 스타일 드로어: short/pixie 0행 드레이프·2행 프린지, bob 3행 프린지·0행, long_straight 6행, long_wavy 8행+열별 1행 웨이브, curly 5행, ponytail 0행+뒤 중앙 2×5 strip, bun 0행+뒤통수 4×3 밝은 번. L2 solid/구멍 0 유지.
   - 실사진 10장 VLM 태그: long_straight 4·short 1·curly 1·long_wavy 1·ponytail 1·bun 2. 4-view 렌더 `out/qa_style_views/`. 테스트 **610 passed**. PR #28 위 스택(PR #29), merge 순서 28→29.
+
+- 2026-10-29 (헤어 bang/front-back 재수정):
+  - 원인: ① mask front 내부 1px 피부 구멍(ex5 row1) ② hairline row3 피부선(images18) ③ body_rows 하나를 앞/뒤가 공유, 앞은 2행 고정 ④ mask body_rows 12가 style 목표를 덮어 전신 back.
+  - 수정: `close_front_holes`; full-fringe 스타일은 3-4행 전체를 채움(bob/long/curly 4, short/pixie 3, ponytail/bun 2). `style_drape` front/back 분리(long_straight 3/5, long_wavy 4/6, curly 2/4), back cap 6, 마스크 증거는 +1만·rule stencil 은 증거 아님. 앞 chest 는 바깥 2열 full, 안쪽 1열 −1.
+  - A/B 10장: front holes 0(3장 4→0), row3 0→6-8, front chest 2→3/4, back 10-12→5/6. hairreport 9/10 clean; people-2562408 만 dark-skin false positive(chin/holes).
+  - `pytest -q` → **613 passed**. 4-view contacts `out/qa_hair_fix_views/`.

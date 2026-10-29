@@ -64,3 +64,20 @@ def test_report_detects_chin_hair():
     report = HR.analyze(img, hair="#112233", skin="#e0ac69", hair_length="very_long")
     assert report["chin_hair"] > 0
     assert not report["ok"]
+
+
+def test_report_front_hole_and_hairline_checks():
+    from skinmaker import render as R
+    canvas = R.render(observed(), attrs(hair_length="long", hair_style="long_straight"), ())
+    base = canvas.image
+    r = HR.analyze(base, hair="#112233", skin="#e0ac69", hair_length="long", hair_style="long_straight")
+    assert r["ok"], r
+    assert r["front_body_rows"] == 3 and r["back_body_rows"] == 5
+
+    broken = base.copy()
+    f = get_layout("classic").face("head", "front", 0)
+    for u in range(1, 7):
+        broken.putpixel((f.x + u, f.y + 3), (224, 172, 105, 255))
+    r2 = HR.analyze(broken, hair="#112233", skin="#e0ac69", hair_length="long", hair_style="long_straight")
+    assert r2["row3_hair"] < 6
+    assert not r2["ok"]

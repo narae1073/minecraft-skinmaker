@@ -406,8 +406,23 @@ def test_style_targets_and_fallbacks():
     assert HS.style_body_rows("bob", "long", st) == 0
     assert HS.style_body_rows("ponytail", "long", st) == 0
     assert HS.style_body_rows("bun", "long", st) == 0
-    assert HS.style_body_rows("long_straight", "long", st) == 6
-    assert HS.style_body_rows("long_wavy", "long", st) == 8
-    assert HS.style_body_rows("curly", "long", st) == 5
-    assert HS.style_bangs("bob") == 3
-    assert HS.style_bangs("short") == 2
+    assert HS.style_body_rows("long_straight", "long", st) == 5
+    assert HS.style_body_rows("long_wavy", "long", st) == 6
+    assert HS.style_body_rows("curly", "long", st) == 4
+    assert HS.style_drape("long_straight") == (3, 5)
+    assert HS.style_drape("long_wavy") == (4, 6)
+    assert HS.style_bangs("bob") == 4
+    assert HS.style_bangs("short") == 3
+
+
+def test_close_front_holes_fills_enclosed_skin_only():
+    vote = np.zeros((8, 8), dtype=bool)
+    vote[0, :] = True
+    vote[2, 2:6] = True
+    vote[1, 2:6] = False
+    vote[1, 0] = vote[1, 7] = False
+    HS.close_front_holes(vote)
+    assert all(vote[1, 2:6]), vote[1]
+    assert not vote[1, 0] and not vote[1, 7]
+    # 눈 행(4-5)은 절대 건드리지 않는다.
+    assert not vote[4].any()

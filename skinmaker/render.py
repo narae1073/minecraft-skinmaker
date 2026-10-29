@@ -278,14 +278,13 @@ def render_head(canvas: SkinCanvas, colors: dict[str, Color], attrs: Attributes,
             if stencil.bottom[v][u]:
                 canvas.put("head", "bottom", u, v, shade(hair_c, FACE_SHADE["bottom"]), 0)
 
-    # 스타일 앞머리: 총 2-3행 (눈 4-5행은 덮지 않는다).
-    extra_bangs = max(0, HS.style_bangs(style) - 2)
-    for i in range(extra_bangs):
-        v = 2 + i
-        if v >= 4:
-            break
-        for u in range(1, 7):
-            canvas.put("head", "front", u, v, shade(hair_c, FACE_SHADE["front"]), 0)
+    # 스타일 앞머리: full-fringe 는 3-4행 전체를 채워 마스크 구멍/피부선을 막는다.
+    # ponytail/bun(2행)은 이마를 드러내는 스타일이라 강제로 덮지 않는다.
+    bangs = HS.style_bangs(style)
+    if bangs >= 3:
+        for v in range(min(bangs, 4)):
+            for u in range(1, 7):
+                canvas.put("head", "front", u, v, shade(hair_c, FACE_SHADE["front"]), 0)
 
     # 얼굴 특징 (사용자 결정 2026-10-20): 눈 4-5행, 입 없음, 수염은 턱 6-7행.
     # 홍채색은 사진 측정값 (없으면 템플릿 갈색).
@@ -404,18 +403,20 @@ def render_body(
 
     # 관측된 긴 머리만 몸통으로 연장한다. 뒷면/옆면은 턱 아래 마스크 길이,
     # 앞면은 셔츠 중앙을 가리지 않도록 양쪽 바깥 2열에 어깨 가닥만 그린다.
-    body_rows = min(12, max(0, getattr(hair_stencil, "body_rows", 0)))
-    if body_rows:
+    back_rows = min(12, max(0, getattr(hair_stencil, "back_body_rows", 0)))
+    front_rows = min(12, max(0, getattr(hair_stencil, "front_body_rows", 0)))
+    if back_rows or front_rows:
         hair_c = colors["hair"]
         for face_name in ("back", "right", "left"):
             f = canvas.layout.face("body", face_name, 0)
-            for v in range(min(body_rows, f.h)):
+            for v in range(min(back_rows, f.h)):
                 for u in range(f.w):
                     canvas.put("body", face_name, u, v, shade(hair_c, FACE_SHADE[face_name]), 0)
 
         front = canvas.layout.face("body", "front", 0)
-        for v in range(min(2, body_rows, front.h)):
-            for u in (0, 1, front.w - 2, front.w - 1):
+        for u, rows in ((0, front_rows), (1, max(0, front_rows - 1)),
+                        (front.w - 2, max(0, front_rows - 1)), (front.w - 1, front_rows)):
+            for v in range(min(rows, front.h)):
                 canvas.put("body", "front", u, v, shade(hair_c, FACE_SHADE["front"]), 0)
 
 
@@ -619,13 +620,11 @@ def render_hair_overlay(canvas: SkinCanvas, colors: dict[str, Color], stencil, h
         for u, is_hair in enumerate(row[: front.w]):
             if is_hair:
                 put("head", "front", u, v)
-    extra_bangs = max(0, HS.style_bangs(style) - 2)
-    for i in range(extra_bangs):
-        v = 2 + i
-        if v >= 4:
-            break
-        for u in range(1, 7):
-            put("head", "front", u, v)
+    bangs = HS.style_bangs(style)
+    if bangs >= 3:
+        for v in range(min(bangs, 4)):
+            for u in range(1, 7):
+                put("head", "front", u, v)
 
     # 옆/뒤: 실루엣의 모든 열을 채운다 (구멍 없음).
     for face_name in ("right", "back", "left"):
@@ -646,24 +645,27 @@ def render_hair_overlay(canvas: SkinCanvas, colors: dict[str, Color], stencil, h
                 put("head", "bottom", u, v)
 
     # 몸통 드레이프: solid rows (checker 금지). 스타일별 강조를 덧칠한다.
-    body_rows = min(12, max(0, getattr(stencil, "body_rows", 0)))
+    body_rows = min(12, max(0, getattr(stencil, "back_body_rows", 0)))
+    front_rows = min(12, max(0, getattr(stencil, "front_body_rows", 0)))
     if body_rows:
         for face_name in ("back", "right", "left"):
             f = canvas.layout.face("body", face_name, 1)
             for v in range(min(body_rows, f.h)):
                 for u in range(f.w):
                     put("body", face_name, u, v)
+    if front_rows:
         f = canvas.layout.face("body", "front", 1)
-        for v in range(min(2, body_rows, f.h)):
-            for u in (0, 1, f.w - 2, f.w - 1):
+        for u, rows in ((0, front_rows), (1, max(0, front_rows - 1)),
+                        (f.w - 2, max(0, front_rows - 1)), (f.w - 1, front_rows)):
+            for v in range(min(rows, f.h)):
                 put("body", "front", u, v)
 
     # 롱 웨이브: 몸통 끝단을 열마다 1행씩 더 내려 물결 실루엣 (L1 위 추가 셸).
     if style == "long_wavy":
         back = canvas.layout.face("body", "back", 1)
-        extra = min(12, body_rows + 1)
+        extra = min(6, body_rows + 1)
         for u in range(back.w):
-            if body_rows <= extra - 1 and u % 3 == 0:
+            if body_rows < 6 and u % 3 == 0:
                 for v in range(body_rows, extra):
                     put("body", "back", u, v)
 
@@ -733,14 +735,21 @@ def render(
     pattern = effective_pattern(attrs.get("pattern"), observed, attrs, tuple(degrade))
     # 측정 2색(줄무늬)이 있을 때만 실측 보조색. 없으면 합성 음영.
     alt = colors["top_alt"] if not observed.top_alt.missing and pattern in ("vertical_stripe", "horizontal_stripe") else None
-    hair_stencil = observed.hair_stencil
+    observed_stencil = observed.hair_stencil
+    hair_stencil = observed_stencil
     if hair_stencil is None:
         hair_stencil = HS.rule_stencil(attrs.get("hair_length"))
     style_value = attrs.get("hair_style")
     if "hair_style" in attrs.missing or "hair_style" in attrs.coerced:
         style_value = ""
     style = HS.effective_hair_style(style_value, attrs.get("hair_length"), hair_stencil)
-    hair_stencil = replace(hair_stencil, body_rows=HS.style_body_rows(style, attrs.get("hair_length"), hair_stencil))
+    front_rows, back_rows = HS.style_drape(style)
+    # rule stencil 의 body_rows 는 길이 규칙이지 관측 증거가 아니다.
+    evidence = min(12, max(0, hair_stencil.body_rows)) if observed_stencil is not None else 0
+    # 마스크 증거는 뒤 드레이프를 최대 1행만 늘린다. 12행 전체를 덮지 않는다.
+    back_rows = min(6, max(back_rows, min(evidence, back_rows + 1))) if back_rows else 0
+    hair_stencil = replace(hair_stencil, body_rows=back_rows,
+                           front_body_rows=front_rows, back_body_rows=back_rows)
     render_head(canvas, colors, attrs, hair_stencil, style=style)
     thickness = observed.stripe_px if pattern in ("vertical_stripe", "horizontal_stripe", "check", "plaid") else 1
     render_body(canvas, colors, attrs, pattern, alt, hair_stencil, thickness,

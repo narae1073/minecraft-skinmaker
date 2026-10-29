@@ -32,10 +32,13 @@ LENGTH_BODY_ROWS = {"short": 0, "medium": 2, "long": 6, "very_long": 10}
 LENGTH_BOTTOM_REAR = {"short": 1, "medium": 2, "long": 3, "very_long": 4}
 HAIR_STYLES = ("short", "pixie", "bob", "long_straight", "long_wavy", "curly", "ponytail", "bun")
 # 스타일별 몸통 드레이프 상한/고정. bob·ponytail·bun 은 몸통으로 흘리지 않는다.
-STYLE_BODY_ROWS = {"short": 0, "pixie": 0, "bob": 0, "long_straight": 6, "long_wavy": 8,
-                   "curly": 5, "ponytail": 0, "bun": 0}
-STYLE_BANGS = {"short": 2, "pixie": 2, "bob": 3, "long_straight": 3, "long_wavy": 3,
-               "curly": 3, "ponytail": 2, "bun": 2}
+# (front chest, back) rows. Back is capped at 6; no style covers the whole torso.
+STYLE_DRAPE = {"short": (0, 0), "pixie": (0, 0), "bob": (0, 0),
+               "long_straight": (3, 5), "long_wavy": (4, 6), "curly": (2, 4),
+               "ponytail": (0, 0), "bun": (0, 0)}
+STYLE_BACK_ROWS = {k: v[1] for k, v in STYLE_DRAPE.items()}
+STYLE_BANGS = {"short": 3, "pixie": 3, "bob": 4, "long_straight": 4, "long_wavy": 4,
+               "curly": 4, "ponytail": 2, "bun": 2}
 _FALLBACK_STYLE = {"short": "short", "medium": "bob", "long": "long_straight", "very_long": "long_wavy"}
 
 
@@ -48,6 +51,8 @@ class HairStencil:
     body_rows: int = 0                    # jaw 아래 관측된 어깨 머리 길이(최대 12행)
     bottom: tuple[tuple[bool, ...], ...] = field(default_factory=lambda: tuple(tuple(False for _ in range(HEAD_GRID)) for _ in range(HEAD_GRID)))
     # 머리 아래(bottom) 8×8. v0=앞(턱), v7=뒤. 렌더가 effective length 로 뒤쪽 행을 트림한다.
+    front_body_rows: int = 0
+    back_body_rows: int = 0
 
     @property
     def side_rows(self) -> dict[str, int]:
@@ -150,24 +155,33 @@ def bottom_rear_rows(hair_length: str, stencil: HairStencil) -> int:
 
 def effective_hair_style(hair_style: str, hair_length: str, stencil: HairStencil) -> str:
     """VLM 스타일이 없거나 무효면 길이에서 폴백. 성별 추론은 하지 않는다."""
-    if hair_style in STYLE_BODY_ROWS:
+    if hair_style in STYLE_DRAPE:
         return hair_style
     return _FALLBACK_STYLE[effective_hair_length(hair_length, stencil)]
 
 
-def style_body_rows(hair_style: str, hair_length: str, stencil: HairStencil) -> int:
-    """스타일별 몸통 드레이프. bob/ponytail/bun/pixie 는 0, 긴 스타일은 길이 목표."""
-    length_target = target_body_rows(hair_length, stencil)
-    if hair_style in ("short", "pixie", "bob", "ponytail", "bun"):
-        return 0
-    if hair_style == "curly":
-        return min(length_target, STYLE_BODY_ROWS["curly"])
-    return max(length_target, STYLE_BODY_ROWS.get(hair_style, 0))
+def style_drape(hair_style: str) -> tuple[int, int]:
+    """(앞 chest rows, 뒤 rows). 마스크 증거는 뒤에서 +1까지만 반영한다."""
+    return STYLE_DRAPE.get(hair_style, (0, 0))
+
+
+def style_body_rows(hair_style: str, hair_length: str = "short", stencil=None) -> int:
+    """뒤 드레이프 목표(하위 호환). 앞/뒤 분리는 style_drape 를 쓴다."""
+    return style_drape(hair_style)[1]
 
 
 def style_bangs(hair_style: str) -> int:
     """앞머리 총 행 수 (2=기본, 3=이마를 덮는 긴 앞머리). 눈 4-5행은 보호."""
     return STYLE_BANGS.get(hair_style, 2)
+
+
+def close_front_holes(vote) -> None:
+    """앞머리 rows0-3 안에서 위·아래가 머리인 1px 피부 셀을 닫는다 (in-place)."""
+    for u in range(HEAD_GRID):
+        col = vote[:4, u]
+        ys = np.flatnonzero(col)
+        if ys.size >= 2:
+            vote[int(ys[0]):int(ys[-1]) + 1, u] = True
 
 
 def mask_stencil(
@@ -254,6 +268,9 @@ def mask_stencil(
         first = np.flatnonzero(vote[:, u])
         if first.size:
             vote[:int(first[0]), u] = True
+    # 앞머리 내부 구멍 닫기 (2026-10-29): 위·아래가 머리인 1px 피부 셀은
+    # 가르마가 아니라 마스크 구멍이다. 눈(4-5행)은 건드리지 않는다.
+    close_front_holes(vote)
     # 근거 없음(머리 영역 전부 배경) → None. 맨살뿐(대머리)은 근거다 — 벗은 스텐실.
     if not (np.asarray(seg)[int(hb.y):int(hb.y + hb.h), int(hb.x):int(hb.x + hb.w)] != 0).any():
         return None

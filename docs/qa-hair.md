@@ -48,14 +48,19 @@ A. Bottom coverage: from below, is the rear hair footprint fully hair-coloured,
    with no skin patches behind the hairline? (Chin/neck skin is allowed.)
 B. L2 solidity: are there any transparent/1px gaps in the L2 back, sides or body?
    The L2 hair must read as a continuous layer, not separated teeth.
-C. Length: for long-haired portraits, does the L2 back/drape reach the expected
-   body rows, and do the bangs reach the brow without covering the eyes?
+C. Length: for long-haired portraits, does the front chest hair reach the
+   expected 3-4 rows, and does the back stop at mid-back (<=6 rows) rather than
+   cover the whole torso? Do the bangs reach the brow without covering the eyes?
 D. Continuity: is the side hairline continuous from front to back, with no
    staircase jumps, zero-width columns, or L1/L2 mismatched silhouettes?
+F. Bang line: is there any 1px skin line inside the bangs, or between the bangs
+   and the eyes? Full-fringe styles (bob/long/curly) should have none; pulled-back
+   styles (ponytail/bun) may show a deliberate forehead.
 E. Style: does the L2 silhouette match the portrait style
    (bob / long straight / wavy / curly / ponytail / bun / pixie)?
 Return JSON only: {"bottom":"PASS|FAIL","l2":"PASS|FAIL","length":"PASS|FAIL",
-"continuity":"PASS|FAIL","style":"PASS|FAIL","evidence":["..."]}.
+"continuity":"PASS|FAIL","bangs":"PASS|FAIL","length":"PASS|FAIL",
+"style":"PASS|FAIL","evidence":["..."]}.
 Do not propose code fixes; report visual defects only.
 ```
 
