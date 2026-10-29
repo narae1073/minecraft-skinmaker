@@ -4,17 +4,26 @@
 
 html, body, #root {
   width: 100%;
-  height: 100%;
+  min-height: 100%;
   margin: 0;
   padding: 0;
   max-width: none;
 }
 
-body {
+/* 배경을 body 높이(100vh)에 가두지 않는다. html 캔버스에 깔아야 긴 페이지의
+   맨 아래까지 덮인다 (모바일 fixed 배경 미지원 폴백 포함). */
+html:root {
+  background-color: #bfe3ff;
   background-image: url('/wallpaper.png');
   background-size: cover;
   background-position: center;
+  background-repeat: no-repeat;
   background-attachment: fixed;
+}
+
+body {
+  min-height: 100vh;
+  background: transparent;
 }
 
 #root {
@@ -68,8 +77,20 @@ h1 {
 .mobile-site-qr:focus-visible { outline: 3px solid #2563eb; outline-offset: 3px; }
 
 @media (max-width: 720px) {
-  body { background-image: url('/wallpaper-mobile.png'); }
+  html:root {
+    background-image: url('/wallpaper-mobile.png');
+    background-attachment: scroll;
+  }
   .mobile-site-qr { display: none; }
+  /* 두 업로드 패널을 세로로 쌓아 버튼 높이/폭을 맞춘다.
+     base .upload-section/.upload-panel 규칙보다 specificity 를 높여야
+     뒤에 정의된 2열 규칙에 덮이지 않는다. */
+  .container .upload-section { grid-template-columns: 1fr; }
+  .container .upload-panel {
+    grid-row: auto;
+    grid-template-rows: none;
+  }
+  .upload-panel .generate-btn { width: 100%; }
   .upload-panel .file-picker { flex-direction: column; }
   .upload-panel .file-picker-name { max-width: 100%; }
 }
