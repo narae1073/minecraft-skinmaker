@@ -16,9 +16,11 @@ html:root {
   background-color: #bfe3ff;
   background-image: url('/wallpaper.png');
   background-size: cover;
-  background-position: center;
+  background-position: center top;
   background-repeat: no-repeat;
-  background-attachment: fixed;
+  /* fixed 는 뷰포트 높이에서만 칠해져 긴 페이지 하단이 배경색으로 남는다.
+     스크롤 배경으로 페이지 전체를 덮는다. */
+  background-attachment: scroll;
 }
 
 body {
@@ -79,7 +81,6 @@ h1 {
 @media (max-width: 720px) {
   html:root {
     background-image: url('/wallpaper-mobile.png');
-    background-attachment: scroll;
   }
   .mobile-site-qr { display: none; }
   /* 두 업로드 패널을 세로로 쌓아 버튼 높이/폭을 맞춘다.
@@ -303,6 +304,25 @@ h1 {
 
 .compare-grid .input-card h3 {
   color: #64748b;
+}
+
+/* 원본 카드도 후보 카드와 같은 액션 행을 써서 다운로드 버튼을 사진 아래
+   가운데에 둔다. (인라인 앵커가 왼쪽에 붙던 문제) */
+.input-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+.input-card .input-photo {
+  display: block;
+  margin: 0 auto;
+}
+.input-card .card-actions {
+  width: 100%;
+  margin-top: 12px;
+}
+.input-card .download-btn {
+  margin-top: 0;
 }
 
 .compare-hint {
