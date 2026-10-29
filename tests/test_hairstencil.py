@@ -409,8 +409,8 @@ def test_style_targets_and_fallbacks():
     assert HS.style_body_rows("long_straight", "long", st) == 5
     assert HS.style_body_rows("long_wavy", "long", st) == 6
     assert HS.style_body_rows("curly", "long", st) == 4
-    assert HS.style_drape("long_straight") == (3, 5)
-    assert HS.style_drape("long_wavy") == (4, 6)
+    assert HS.style_drape("long_straight") == (5, 5)
+    assert HS.style_drape("long_wavy") == (5, 6)
     assert HS.style_bangs("bob") == 4
     assert HS.style_bangs("short") == 3
 

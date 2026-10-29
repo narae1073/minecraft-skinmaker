@@ -34,7 +34,7 @@ HAIR_STYLES = ("short", "pixie", "bob", "long_straight", "long_wavy", "curly", "
 # 스타일별 몸통 드레이프 상한/고정. bob·ponytail·bun 은 몸통으로 흘리지 않는다.
 # (front chest, back) rows. Back is capped at 6; no style covers the whole torso.
 STYLE_DRAPE = {"short": (0, 0), "pixie": (0, 0), "bob": (0, 0),
-               "long_straight": (3, 5), "long_wavy": (4, 6), "curly": (2, 4),
+               "long_straight": (5, 5), "long_wavy": (5, 6), "curly": (3, 4),
                "ponytail": (0, 0), "bun": (0, 0)}
 STYLE_BACK_ROWS = {k: v[1] for k, v in STYLE_DRAPE.items()}
 STYLE_BANGS = {"short": 3, "pixie": 3, "bob": 4, "long_straight": 4, "long_wavy": 4,
@@ -158,6 +158,25 @@ def effective_hair_style(hair_style: str, hair_length: str, stencil: HairStencil
     if hair_style in STYLE_DRAPE:
         return hair_style
     return _FALLBACK_STYLE[effective_hair_length(hair_length, stencil)]
+
+
+def front_lock_profile(rows: int) -> tuple[tuple[int, ...], ...]:
+    """C-형 앞 chest lock: row0 바깥 열, 1-2행 바깥+안쪽, 3행+ 안쪽만.
+
+    B/D 처럼 일찍 안쪽으로 꺾으면 턱 아래 블록이 된다. 바깥에서 시작해
+    두 행 동안 폭을 유지한 뒤 안쪽으로 미끄러진다. 좌우 대칭.
+    """
+    if rows <= 0:
+        return ()
+    if rows == 1:
+        return ((0, 7),)
+    if rows == 2:
+        return ((0, 7), (0, 1, 6, 7))
+    if rows == 3:
+        return ((0, 7), (0, 1, 6, 7), (1, 6))
+    profile = [(0, 7), (0, 1, 6, 7), (0, 1, 6, 7)]
+    profile += [(1, 6)] * (rows - 3)
+    return tuple(profile)
 
 
 def style_drape(hair_style: str) -> tuple[int, int]:

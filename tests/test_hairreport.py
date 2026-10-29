@@ -72,7 +72,7 @@ def test_report_front_hole_and_hairline_checks():
     base = canvas.image
     r = HR.analyze(base, hair="#112233", skin="#e0ac69", hair_length="long", hair_style="long_straight")
     assert r["ok"], r
-    assert r["front_body_rows"] == 3 and r["back_body_rows"] == 5
+    assert r["front_body_rows"] == 5 and r["back_body_rows"] == 5
 
     broken = base.copy()
     f = get_layout("classic").face("head", "front", 0)

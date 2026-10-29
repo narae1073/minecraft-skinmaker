@@ -282,8 +282,9 @@ def render_head(canvas: SkinCanvas, colors: dict[str, Color], attrs: Attributes,
     # ponytail/bun(2행)은 이마를 드러내는 스타일이라 강제로 덮지 않는다.
     bangs = HS.style_bangs(style)
     if bangs >= 3:
+        cols = range(0, 8) if bangs >= 4 else range(1, 7)
         for v in range(min(bangs, 4)):
-            for u in range(1, 7):
+            for u in cols:
                 canvas.put("head", "front", u, v, shade(hair_c, FACE_SHADE["front"]), 0)
 
     # 얼굴 특징 (사용자 결정 2026-10-20): 눈 4-5행, 입 없음, 수염은 턱 6-7행.
@@ -414,10 +415,10 @@ def render_body(
                     canvas.put("body", face_name, u, v, shade(hair_c, FACE_SHADE[face_name]), 0)
 
         front = canvas.layout.face("body", "front", 0)
-        for u, rows in ((0, front_rows), (1, max(0, front_rows - 1)),
-                        (front.w - 2, max(0, front_rows - 1)), (front.w - 1, front_rows)):
-            for v in range(min(rows, front.h)):
-                canvas.put("body", "front", u, v, shade(hair_c, FACE_SHADE["front"]), 0)
+        for v, cols in enumerate(HS.front_lock_profile(front_rows)):
+            for u in cols:
+                if v < front.h:
+                    canvas.put("body", "front", u, v, shade(hair_c, FACE_SHADE["front"]), 0)
 
 
 def render_arms(canvas: SkinCanvas, colors: dict[str, Color], attrs: Attributes, pattern: str, sleeve: str | None = None) -> None:
@@ -622,8 +623,9 @@ def render_hair_overlay(canvas: SkinCanvas, colors: dict[str, Color], stencil, h
                 put("head", "front", u, v)
     bangs = HS.style_bangs(style)
     if bangs >= 3:
+        cols = range(0, 8) if bangs >= 4 else range(1, 7)
         for v in range(min(bangs, 4)):
-            for u in range(1, 7):
+            for u in cols:
                 put("head", "front", u, v)
 
     # 옆/뒤: 실루엣의 모든 열을 채운다 (구멍 없음).
@@ -655,10 +657,10 @@ def render_hair_overlay(canvas: SkinCanvas, colors: dict[str, Color], stencil, h
                     put("body", face_name, u, v)
     if front_rows:
         f = canvas.layout.face("body", "front", 1)
-        for u, rows in ((0, front_rows), (1, max(0, front_rows - 1)),
-                        (f.w - 2, max(0, front_rows - 1)), (f.w - 1, front_rows)):
-            for v in range(min(rows, f.h)):
-                put("body", "front", u, v)
+        for v, cols in enumerate(HS.front_lock_profile(front_rows)):
+            for u in cols:
+                if v < f.h:
+                    put("body", "front", u, v)
 
     # 롱 웨이브: 몸통 끝단을 열마다 1행씩 더 내려 물결 실루엣 (L1 위 추가 셸).
     if style == "long_wavy":

@@ -139,7 +139,13 @@ def analyze(image: Image.Image, *, hair: str, skin: str, hair_length: str = "sho
             if image.getpixel((face.x + u, face.y + v))[3]: n += 1
             else: break
         return n
-    front_body = l2_rows(l2f, 0)
+    # C-형 앞 lock 은 한 열이 5행이 아니므로, 옆 열 중 하나라도 있는 행을 센다.
+    front_body = 0
+    for v in range(l2f.h):
+        if any(image.getpixel((l2f.x + u, l2f.y + v))[3] for u in (0, 1, l2f.w - 2, l2f.w - 1)):
+            front_body += 1
+        else:
+            break
     back_body = l2_rows(l2b, 0)
     full_fringe = style in ("bob", "long_straight", "long_wavy", "curly")
 
