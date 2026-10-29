@@ -377,9 +377,11 @@ function App() {
                     alt="입력 사진"
                     className="input-photo"
                   />
-                  <a href={inputPhoto} download="input_photo.png" className="download-btn">
-                    사진 다운로드
-                  </a>
+                  <div className="card-actions">
+                    <a href={inputPhoto} download="input_photo.png" className="download-btn">
+                      사진 다운로드
+                    </a>
+                  </div>
                 </div>
               )}
               {skins.map((skin, index) => (
