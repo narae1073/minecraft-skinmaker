@@ -227,6 +227,6 @@ S0 quality/face detection (YuNet) → S1 colour measurement (white-balance + ban
   - 문서: README/handover §2 의 현재 테스트 수를 **613**(실측 `pytest --collect-only -q`)으로, S2 필드를 8→**13**으로 수정. handover 169행의 539는 PR #19–21 시점의 역사값이라 유지(감사 기록 참고).
   - `texture.py` 의 shadowed `_complexity` 중복(첫 정의가 없는 `_dominant_colors` 참조) 제거. 동작 변화 없음.
   - `CategoryPanel.jsx`: 5필드→13필드 칩/표. hair_style/closure/collar/pocket/symmetry/beard/inner/neckwear 번역 추가, `pattern=floral` 추가. `derived` 파싱을 `=`→`:`로 수정(교차 규칙 `field:old->new`).
-  - UI: 배경을 body(100vh)가 아니라 `html:root` 캔버스에 깔고 `min-height` 로 바꿔 긴 페이지 하단까지 덮음. 모바일 upload-section/pannel 의 specificity 문제(뒤의 2열 규칙이 덮음)를 고쳐 세로 스택·버튼 full width 정렬. 390x844/2000, 1440x1000 스크린샷 확인.
+  - UI: 배경을 `html:root` 캔버스에 깔고 `min-height`+`background-attachment: scroll` 로 바꿔 긴 페이지 하단까지 덮음(1440x1886 풀페이지 확인). 모바일 upload-section/pannel 의 specificity 문제를 고쳐 세로 스택·버튼 full width 정렬. 원본 사진 다운로드 버튼은 후보 카드와 같은 `.card-actions` 로 중앙 정렬(사진/버튼 center 579px). 390x844/2000, 1440x1886 스크린샷 확인.
   - pose: `mediapipe` 선택 import, requirements 에 없음 — 휴면 상태 유지(의도). :8002 는 dist 를 현재 빌드로 갱신(정적 자산 현재); 백엔드 프로세스는 2일 전 mock 이라 재시작은 별도.
   - 검증: `pytest --collect-only -q` 613, `npm run lint`/`npm run build` green, `git diff --check` clean.
