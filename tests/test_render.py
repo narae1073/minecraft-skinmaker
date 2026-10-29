@@ -54,10 +54,10 @@ from skinmaker import hairstencil as HS
 # rule 스텐실 렌더의 픽셀 베이스라인. 2026-10-27 L2 헤어를 성긴 가닥으로 개정하며
 # 재기록 — 이전: 2026-10-21 L2 부피 셸 도입. 이후 rule 경로가 조용히 변하면 잡는다.
 NOISE_OFF_GOLDEN = {
-    "short": "1f81ccee28f0ec2b",
-    "medium": "b1176e7cd4bea326",
-    "long": "6f3cf7d88103b717",
-    "very_long": "8d0c94c2ec3ed01a",
+    "short": "68ddc727f023524b",
+    "medium": "8baa64719c3f072d",
+    "long": "c46fed3e30fefee8",
+    "very_long": "693b132eed373ecf",
 }
 
 
@@ -188,53 +188,34 @@ def _opaque_cells(canvas, part: str, layer: int) -> set[tuple[str, int, int]]:
     return cells
 
 
-def test_hair_overlay_is_sparse_strands_over_layer1():
-    """L2 는 L1 실루엣 복제가 아니라 성긴 하이라이트 가닥이다 (2026-10-27).
-
-    L1(레이어0)이 머리 실루엣 전체를 계속 담당하고, L2 는 틈이 있는 장식 셸이라
-    아래 L1 이 비쳐 보여야 한다. 예전 '부피 셸'(실루엣 전체 복제)은 머리를
-    불투명 블록으로 덮었다.
-    """
+def test_hair_overlay_is_solid_shell_with_no_alpha_holes():
+    """L2 는 L1 실루엣과 같은 셀을 채운다 (2026-10-29: 성긴 가닥 → solid)."""
     base = observed(hair="#112233")
     canvas = R.render(base, attrs(hair_length="short"), ())
     stencil = HS.rule_stencil("short")
-    silhouette = (
-        sum(sum(row) for row in stencil.front)
-        + sum(sum(profile) for profile in stencil.side_profiles.values())
-        + (64 if stencil.top_hair else 0)
-    )
-    l2 = len(_opaque_cells(canvas, "head", 1))
-    assert 0 < l2 < silhouette * 0.75, (l2, silhouette)
 
-    # L1 실루엣 안에 L2 가 비운 구멍이 있어야 한다.
-    holes = [
-        (u, v)
-        for v, row in enumerate(stencil.front)
-        for u, on in enumerate(row)
-        if on and canvas.get("head", "front", u, v, 1)[3] == 0
-    ]
-    assert holes, "L2 must leave gaps over the L1 silhouette"
-
-    # L2 는 L1 위의 하이라이트(더 밝은 톤)다 — 같은 색 복제가 아니다.
-    painted = [
-        (u, v)
-        for v in range(canvas.layout.face("head", "front", 1).h)
-        for u in range(canvas.layout.face("head", "front", 1).w)
-        if canvas.get("head", "front", u, v, 1)[3]
-    ]
-    assert painted
-    u, v = painted[0]
-    assert sum(canvas.get("head", "front", u, v, 1)[:3]) > sum(canvas.get("head", "front", u, v, 0)[:3])
+    for v, row in enumerate(stencil.front):
+        for u, on in enumerate(row):
+            if on:
+                assert canvas.get("head", "front", u, v, 1)[3], (u, v)
+    for face_name in ("right", "back", "left"):
+        profile = stencil.side_profiles[face_name]
+        for u, rows in enumerate(profile):
+            for v in range(rows):
+                assert canvas.get("head", face_name, u, v, 1)[3], (face_name, u, v)
+    for v in range(8):
+        for u in range(8):
+            assert canvas.get("head", "top", u, v, 1)[3]
 
     # 눈(4-5행)은 L2 로 덮지 않는다.
     for u in (1, 2, 5, 6):
         for v in (4, 5):
             assert canvas.get("head", "front", u, v, 1)[3] == 0, (u, v)
 
-    # 프린지 연장은 홀수 열에만 (가르마선이 낮을 때 1행).
-    assert canvas.get("head", "front", 3, 2, 1)[3] != 0
+    # L2 는 L1 위의 하이라이트(더 밝은 톤)다.
+    assert sum(canvas.get("head", "front", 0, 0, 1)[:3]) > sum(canvas.get("head", "front", 0, 0, 0)[:3])
 
-    # L1(레이어0)은 on/off 와 무관하게 픽셀 동일 — L2 는 덧칠만 한다.
+    # L1 은 on/off 와 무관하게 픽셀 동일.
     off = R.render(dataclasses.replace(base, hair_overlay=False), attrs(hair_length="short"), ())
     for part in ("head", "body"):
         for face in canvas.layout.part(part, 0).faces.values():
@@ -244,23 +225,45 @@ def test_hair_overlay_is_sparse_strands_over_layer1():
                             == off.image.getpixel((face.x + u, face.y + v))), (part, face.name, u, v)
 
 
-def test_hair_overlay_body_drape_is_sparse_and_switch_off():
+def test_hair_overlay_body_drape_is_solid_and_switch_off():
     st = dataclasses.replace(HS.rule_stencil("long"), body_rows=3)
     base = dataclasses.replace(observed(), hair_stencil=st)
     canvas = R.render(base, attrs(hair_length="long"), ())
     cells = _opaque_cells(canvas, "body", 1)
-    assert 0 < len(cells) < 3 * 8 * 3  # 전체 드레이프(행 복제)보다 성기다
-    assert any(name == "back" and v == 0 for name, _u, v in cells)
-    holes = [
-        (u, v)
-        for v in range(3)
-        for u in range(canvas.layout.face("body", "back", 1).w)
-        if canvas.get("body", "back", u, v, 1)[3] == 0
-    ]
-    assert holes
+    # long targets 6 rows: back 8 + left 4 + right 4 per row, plus 2 front side cols × 2 rows.
+    assert len(cells) == 6 * (8 + 4 + 4) + 8
+    assert all(canvas.get("body", "back", u, v, 1)[3] for v in range(6) for u in range(8))
     off = R.render(dataclasses.replace(base, hair_overlay=False), attrs(hair_length="long"), ())
     assert off.get("body", "back", 2, 0, 1)[3] == 0
     assert off.get("head", "front", 0, 0, 1)[3] == 0
+
+
+def test_head_bottom_rear_is_hair_and_chin_is_skin():
+    from skinmaker.render import FACE_SHADE
+    for length, rear in (("short", 1), ("long", 3), ("very_long", 4)):
+        canvas = R.render(observed(hair="#112233"), attrs(hair_length=length), ())
+        hair = shade(rgba("#112233"), FACE_SHADE["bottom"])[:3]
+        skin = shade(rgba(observed().skin.hex), FACE_SHADE["bottom"])[:3]
+        for v in range(8):
+            for u in (3, 4):
+                got = canvas.get("head", "bottom", u, v)[:3]
+                if v >= 8 - rear:
+                    assert got == hair, (length, u, v, got)
+                else:
+                    assert got == skin, (length, u, v, got)
+
+
+def test_long_hair_extends_body_drape_and_bangs():
+    short = R.render(observed(hair="#112233"), attrs(hair_length="short"), ())
+    long = R.render(observed(hair="#112233"), attrs(hair_length="very_long"), ())
+    # very_long: 목표 10행, 앞머리 2행 추가(눈 4-5행은 보호).
+    for v in range(10):
+        assert long.get("body", "back", 0, v)[:3] == shade(rgba("#112233"), R.FACE_SHADE["back"])[:3], v
+    assert long.get("body", "back", 0, 10)[:3] != shade(rgba("#112233"), R.FACE_SHADE["back"])[:3]
+    for u in (1, 2, 5, 6):
+        assert long.get("head", "front", u, 2)[:3] == shade(rgba("#112233"), R.FACE_SHADE["front"])[:3]
+        assert long.get("head", "front", u, 4)[:3] != shade(rgba("#112233"), R.FACE_SHADE["front"])[:3]
+    assert short.get("body", "back", 0, 0)[:3] != shade(rgba("#112233"), R.FACE_SHADE["back"])[:3]
 
 
 def test_viewer_js_uv_rects_match_layout():

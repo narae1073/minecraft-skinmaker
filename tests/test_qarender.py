@@ -90,3 +90,11 @@ def test_render_views_writes_the_pair_and_metadata(tmp_path):
     assert metadata["skin"]["texture"]["l2_opaque"] > 0
     assert metadata["contact_sheet"] == "contact_sheet.png"
     assert result["views"][0]["path"] == "front_right.png"
+
+
+def test_view_specs_hair_adds_bottom_and_side():
+    views = QR.view_specs(24.0, 30.0, views="hair")
+    assert [v["name"] for v in views] == ["front_right", "back_right", "bottom", "right_side"]
+    assert views[2]["pitch"] == -60.0 and views[3]["yaw"] == 90.0
+    with pytest.raises(ValueError):
+        QR.view_specs(views="bogus")
