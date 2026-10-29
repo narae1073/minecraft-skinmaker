@@ -56,8 +56,8 @@ from skinmaker import hairstencil as HS
 NOISE_OFF_GOLDEN = {
     "short": "0aa6f7400aa39bd5",
     "medium": "209d1b70fd81b600",
-    "long": "e9fb3bf5103d7abd",
-    "very_long": "0a07092bef0b8d52",
+    "long": "a6d1aeaba5bbde69",
+    "very_long": "66433118726851f9",
 }
 
 
@@ -230,8 +230,8 @@ def test_hair_overlay_body_drape_is_solid_and_switch_off():
     base = dataclasses.replace(observed(), hair_stencil=st)
     canvas = R.render(base, attrs(hair_length="long"), ())
     cells = _opaque_cells(canvas, "body", 1)
-    # long_straight: back 5 rows (8+4+4 per row) + front 3/2/2/3.
-    assert len(cells) == 5 * (8 + 4 + 4) + 10
+    # long_straight: back 5 rows (8+4+4 per row) + C front profile 2+4+4+2+2.
+    assert len(cells) == 5 * (8 + 4 + 4) + 14
     assert all(canvas.get("body", "back", u, v, 1)[3] for v in range(5) for u in range(8))
     off = R.render(dataclasses.replace(base, hair_overlay=False), attrs(hair_length="long"), ())
     assert off.get("body", "back", 2, 0, 1)[3] == 0
@@ -262,6 +262,8 @@ def test_long_hair_extends_body_drape_and_bangs():
     assert long.get("body", "back", 0, 5)[:3] != shade(rgba("#112233"), R.FACE_SHADE["back"])[:3]
     for v in range(3):
         assert long.get("body", "front", 0, v)[:3] == shade(rgba("#112233"), R.FACE_SHADE["front"])[:3], v
+    for v in range(1, 5):
+        assert long.get("body", "front", 1, v)[:3] == shade(rgba("#112233"), R.FACE_SHADE["front"])[:3], v
     assert long.get("body", "front", 0, 3)[:3] != shade(rgba("#112233"), R.FACE_SHADE["front"])[:3]
     for u in (1, 2, 5, 6):
         assert long.get("head", "front", u, 3)[:3] == shade(rgba("#112233"), R.FACE_SHADE["front"])[:3]

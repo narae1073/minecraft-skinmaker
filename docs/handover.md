@@ -219,6 +219,6 @@ S0 quality/face detection (YuNet) → S1 colour measurement (white-balance + ban
 
 - 2026-10-29 (헤어 bang/front-back 재수정):
   - 원인: ① mask front 내부 1px 피부 구멍(ex5 row1) ② hairline row3 피부선(images18) ③ body_rows 하나를 앞/뒤가 공유, 앞은 2행 고정 ④ mask body_rows 12가 style 목표를 덮어 전신 back.
-  - 수정: `close_front_holes`; full-fringe 스타일은 3-4행 전체를 채움(bob/long/curly 4, short/pixie 3, ponytail/bun 2). `style_drape` front/back 분리(long_straight 3/5, long_wavy 4/6, curly 2/4), back cap 6, 마스크 증거는 +1만·rule stencil 은 증거 아님. 앞 chest 는 바깥 2열 full, 안쪽 1열 −1.
-  - A/B 10장: front holes 0(3장 4→0), row3 0→6-8, front chest 2→3/4, back 10-12→5/6. hairreport 9/10 clean; people-2562408 만 dark-skin false positive(chin/holes).
+  - 수정: `close_front_holes`; full-fringe 스타일은 3-4행 전체를 채움(bob/long/curly 4, short/pixie 3, ponytail/bun 2). `style_drape` front/back 분리(long_straight 5/5, long_wavy 5/6, curly 3/4), back cap 6, 마스크 증거는 +1만·rule stencil 은 증거 아님. 앞 chest 는 바깥 2열 full, 안쪽 1열 −1.
+  - A/B 10장: front holes 0(3장 4→0), row3 0→8, front chest 2→C-taper 5(long), back 10-12→5/6. hairreport 9/10 clean; people-2562408 만 dark-skin false positive(chin/holes).
   - `pytest -q` → **613 passed**. 4-view contacts `out/qa_hair_fix_views/`.

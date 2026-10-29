@@ -49,7 +49,7 @@ A. Bottom coverage: from below, is the rear hair footprint fully hair-coloured,
 B. L2 solidity: are there any transparent/1px gaps in the L2 back, sides or body?
    The L2 hair must read as a continuous layer, not separated teeth.
 C. Length: for long-haired portraits, does the front chest hair reach the
-   expected 3-4 rows, and does the back stop at mid-back (<=6 rows) rather than
+   expected 5 rows (C-tapered edge lock), and does the back stop at mid-back (<=6 rows) rather than
    cover the whole torso? Do the bangs reach the brow without covering the eyes?
 D. Continuity: is the side hairline continuous from front to back, with no
    staircase jumps, zero-width columns, or L1/L2 mismatched silhouettes?
