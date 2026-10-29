@@ -334,12 +334,12 @@ def test_mask_stencil_measures_contiguous_shoulder_hair():
     seg = np.zeros((96, 96), np.uint8)
     for u in range(8):
         _set_cell(seg, hb, 0, u, 2)
-    # One side lock reaches 8 pixels below the chin, then stops: ceil(8/32*6)=2 shoulder rows.
+    # One side lock reaches 8 pixels below the chin, then stops: ceil(8/32*12)=3 torso rows.
     seg[face.bottom:face.bottom + 8, face.x + 26:face.x + 31] = 2
     seg[face.bottom + 10:face.bottom + 18, face.x + 26:face.x + 31] = 2
     s = HS.mask_stencil(seg, face, (96, 96), symmetry="raw")
     assert s is not None
-    assert s.body_rows == 2
+    assert s.body_rows == 3
 
 
 def test_mask_stencil_short_hair_has_no_body_extent():
@@ -352,12 +352,48 @@ def test_mask_stencil_short_hair_has_no_body_extent():
     assert HS.mask_stencil(seg, face, (96, 96), symmetry="raw").body_rows == 0
 
 
-def test_mask_stencil_body_extent_caps_at_upper_torso():
-    """Even hair seen a full face-height below the jaw stays within upper-torso rows."""
+def test_mask_stencil_body_extent_caps_at_twelve_rows():
+    """Even hair seen a full face-height below the jaw caps at the 12-row torso."""
     face = FaceBox(16, 24, 32, 32)
     hb = Q.hair_region(face)
     seg = np.zeros((96, 96), np.uint8)
     for u in range(8):
         _set_cell(seg, hb, 0, u, 2)
     seg[face.bottom:face.bottom + face.h, face.x + 24:face.x + 31] = 2
-    assert HS.mask_stencil(seg, face, (96, 96), symmetry="raw").body_rows == 6
+    assert HS.mask_stencil(seg, face, (96, 96), symmetry="raw").body_rows == 12
+
+
+def test_effective_length_uses_vlm_floor_and_mask_evidence():
+    short = HS.rule_stencil("short")
+    assert HS.effective_hair_length("long", short) == "long"
+    assert HS.target_body_rows("long", short) == 6
+    assert HS.target_body_rows("very_long", short) == 10
+    assert HS.target_body_rows("short", short) == 0
+
+    st = HS.rule_stencil("short")
+    st = HS.HairStencil(st.front, st.top_hair, st.side_profiles, body_rows=8, bottom=st.bottom)
+    assert HS.effective_hair_length("short", st) == "very_long"
+    assert HS.effective_hair_length("medium", st) == "very_long"
+
+
+def test_bottom_coverage_is_rear_only_and_length_aware():
+    short = HS.rule_stencil("short")
+    long = HS.rule_stencil("long")
+    very = HS.rule_stencil("very_long")
+    for st, rear in ((short, 1), (long, 3), (very, 4)):
+        # v0=front(턱) .. v7=back. 마지막 rear 행만 머리, 앞쪽은 피부.
+        for v in range(8):
+            expect = v >= 8 - rear
+            for u in (3, 4):
+                assert st.bottom[v][u] is expect, (rear, v, u)
+        assert all(st.bottom[v][0] and st.bottom[v][7] for v in range(8 - rear, 8))
+    assert not any(any(row) for row in HS.HairStencil(short.front, False, {}, 0).bottom)
+
+
+def test_bald_never_paints_bottom_or_body():
+    face = FaceBox(16, 24, 32, 32)
+    seg = np.full((96, 96), 11, np.uint8)
+    st = HS.mask_stencil(seg, face, (96, 96))
+    assert st is not None and st.top_hair is False
+    assert not any(any(row) for row in st.bottom)
+    assert st.body_rows == 0

@@ -96,12 +96,18 @@ def camera_position(yaw: float, pitch: float, distance: float) -> tuple[float, f
     )
 
 
-def view_specs(yaw: float = DEFAULT_YAW, pitch: float = DEFAULT_PITCH) -> list[dict]:
-    """The QA pair: front-right and back-right, same tilt, 180 deg apart."""
-    return [
+def view_specs(yaw: float = DEFAULT_YAW, pitch: float = DEFAULT_PITCH, views: str = "default") -> list[dict]:
+    """QA views. default = front/back pair; hair adds bottom and right-side."""
+    if views not in ("default", "hair"):
+        raise ValueError(f"views must be default|hair: {views!r}")
+    specs = [
         {"name": "front_right", "yaw": float(yaw), "pitch": float(pitch)},
         {"name": "back_right", "yaw": float(yaw) + 180.0, "pitch": float(pitch)},
     ]
+    if views == "hair":
+        specs.append({"name": "bottom", "yaw": float(yaw) + 180.0, "pitch": -60.0})
+        specs.append({"name": "right_side", "yaw": 90.0, "pitch": 0.0})
+    return specs
 
 
 def _layer_pixels(image: Image.Image, model: str) -> dict[str, int]:
@@ -190,8 +196,8 @@ def _chrome(browser: str, url: str, target: Path, width: int, height: int, timeo
         )
 
 
-def _contact_sheet(front: Path, back: Path, dest: Path, labels: tuple[str, str]) -> Path:
-    images = [Image.open(path).convert("RGB") for path in (front, back)]
+def _contact_sheet(paths: list[Path], labels: list[str], dest: Path) -> Path:
+    images = [Image.open(path).convert("RGB") for path in paths]
     label_height = 28
     gap = 8
     width = sum(img.width for img in images) + gap * (len(images) - 1)
@@ -224,8 +230,9 @@ def render_views(
     height: int = DEFAULT_HEIGHT,
     browser: str | None = None,
     timeout: float = 90.0,
+    views: str = "default",
 ) -> dict:
-    """Render the front-right/back-right QA pair. Returns paths + metadata."""
+    """Render the QA views. Returns paths + metadata."""
     skin_path = Path(skin).resolve()
     if not skin_path.is_file():
         raise FileNotFoundError(f"skin not found: {skin_path}")
@@ -246,11 +253,11 @@ def render_views(
 
     out = Path(out_dir)
     out.mkdir(parents=True, exist_ok=True)
-    views = view_specs(yaw, pitch)
+    specs = view_specs(yaw, pitch, views)
     generated = datetime.now(timezone.utc).isoformat(timespec="seconds")
 
     with _static_server(skin_path) as base:
-        for view in views:
+        for view in specs:
             query = urlencode(
                 {
                     "skin": "/__skin__.png",
@@ -275,17 +282,9 @@ def render_views(
             view["path"] = target.name
             view["camera_position"] = list(camera_position(view["yaw"], view["pitch"], distance))
 
-    front = out / f"{views[0]['name']}.png"
-    back = out / f"{views[1]['name']}.png"
-    contact = _contact_sheet(
-        front,
-        back,
-        out / "contact_sheet.png",
-        (
-            f"FRONT-RIGHT  yaw +{views[0]['yaw']:.0f}  pitch +{views[0]['pitch']:.0f}",
-            f"BACK-RIGHT   yaw +{views[1]['yaw']:.0f}  pitch +{views[1]['pitch']:.0f}",
-        ),
-    )
+    paths = [out / f"{view['name']}.png" for view in specs]
+    labels = [f"{view['name'].upper().replace('_', ' ')}  yaw {view['yaw']:+.0f}  pitch {view['pitch']:+.0f}" for view in specs]
+    contact = _contact_sheet(paths, labels, out / "contact_sheet.png")
     metadata = {
         "generated_at": generated,
         "skin": {
@@ -304,13 +303,13 @@ def render_views(
             "notes": "weak perspective: near-orthographic, identical parameters for both views",
         },
         "canvas": {"width": int(width), "height": int(height)},
-        "views": views,
+        "views": specs,
         "contact_sheet": contact.name,
     }
     (out / "render.json").write_text(
         json.dumps(metadata, indent=2, ensure_ascii=False) + "\n", encoding="utf-8"
     )
-    return {"out_dir": str(out), "views": views, "contact_sheet": str(contact), "metadata": metadata}
+    return {"out_dir": str(out), "views": specs, "contact_sheet": str(contact), "metadata": metadata}
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -329,6 +328,8 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--height", type=int, default=DEFAULT_HEIGHT)
     parser.add_argument("--browser", default=None, help="Chrome/Chromium binary (default: auto)")
     parser.add_argument("--timeout", type=float, default=90.0, help="per-view Chrome timeout (s)")
+    parser.add_argument("--views", choices=("default", "hair"), default="default",
+                        help="default=front/back; hair=front/back/bottom/right-side")
     args = parser.parse_args(argv)
 
     try:
@@ -344,6 +345,7 @@ def main(argv: list[str] | None = None) -> int:
             height=args.height,
             browser=args.browser,
             timeout=args.timeout,
+            views=args.views,
         )
     except (FileNotFoundError, ValueError, RuntimeError) as exc:
         print(f"qa render failed: {exc}")

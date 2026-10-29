@@ -205,3 +205,9 @@ S0 quality/face detection (YuNet) → S1 colour measurement (white-balance + ban
   - `measure_skin` 선택을 `0.5*lum + 1.5*chroma`(밝은 회색 감점)로 바꾸고, 채도 하한 0.05, 이마는 볼·코의 채도<0.10 또는 휘도<0.40일 때만 후보에 추가. 599 tests.
   - Full 236 3-state: mean old **5.87** / lightest **5.89** / sat **5.91**; head 5.81/5.90/5.90; bottom 6.07/6.09/6.18. sat vs lightest 57 개선/52 악화/127 동일. grey 48/59/**50**, skin 76/56/**60**, darker 106/88/**94**.
   - 표적: images10 8.0, messi 4.25, image410 5.0(light 4.25), ex3 4.75, image118 6.5; images15 3.25(light 4.0), lena 2.75, 417 3.25. 다음 우선순위는 여전히 헤어/안경/모자(이슈 다수).
+
+- 2026-10-29 (헤어 L1/L2 구조 수정):
+  - 원인: `render_head` 가 bottom 면을 항상 피부로 채움(205/236 스킨 bottom hair 0); `HairStencil.body_rows`/render cap 6, rule body_rows 0; L2 는 4열만 칠하는 sparse 셸이라 224/236 에서 인접 열 단차 8; L2 는 스타일 입력 없이 고정.
+  - 수정: bottom 은 v0=앞(턱)·v7=뒤로 확인 후 뒤쪽 footprint 만 L1/L2 에 칠함(길이별 1/2/3/4행, 턱 피부 유지). `effective_hair_length`/`target_body_rows` 로 VLM long→6, very_long→10행(마스크 증거 최대 12), rule 폴백도 동일. L2 는 실루엣 전체를 채우는 solid 셸(알파 구멍 0), 세로 가닥 톤. 긴 머리 앞머리 2행 추가, body drape solid.
+  - QA: `qarender --views hair` (front/back/bottom/right-side), `hairreport` 결정론 검사(bottom/구멍/점프/drape), `docs/qa-hair.md` 프롬프트. 10장 before/after: bottom 24/24, L2 holes 0(8/10), body long 6-12행; bald/dark-skin 2장은 리포트 한계/기존 bald 오류.
+  - `pytest -q` → **608 passed**. Phase 4(스타일 스키마/드로어)는 다음 PR.

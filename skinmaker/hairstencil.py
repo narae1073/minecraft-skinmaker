@@ -27,6 +27,9 @@ HAIR_CLASSES = (1, 2)
 FACE = 11  # 맨살 두피(대머리) 신호 — 상단 띠가 이 클래스면 정수리 피부
 
 HEAD_GRID = 8  # 머리 각 면 8×8
+LENGTH_ORDER = ("short", "medium", "long", "very_long")
+LENGTH_BODY_ROWS = {"short": 0, "medium": 2, "long": 6, "very_long": 10}
+LENGTH_BOTTOM_REAR = {"short": 1, "medium": 2, "long": 3, "very_long": 4}
 
 
 @dataclass(frozen=True)
@@ -35,7 +38,9 @@ class HairStencil:
     top_hair: bool                        # 정수리(top 면) 머리 여부
     side_profiles: dict[str, tuple[int, ...]] = field(default_factory=dict)
     # face author-u 열마다 위에서부터 칠할 행 수. head cuboid의 모든 면은 8열.
-    body_rows: int = 0                    # jaw 아래 관측된 어깨 머리 길이(최대 upper torso 6행)
+    body_rows: int = 0                    # jaw 아래 관측된 어깨 머리 길이(최대 12행)
+    bottom: tuple[tuple[bool, ...], ...] = field(default_factory=lambda: tuple(tuple(False for _ in range(HEAD_GRID)) for _ in range(HEAD_GRID)))
+    # 머리 아래(bottom) 8×8. v0=앞(턱), v7=뒤. 렌더가 effective length 로 뒤쪽 행을 트림한다.
 
     @property
     def side_rows(self) -> dict[str, int]:
@@ -46,6 +51,16 @@ class HairStencil:
 # 오늘의 길이 규칙 (render.render_head 그대로): length → (옆/뒤 행수, 옆열 깊이)
 # 옆열은 short/medium에서 2-3행, long/very_long에서 2-7행 — 뒷면 행수와 다른 표다.
 _RULE = {"short": (2, 4), "medium": (4, 4), "long": (6, 8), "very_long": (8, 8)}
+
+
+def _bottom_grid(back_rows: int, side_profiles: dict[str, tuple[int, ...]], rear: int = 4) -> tuple[tuple[bool, ...], ...]:
+    """머리 아래 커버리지: 뒤쪽 rear행 + 옆 열. 렌더가 길이로 한 번 더 트림한다."""
+    rear = min(4, max(0, rear)) if back_rows else 0
+    side = bool(max(side_profiles.get("left", (0,)), default=0) or max(side_profiles.get("right", (0,)), default=0))
+    return tuple(
+        tuple((v >= HEAD_GRID - rear if rear else False) or (side and u in (0, HEAD_GRID - 1)) for u in range(HEAD_GRID))
+        for v in range(HEAD_GRID)
+    )
 
 
 def rule_stencil(hair_length: str) -> HairStencil:
@@ -64,7 +79,7 @@ def rule_stencil(hair_length: str) -> HairStencil:
         "left": (rows,) * 8,
         "back": (rows,) * 8,
     }
-    return HairStencil(tuple(front), True, profiles)
+    return HairStencil(tuple(front), True, profiles, LENGTH_BODY_ROWS.get(hair_length, 0), _bottom_grid(rows, profiles, LENGTH_BOTTOM_REAR.get(hair_length, 1)))
 
 
 def _dominant_class(block: np.ndarray) -> int | None:
@@ -94,7 +109,36 @@ def _body_hair_rows(seg: np.ndarray, face: FaceBox, img_size: tuple[int, int]) -
         longest = max(longest, run)
     # A front photo's face/body proportions vary wildly; only this feature's
     # agreed scope is shoulder/upper-torso drape, never waist-length spill.
-    return min(6, int(np.ceil(longest * 6 / face.h)))
+    return min(12, int(np.ceil(longest * 12 / face.h)))
+
+
+def effective_hair_length(hair_length: str, stencil: HairStencil) -> str:
+    """VLM 길이를 바닥으로, 마스크의 몸통 머리 증거를 보조로 쓴다.
+
+    성별은 입력에 없다 — 긴 머리는 길이/실루엣으로만 판단한다. short 는
+    몸통 드레이프를 만들지 않아 수염이 몸통 머리로 오인되는 것을 막는다.
+    """
+    length = hair_length if hair_length in LENGTH_ORDER else "short"
+    evidence = stencil.body_rows
+    if evidence >= 8:
+        return "very_long"
+    if evidence >= 4 and LENGTH_ORDER.index(length) < LENGTH_ORDER.index("long"):
+        return "long"
+    return length
+
+
+def target_body_rows(hair_length: str, stencil: HairStencil) -> int:
+    """길이별 기본 드레이프 행 + (긴 머리에서만) 마스크 증거, 최대 12."""
+    length = effective_hair_length(hair_length, stencil)
+    target = LENGTH_BODY_ROWS[length]
+    # 마스크가 본 몸통 머리는 증거다 — VLM short 여도 지우지 않는다.
+    target = max(target, min(12, stencil.body_rows))
+    return min(12, target)
+
+
+def bottom_rear_rows(hair_length: str, stencil: HairStencil) -> int:
+    """아래 커버리지 뒤쪽 행 수. VLM 길이 기준, 마스크는 범위만 제공."""
+    return LENGTH_BOTTOM_REAR[effective_hair_length(hair_length, stencil)]
 
 
 def mask_stencil(
@@ -211,4 +255,4 @@ def mask_stencil(
     }
     front = tuple(tuple(bool(b) for b in row) for row in vote)
     body_rows = _body_hair_rows(np.asarray(seg), face, img_size)
-    return HairStencil(front, top_hair, side_profiles, body_rows)
+    return HairStencil(front, top_hair, side_profiles, body_rows, _bottom_grid(back[0], side_profiles))
