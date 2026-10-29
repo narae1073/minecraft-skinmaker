@@ -240,7 +240,7 @@ def _shaded_face(canvas: SkinCanvas, part: str, face_name: str, base: Color, lay
     canvas.fill_face(part, face_name, shade(base, FACE_SHADE[face_name]), layer)
 
 
-def render_head(canvas: SkinCanvas, colors: dict[str, Color], attrs: Attributes, stencil=None) -> None:
+def render_head(canvas: SkinCanvas, colors: dict[str, Color], attrs: Attributes, stencil=None, style: str = "short") -> None:
     skin_c, hair_c = colors["skin"], colors["hair"]
     if stencil is None:
         from .hairstencil import rule_stencil
@@ -278,9 +278,8 @@ def render_head(canvas: SkinCanvas, colors: dict[str, Color], attrs: Attributes,
             if stencil.bottom[v][u]:
                 canvas.put("head", "bottom", u, v, shade(hair_c, FACE_SHADE["bottom"]), 0)
 
-    # 긴 머리 앞머리: 2행 위에 1-2행 추가 (눈 4-5행은 덮지 않는다).
-    length = HS.effective_hair_length(attrs.get("hair_length"), stencil)
-    extra_bangs = {"short": 0, "medium": 0, "long": 1, "very_long": 2}.get(length, 0)
+    # 스타일 앞머리: 총 2-3행 (눈 4-5행은 덮지 않는다).
+    extra_bangs = max(0, HS.style_bangs(style) - 2)
     for i in range(extra_bangs):
         v = 2 + i
         if v >= 4:
@@ -596,7 +595,7 @@ def _l2_color(hair_c: Color, face_name: str, u: int, v: int) -> Color:
     return shade(base, L2_HIGHLIGHT if u % 2 == 0 else L2_HIGHLIGHT_ALT)
 
 
-def render_hair_overlay(canvas: SkinCanvas, colors: dict[str, Color], stencil, hair_length: str = "short") -> None:
+def render_hair_overlay(canvas: SkinCanvas, colors: dict[str, Color], stencil, hair_length: str = "short", style: str = "short") -> None:
     """L2(오버레이) 헤어 (2026-10-29 개정: solid shell, no alpha holes).
 
     L1 실루엣과 같은 셀을 모두 채운다. 틈(1px hole)을 두지 않고 열/행 밝기만
@@ -620,7 +619,7 @@ def render_hair_overlay(canvas: SkinCanvas, colors: dict[str, Color], stencil, h
         for u, is_hair in enumerate(row[: front.w]):
             if is_hair:
                 put("head", "front", u, v)
-    extra_bangs = {"short": 0, "medium": 0, "long": 1, "very_long": 2}.get(length, 0)
+    extra_bangs = max(0, HS.style_bangs(style) - 2)
     for i in range(extra_bangs):
         v = 2 + i
         if v >= 4:
@@ -646,7 +645,7 @@ def render_hair_overlay(canvas: SkinCanvas, colors: dict[str, Color], stencil, h
             if stencil.bottom[v][u]:
                 put("head", "bottom", u, v)
 
-    # 몸통 드레이프: solid rows (checker 금지).
+    # 몸통 드레이프: solid rows (checker 금지). 스타일별 강조를 덧칠한다.
     body_rows = min(12, max(0, getattr(stencil, "body_rows", 0)))
     if body_rows:
         for face_name in ("back", "right", "left"):
@@ -658,6 +657,30 @@ def render_hair_overlay(canvas: SkinCanvas, colors: dict[str, Color], stencil, h
         for v in range(min(2, body_rows, f.h)):
             for u in (0, 1, f.w - 2, f.w - 1):
                 put("body", "front", u, v)
+
+    # 롱 웨이브: 몸통 끝단을 열마다 1행씩 더 내려 물결 실루엣 (L1 위 추가 셸).
+    if style == "long_wavy":
+        back = canvas.layout.face("body", "back", 1)
+        extra = min(12, body_rows + 1)
+        for u in range(back.w):
+            if body_rows <= extra - 1 and u % 3 == 0:
+                for v in range(body_rows, extra):
+                    put("body", "back", u, v)
+
+    # 포니테일: 몸통 뒤 중앙 2열에 꼬리 strip. L1 드레이프는 0.
+    if style == "ponytail":
+        back = canvas.layout.face("body", "back", 1)
+        for v in range(min(5, back.h)):
+            for u in (3, 4):
+                put("body", "back", u, v)
+
+    # 번: 뒤통수 상단 4×3 밝은 덩어리. L1/실루엣은 그대로, L2 음영으로 묶음 표현.
+    if style == "bun":
+        back = canvas.layout.face("head", "back", 1)
+        bun_c = shade(hair_c, FACE_SHADE["back"] * 1.35)
+        for v in range(3):
+            for u in range(2, 6):
+                canvas.put("head", "back", u, v, bun_c, 1)
 
 
 def render(
@@ -713,8 +736,12 @@ def render(
     hair_stencil = observed.hair_stencil
     if hair_stencil is None:
         hair_stencil = HS.rule_stencil(attrs.get("hair_length"))
-    hair_stencil = replace(hair_stencil, body_rows=HS.target_body_rows(attrs.get("hair_length"), hair_stencil))
-    render_head(canvas, colors, attrs, hair_stencil)
+    style_value = attrs.get("hair_style")
+    if "hair_style" in attrs.missing or "hair_style" in attrs.coerced:
+        style_value = ""
+    style = HS.effective_hair_style(style_value, attrs.get("hair_length"), hair_stencil)
+    hair_stencil = replace(hair_stencil, body_rows=HS.style_body_rows(style, attrs.get("hair_length"), hair_stencil))
+    render_head(canvas, colors, attrs, hair_stencil, style=style)
     thickness = observed.stripe_px if pattern in ("vertical_stripe", "horizontal_stripe", "check", "plaid") else 1
     render_body(canvas, colors, attrs, pattern, alt, hair_stencil, thickness,
                 texture=observed.top_texture)
@@ -725,7 +752,7 @@ def render(
         texture=observed.bottom_texture,
     )
     if observed.hair_overlay:
-        render_hair_overlay(canvas, colors, hair_stencil, attrs.get("hair_length"))
+        render_hair_overlay(canvas, colors, hair_stencil, attrs.get("hair_length"), style)
     if noise_seed is not None:
         _apply_noise(canvas, noise_seed, noise_level)
     return canvas

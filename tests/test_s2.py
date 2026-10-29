@@ -26,6 +26,7 @@ GOOD = {
     "pattern": "plain",
     "sleeve_len": "long",
     "hair_length": "long",
+    "hair_style": "long_straight",
     "beard": "full",
     "inner_top": "shirt",
     "neckwear": "none",
@@ -257,12 +258,13 @@ def test_gemini_schema_conversion():
     assert out["properties"]["hair_bbox"]["items"] == {"type": "INTEGER"}
     assert out["properties"]["closure_type"]["enum"] == list(A.ENUMS["closure_type"])
     assert out["properties"]["collar_type"]["enum"] == list(A.ENUMS["collar_type"])
+    assert out["properties"]["hair_style"]["enum"] == list(A.ENUMS["hair_style"])
     assert "floral" in out["properties"]["pattern"]["enum"]
 
 
 def test_prompt_lists_structure_fields():
     prompt = A.build_prompt()
-    for name in ("closure_type", "collar_type", "pocket_type", "symmetry"):
+    for name in ("closure_type", "collar_type", "pocket_type", "symmetry", "hair_style"):
         assert name in prompt
 
 

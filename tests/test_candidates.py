@@ -20,6 +20,7 @@ BASE = {
     "pattern": "plain",
     "sleeve_len": "long",
     "hair_length": "short",
+    "hair_style": "short",
     "beard": "none",
     "inner_top": "none",
     "neckwear": "none",

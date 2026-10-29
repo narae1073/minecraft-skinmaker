@@ -30,6 +30,13 @@ HEAD_GRID = 8  # 머리 각 면 8×8
 LENGTH_ORDER = ("short", "medium", "long", "very_long")
 LENGTH_BODY_ROWS = {"short": 0, "medium": 2, "long": 6, "very_long": 10}
 LENGTH_BOTTOM_REAR = {"short": 1, "medium": 2, "long": 3, "very_long": 4}
+HAIR_STYLES = ("short", "pixie", "bob", "long_straight", "long_wavy", "curly", "ponytail", "bun")
+# 스타일별 몸통 드레이프 상한/고정. bob·ponytail·bun 은 몸통으로 흘리지 않는다.
+STYLE_BODY_ROWS = {"short": 0, "pixie": 0, "bob": 0, "long_straight": 6, "long_wavy": 8,
+                   "curly": 5, "ponytail": 0, "bun": 0}
+STYLE_BANGS = {"short": 2, "pixie": 2, "bob": 3, "long_straight": 3, "long_wavy": 3,
+               "curly": 3, "ponytail": 2, "bun": 2}
+_FALLBACK_STYLE = {"short": "short", "medium": "bob", "long": "long_straight", "very_long": "long_wavy"}
 
 
 @dataclass(frozen=True)
@@ -139,6 +146,28 @@ def target_body_rows(hair_length: str, stencil: HairStencil) -> int:
 def bottom_rear_rows(hair_length: str, stencil: HairStencil) -> int:
     """아래 커버리지 뒤쪽 행 수. VLM 길이 기준, 마스크는 범위만 제공."""
     return LENGTH_BOTTOM_REAR[effective_hair_length(hair_length, stencil)]
+
+
+def effective_hair_style(hair_style: str, hair_length: str, stencil: HairStencil) -> str:
+    """VLM 스타일이 없거나 무효면 길이에서 폴백. 성별 추론은 하지 않는다."""
+    if hair_style in STYLE_BODY_ROWS:
+        return hair_style
+    return _FALLBACK_STYLE[effective_hair_length(hair_length, stencil)]
+
+
+def style_body_rows(hair_style: str, hair_length: str, stencil: HairStencil) -> int:
+    """스타일별 몸통 드레이프. bob/ponytail/bun/pixie 는 0, 긴 스타일은 길이 목표."""
+    length_target = target_body_rows(hair_length, stencil)
+    if hair_style in ("short", "pixie", "bob", "ponytail", "bun"):
+        return 0
+    if hair_style == "curly":
+        return min(length_target, STYLE_BODY_ROWS["curly"])
+    return max(length_target, STYLE_BODY_ROWS.get(hair_style, 0))
+
+
+def style_bangs(hair_style: str) -> int:
+    """앞머리 총 행 수 (2=기본, 3=이마를 덮는 긴 앞머리). 눈 4-5행은 보호."""
+    return STYLE_BANGS.get(hair_style, 2)
 
 
 def mask_stencil(

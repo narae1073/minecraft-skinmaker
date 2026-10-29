@@ -55,9 +55,9 @@ from skinmaker import hairstencil as HS
 # 재기록 — 이전: 2026-10-21 L2 부피 셸 도입. 이후 rule 경로가 조용히 변하면 잡는다.
 NOISE_OFF_GOLDEN = {
     "short": "68ddc727f023524b",
-    "medium": "8baa64719c3f072d",
+    "medium": "59fe5556e0753f71",
     "long": "c46fed3e30fefee8",
-    "very_long": "693b132eed373ecf",
+    "very_long": "de37c89e0b1fac05",
 }
 
 
@@ -343,7 +343,8 @@ def test_mask_stencil_renders_body_back_sides_and_front_shoulder_strands(model):
         body_rows=3,
     )
     base = observed()
-    canvas = R.render(dataclasses.replace(base, hair_stencil=stencil), attrs(), (), model).image
+    canvas = R.render(dataclasses.replace(base, hair_stencil=stencil),
+                          attrs(hair_length="long", hair_style="long_straight"), (), model).image
     L = get_layout(model)
     hair = rgba(base.hair.hex)[:3]
     back = L.face("body", "back", 0)
@@ -894,3 +895,36 @@ def test_textured_skin_passes_validation():
     obs = dataclasses.replace(observed(), top_texture=_fabric(), bottom_texture=_fabric())
     canvas = R.render(obs, attrs(pattern="plaid", bottom_garment="jeans"), (), "classic")
     assert validate_image(canvas.image, "classic") == []
+
+
+def _style_attrs(style, length="long"):
+    return attrs(hair_length=length, hair_style=style)
+
+
+def test_l2_style_signatures_are_distinct():
+    def l2_body(style, length="long"):
+        c = R.render(observed(hair="#112233"), _style_attrs(style, length), ())
+        return _opaque_cells(c, "body", 1)
+
+    bob = l2_body("bob")
+    long_s = l2_body("long_straight")
+    wavy = l2_body("long_wavy")
+    curly = l2_body("curly")
+    pony = l2_body("ponytail")
+    bun = l2_body("bun")
+    assert not bob  # no drape
+    assert len(long_s) > 0 and len(wavy) > len(long_s)
+    assert len(curly) > 0 and len(curly) < len(long_s)
+    assert any(name == "back" and u in (3, 4) for name, u, v in pony)
+    assert not any(name == "back" and u in (0, 1) for name, u, v in pony)
+
+    # bob/short 프린지 차이: bob 은 2행까지, short 은 2행 위를 덮지 않는다.
+    bobc = R.render(observed(), _style_attrs("bob", "short"), ())
+    shortc = R.render(observed(), _style_attrs("short", "short"), ())
+    assert bobc.get("head", "front", 1, 2, 1)[3] != 0
+    assert shortc.get("head", "front", 1, 2, 1)[3] == 0
+
+    # bun: 뒤통수 상단 밝은 덩어리.
+    bunc = R.render(observed(hair="#112233"), _style_attrs("bun"), ())
+    plainc = R.render(observed(hair="#112233"), _style_attrs("long_straight"), ())
+    assert bunc.get("head", "back", 3, 1, 1)[:3] != plainc.get("head", "back", 3, 1, 1)[:3]
