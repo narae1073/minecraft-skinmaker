@@ -54,10 +54,10 @@ from skinmaker import hairstencil as HS
 # rule 스텐실 렌더의 픽셀 베이스라인. 2026-10-27 L2 헤어를 성긴 가닥으로 개정하며
 # 재기록 — 이전: 2026-10-21 L2 부피 셸 도입. 이후 rule 경로가 조용히 변하면 잡는다.
 NOISE_OFF_GOLDEN = {
-    "short": "68ddc727f023524b",
-    "medium": "59fe5556e0753f71",
-    "long": "c46fed3e30fefee8",
-    "very_long": "de37c89e0b1fac05",
+    "short": "0aa6f7400aa39bd5",
+    "medium": "209d1b70fd81b600",
+    "long": "e9fb3bf5103d7abd",
+    "very_long": "0a07092bef0b8d52",
 }
 
 
@@ -230,9 +230,9 @@ def test_hair_overlay_body_drape_is_solid_and_switch_off():
     base = dataclasses.replace(observed(), hair_stencil=st)
     canvas = R.render(base, attrs(hair_length="long"), ())
     cells = _opaque_cells(canvas, "body", 1)
-    # long targets 6 rows: back 8 + left 4 + right 4 per row, plus 2 front side cols × 2 rows.
-    assert len(cells) == 6 * (8 + 4 + 4) + 8
-    assert all(canvas.get("body", "back", u, v, 1)[3] for v in range(6) for u in range(8))
+    # long_straight: back 5 rows (8+4+4 per row) + front 3/2/2/3.
+    assert len(cells) == 5 * (8 + 4 + 4) + 10
+    assert all(canvas.get("body", "back", u, v, 1)[3] for v in range(5) for u in range(8))
     off = R.render(dataclasses.replace(base, hair_overlay=False), attrs(hair_length="long"), ())
     assert off.get("body", "back", 2, 0, 1)[3] == 0
     assert off.get("head", "front", 0, 0, 1)[3] == 0
@@ -255,13 +255,16 @@ def test_head_bottom_rear_is_hair_and_chin_is_skin():
 
 def test_long_hair_extends_body_drape_and_bangs():
     short = R.render(observed(hair="#112233"), attrs(hair_length="short"), ())
-    long = R.render(observed(hair="#112233"), attrs(hair_length="very_long"), ())
-    # very_long: 목표 10행, 앞머리 2행 추가(눈 4-5행은 보호).
-    for v in range(10):
+    long = R.render(observed(hair="#112233"), attrs(hair_length="long", hair_style="long_straight"), ())
+    # long_straight: back 5행, front chest 3행, 앞머리 row3까지.
+    for v in range(5):
         assert long.get("body", "back", 0, v)[:3] == shade(rgba("#112233"), R.FACE_SHADE["back"])[:3], v
-    assert long.get("body", "back", 0, 10)[:3] != shade(rgba("#112233"), R.FACE_SHADE["back"])[:3]
+    assert long.get("body", "back", 0, 5)[:3] != shade(rgba("#112233"), R.FACE_SHADE["back"])[:3]
+    for v in range(3):
+        assert long.get("body", "front", 0, v)[:3] == shade(rgba("#112233"), R.FACE_SHADE["front"])[:3], v
+    assert long.get("body", "front", 0, 3)[:3] != shade(rgba("#112233"), R.FACE_SHADE["front"])[:3]
     for u in (1, 2, 5, 6):
-        assert long.get("head", "front", u, 2)[:3] == shade(rgba("#112233"), R.FACE_SHADE["front"])[:3]
+        assert long.get("head", "front", u, 3)[:3] == shade(rgba("#112233"), R.FACE_SHADE["front"])[:3]
         assert long.get("head", "front", u, 4)[:3] != shade(rgba("#112233"), R.FACE_SHADE["front"])[:3]
     assert short.get("body", "back", 0, 0)[:3] != shade(rgba("#112233"), R.FACE_SHADE["back"])[:3]
 
@@ -921,10 +924,23 @@ def test_l2_style_signatures_are_distinct():
     # bob/short 프린지 차이: bob 은 2행까지, short 은 2행 위를 덮지 않는다.
     bobc = R.render(observed(), _style_attrs("bob", "short"), ())
     shortc = R.render(observed(), _style_attrs("short", "short"), ())
-    assert bobc.get("head", "front", 1, 2, 1)[3] != 0
-    assert shortc.get("head", "front", 1, 2, 1)[3] == 0
+    assert bobc.get("head", "front", 1, 3, 1)[3] != 0
+    assert shortc.get("head", "front", 1, 3, 1)[3] == 0
 
     # bun: 뒤통수 상단 밝은 덩어리.
     bunc = R.render(observed(hair="#112233"), _style_attrs("bun"), ())
     plainc = R.render(observed(hair="#112233"), _style_attrs("long_straight"), ())
     assert bunc.get("head", "back", 3, 1, 1)[:3] != plainc.get("head", "back", 3, 1, 1)[:3]
+
+
+def test_back_drape_caps_mask_evidence_and_no_drape_styles():
+    st = dataclasses.replace(HS.rule_stencil("long"), body_rows=12)
+    base = dataclasses.replace(observed(), hair_stencil=st)
+    long = R.render(base, attrs(hair_length="long", hair_style="long_straight"), ())
+    for v in range(5):
+        assert long.get("body", "back", 0, v)[:3] == shade(rgba(base.hair.hex), R.FACE_SHADE["back"])[:3], v
+    assert long.get("body", "back", 0, 6)[:3] != shade(rgba(base.hair.hex), R.FACE_SHADE["back"])[:3]
+    for v in range(3):
+        assert long.get("body", "front", 0, v)[:3] == shade(rgba(base.hair.hex), R.FACE_SHADE["front"])[:3], v
+    bob = R.render(base, attrs(hair_length="long", hair_style="bob"), ())
+    assert bob.get("body", "back", 0, 0)[:3] != shade(rgba(base.hair.hex), R.FACE_SHADE["back"])[:3]

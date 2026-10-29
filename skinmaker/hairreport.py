@@ -22,6 +22,7 @@ from PIL import Image
 
 from .format import get_layout
 from .render import FACE_SHADE
+from . import hairstencil as HS
 
 HEAD_GRID = 8
 # v0=front(턱), v7=back. Length → rear rows (mirrors hairstencil).
@@ -64,7 +65,7 @@ def _profile(image: Image.Image, face, hair) -> list[int]:
 
 
 def analyze(image: Image.Image, *, hair: str, skin: str, hair_length: str = "short",
-            model: str = "classic") -> dict:
+            hair_style: str = "", model: str = "classic") -> dict:
     image = image.convert("RGBA")
     layout = get_layout(model)
     skin_rgb = _rgb(skin)
@@ -83,7 +84,9 @@ def analyze(image: Image.Image, *, hair: str, skin: str, hair_length: str = "sho
         return {
             "bottom_hair": 0, "bottom_rear_hair": 0, "bottom_rear_total": 8 * rear,
             "chin_hair": 0, "l2_holes": 0, "side_profile": [0] * 8, "side_jump": 0,
-            "body_rows": 0, "l2_counts": {}, "bald": True, "problems": [], "ok": True,
+            "body_rows": 0, "front_holes": 0, "row3_hair": 0, "front_body_rows": 0,
+            "back_body_rows": 0, "expected_front": 0, "expected_back": 0,
+            "l2_counts": {}, "bald": True, "problems": [], "ok": True,
         }
     # Top face is covered by solid L2, so divide out both the face shade and the
     # dominant L2 highlight to recover the L1 hair base.
@@ -119,6 +122,27 @@ def analyze(image: Image.Image, *, hair: str, skin: str, hair_length: str = "sho
                         if image.getpixel((l2.x + u, l2.y + v))[3] == 0:
                             holes += 1
 
+    # 앞머리 내부 구멍 / hairline row3 / body front·back drape.
+    front0 = layout.face("head", "front", 0)
+    fgrid = [[_near(image.getpixel((front0.x + u, front0.y + v)), hair_faces["front"]) for u in range(8)] for v in range(8)]
+    front_holes = sum(
+        1 for u in range(8) for v in range(1, 4)
+        if not fgrid[v][u] and any(fgrid[a][u] for a in range(v)) and any(fgrid[b][u] for b in range(v + 1, 4))
+    )
+    row3_hair = sum(fgrid[3])
+    style = hair_style if hair_style in HS.STYLE_DRAPE else ""
+    expect_front, expect_back = HS.style_drape(style) if style else (0, 0)
+    l2f = layout.face("body", "front", 1); l2b = layout.face("body", "back", 1)
+    def l2_rows(face, u):
+        n = 0
+        for v in range(face.h):
+            if image.getpixel((face.x + u, face.y + v))[3]: n += 1
+            else: break
+        return n
+    front_body = l2_rows(l2f, 0)
+    back_body = l2_rows(l2b, 0)
+    full_fringe = style in ("bob", "long_straight", "long_wavy", "curly")
+
     right0 = layout.face("head", "right", 0)
     profile = _profile(image, right0, hair_faces["right"])
     jumps = max((abs(profile[i] - profile[i - 1]) for i in range(1, len(profile))), default=0)
@@ -148,6 +172,14 @@ def analyze(image: Image.Image, *, hair: str, skin: str, hair_length: str = "sho
         problems.append(f"L2 alpha holes {holes}")
     if jumps > 1:
         problems.append(f"side profile jump {jumps}")
+    if front_holes:
+        problems.append(f"front bang holes {front_holes}")
+    if full_fringe and row3_hair < 6:
+        problems.append(f"front hairline skin row3 ({row3_hair}/8)")
+    if style and expect_front and front_body < expect_front:
+        problems.append(f"front chest {front_body} < {expect_front}")
+    if style and back_body > min(6, expect_back + 1):
+        problems.append(f"back drape {back_body} > cap {min(6, expect_back + 1)}")
     return {
         "bottom_hair": bottom_hair,
         "bottom_rear_hair": bottom_rear_hair,
@@ -157,6 +189,12 @@ def analyze(image: Image.Image, *, hair: str, skin: str, hair_length: str = "sho
         "side_profile": profile,
         "side_jump": jumps,
         "body_rows": body_rows,
+        "front_holes": front_holes,
+        "row3_hair": row3_hair,
+        "front_body_rows": front_body,
+        "back_body_rows": back_body,
+        "expected_front": expect_front,
+        "expected_back": expect_back,
         "l2_counts": l2_counts,
         "problems": problems,
         "ok": not problems,
@@ -179,6 +217,7 @@ def _batch(batch: Path) -> list[dict]:
         try:
             report = analyze(Image.open(skin_path), hair=observed["hair"],
                              skin=observed["skin"], hair_length=length,
+                             hair_style=data.get("classification", {}).get("values", {}).get("hair_style", ""),
                              model=data.get("skin_model", "classic"))
         except (KeyError, OSError, TypeError):
             continue
