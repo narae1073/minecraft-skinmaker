@@ -59,4 +59,4 @@ Return JSON only: {"bottom":"PASS|FAIL","l2":"PASS|FAIL","length":"PASS|FAIL",
 Do not propose code fixes; report visual defects only.
 ```
 
-Style (E) is evaluated only once the `hair_style` schema/drawers land (Phase 4).
+Style (E) is checked against the `hair_style` tag; uncertain tags fall back to bob / long-straight / long-wavy by length.

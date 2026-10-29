@@ -397,3 +397,17 @@ def test_bald_never_paints_bottom_or_body():
     assert st is not None and st.top_hair is False
     assert not any(any(row) for row in st.bottom)
     assert st.body_rows == 0
+
+
+def test_style_targets_and_fallbacks():
+    st = HS.rule_stencil("long")
+    assert HS.effective_hair_style("", "long", st) == "long_straight"
+    assert HS.effective_hair_style("bun", "long", st) == "bun"
+    assert HS.style_body_rows("bob", "long", st) == 0
+    assert HS.style_body_rows("ponytail", "long", st) == 0
+    assert HS.style_body_rows("bun", "long", st) == 0
+    assert HS.style_body_rows("long_straight", "long", st) == 6
+    assert HS.style_body_rows("long_wavy", "long", st) == 8
+    assert HS.style_body_rows("curly", "long", st) == 5
+    assert HS.style_bangs("bob") == 3
+    assert HS.style_bangs("short") == 2

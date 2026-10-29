@@ -211,3 +211,8 @@ S0 quality/face detection (YuNet) → S1 colour measurement (white-balance + ban
   - 수정: bottom 은 v0=앞(턱)·v7=뒤로 확인 후 뒤쪽 footprint 만 L1/L2 에 칠함(길이별 1/2/3/4행, 턱 피부 유지). `effective_hair_length`/`target_body_rows` 로 VLM long→6, very_long→10행(마스크 증거 최대 12), rule 폴백도 동일. L2 는 실루엣 전체를 채우는 solid 셸(알파 구멍 0), 세로 가닥 톤. 긴 머리 앞머리 2행 추가, body drape solid.
   - QA: `qarender --views hair` (front/back/bottom/right-side), `hairreport` 결정론 검사(bottom/구멍/점프/drape), `docs/qa-hair.md` 프롬프트. 10장 before/after: bottom 24/24, L2 holes 0(8/10), body long 6-12행; bald/dark-skin 2장은 리포트 한계/기존 bald 오류.
   - `pytest -q` → **608 passed**. Phase 4(스타일 스키마/드로어)는 다음 PR.
+
+- 2026-10-29 (헤어 Phase 4, 스타일 스키마/드로어):
+  - VLM 스키마 `hair_style`: short/pixie/bob/long_straight/long_wavy/curly/ponytail/bun. 값이 없거나 강제되면 길이에서 bob/long_straight/long_wavy 로 폴백(성별 추론 없음). mock/fixture/prompt/schema 테스트 갱신.
+  - 스타일 드로어: short/pixie 0행 드레이프·2행 프린지, bob 3행 프린지·0행, long_straight 6행, long_wavy 8행+열별 1행 웨이브, curly 5행, ponytail 0행+뒤 중앙 2×5 strip, bun 0행+뒤통수 4×3 밝은 번. L2 solid/구멍 0 유지.
+  - 실사진 10장 VLM 태그: long_straight 4·short 1·curly 1·long_wavy 1·ponytail 1·bun 2. 4-view 렌더 `out/qa_style_views/`. 테스트 **610 passed**. PR #28 위 스택(PR #29), merge 순서 28→29.

@@ -17,6 +17,7 @@ GOOD = {
     "pattern": "plain",
     "sleeve_len": "short",
     "hair_length": "medium",
+    "hair_style": "bob",
     "hair_bbox": [200, 50, 800, 600],
 }
 
@@ -34,6 +35,7 @@ GOOD_HAIR = {
     "pattern": "plain",
     "sleeve_len": "short",
     "hair_length": "medium",
+    "hair_style": "bob",
     "hair_bbox": [557, 65, 676, 128],
 }
 

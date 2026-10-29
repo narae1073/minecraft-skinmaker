@@ -16,6 +16,7 @@ ENUMS: dict[str, tuple[str, ...]] = {
     "pattern": ("plain", "vertical_stripe", "horizontal_stripe", "check", "plaid", "graphic", "floral"),
     "sleeve_len": ("none", "short", "three_quarter", "long"),
     "hair_length": ("short", "medium", "long", "very_long"),
+    "hair_style": ("short", "pixie", "bob", "long_straight", "long_wavy", "curly", "ponytail", "bun"),
     "beard": ("none", "stubble", "full"),
     "inner_top": ("none", "shirt", "tee", "knit"),
     "neckwear": ("none", "tie"),
@@ -32,6 +33,7 @@ DEFAULTS: dict[str, str] = {
     "pattern": "plain",
     "sleeve_len": "none",
     "hair_length": "short",
+    "hair_style": "short",
     "beard": "none",
     "inner_top": "none",
     "neckwear": "none",
@@ -42,7 +44,7 @@ DEFAULTS: dict[str, str] = {
 }
 
 FIELD_ORDER: tuple[str, ...] = (
-    "top_garment", "bottom_garment", "pattern", "sleeve_len", "hair_length", "beard",
+    "top_garment", "bottom_garment", "pattern", "sleeve_len", "hair_length", "hair_style", "beard",
     "inner_top", "neckwear", "closure_type", "collar_type", "pocket_type", "symmetry",
 )
 REVERSED_ORDER: tuple[str, ...] = tuple(reversed(FIELD_ORDER)) + ("hair_bbox",)
@@ -57,6 +59,7 @@ _HINTS = {
     "pattern": "상의 무늬. 무늬 없으면 plain",
     "sleeve_len": "소매 길이. 어깨에서 끝나면 short, 손목이면 long",
     "hair_length": "머리 길이. 모자에 가렸으면 보이는 부분만",
+    "hair_style": "머리 스타일. 짧은 컷=short, 픽시=pixie, 단발=bob, 긴 생머리=long_straight, 긴 웨이브=long_wavy, 곱슬=curly, 포니테일=ponytail, 묶은 올림머리=bun",
     "beard": "수염. 없으면 none, 짧은 수염·면도 그림자면 stubble, 뚜렷한 수염/콧수염이면 full",
     "inner_top": "안에 껴입은 상의. 목/칼라에 겉옷과 다른 안쪽 옷이 보이면 shirt/tee/knit, 단일 상의·맨목이면 none",
     "neckwear": "넥타이. 칼라 아래 타이가 보이면 tie, 없으면 none",
@@ -75,6 +78,7 @@ _RULES = (
     "모자·헬멧은 머리카락이 아니므로 hair_bbox에 포함하지 않는다.",
     "closure/collar/pocket 은 실제로 보일 때만 고른다. 확실하지 않으면 none.",
     "대칭은 옷과 무늬의 좌우 차이를 본다. 판단이 어려우면 symmetric.",
+    "hair_style 은 성별이 아니라 사진에서 보이는 머리 실루엣으로 고른다. 애매하면 hair_length에 맞는 가장 가까운 것.",
     "JSON 객체 하나만 출력한다. 마크다운 코드펜스 없이.",
 )
 
