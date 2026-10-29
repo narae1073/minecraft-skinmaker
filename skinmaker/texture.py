@@ -48,18 +48,6 @@ def _quantise(patch: Image.Image, size: tuple[int, int], colors: int = TEXTURE_C
 
 
 def _complexity(patch: Image.Image) -> float:
-    """Dominant colour count + spatial edge density.
-
-    A 2-colour checker has few colours but is unmistakably patterned; a shaded
-    plain fabric has many shades but no edges. Both signals are needed.
-    """
-    small = patch.convert("RGB").resize((32, 32), Image.BOX)
-    arr = np.asarray(small, dtype=np.float32)
-    edge = float(np.abs(np.diff(arr, axis=0)).mean() + np.abs(np.diff(arr, axis=1)).mean()) / 255.0
-    return round(_dominant_colors(small) + edge * 10.0, 2)
-
-
-def _complexity(patch: Image.Image) -> float:
     """High-frequency fabric energy (0-255). Plain shading is low-frequency;
     floral/plaid/check have strong local edges. A shaded white tee scores ~7,
     floral ~20+, jeans ~3.

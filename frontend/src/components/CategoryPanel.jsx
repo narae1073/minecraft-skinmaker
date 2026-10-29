@@ -4,19 +4,46 @@ import { useState } from 'react';
 const KOR = {
   top_garment: { tee: "반팔 티셔츠", hoodie: "후디", jacket: "재킷", shirt: "셔츠", sweater: "스웨터", vest: "조끼", uniform: "교복", apron: "에이프런", overalls: "멜빵바지", dress: "드레스", none: "상의 없음" },
   bottom_garment: { jeans: "청바지", pants: "바지", shorts: "반바지", skirt: "치마", dress: "원피스", none: "하의 없음" },
-  pattern: { plain: "무지", vertical_stripe: "세로 줄무늬", horizontal_stripe: "가로 줄무늬", check: "체크", plaid: "플레이드", graphic: "그래픽" },
+  pattern: { plain: "무지", vertical_stripe: "세로 줄무늬", horizontal_stripe: "가로 줄무늬", check: "체크", plaid: "플레이드", graphic: "그래픽", floral: "꽃무늬" },
   sleeve_len: { none: "민소매", short: "반팔", three_quarter: "7부", long: "긴팔" },
   hair_length: { short: "짧은 머리", medium: "중간 머리", long: "긴 머리", very_long: "아주 긴 머리" },
+  hair_style: { short: "짧은 컷", pixie: "픽시", bob: "단발", long_straight: "긴 생머리", long_wavy: "긴 웨이브", curly: "곱슬", ponytail: "포니테일", bun: "올림머리" },
+  beard: { none: "없음", stubble: "짧은 수염", full: "수염" },
+  inner_top: { none: "없음", shirt: "셔츠", tee: "티셔츠", knit: "니트" },
+  neckwear: { none: "없음", tie: "넥타이" },
+  closure_type: { none: "없음", zipper: "지퍼", buttons: "단추" },
+  collar_type: { none: "없음", crew: "라운드", v_neck: "브이넥", shirt: "셔츠칼라", hood: "후드" },
+  pocket_type: { none: "없음", patch: "패치 주머니" },
+  symmetry: { symmetric: "대칭", asymmetric: "비대칭" },
 };
-const FIELD_KOR = { top_garment: "상의", bottom_garment: "하의", pattern: "무늬", sleeve_len: "소매", hair_length: "머리" };
-const FIELDS = ["top_garment", "bottom_garment", "pattern", "sleeve_len", "hair_length"];
+const FIELD_KOR = {
+  top_garment: "상의",
+  bottom_garment: "하의",
+  pattern: "무늬",
+  sleeve_len: "소매",
+  hair_length: "머리 길이",
+  hair_style: "머리 스타일",
+  beard: "수염",
+  inner_top: "안쪽 옷",
+  neckwear: "넥타이",
+  closure_type: "여밈",
+  collar_type: "칼라",
+  pocket_type: "주머니",
+  symmetry: "대칭",
+};
+const FIELDS = [
+  "top_garment", "bottom_garment", "pattern", "sleeve_len", "hair_length",
+  "hair_style", "beard", "inner_top", "neckwear", "closure_type", "collar_type",
+  "pocket_type", "symmetry",
+];
 
 export default function CategoryPanel({ attributes, noiseLevel }) {
   const [copied, setCopied] = useState(false);
   if (!attributes) return null;
   const values = attributes.values || {};
   const uncertain = new Set(attributes.uncertain || []);
-  const derivedFields = new Set((attributes.derived || []).map((d) => d.split("=")[0]));
+  // derived 항목은 "field:old->new" 형식이다 (예: "sleeve_len:long->none").
+  const derivedFields = new Set((attributes.derived || []).map((d) => d.split(":")[0]));
   const jsonPayload = { attributes, noise_level: noiseLevel };
   const label = (f) => KOR[f]?.[values[f]] || values[f];
 

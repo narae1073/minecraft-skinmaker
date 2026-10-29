@@ -16,7 +16,7 @@ AI(VLM)는 사진에서 속성 JSON만 뽑습니다. 무엇을 입었는지(분�
 - S0 입력 게이트 (`quality.py`): YuNet 얼굴 검출과 품질 신호(밝기·흐림·크기). 유일한 거부는 얼굴 없음.
 - S1 색 관측 (`colors.py`): 스킨 기준 화이트밸런스, 클러스터 대표색, 하의 캐스케이드.
 - S1b SCHP 파싱 (`parsing.py`): 인체 파싱 마스크로 하의·머리·신발 색 위치를 확정. 기본 켜짐, 모델이 없으면 밴드 경로로 폴백.
-- S2 분류 (`s2.py`, `attributes.py`, `classify.py`): VLM이 8필드(상·하의 enum, 소매, 무늬, 기장, 수염, 안쪽 옷, 넥타이)와 `hair_bbox`를 채웁니다. 순서를 뒤집은 이중 질의가 어긋나면 불확실성으로 표시.
+- S2 분류 (`s2.py`, `attributes.py`, `classify.py`): VLM이 13필드(상·하의 enum, 무늬, 소매, 머리 길이/스타일, 수염, 안쪽 옷, 넥타이, 여밈, 칼라, 주머니, 대칭)와 `hair_bbox`를 채웁니다. 순서를 뒤집은 이중 질의가 어긋나면 불확실성으로 표시.
 - S3 렌더 (`render.py`): 파라메트릭 텍스처, 하의 폴백 정책, 결정적 노이즈 시드.
 - S4 후보 (`candidates.py`): 어긋난 필드만 변형해 1~3개 생성. 랭킹 없이 전부 검증을 통과해야 합니다.
 - 웹: FastAPI + React 19 + three.js. 클래식(팔 4px)/슬림(팔 3px) 체형을 선택할 수 있습니다.
@@ -45,7 +45,7 @@ deploy/        systemd/Cloudflare Tunnel 배포 파일 (예정)
 python3 -m venv .venv
 .venv/bin/pip install -r requirements-dev.txt
 scripts/fetch_assets.sh                 # YuNet + SCHP (66MB)
-.venv/bin/python -m pytest -q           # 539 테스트
+.venv/bin/python -m pytest -q           # 613 테스트
 .venv/bin/python -m skinmaker --model classic   # 더미 스킨 + 프리뷰 → out/
 ```
 
@@ -115,11 +115,11 @@ export SKINMAKER_PARSER=out/models/schp-atr-18-int8-static.onnx   # 경로 지�
 
 ## CI
 
-`.github/workflows/ci.yml` — `test`는 Python 3.12 + YuNet만 받아 539개 테스트를 돌리고, `web`은 Node 24에서 `npm ci`/lint/build를 돌립니다. 모델·사진·생성물은 캐시/다운로드 대상이며 저장소에 커밋하지 않습니다.
+`.github/workflows/ci.yml` — `test`는 Python 3.12 + YuNet만 받아 613개 테스트를 돌리고, `web`은 Node 24에서 `npm ci`/lint/build를 돌립니다. 모델·사진·생성물은 캐시/다운로드 대상이며 저장소에 커밋하지 않습니다.
 
 ## 상태
 
-S0~S4와 웹까지 동작합니다. 테스트 539개 통과. 얼굴 검출(YuNet)과 SCHP 모델은 저장소에 없고 `scripts/fetch_assets.sh`로 받습니다.
+S0~S4와 웹까지 동작합니다. 테스트 613개 통과. 얼굴 검출(YuNet)과 SCHP 모델은 저장소에 없고 `scripts/fetch_assets.sh`로 받습니다.
 
 포즈 추정(`pose.py`)은 현재 비활성입니다. `mediapipe`와 포즈 모델이 빠져 있어 얼굴 비례 밴드로 폴백하며, 되살리려면 의존성과 `assets/pose_landmarker_lite.task`를 복구해야 합니다.
 
