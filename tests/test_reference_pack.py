@@ -124,3 +124,36 @@ def test_hood_overlay_paints_top_and_keeps_face(monkeypatch):
     # Face rows 3-7 stay open (eyes are L1 and must not get a hood shell).
     for v in (3, 4, 5, 6, 7):
         assert canvas.get("head", "front", 1, v, 1)[3] == 0, v
+
+
+def test_committed_hood_shells_are_solid():
+    pack = RP.load_pack()
+    assert pack is not None
+    for p in pack["hoods"]["up"]:
+        for face in RP.HEAD_FACES:
+            mask = p["faces"][face]
+            if face == "front":
+                assert all(v == 1 for row in mask[:3] for v in row)
+                assert all(v == 0 for row in mask[3:] for v in row)
+            else:
+                assert all(v == 1 for row in mask for v in row), face
+    assert len(pack["hoods"]["up"]) >= 1
+
+
+def test_hood_up_has_no_hair_through_crown():
+    from skinmaker import render as R
+    from test_render import observed, attrs
+
+    canvas = R.render(observed(hair="#3a2a1c"), attrs(top_garment="hoodie", hood="up"), ())
+    colors = {
+        canvas.get("head", "top", u, v, 1)
+        for v in range(8) for u in range(8)
+        if canvas.get("head", "top", u, v, 1)[3]
+    }
+    assert len(colors) == 1, colors
+    for v in range(3):
+        row = {canvas.get("head", "front", u, v, 1) for u in range(8)}
+        assert len(row) == 1, (v, row)
+    for u in (1, 2, 5, 6):
+        for v in (4, 5):
+            assert canvas.get("head", "front", u, v, 1)[3] == 0

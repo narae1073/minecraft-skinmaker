@@ -102,17 +102,40 @@ def extract_eye_pattern(image: Image.Image) -> dict | None:
     }
 
 
+def _close_mask(mask: np.ndarray) -> np.ndarray:
+    """Fill small interior gaps; keep the outer silhouette."""
+    a = np.asarray(mask, dtype=bool)
+    for _ in range(2):
+        n = np.zeros_like(a, dtype=int)
+        n[1:, :] += a[:-1, :]
+        n[:-1, :] += a[1:, :]
+        n[:, 1:] += a[:, :-1]
+        n[:, :-1] += a[:, 1:]
+        a |= (~a) & (n >= 3)
+    return a
+
+
 def extract_hood_up(image: Image.Image) -> dict | None:
-    """L2 head coverage for an up hood; five faces."""
-    faces: dict[str, list[list[int]]] = {}
-    coverage = 0
+    """Solid L2 crown for a clothing hood; five faces.
+
+    A raw L2 alpha mask is hair + hood + gaps. A hood shell needs full crown
+    coverage, so sparse masks are rejected and the front becomes a solid brim
+    with a face opening below it.
+    """
+    raw: dict[str, np.ndarray] = {}
     for name in HEAD_FACES:
         l2 = _face_array(image, "head", name, 1)
-        mask = (l2[..., 3] > 0).astype(np.uint8)
-        coverage += int(mask.sum())
-        faces[name] = mask.tolist()
-    if coverage < 24:
+        raw[name] = l2[..., 3] > 0
+    coverage = int(sum(int(m.sum()) for m in raw.values()))
+    if int(raw["top"].sum()) < 56 or coverage < 160:
         return None
+    faces: dict[str, list[list[int]]] = {}
+    for name, mask in raw.items():
+        solid = np.ones((8, 8), dtype=bool)  # a hood shell is contiguous
+        if name == "front":
+            solid[:3, :] = True     # solid brim
+            solid[3:, :] = False    # face opening
+        faces[name] = solid.astype(np.uint8).tolist()
     return {"faces": faces, "coverage": coverage}
 
 
