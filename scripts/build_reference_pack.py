@@ -30,6 +30,8 @@ def main() -> None:
                     help="template_candidates.json from build_template_gallery")
     ap.add_argument("--approvals", type=Path, default=None,
                     help="template_approvals.json; only approved candidates enter the pack")
+    ap.add_argument("--eye-weights", type=Path, default=Path("assets/eye_weights.json"),
+                    help="optional eye ID weights; highest weight is drawn most often")
     args = ap.parse_args()
     include = None
     training = None
@@ -43,6 +45,8 @@ def main() -> None:
                       include=include)
     if training:
         pack["training"] = training
+    if args.eye_weights and args.eye_weights.is_file():
+        pack["eye_weights"] = json.loads(args.eye_weights.read_text(encoding="utf-8"))
     if args.candidates and args.candidates.is_file():
         candidates = json.loads(args.candidates.read_text(encoding="utf-8"))
         approvals = json.loads(args.approvals.read_text(encoding="utf-8")) if args.approvals and args.approvals.is_file() else {}
