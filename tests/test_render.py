@@ -54,10 +54,10 @@ from skinmaker import hairstencil as HS
 # rule 스텐실 렌더의 픽셀 베이스라인. 2026-10-27 L2 헤어를 성긴 가닥으로 개정하며
 # 재기록 — 이전: 2026-10-21 L2 부피 셸 도입. 이후 rule 경로가 조용히 변하면 잡는다.
 NOISE_OFF_GOLDEN = {
-    "short": "0aa6f7400aa39bd5",
-    "medium": "209d1b70fd81b600",
-    "long": "a6d1aeaba5bbde69",
-    "very_long": "66433118726851f9",
+    "short": "84c545d7f0d828f3",
+    "medium": "372d415e2b4a56a7",
+    "long": "2b1427eb35ba7c1f",
+    "very_long": "3d99e665ad408494",
 }
 
 
@@ -946,3 +946,23 @@ def test_back_drape_caps_mask_evidence_and_no_drape_styles():
         assert long.get("body", "front", 0, v)[:3] == shade(rgba(base.hair.hex), R.FACE_SHADE["front"])[:3], v
     bob = R.render(base, attrs(hair_length="long", hair_style="bob"), ())
     assert bob.get("body", "back", 0, 0)[:3] != shade(rgba(base.hair.hex), R.FACE_SHADE["back"])[:3]
+
+
+def test_hair_l2_has_no_regular_column_stripes():
+    """L2 셸은 한 톤이다 — 열마다 밝기를 바꾸던 세로 줄무늬 제거 (2026-10-31)."""
+    canvas = R.render(observed(hair="#112233"), attrs(hair_length="short"), ())
+    for face_name in ("top", "back", "right", "left"):
+        f = canvas.layout.face("head", face_name, 1)
+        colors = {
+            canvas.get("head", face_name, u, v, 1)
+            for v in range(f.h) for u in range(f.w)
+            if canvas.get("head", face_name, u, v, 1)[3]
+        }
+        assert len(colors) == 1, (face_name, colors)
+    front = canvas.layout.face("head", "front", 1)
+    row0 = {
+        canvas.get("head", "front", u, 0, 1)
+        for u in range(front.w)
+        if canvas.get("head", "front", u, 0, 1)[3]
+    }
+    assert len(row0) == 1, row0

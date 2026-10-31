@@ -582,32 +582,27 @@ def render_legs(canvas: SkinCanvas, colors: dict[str, Color], attrs: Attributes,
 
 
 # L2 는 L1 위의 하이라이트 셸이다 (2026-10-27 개정). 실루엣 전체를 복제하면
-# 머리가 불투명 블록으로 보인다 — 가닥/테두리만 남기고 나머지는 투명으로 둬서
-# L1 이 비치게 한다. 색도 L1 보다 밝게 해 겹친 층이 읽히게 한다.
-L2_HIGHLIGHT = 1.20
-L2_HIGHLIGHT_ALT = 1.10
+# 머리가 불투명 블록으로 보인다. 색은 한 톤만 쓴다 — 열마다 밝기를 바꾸면
+# 머리에 규칙적인 세로 줄무늬가 생긴다 (2026-10-31 제거).
+L2_LIFT = 1.05
 
 
-def _l2_color(hair_c: Color, face_name: str, u: int, v: int) -> Color:
-    """L2 가닥 색: L1 음영 위에 밝은 톤을 얹어 층을 구분한다 (열 단위 2톤)."""
-    base = shade(hair_c, FACE_SHADE[face_name])
-    if face_name == "top":
-        return shade(base, 1.12 if u % 2 == 0 else 1.06)
-    # 세로 가닥 톤만 쓴다 — (u+v) 체커는 머리를 바둑판으로 만든다.
-    return shade(base, L2_HIGHLIGHT if u % 2 == 0 else L2_HIGHLIGHT_ALT)
+def _l2_color(hair_c: Color, face_name: str) -> Color:
+    """L2 셸 색: L1 음영을 5%만 들어올린 균일 톤 (열 stripes 없음)."""
+    return shade(shade(hair_c, FACE_SHADE[face_name]), L2_LIFT)
 
 
 def render_hair_overlay(canvas: SkinCanvas, colors: dict[str, Color], stencil, hair_length: str = "short", style: str = "short") -> None:
     """L2(오버레이) 헤어 (2026-10-29 개정: solid shell, no alpha holes).
 
-    L1 실루엣과 같은 셀을 모두 채운다. 틈(1px hole)을 두지 않고 열/행 밝기만
-    바꿔 층을 읽히게 한다. 아래 L1 이 비치지 않으므로 가닥이 끊겨 보이지 않는다.
+    L1 실루엣과 같은 셀을 모두 채운다. 틈(1px hole)을 두지 않고 균일한 5%
+    리프트만 준다. 열별 2톤은 규칙적인 세로 줄무늬를 만들어 제거했다.
     """
     hair_c = colors["hair"]
     length = HS.effective_hair_length(hair_length, stencil)
 
     def put(part: str, face_name: str, u: int, v: int) -> None:
-        canvas.put(part, face_name, u, v, _l2_color(hair_c, face_name, u, v), 1)
+        canvas.put(part, face_name, u, v, _l2_color(hair_c, face_name), 1)
 
     if stencil.top_hair:
         top = canvas.layout.face("head", "top", 1)
