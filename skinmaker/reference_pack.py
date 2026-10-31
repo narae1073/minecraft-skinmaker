@@ -269,6 +269,30 @@ def build_pack(root: Path, k_hair: int = 6, k_eyes: int = 6, k_hood_up: int = 4,
     return pack
 
 
+def apply_template_approvals(pack: dict, candidates: dict, approvals: dict) -> dict:
+    """Replace pack eye/hood templates with human-approved candidates only.
+
+    Approved patterns are copied from the train-only candidate set; unapproved
+    candidates never enter the pack. Hair templates remain train-only.
+    """
+    template_approvals: dict[str, list[str]] = {}
+    for kind, pack_key in (("eyes", "eyes"), ("hood_up", "up"), ("hood_down", "down")):
+        approved = {
+            cid for cid, meta in approvals.get(kind, {}).items()
+            if isinstance(meta, dict) and meta.get("approved")
+        }
+        chosen = [c for c in candidates.get(kind, []) if c.get("id") in approved]
+        if chosen:
+            if kind == "eyes":
+                pack["eyes"] = chosen
+            else:
+                pack.setdefault("hoods", {})[pack_key] = chosen
+            template_approvals[kind] = [c["id"] for c in chosen]
+    if template_approvals:
+        pack["template_approvals"] = template_approvals
+    return pack
+
+
 def save_pack(pack: dict, path: Path) -> None:
     path = Path(path)
     path.parent.mkdir(parents=True, exist_ok=True)

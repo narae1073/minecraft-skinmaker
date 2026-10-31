@@ -251,3 +251,20 @@ def test_noise_cannot_scatter_fur_hood_crown(monkeypatch):
                       noise_seed=12345, noise_level=0.5)
     top = {canvas.get("head", "top", u, v, 1) for v in range(8) for u in range(8)}
     assert len(top) == 1, top  # no noise grid on the hood crown
+
+
+def test_approved_templates_replace_pack_patterns():
+    eyes_ok = {"id": "e1", "sclera": [[0] * 8 for _ in range(2)],
+               "iris": [[1] * 8 for _ in range(2)], "sclera_px": 2, "iris_px": 2}
+    eyes_no = {"id": "e2", "sclera": [[1] * 8 for _ in range(2)],
+               "iris": [[1] * 8 for _ in range(2)]}
+    hood = {"id": "h1", "faces": {f: [[1] * 8 for _ in range(8)] for f in RP.HEAD_FACES},
+            "coverage": 320}
+    pack = {"eyes": [eyes_no], "hoods": {"up": [], "down": []}}
+    cand = {"eyes": [eyes_ok, eyes_no], "hood_up": [hood], "hood_down": []}
+    approvals = {"eyes": {"e1": {"approved": True}, "e2": {"approved": False}},
+                 "hood_up": {"h1": {"approved": True}}}
+    out = RP.apply_template_approvals(pack, cand, approvals)
+    assert out["eyes"] == [eyes_ok]
+    assert out["hoods"]["up"] == [hood]
+    assert out["template_approvals"] == {"eyes": ["e1"], "hood_up": ["h1"]}
