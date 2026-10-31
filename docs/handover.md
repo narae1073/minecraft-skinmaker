@@ -230,3 +230,7 @@ S0 quality/face detection (YuNet) → S1 colour measurement (white-balance + ban
   - UI: 배경을 `html:root` 캔버스에 깔고 `min-height`+`background-attachment: scroll` 로 바꿔 긴 페이지 하단까지 덮음(1440x1886 풀페이지 확인). 모바일 upload-section/pannel 의 specificity 문제를 고쳐 세로 스택·버튼 full width 정렬. 원본 사진 다운로드 버튼은 후보 카드와 같은 `.card-actions` 로 중앙 정렬(사진/버튼 center 579px). 390x844/2000, 1440x1886 스크린샷 확인.
   - pose: `mediapipe` 선택 import, requirements 에 없음 — 휴면 상태 유지(의도). :8002 는 dist 를 현재 빌드로 갱신(정적 자산 현재); 백엔드 프로세스는 2일 전 mock 이라 재시작은 별도.
   - 검증: `pytest --collect-only -q` 613, `npm run lint`/`npm run build` green, `git diff --check` clean.
+
+- 2026-10-31 (헤어 좌우 UV): right face 는 u7=앞, left face 는 u0=앞인데 두 side profile 을 같은 u0..7 순서로 써서 viewer-left 옆머리가 앞머리와 거꾸로 붙던 문제.
+  - `side_profiles_from_front`: left 는 heights[7]→back 을 u0..7, right 는 heights[0]→back 을 뒤집어 u0..7. rule(상수) 경로는 불변.
+  - 테스트: 코너 연속성, 비대칭 프로파일, right 미러. **614 passed**. A/B: `out/qa_hair_side_frontleft.png` (ex5/images28 front-left, before/after).
