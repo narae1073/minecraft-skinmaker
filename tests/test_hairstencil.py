@@ -445,3 +445,16 @@ def test_side_profiles_meet_front_corners_with_uv_flip():
     assert p["right"][0] == 8                # right u0 = back
     straight = HS._interpolate_profile(heights[0], 8)
     assert p["right"] == tuple(reversed(straight))  # 복사가 아니라 미러
+
+
+def test_short_bangs_follow_visible_front_hairline():
+    import dataclasses
+    st = HS.rule_stencil("short")
+    exposed = dataclasses.replace(st, front=tuple(tuple(False for _ in row) for row in st.front))
+    assert HS.style_bangs_for_stencil("short", exposed) == 3
+    bang = [list(row) for row in st.front]
+    for v in (3, 4):
+        for u in (2, 3, 4, 5):
+            bang[v][u] = True
+    visible = dataclasses.replace(st, front=tuple(tuple(row) for row in bang))
+    assert HS.style_bangs_for_stencil("short", visible) == 5
