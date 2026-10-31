@@ -634,6 +634,10 @@ def render_hood_overlay(canvas: SkinCanvas, colors: dict[str, Color], hood: str,
                         continue  # preserve the face/eyes
                     canvas.put("head", face_name, u, v,
                                shade(base, FACE_SHADE[face_name]), 1)
+        # 1px brim shadow at the face opening (front row 2).
+        rim = shade(base, FACE_SHADE["front"] * 0.70)
+        for u in range(8):
+            canvas.put("head", "front", u, 2, rim, 1)
     else:
         for face_name in ("front", "back"):
             mask = pattern.get("faces", {}).get(face_name)
