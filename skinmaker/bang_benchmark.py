@@ -28,7 +28,7 @@ def select_candidates(root: Path, split: dict, n: int = 60) -> list[dict]:
         take = max(1, round(n * len(rels) / max(1, sum(len(v) for v in by_group.values()))))
         for rel in rels[:take]:
             out.append({"id": Path(rel).stem, "length": length, "source": rel})
-    return out[:n]
+    return {"by_length": out, "quality": label_quality(labels, candidates)}[:n]
 
 
 def _head(path: Path) -> Image.Image:
@@ -69,6 +69,32 @@ def set_label(path: Path, candidate_id: str, depth: int, exposure: str) -> None:
     Path(path).write_text(json.dumps(data, indent=2, sort_keys=True), encoding="utf-8")
 
 
+def label_quality(labels: dict, candidates: list[dict]) -> dict:
+    """Reject collapsed label sets (e.g. 19/20 identical depth)."""
+    ids = {c["id"] for c in candidates}
+    rows = [lab for cid, lab in labels.items() if cid in ids]
+    if not rows:
+        return {"usable": False, "reason": "no labels", "n": 0}
+    depths = {r.get("depth") for r in rows}
+    exposures = {r.get("exposure") for r in rows}
+    counts: dict[int, int] = {}
+    for r in rows:
+        counts[r.get("depth")] = counts.get(r.get("depth"), 0) + 1
+    share = max(counts.values()) / len(rows)
+    usable = len(rows) >= 10 and len(depths) >= 3 and len(exposures) >= 2 and share <= 0.8
+    reason = ""
+    if len(rows) < 10:
+        reason = "fewer than 10 labels"
+    elif len(depths) < 3:
+        reason = "fewer than 3 depth values (collapsed)"
+    elif len(exposures) < 2:
+        reason = "only one exposure class (collapsed)"
+    elif share > 0.8:
+        reason = f"{share:.0%} of labels share one depth"
+    return {"usable": usable, "reason": reason or "ok", "n": len(rows),
+            "depth_counts": counts, "exposure_counts": {e: sum(1 for r in rows if r.get("exposure") == e) for e in EXPOSURES}}
+
+
 def summarize(labels: dict, candidates: list[dict]) -> dict:
     by_length = {length: [] for length in ("long", "short")}
     for c in candidates:
@@ -86,4 +112,4 @@ def summarize(labels: dict, candidates: list[dict]) -> dict:
             "median_depth": depths[len(depths) // 2],
             "exposure": {k: sum(1 for r in rows if r["exposure"] == k) for k in EXPOSURES},
         }
-    return out
+    return {"by_length": out, "quality": label_quality(labels, candidates)}

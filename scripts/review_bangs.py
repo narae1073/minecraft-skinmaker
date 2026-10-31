@@ -4,7 +4,7 @@ from __future__ import annotations
 import argparse, json, sys
 from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-from skinmaker.bang_benchmark import load_labels, set_label, summarize
+from skinmaker.bang_benchmark import load_labels, set_label, summarize, label_quality
 
 def main() -> None:
     ap = argparse.ArgumentParser()

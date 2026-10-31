@@ -12,7 +12,9 @@ human labels on train-only reference head fronts.
 
 - 60 candidates sampled deterministically from the 550 train references.
 - Labels live in `out/production_benchmark/bang_labels.json`.
-- `summary` gives median depth and exposure counts by long/short.
+- `summary` gives median depth and exposure counts by long/short, plus a
+  label-quality guard. Degenerate sets (e.g. 19/20 `depth=5, covered`) are
+  marked unusable and must not be used to fit a prior.
 - No generated hair or renderer policy changes are derived until labels exist.
 - The current policy remains: loose=5-row eyebrow cover, short/pixie
   exposure-aware 3/5, tied-up=2; L2 top-eye row accent only.
