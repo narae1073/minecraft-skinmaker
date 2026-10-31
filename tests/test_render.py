@@ -100,27 +100,15 @@ def test_iris_unmeasured_falls_back_to_template(monkeypatch):
     assert canvas.get("head", "front", 2, 4)[:3] == rgba(R.DEFAULT_IRIS)[:3]
 
 
-def test_beard_full_fills_jaw_and_chin():
-    """수염 full: 6-7행 전체를 머리색으로 (입이 없어 가운데도 채운다)."""
+def test_beard_is_not_drawn():
+    """Beard classification is kept for compatibility, but the renderer never paints it."""
     base = observed()
-    canvas = R.render(base, attrs(beard="full"), ())
-    hair = shade(rgba(base.hair.hex), R.FACE_SHADE["front"])[:3]
-    for v in (6, 7):
-        for u in range(8):
-            assert canvas.get("head", "front", u, v)[:3] == hair
-
-
-def test_beard_stubble_is_muted_and_keeps_center_cheeks():
-    base = observed()
-    canvas = R.render(base, attrs(beard="stubble"), ())
     skin = shade(rgba(base.skin.hex), R.FACE_SHADE["front"])[:3]
-    hair = shade(rgba(base.hair.hex), R.FACE_SHADE["front"])[:3]
-    stubble = tuple(int(round(0.55 * h + 0.45 * s)) for h, s in zip(hair, skin))
-    for u in (0, 1, 6, 7):
-        assert canvas.get("head", "front", u, 6)[:3] == stubble
-    for u in range(8):
-        assert canvas.get("head", "front", u, 7)[:3] == stubble
-    assert canvas.get("head", "front", 3, 6)[:3] == skin  # 가운데 볼은 피부
+    for beard in ("full", "stubble"):
+        canvas = R.render(base, attrs(beard=beard), ())
+        for v in (6, 7):
+            for u in range(8):
+                assert canvas.get("head", "front", u, v)[:3] == skin, (beard, u, v)
 
 
 def test_layered_top_renders_collar_tie_and_cuffs():
