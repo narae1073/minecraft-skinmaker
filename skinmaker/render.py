@@ -653,19 +653,26 @@ def render_hood_overlay(canvas: SkinCanvas, colors: dict[str, Color], hood: str,
     dark = shade(top, 0.68)
     light = shade(top, 1.18)
     # crown seam / highlight
-    seam_u = 3 if variant != 1 else 4
-    for v in range(1, 8):
-        canvas.put("head", "top", seam_u, v, shade(alt_top, 0.78), 1)
-    for u in range(2, 6):
-        canvas.put("head", "top", u, 0, light, 1)
+    if variant != 2:
+        seam_u = 3 if variant != 1 else 4
+        for v in range(1, 8):
+            canvas.put("head", "top", seam_u, v, shade(alt_top, 0.78), 1)
+        for u in range(2, 6):
+            canvas.put("head", "top", u, 0, light, 1)
     if variant == 2:
-        # Continuous fur bands, not a checkerboard of isolated pixels.
+        # Continuous fur ring: crown top + side/back top edge, so the band does
+        # not stop at a cube corner and look like scattered pixels.
         for v in (1, 2):
             for u in range(8):
                 canvas.put("head", "top", u, v, alt_top, 1)
+        for face_name in ("right", "left", "back"):
+            alt_face = shade(alt, FACE_SHADE[face_name])
+            for v in (0, 1):
+                for u in range(8):
+                    canvas.put("head", face_name, u, v, alt_face, 1)
 
     back = shade(base, FACE_SHADE["back"])
-    for v in range(8):
+    for v in range(2 if variant == 2 else 0, 8):
         canvas.put("head", "back", 4, v, shade(back, 0.76), 1)
     if variant == 1:
         for u in (2, 5):
