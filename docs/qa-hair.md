@@ -65,3 +65,12 @@ Do not propose code fixes; report visual defects only.
 ```
 
 Style (E) is checked against the `hair_style` tag; uncertain tags fall back to bob / long-straight / long-wavy by length.
+
+
+## Hood / reference-pack checks (2026-10-31)
+
+- **Eyes:** both eyes present and symmetric; sclera/iris not inverted or hidden by hair; iris colour matches the photo.
+- **Hair L2:** irregular strand/column tones, no regular even/odd stripes and no large square patches.
+- **Hood up:** hood covers crown/sides/back, face opening keeps both eyes and the face visible; no hair holes through the hood.
+- **Hood down:** cowl sits at the neck/shoulders; no hood shell over the head.
+- **Hood none:** no hood overlay at all.

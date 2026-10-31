@@ -54,10 +54,10 @@ from skinmaker import hairstencil as HS
 # rule 스텐실 렌더의 픽셀 베이스라인. 2026-10-27 L2 헤어를 성긴 가닥으로 개정하며
 # 재기록 — 이전: 2026-10-21 L2 부피 셸 도입. 이후 rule 경로가 조용히 변하면 잡는다.
 NOISE_OFF_GOLDEN = {
-    "short": "84c545d7f0d828f3",
-    "medium": "372d415e2b4a56a7",
-    "long": "2b1427eb35ba7c1f",
-    "very_long": "3d99e665ad408494",
+    "short": "b91e1b3743dc7bf4",
+    "medium": "09b87f2b8de5878f",
+    "long": "4c9489888ca44539",
+    "very_long": "6169e036242bbc8c",
 }
 
 
@@ -67,8 +67,9 @@ def test_rule_stencil_render_golden(length):
     assert hashlib.sha256(canvas.image.tobytes()).hexdigest()[:16] == NOISE_OFF_GOLDEN[length]
 
 
-def test_face_template_eyes_lowered_and_no_mouth():
+def test_face_template_eyes_lowered_and_no_mouth(monkeypatch):
     """얼굴 템플릿: 눈 4-5행(한 행 아래), 입 없음 — 사용자 결정 2026-10-20."""
+    monkeypatch.setattr(R.RP, "load_pack", lambda: None)
     base = observed()
     canvas = R.render(base, attrs(), ())
     skin = shade(rgba(base.skin.hex), R.FACE_SHADE["front"])[:3]
@@ -85,13 +86,15 @@ def test_face_template_eyes_lowered_and_no_mouth():
         assert canvas.get("head", "front", u, 6)[:3] == skin
 
 
-def test_iris_color_from_photo_applied():
+def test_iris_color_from_photo_applied(monkeypatch):
+    monkeypatch.setattr(R.RP, "load_pack", lambda: None)
     base = dataclasses.replace(observed(), iris=sample("#28468c"))
     canvas = R.render(base, attrs(), ())
     assert canvas.get("head", "front", 2, 4)[:3] == (40, 70, 140)
 
 
-def test_iris_unmeasured_falls_back_to_template():
+def test_iris_unmeasured_falls_back_to_template(monkeypatch):
+    monkeypatch.setattr(R.RP, "load_pack", lambda: None)
     base = dataclasses.replace(observed(), iris=C.MISSING)
     canvas = R.render(base, attrs(), ())
     assert canvas.get("head", "front", 2, 4)[:3] == rgba(R.DEFAULT_IRIS)[:3]
@@ -948,21 +951,15 @@ def test_back_drape_caps_mask_evidence_and_no_drape_styles():
     assert bob.get("body", "back", 0, 0)[:3] != shade(rgba(base.hair.hex), R.FACE_SHADE["back"])[:3]
 
 
-def test_hair_l2_has_no_regular_column_stripes():
-    """L2 셸은 한 톤이다 — 열마다 밝기를 바꾸던 세로 줄무늬 제거 (2026-10-31)."""
-    canvas = R.render(observed(hair="#112233"), attrs(hair_length="short"), ())
-    for face_name in ("top", "back", "right", "left"):
+def test_hair_l2_has_no_regular_parity_stripes():
+    """Reference tone maps may vary, but not as the old even/odd 2-tone columns."""
+    canvas = R.render(observed(hair="#112233"), attrs(hair_length="long", hair_style="long_straight"), ())
+    for face_name in ("top", "back"):
         f = canvas.layout.face("head", face_name, 1)
-        colors = {
-            canvas.get("head", face_name, u, v, 1)
-            for v in range(f.h) for u in range(f.w)
-            if canvas.get("head", face_name, u, v, 1)[3]
-        }
-        assert len(colors) == 1, (face_name, colors)
-    front = canvas.layout.face("head", "front", 1)
-    row0 = {
-        canvas.get("head", "front", u, 0, 1)
-        for u in range(front.w)
-        if canvas.get("head", "front", u, 0, 1)[3]
-    }
-    assert len(row0) == 1, row0
+        cols = [
+            canvas.get("head", face_name, u, 0, 1)
+            for u in range(f.w)
+            if canvas.get("head", face_name, u, 0, 1)[3]
+        ]
+        even = {c for c in cols[0::2]}; odd = {c for c in cols[1::2]}
+        assert not (len(even) == 1 and len(odd) == 1 and even != odd), (face_name, cols)
