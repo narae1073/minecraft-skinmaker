@@ -234,3 +234,6 @@ S0 quality/face detection (YuNet) → S1 colour measurement (white-balance + ban
 - 2026-10-31 (헤어 좌우 UV): right face 는 u7=앞, left face 는 u0=앞인데 두 side profile 을 같은 u0..7 순서로 써서 viewer-left 옆머리가 앞머리와 거꾸로 붙던 문제.
   - `side_profiles_from_front`: left 는 heights[7]→back 을 u0..7, right 는 heights[0]→back 을 뒤집어 u0..7. rule(상수) 경로는 불변.
   - 테스트: 코너 연속성, 비대칭 프로파일, right 미러. **614 passed**. A/B: `out/qa_hair_side_frontleft.png` (ex5/images28 front-left, before/after).
+
+- 2026-10-31 (헤어 L2 세로 줄무늬 제거): `_l2_color` 가 `u%2` 로 1.20/1.10(정수리 1.12/1.06) 두 톤을 칠해 모든 머리에 규칙적인 세로 줄무늬를 만들던 것을, 균일 `L2_LIFT=1.05` 한 톤으로 교체. L1·L2 실루엣/볼륨은 유지, 색 줄무늬만 제거.
+  - 골든 4개 재기록, no-stripe 회귀 테스트 추가. **615 passed**. A/B: `out/hair_stripe_compare.png` (uniform +2%/+5%, L1 match), 실제 렌더 `out/qa_hair_stripe_views/`.
