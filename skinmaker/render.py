@@ -659,10 +659,10 @@ def render_hood_overlay(canvas: SkinCanvas, colors: dict[str, Color], hood: str,
     for u in range(2, 6):
         canvas.put("head", "top", u, 0, light, 1)
     if variant == 2:
-        for v in (2, 4, 6):
+        # Continuous fur bands, not a checkerboard of isolated pixels.
+        for v in (1, 2):
             for u in range(8):
-                if u % 2 == 0:
-                    canvas.put("head", "top", u, v, alt_top, 1)
+                canvas.put("head", "top", u, v, alt_top, 1)
 
     back = shade(base, FACE_SHADE["back"])
     for v in range(8):
@@ -681,7 +681,7 @@ def render_hood_overlay(canvas: SkinCanvas, colors: dict[str, Color], hood: str,
     canvas.put("head", "front", 7, brim_v, shade(front_base, 0.62), 1)
     if variant == 2:
         for u in range(1, 7):
-            canvas.put("head", "front", u, 1, alt_front if u % 2 else shade(alt_front, 1.18), 1)
+            canvas.put("head", "front", u, 1, alt_front, 1)
     for v in range(opening, 7):
         for u in (0, 7):
             canvas.put("head", "front", u, v, shade(front_base, 0.80 if variant != 2 else 0.70), 1)
