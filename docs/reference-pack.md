@@ -5,7 +5,7 @@ copying whole skins. The derived pack is `assets/reference_pack.json` (about 22 
 
 ## Corpus
 
-- 218 long-hair, 319 short-hair skins.
+- 550 train / 98 holdout, stratified; committed pack uses train only.
 - 100 hood-up, 11 hood-down skins.
 - 34 hat/cap skins — **excluded** from the current hood/hair pack.
 - All references are 64×64 PNGs; raw skins stay in gitignored `out/reference_skins/`.
@@ -27,6 +27,7 @@ copying whole skins. The derived pack is `assets/reference_pack.json` (about 22 
 ```bash
 .venv/bin/python scripts/build_reference_pack.py \
   --refs out/reference_skins \
+  --split out/production_benchmark/split.json \
   --out assets/reference_pack.json
 ```
 

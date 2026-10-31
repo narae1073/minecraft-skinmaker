@@ -248,5 +248,5 @@ S0 quality/face detection (YuNet) → S1 colour measurement (white-balance + ban
 
 - 2026-10-31 (production benchmark/roadmap): 원안의 "holdout 스킨 유사도"는 unpaired라 photo→skin 품질 게이트로 부적합하다고 판정. `docs/production-roadmap.md`에 재정의한 goal/gates와 Phase 0–5 기록.
   - `skinmaker/reference_qa.py` + `scripts/build_reference_benchmark.py`: 결정론적 stratified split **550 train / 98 holdout**(hat 34 제외), template shape/structural QA, holdout style-coverage baseline.
-  - 현재 pack은 all-refs로 학습돼 contaminated. train-only pack(`out/production_benchmark/train_pack.json`)로 재측정: hair n=98 mean0.061 p90 **0.080**; eyes n=3·hood_up n=3·hood_down n=0 → 샘플 부족; paired photo→skin benchmark 없음.
+  - committed pack을 train-only(550)로 재빌드하고 split metadata를 기록; 98 holdout은 unseen. train-only coverage: hair n=98 mean0.061 p90 **0.080**; eyes n=3·hood_up n=3·hood_down n=0 → 샘플 부족; paired photo→skin benchmark 없음.
   - **630 passed**. 다음: eye/hood extraction 확대, train-only production pack, 30–50 paired pilot.

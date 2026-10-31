@@ -47,7 +47,7 @@ Templates are a means; the gate is measured output quality on defined data.
   hood/hair holes, face/eye corruption, style mismatch, palette/identity.
 - Paired pilot protocol: 30–50 photo + hand-approved skin pairs, stratified.
 
-### Phase 1 — Evaluation harness (current, concrete progress)
+### Phase 1 — Evaluation harness (done)
 
 - `skinmaker/reference_qa.py` + `scripts/build_reference_benchmark.py`.
 - Structural validation of every template shape/mask.
@@ -55,7 +55,7 @@ Templates are a means; the gate is measured output quality on defined data.
 - Deterministic render invariants stay in pytest; visual sub-agents get a
   pixel-hygiene/noise prompt (`docs/qa-hair.md`).
 
-### Phase 2 — Template library v2 (train-only)
+### Phase 2 — Template library v2 (train-only, started)
 
 - Extract hair L2/eyes/hood templates **only from the train split**; keep the
   holdout untouched.
@@ -90,9 +90,7 @@ Templates are a means; the gate is measured output quality on defined data.
   - hood-up: n=3 (insufficient)
   - hood-down: n=0 (insufficient)
 - Paired photo→skin benchmark: **missing**.
-- Current pack is contaminated; the train-only pack lives in
-  `out/production_benchmark/train_pack.json` and must be the basis for the next
-  production pack.
+- The committed pack is now **train-only** (550 train refs, split metadata in the pack); the 98 holdout refs are unseen. Train-only re-score is identical: hair p90 **0.080**.
 
 ## Immediate next actions
 

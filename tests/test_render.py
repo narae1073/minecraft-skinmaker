@@ -55,7 +55,7 @@ from skinmaker import hairstencil as HS
 # 재기록 — 이전: 2026-10-21 L2 부피 셸 도입. 이후 rule 경로가 조용히 변하면 잡는다.
 NOISE_OFF_GOLDEN = {
     "short": "b91e1b3743dc7bf4",
-    "medium": "09b87f2b8de5878f",
+    "medium": "5d9aa5aa0b8b7eba",
     "long": "4c9489888ca44539",
     "very_long": "6169e036242bbc8c",
 }

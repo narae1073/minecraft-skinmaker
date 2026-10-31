@@ -37,7 +37,8 @@ def test_current_pack_structural_contract():
     pack = RP.load_pack()
     report = QA.qa_pack(pack, {"train": [], "holdout": []}, Path("out/reference_skins"))
     assert report["structural_ok"], report["structural_issues"]
-    assert report["contamination"]
+    assert report["training"], "committed pack must record its train split"
+    assert report["contamination"] is None
 
 
 def test_pack_qa_detects_shape_errors():
