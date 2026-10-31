@@ -62,6 +62,19 @@ def _check(canvas, length: str, style: str, hood: str, beard: str) -> list[str]:
                 break
         else:
             problems.append(f"no eye pixels at column {u}")
+    # Bang policy: loose styles cover the eyebrow row (4); tied-up and
+    # short/exposed-forehead styles keep it open. Eyes are rows 5-6.
+    hair = shade(rgba("#3a2a1c"), R.FACE_SHADE["front"])[:3]
+    loose = {"bob", "long_straight", "long_wavy", "curly"}
+    for u in range(2, 6):
+        c = canvas.get("head", "front", u, 4)[:3]
+        if style in loose:
+            if max(abs(c[i] - hair[i]) for i in range(3)) > R.NOISE_TOL:
+                problems.append(f"loose style misses eyebrow row at ({u},4)")
+        else:
+            if max(abs(c[i] - skin[i]) for i in range(3)) > R.NOISE_TOL:
+                problems.append(f"exposed/tied style covers eyebrow row at ({u},4)")
+
     if hood == "up":
         top = [[canvas.get("head", "top", u, v, 1) for u in range(8)] for v in range(8)]
         # Seam/highlight accents are allowed, but no accent may be an isolated

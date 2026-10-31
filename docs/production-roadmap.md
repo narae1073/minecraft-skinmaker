@@ -112,3 +112,15 @@ Templates are a means; the gate is measured output quality on defined data.
 2. Build a 30–50 paired photo→skin pilot; this is the missing ground truth.
 3. Generate a train-only production pack and rerun the holdout coverage.
 4. Add render-invariant tests for every template variant (noise 0 and 50%).
+
+
+## Hair-specific next phase (2026-11-01)
+
+- Current shape source: VLM `hair_style` selects a static style table; SCHP/rule
+  provides the L1 silhouette. Reference pack currently contributes L2 tones,
+  not shape.
+- Implemented bounded bang policy: loose styles cover eyebrow row 4; short/pixie
+  and tied-up styles keep it open. Eyes stay at rows 5-6.
+- Still missing: reference-derived bang-depth profiles, L2 strand/edge masks
+  (less solid), limited eye-top accents, and a labeled bang benchmark. Reference
+  pixel classification is too noisy for a reliable prior.

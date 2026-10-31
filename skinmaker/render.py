@@ -280,12 +280,12 @@ def render_head(canvas: SkinCanvas, colors: dict[str, Color], attrs: Attributes,
             if stencil.bottom[v][u]:
                 canvas.put("head", "bottom", u, v, shade(hair_c, FACE_SHADE["bottom"]), 0)
 
-    # 스타일 앞머리: full-fringe 는 3-4행 전체를 채워 마스크 구멍/피부선을 막는다.
-    # ponytail/bun(2행)은 이마를 드러내는 스타일이라 강제로 덮지 않는다.
+    # 스타일 앞머리: loose 스타일은 눈썹 행(4)까지 덮는 5행 fringe.
+    # ponytail/bun(2행)은 이마를 드러내고, short/pixie(3행)는 부분 앞머리.
     bangs = HS.style_bangs(style)
     if bangs >= 3:
         cols = range(0, 8) if bangs >= 4 else range(1, 7)
-        for v in range(min(bangs, 4)):
+        for v in range(min(bangs, 5)):
             for u in cols:
                 canvas.put("head", "front", u, v, shade(hair_c, FACE_SHADE["front"]), 0)
 
@@ -730,7 +730,7 @@ def render_hair_overlay(canvas: SkinCanvas, colors: dict[str, Color], stencil, h
     bangs = HS.style_bangs(style)
     if bangs >= 3:
         cols = range(0, 8) if bangs >= 4 else range(1, 7)
-        for v in range(min(bangs, 4)):
+        for v in range(min(bangs, 5)):
             for u in cols:
                 put("head", "front", u, v)
 
