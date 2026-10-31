@@ -47,3 +47,25 @@ def test_set_approval_requires_pair_and_updates_meta(tmp_path):
     assert meta["approved"] is True and meta["notes"] == "looks good"
     set_approval(tmp_path, "p1", False)
     assert json.loads((root / "meta.json").read_text())["approved"] is False
+
+
+def test_template_review_approval_and_eye_candidate(tmp_path):
+    from skinmaker import template_review as TR
+    from skinmaker.format import get_layout
+    from PIL import Image
+    L = get_layout("classic")
+    im = Image.new("RGBA", (64, 64), (0, 0, 0, 0))
+    f = L.face("head", "front", 0)
+    for v in range(8):
+        for u in range(8):
+            im.putpixel((f.x + u, f.y + v), (224, 172, 105, 255))
+    for v in (4, 5):
+        for u in (1, 5):
+            im.putpixel((f.x + u, f.y + v), (245, 245, 245, 255))
+        for u in (2, 6):
+            im.putpixel((f.x + u, f.y + v), (40, 70, 140, 255))
+    c = TR.extract_eye_candidate(im)
+    assert c and c["sclera_px"] >= 2 and c["iris_px"] >= 2
+    p = tmp_path / "approvals.json"
+    TR.set_approval(p, "eyes", c["id"], True, "ok")
+    assert TR.load_approvals(p)["eyes"][c["id"]]["approved"] is True

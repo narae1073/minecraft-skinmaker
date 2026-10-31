@@ -55,12 +55,14 @@ Templates are a means; the gate is measured output quality on defined data.
 - Deterministic render invariants stay in pytest; visual sub-agents get a
   pixel-hygiene/noise prompt (`docs/qa-hair.md`).
 
-### Phase 2 — Template library v2 (train-only, started)
+### Phase 2 — Template library v2 (train-only, review queue started)
 
 - A relaxed eye extractor raised holdout eye matches from 3 to 93, but produced
   zero-sclera iris-only templates. Rejected: `reference_qa.quality_ok` now
   requires sclera/iris support and non-flat hair tone maps. Coverage alone is not
   a quality signal.
+- Human review queue: 19 eye / 1 hood-up / 3 hood-down candidates in
+  `out/production_benchmark/template_gallery.png`; none approved yet.
 
 - Extract hair L2/eyes/hood templates **only from the train split**; keep the
   holdout untouched.
