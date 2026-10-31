@@ -241,5 +241,5 @@ S0 quality/face detection (YuNet) → S1 colour measurement (white-balance + ban
 - 2026-10-31 (reference pack — hair L2/eyes/hood): 사용자 제공 64×64 스킨 682장(긴머리 218·짧은머리 319·hood_up 100·hood_down 11; hat 34 제외, full-crown 24만 hood mask)에서 파생 패턴 팩 `assets/reference_pack.json`(22KB)을 만들었다. 원본 픽셀은 커밋하지 않고 라이선스 확인된 tone map/eye mask/hood mask만 저장.
   - Hair L2: 참조별 L2 톤을 열 평균으로 압축(2D 사각 패치 방지)해 damped column tone 적용. 기존 uniform fallback 유지.
   - Eyes: 좌안 template을 우안에 미러, sclera 2–4/iris 2–4만 채택(3 templates). 사진 iris 색으로 recoloring.
-  - Hood: `hood` enum `none|up|down` 추가(14필드). up은 full-crown reference 24장에서 만든 **solid** L2 후드(정수리/뒤/옆 full, front 0–2 brim, 3–7 얼굴 opening, 1px rim); sparse hair mask는 버린다. down은 body L2 cowl. 참조 팩 4 up/2 down.
+  - Hood: `hood` enum `none|up|down` 추가(14필드). up은 full-crown reference 24장에서 만든 **solid** L2 후드(정수리/뒤/옆 full, front 0–2 brim, 3–7 얼굴 opening)에 crown seam·highlight·brim shadow·side frame·shoulder cowl·drawstrings 디테일을 절차적으로 추가; sparse hair mask는 버린다. down은 body L2 cowl. 참조 팩 4 up/2 down.
   - 한계: 참조가 unpaired(사진→스킨 매핑 없음), 코퍼스가 anime/costume 편중, eye/hood 패턴은 1차 근사. VLM/score 재랭킹은 미실행. 테스트 **623 passed**, frontend lint/build green.

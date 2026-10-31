@@ -145,15 +145,12 @@ def test_hood_up_has_no_hair_through_crown():
     from test_render import observed, attrs
 
     canvas = R.render(observed(hair="#3a2a1c"), attrs(top_garment="hoodie", hood="up"), ())
-    colors = {
-        canvas.get("head", "top", u, v, 1)
-        for v in range(8) for u in range(8)
-        if canvas.get("head", "top", u, v, 1)[3]
-    }
-    assert len(colors) == 1, colors
+    for v in range(8):
+        for u in range(8):
+            assert canvas.get("head", "top", u, v, 1)[3], (u, v)
     for v in range(3):
-        row = {canvas.get("head", "front", u, v, 1) for u in range(8)}
-        assert len(row) == 1, (v, row)
+        for u in range(8):
+            assert canvas.get("head", "front", u, v, 1)[3], (u, v)
     for u in (1, 2, 5, 6):
         for v in (4, 5):
             assert canvas.get("head", "front", u, v, 1)[3] == 0
