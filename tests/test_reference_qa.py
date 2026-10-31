@@ -39,6 +39,7 @@ def test_current_pack_structural_contract():
     assert report["structural_ok"], report["structural_issues"]
     assert report["training"], "committed pack must record its train split"
     assert report["contamination"] is None
+    assert report["quality_ok"], report["template_quality"]
 
 
 def test_pack_qa_detects_shape_errors():
@@ -46,3 +47,18 @@ def test_pack_qa_detects_shape_errors():
     report = QA.qa_pack(pack, {"train": [], "holdout": []}, Path("."))
     assert not report["structural_ok"]
     assert any("shape" in i for i in report["structural_issues"])
+
+
+def test_quality_gate_rejects_zero_sclera_eyes():
+    import numpy as np
+    faces = {f: ([[100] * 8 for _ in range(8)]) for f in RP.HEAD_FACES}
+    bad = {
+        "hair": {"short": [{"faces": faces, "coverage": 32, "id": "h"}], "long": []},
+        "eyes": [{"sclera": [[0] * 8 for _ in range(2)],
+                  "iris": [[1] * 8 for _ in range(2)], "id": "bad-eye"}],
+        "hoods": {"up": [{"faces": {f: [[1] * 8 for _ in range(8)] for f in RP.HEAD_FACES},
+                          "coverage": 320, "id": "hood"}], "down": []},
+    }
+    report = QA.qa_pack(bad, {"train": [], "holdout": []}, Path("."))
+    assert not report["quality_ok"]
+    assert report["template_quality"]["eyes"][0]["sclera"] == 0
