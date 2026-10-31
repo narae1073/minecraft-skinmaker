@@ -886,9 +886,12 @@ def render(
     if observed.hair_overlay:
         render_hair_overlay(canvas, colors, hair_stencil, attrs.get("hair_length"), style,
                             pack=pack, seed=seed)
-    render_hood_overlay(canvas, colors, attrs.get("hood"), pack=pack, seed=seed)
     if noise_seed is not None:
         _apply_noise(canvas, noise_seed, noise_level)
+    # Draw the hood AFTER noise: its flat crown must stay solid. Applying the
+    # deterministic 1-3px block noise after the hood turns the crown into a
+    # grid of isolated light/dark cells.
+    render_hood_overlay(canvas, colors, attrs.get("hood"), pack=pack, seed=seed)
     return canvas
 
 
