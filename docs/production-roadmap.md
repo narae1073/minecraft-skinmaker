@@ -62,7 +62,7 @@ Templates are a means; the gate is measured output quality on defined data.
   requires sclera/iris support and non-flat hair tone maps. Coverage alone is not
   a quality signal.
 - Human review queue: 19 eye / 1 hood-up / 3 hood-down candidates in
-  `out/production_benchmark/template_gallery.png`; none approved yet. Six eye candidates are objectively shortlisted (`recommended=true`) for faster human review.
+  `out/production_benchmark/template_gallery.png`; none approved yet. Six eye candidates are objectively shortlisted (`recommended=true`) and rendered on a neutral face (`out/production_benchmark/eye_preview.png`); none approved.
 - Approved candidates now rebuild the pack via `apply_template_approvals`.
 
 - Extract hair L2/eyes/hood templates **only from the train split**; keep the

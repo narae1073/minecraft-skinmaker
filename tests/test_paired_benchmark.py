@@ -78,3 +78,12 @@ def test_eye_candidate_ranking_is_not_approval():
     s = eye_score(c)
     assert s["both_eyes"] and s["sclera_iris_adjacent"]
     assert s["score"] >= 5
+
+
+def test_eye_preview_renders_candidate():
+    from skinmaker.template_review import eye_preview_image
+    c = {"sclera": [[0, 1, 1, 0, 0, 1, 1, 0] for _ in range(2)],
+         "iris": [[0, 0, 1, 0, 0, 1, 0, 0] for _ in range(2)]}
+    im = eye_preview_image(c, scale=4)
+    assert im.size == (32, 32)
+    assert im.getpixel((1 * 4 + 1, 4 * 4 + 1)) != (224, 172, 105)
