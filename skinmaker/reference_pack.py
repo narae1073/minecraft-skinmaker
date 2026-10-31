@@ -323,8 +323,12 @@ def select_hair(pack: dict, length: str, style: str, seed: str = "") -> dict | N
     return _pick(pack.get("hair", {}).get(bucket, []), f"{bucket}:{style}:{seed}")
 
 
-def select_eyes(pack: dict, seed: str = "") -> dict | None:
-    return _pick(pack.get("eyes", []), f"eyes:{seed}")
+def select_eyes(pack: dict, seed: str = "", hooded: bool = False) -> dict | None:
+    eyes = pack.get("eyes", [])
+    if hooded:
+        general = [p for p in eyes if not str(p.get("source", "")).startswith(("hood_up/", "hood_down/"))]
+        eyes = general or eyes
+    return _pick(eyes, f"eyes:{seed}:{'hood' if hooded else 'general'}")
 
 
 def select_hood(pack: dict, kind: str, seed: str = "") -> dict | None:

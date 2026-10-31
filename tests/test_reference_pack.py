@@ -268,3 +268,11 @@ def test_approved_templates_replace_pack_patterns():
     assert out["eyes"] == [eyes_ok]
     assert out["hoods"]["up"] == [hood]
     assert out["template_approvals"] == {"eyes": ["e1"], "hood_up": ["h1"]}
+
+
+def test_hooded_eye_selection_avoids_hood_reference_sources():
+    pack = RP.load_pack()
+    for seed in ("a", "b", "c", "d"):
+        hooded = RP.select_eyes(pack, seed, hooded=True)
+        assert hooded is not None
+        assert not str(hooded.get("source", "")).startswith(("hood_up/", "hood_down/")), hooded

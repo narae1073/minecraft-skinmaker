@@ -62,3 +62,18 @@ def test_quality_gate_rejects_zero_sclera_eyes():
     report = QA.qa_pack(bad, {"train": [], "holdout": []}, Path("."))
     assert not report["quality_ok"]
     assert report["template_quality"]["eyes"][0]["sclera"] == 0
+
+
+def test_quality_gate_accepts_explicitly_approved_zero_sclera_eye():
+    faces = {f: ([[100] * 8 for _ in range(8)]) for f in RP.HEAD_FACES}
+    faces["top"][0][0] = 110
+    pack = {
+        "hair": {"short": [{"faces": faces, "coverage": 32, "id": "h"}], "long": []},
+        "eyes": [{"sclera": [[0] * 8 for _ in range(2)],
+                  "iris": [[1] * 8 for _ in range(2)], "id": "approved-eye"}],
+        "hoods": {"up": [{"faces": {f: [[1] * 8 for _ in range(8)] for f in RP.HEAD_FACES},
+                          "coverage": 320, "id": "hood"}], "down": []},
+        "template_approvals": {"eyes": ["approved-eye"]},
+    }
+    report = QA.qa_pack(pack, {"train": [], "holdout": []}, Path("."))
+    assert report["quality_ok"]
