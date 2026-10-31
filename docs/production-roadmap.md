@@ -85,7 +85,9 @@ Templates are a means; the gate is measured output quality on defined data.
 - Next: 30–50 human-approved pairs; human preference + VLM + structural checks.
 - Tune template selection; publish failures, not just wins.
 
-### Phase 5 — Production hardening
+### Phase 5 — Production hardening (gate started)
+
+- Aggregate fail-closed gate: `scripts/production_status.py` (currently NOT READY).
 
 - Full skin (clothing/face/identity), UI, latency/cost, licensing, retention,
   monitoring, rollback.
