@@ -54,8 +54,9 @@ C. Length: for long-haired portraits, does the front chest hair reach the
 D. Continuity: is the side hairline continuous from front to back, with no
    staircase jumps, zero-width columns, or L1/L2 mismatched silhouettes?
 F. Bang policy: loose styles (bob/long_straight/long_wavy/curly) cover the eyebrow
-   row (4) but keep eyes rows 5-6 visible. Short/pixie and pulled-back
-   ponytail/bun keep the eyebrow row open. L2 may cover at most the top of the
+   row (4) but keep eyes rows 5-6 visible. Short/pixie keep the eyebrow row open when the SCHP front hairline has no
+   visible bangs; visible short bangs get the 5-row fringe. Pulled-back
+   ponytail/bun keep it open. L2 may cover at most the top of the
    eyes (row5) in a deliberate, limited style accent; row6 must stay visible.
 G. Pixel hygiene (mandatory): inspect at 1:1 and 8x. Reject ANY isolated/stray
    pixel, 1px gap, alternating checker, 4x4/grid pattern, or floating trim. Check

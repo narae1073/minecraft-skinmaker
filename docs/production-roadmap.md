@@ -120,7 +120,8 @@ Templates are a means; the gate is measured output quality on defined data.
   provides the L1 silhouette. Reference pack currently contributes L2 tones,
   not shape.
 - Implemented bounded bang policy: loose styles cover eyebrow row 4; short/pixie
-  and tied-up styles keep it open. Eyes stay at rows 5-6.
+  use the SCHP front hairline (exposed=3 rows, visible bangs=5); tied-up styles
+  stay open. Eyes stay at rows 5-6.
 - Started L2 depth: reference tone contrast increased + connected 1px edge outline
   (colour-only, no alpha holes). Still missing: reference-derived bang-depth
   profiles, actual L2 strand alpha masks, limited eye-top accents (implemented: row5 only, seeded, bottom row always clear), and a labeled

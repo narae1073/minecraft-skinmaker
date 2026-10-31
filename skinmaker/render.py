@@ -282,7 +282,7 @@ def render_head(canvas: SkinCanvas, colors: dict[str, Color], attrs: Attributes,
 
     # 스타일 앞머리: loose 스타일은 눈썹 행(4)까지 덮는 5행 fringe.
     # ponytail/bun(2행)은 이마를 드러내고, short/pixie(3행)는 부분 앞머리.
-    bangs = HS.style_bangs(style)
+    bangs = HS.style_bangs_for_stencil(style, stencil)
     if bangs >= 3:
         cols = range(0, 8) if bangs >= 4 else range(1, 7)
         for v in range(min(bangs, 5)):
@@ -728,7 +728,7 @@ def render_hair_overlay(canvas: SkinCanvas, colors: dict[str, Color], stencil, h
         for u, is_hair in enumerate(row[: front.w]):
             if is_hair:
                 put("head", "front", u, v)
-    bangs = HS.style_bangs(style)
+    bangs = HS.style_bangs_for_stencil(style, stencil)
     if bangs >= 3:
         cols = range(0, 8) if bangs >= 4 else range(1, 7)
         for v in range(min(bangs, 5)):

@@ -197,6 +197,19 @@ def style_bangs(hair_style: str) -> int:
     return STYLE_BANGS.get(hair_style, 2)
 
 
+def style_bangs_for_stencil(hair_style: str, stencil: "HairStencil") -> int:
+    """Short/pixie compromise: exposed forehead stays 3; visible SCHP bangs get 5.
+
+    Loose styles cover the eyebrow row; tied-up styles stay open. Only the
+    short/pixie class needs photo-dependent disambiguation.
+    """
+    if hair_style in ("short", "pixie"):
+        center = any(stencil.front[v][u] for v in (3, 4) for u in (2, 3, 4, 5))
+        if center:
+            return 5
+    return style_bangs(hair_style)
+
+
 def close_front_holes(vote) -> None:
     """앞머리 rows0-3 안에서 위·아래가 머리인 1px 피부 셀을 닫는다 (in-place)."""
     for u in range(HEAD_GRID):
