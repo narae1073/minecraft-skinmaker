@@ -8,6 +8,7 @@ const KOR = {
   sleeve_len: { none: "민소매", short: "반팔", three_quarter: "7부", long: "긴팔" },
   hair_length: { short: "짧은 머리", medium: "중간 머리", long: "긴 머리", very_long: "아주 긴 머리" },
   hair_style: { short: "짧은 컷", pixie: "픽시", bob: "단발", long_straight: "긴 생머리", long_wavy: "긴 웨이브", curly: "곱슬", ponytail: "포니테일", bun: "올림머리" },
+  hood: { none: "없음", up: "후드 착용", down: "후드 내림" },
   beard: { none: "없음", stubble: "짧은 수염", full: "수염" },
   inner_top: { none: "없음", shirt: "셔츠", tee: "티셔츠", knit: "니트" },
   neckwear: { none: "없음", tie: "넥타이" },
@@ -23,6 +24,7 @@ const FIELD_KOR = {
   sleeve_len: "소매",
   hair_length: "머리 길이",
   hair_style: "머리 스타일",
+  hood: "후드",
   beard: "수염",
   inner_top: "안쪽 옷",
   neckwear: "넥타이",
@@ -33,8 +35,8 @@ const FIELD_KOR = {
 };
 const FIELDS = [
   "top_garment", "bottom_garment", "pattern", "sleeve_len", "hair_length",
-  "hair_style", "beard", "inner_top", "neckwear", "closure_type", "collar_type",
-  "pocket_type", "symmetry",
+  "hair_style", "hood", "beard", "inner_top", "neckwear", "closure_type",
+  "collar_type", "pocket_type", "symmetry",
 ];
 
 export default function CategoryPanel({ attributes, noiseLevel }) {

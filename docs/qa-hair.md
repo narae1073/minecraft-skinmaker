@@ -56,12 +56,26 @@ D. Continuity: is the side hairline continuous from front to back, with no
 F. Bang line: is there any 1px skin line inside the bangs, or between the bangs
    and the eyes? Full-fringe styles (bob/long/curly) should have none; pulled-back
    styles (ponytail/bun) may show a deliberate forehead.
+G. Pixel hygiene (mandatory): inspect at 1:1 and 8x. Reject ANY isolated/stray
+   pixel, 1px gap, alternating checker, 4x4/grid pattern, or floating trim. Check
+   the 2D UV of the top/front faces directly; do NOT infer cleanliness from a
+   contiguous-looking band. Render with noise 0 AND production noise (50%),
+   because noise is applied after most texture passes.
 E. Style: does the L2 silhouette match the portrait style
    (bob / long straight / wavy / curly / ponytail / bun / pixie)?
 Return JSON only: {"bottom":"PASS|FAIL","l2":"PASS|FAIL","length":"PASS|FAIL",
-"continuity":"PASS|FAIL","bangs":"PASS|FAIL","length":"PASS|FAIL",
+"continuity":"PASS|FAIL","bangs":"PASS|FAIL","pixels":"PASS|FAIL",
 "style":"PASS|FAIL","evidence":["..."]}.
 Do not propose code fixes; report visual defects only.
 ```
 
 Style (E) is checked against the `hair_style` tag; uncertain tags fall back to bob / long-straight / long-wavy by length.
+
+
+## Hood / reference-pack checks (2026-10-31)
+
+- **Eyes:** both eyes present and symmetric; sclera/iris not inverted or hidden by hair; iris colour matches the photo.
+- **Hair L2:** irregular strand/column tones, no regular even/odd stripes and no large square patches.
+- **Hood up:** hood covers crown/sides/back, face opening keeps both eyes and the face visible; no hair holes through the hood.
+- **Hood down:** cowl sits at the neck/shoulders; no hood shell over the head.
+- **Hood none:** no hood overlay at all.

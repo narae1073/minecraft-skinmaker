@@ -22,6 +22,7 @@ from .canvas import Color, SkinCanvas, rgba, shade
 from .colors import MISSING, ObservedColors
 from .texture import COMPLEX_PATTERNS, FabricTexture
 from . import hairstencil as HS
+from . import reference_pack as RP
 from .structure import apply_structure
 from .format import HEAD_ACCESSORY_LAYER  # noqa: F401  (규칙 문서화용: ACC.는 손대지 않는다)
 
@@ -240,7 +241,8 @@ def _shaded_face(canvas: SkinCanvas, part: str, face_name: str, base: Color, lay
     canvas.fill_face(part, face_name, shade(base, FACE_SHADE[face_name]), layer)
 
 
-def render_head(canvas: SkinCanvas, colors: dict[str, Color], attrs: Attributes, stencil=None, style: str = "short") -> None:
+def render_head(canvas: SkinCanvas, colors: dict[str, Color], attrs: Attributes, stencil=None,
+                style: str = "short", pack: dict | None = None, seed: str = "") -> None:
     skin_c, hair_c = colors["skin"], colors["hair"]
     if stencil is None:
         from .hairstencil import rule_stencil
@@ -291,24 +293,20 @@ def render_head(canvas: SkinCanvas, colors: dict[str, Color], attrs: Attributes,
     # 홍채색은 사진 측정값 (없으면 템플릿 갈색).
     sclera = rgba("#f2f2f2")
     iris_c = colors["iris"]
-    for base_u in (1, 5):
-        canvas.put("head", "front", base_u, 4, sclera, 0)
-        canvas.put("head", "front", base_u + 1, 4, iris_c, 0)
-        canvas.put("head", "front", base_u, 5, iris_c, 0)
-        canvas.put("head", "front", base_u + 1, 5, iris_c, 0)
-    beard = attrs.get("beard")
-    if beard == "full":
-        beard_c = shade(hair_c, FACE_SHADE["front"])
-        for v in (6, 7):
+    eye_pattern = RP.select_eyes(pack, seed) if pack else None
+    if eye_pattern:
+        for v, sv in enumerate((4, 5)):
             for u in range(8):
-                canvas.put("head", "front", u, v, beard_c, 0)
-    elif beard == "stubble":
-        beard_c = _mix(shade(hair_c, FACE_SHADE["front"]), shade(skin_c, FACE_SHADE["front"]), 0.55)
-        for u in (0, 1, 6, 7):
-            canvas.put("head", "front", u, 6, beard_c, 0)
-        for u in range(8):
-            canvas.put("head", "front", u, 7, beard_c, 0)
-
+                if eye_pattern["sclera"][v][u]:
+                    canvas.put("head", "front", u, sv, sclera, 0)
+                elif eye_pattern["iris"][v][u]:
+                    canvas.put("head", "front", u, sv, iris_c, 0)
+    else:
+        for base_u in (1, 5):
+            canvas.put("head", "front", base_u, 4, sclera, 0)
+            canvas.put("head", "front", base_u + 1, 4, iris_c, 0)
+            canvas.put("head", "front", base_u, 5, iris_c, 0)
+            canvas.put("head", "front", base_u + 1, 5, iris_c, 0)
     # HEAD ACC.(layer=1)는 손대지 않는다. 기본 투명 유지.
 
 
@@ -587,12 +585,115 @@ def render_legs(canvas: SkinCanvas, colors: dict[str, Color], attrs: Attributes,
 L2_LIFT = 1.05
 
 
-def _l2_color(hair_c: Color, face_name: str) -> Color:
-    """L2 셸 색: L1 음영을 5%만 들어올린 균일 톤 (열 stripes 없음)."""
-    return shade(shade(hair_c, FACE_SHADE[face_name]), L2_LIFT)
+def _l2_color(hair_c: Color, face_name: str, tone: int = 100) -> Color:
+    """L2 셸 색: L1 음영 + 5% 리프트, 선택적 reference tone (100=중립)."""
+    # Reference tone maps are relative to their own face median. Damp them so
+    # they read as strands, not as large bright/dark patches.
+    mul = L2_LIFT * (1.0 + (tone - 100) / 100.0 * 0.55)
+    return shade(shade(hair_c, FACE_SHADE[face_name]), mul)
 
 
-def render_hair_overlay(canvas: SkinCanvas, colors: dict[str, Color], stencil, hair_length: str = "short", style: str = "short") -> None:
+def hood_variant(seed: str) -> int:
+    """Deterministic hood archetype: snug / oversized / fur-lined."""
+    return int.from_bytes(hashlib.sha256(seed.encode()).digest()[:2], "big") % 3
+
+
+def render_hood_overlay(canvas: SkinCanvas, colors: dict[str, Color], hood: str,
+                        pack: dict | None = None, seed: str = "",
+                        variant: int | None = None) -> None:
+    """Clothing hood from the reference pack, drawn over hair on L2.
+
+    Solid shells with a face opening. Three procedural archetypes vary the
+    brim depth, seam placement, and trim; top_alt supplies fold/trim colour.
+    """
+    if hood not in ("up", "down"):
+        return
+    pattern = RP.select_hood(pack, hood, seed) if pack else None
+    if pattern is None:
+        return
+    base = colors.get("top") or colors["hair"]
+    alt = colors.get("top_alt") or shade(base, 0.72)
+    if hood == "down":
+        f = canvas.layout.face("body", "front", 1)
+        base_front = shade(base, FACE_SHADE["front"])
+        for v in range(min(3, f.h)):
+            for u in range(f.w):
+                canvas.put("body", "front", u, v, base_front, 1)
+        rim = shade(alt, FACE_SHADE["front"])
+        for u in range(f.w):
+            canvas.put("body", "front", u, 2, rim, 1)
+        return
+
+    variant = hood_variant(seed) if variant is None else variant % 3
+    opening = 4 if variant == 1 else 3
+    for face_name in RP.HEAD_FACES:
+        f = canvas.layout.face("head", face_name, 1)
+        face_base = shade(base, FACE_SHADE[face_name])
+        for v in range(f.h):
+            for u in range(f.w):
+                if face_name == "front" and v >= opening and 1 <= u <= 6:
+                    continue
+                canvas.put("head", face_name, u, v, face_base, 1)
+
+    top = shade(base, FACE_SHADE["top"])
+    alt_top = shade(alt, FACE_SHADE["top"])
+    dark = shade(top, 0.68)
+    light = shade(top, 1.18)
+    # crown seam / highlight
+    if variant != 2:
+        seam_u = 3 if variant != 1 else 4
+        for v in range(1, 8):
+            canvas.put("head", "top", seam_u, v, shade(alt_top, 0.78), 1)
+        for u in range(2, 6):
+            canvas.put("head", "top", u, 0, light, 1)
+    if variant == 2:
+        # Fur is a clean front-brim band. Do not ring the crown: on the cube,
+        # a crown band surfaces at the side/back edges as isolated 1px slivers.
+        pass
+
+    back = shade(base, FACE_SHADE["back"])
+    for v in range(0, 8):
+        canvas.put("head", "back", 4, v, shade(back, 0.76), 1)
+    if variant == 1:
+        for u in (2, 5):
+            for v in range(2, 7):
+                canvas.put("head", "back", u, v, shade(back, 0.88), 1)
+
+    front_base = shade(base, FACE_SHADE["front"])
+    alt_front = shade(alt, FACE_SHADE["front"])
+    brim_v = 3 if variant == 1 else 2
+    canvas.put("head", "front", 0, brim_v, shade(front_base, 0.62), 1)
+    for u in range(1, 7):
+        canvas.put("head", "front", u, brim_v, shade(front_base, 0.66), 1)
+    canvas.put("head", "front", 7, brim_v, shade(front_base, 0.62), 1)
+    if variant == 2:
+        for u in range(8):
+            canvas.put("head", "front", u, 1, alt_front, 1)
+    for v in range(opening, 7):
+        for u in (0, 7):
+            canvas.put("head", "front", u, v, shade(front_base, 0.80 if variant != 2 else 0.70), 1)
+
+    # Shoulder cowl + drawstrings.
+    for name in ("front", "back"):
+        f = canvas.layout.face("body", name, 1)
+        cowl = shade(base, FACE_SHADE[name])
+        rows = 3 if variant == 1 else 2
+        for v in range(rows):
+            for u in range(f.w):
+                canvas.put("body", name, u, v, cowl, 1)
+        if variant != 2:
+            edge = shade(alt, FACE_SHADE[name])
+            for u in range(f.w):
+                canvas.put("body", name, u, 1, edge, 1)
+    if variant != 2:
+        strings = shade(alt, 1.10)
+        length = 4 if variant == 1 else 3
+        for u in (2, 5):
+            for v in range(length):
+                canvas.put("body", "front", u, v, strings, 1)
+
+def render_hair_overlay(canvas: SkinCanvas, colors: dict[str, Color], stencil, hair_length: str = "short",
+                        style: str = "short", pack: dict | None = None, seed: str = "") -> None:
     """L2(오버레이) 헤어 (2026-10-29 개정: solid shell, no alpha holes).
 
     L1 실루엣과 같은 셀을 모두 채운다. 틈(1px hole)을 두지 않고 균일한 5%
@@ -600,9 +701,19 @@ def render_hair_overlay(canvas: SkinCanvas, colors: dict[str, Color], stencil, h
     """
     hair_c = colors["hair"]
     length = HS.effective_hair_length(hair_length, stencil)
+    pattern = RP.select_hair(pack, length, style, seed) if pack else None
 
     def put(part: str, face_name: str, u: int, v: int) -> None:
-        canvas.put(part, face_name, u, v, _l2_color(hair_c, face_name), 1)
+        tone = 100
+        if pattern:
+            tones = pattern.get("faces", {}).get(face_name)
+            if tones and u < len(tones[0]):
+                # Column average: reference skins use broad shading; applying
+                # the 2D cells directly creates square patches. A damped column
+                # tone reads as a vertical strand across the whole face.
+                values = [tones[r][u] for r in range(len(tones)) if u < len(tones[r])]
+                tone = max(88, min(112, sum(values) / len(values)))
+        canvas.put(part, face_name, u, v, _l2_color(hair_c, face_name, tone), 1)
 
     if stencil.top_hair:
         top = canvas.layout.face("head", "top", 1)
@@ -747,7 +858,9 @@ def render(
     back_rows = min(6, max(back_rows, min(evidence, back_rows + 1))) if back_rows else 0
     hair_stencil = replace(hair_stencil, body_rows=back_rows,
                            front_body_rows=front_rows, back_body_rows=back_rows)
-    render_head(canvas, colors, attrs, hair_stencil, style=style)
+    pack = RP.load_pack()
+    seed = f"{style}:{attrs.get('hair_length')}:{colors['hair'][:3]}"
+    render_head(canvas, colors, attrs, hair_stencil, style=style, pack=pack, seed=seed)
     thickness = observed.stripe_px if pattern in ("vertical_stripe", "horizontal_stripe", "check", "plaid") else 1
     render_body(canvas, colors, attrs, pattern, alt, hair_stencil, thickness,
                 texture=observed.top_texture)
@@ -758,9 +871,14 @@ def render(
         texture=observed.bottom_texture,
     )
     if observed.hair_overlay:
-        render_hair_overlay(canvas, colors, hair_stencil, attrs.get("hair_length"), style)
+        render_hair_overlay(canvas, colors, hair_stencil, attrs.get("hair_length"), style,
+                            pack=pack, seed=seed)
     if noise_seed is not None:
         _apply_noise(canvas, noise_seed, noise_level)
+    # Draw the hood AFTER noise: its flat crown must stay solid. Applying the
+    # deterministic 1-3px block noise after the hood turns the crown into a
+    # grid of isolated light/dark cells.
+    render_hood_overlay(canvas, colors, attrs.get("hood"), pack=pack, seed=seed)
     return canvas
 
 
