@@ -131,17 +131,20 @@ def test_mask_stencil_symmetrized_vs_raw():
     raw = HS.mask_stencil(seg, face, (96, 96), symmetry="raw")
     assert raw.front[0][0] is True
     assert raw.front[0][7] is False
-    assert raw.side_rows["left"] == 8  # 뒤통수 끝(가득)까지 이어진다
-    assert raw.side_rows["right"] == 0
+    # front u0(오른쪽 머리)는 right face u7(앞)로, front u7(왼쪽)은 left face u0(앞)로.
+    assert raw.side_rows["right"] == 8  # 오른쪽 머리 → right face
+    assert raw.side_rows["left"] == 0   # 왼쪽은 배경
     assert raw.side_rows["back"] == 8  # 뒤통수 가득 (사용자 결정 2026-10-15)
-    assert raw.side_profiles["right"] == (0,) * 8
+    assert raw.side_profiles["left"] == (0,) * 8
+    assert raw.side_profiles["right"] == (8, 7, 6, 5, 5, 4, 3, 2)
 
     sym = HS.mask_stencil(seg, face, (96, 96))  # 기본값
     assert sym.front[0][0] is True
     assert sym.front[0][7] is True  # 거울 OR
     assert sym.side_rows["left"] == sym.side_rows["right"] == 8
     assert sym.side_rows["back"] == 8
-    assert sym.side_profiles["right"] == (2, 3, 4, 5, 5, 6, 7, 8)
+    assert sym.side_profiles["left"] == (2, 3, 4, 5, 5, 6, 7, 8)
+    assert sym.side_profiles["right"] == (8, 7, 6, 5, 5, 4, 3, 2)
 
     with pytest.raises(ValueError):
         HS.mask_stencil(seg, face, (96, 96), symmetry="bogus")
@@ -193,7 +196,8 @@ def test_mask_stencil_head_profiles_follow_curved_mask():
     assert s is not None
     # 옆 경계는 앞 가장자리(관자) 깊이에서 뒤통수 끝(가득)으로 이어진다 — 뒤 모서리 단차 없음.
     assert s.side_profiles["left"] == (5, 5, 6, 6, 7, 7, 8, 8)
-    assert s.side_profiles["right"] == (5, 5, 6, 6, 7, 7, 8, 8)
+    # right face 는 u7=앞이므로 프로파일이 뒤→앞으로 뒤집힌다.
+    assert s.side_profiles["right"] == (8, 8, 7, 7, 6, 6, 5, 5)
     assert s.side_profiles["back"] == (8,) * 8  # 머리 있음 → 뒤통수 가득
 
 
@@ -215,6 +219,9 @@ def test_mask_stencil_side_profile_flows_into_full_back():
     assert list(s.side_profiles["left"]) == sorted(s.side_profiles["left"]), "단조 증가"
     assert s.side_profiles["left"][0] == 3  # 앞 모서리 = 정면 가장자리 열
     assert s.side_profiles["left"][-1] == s.side_profiles["back"][0] == 8  # 뒤 모서리 연속
+    assert s.side_profiles["right"] == (8, 7, 7, 6, 5, 4, 4, 3)
+    assert s.side_profiles["right"][-1] == 3  # right face 는 u7 이 앞 모서리
+    assert s.side_profiles["right"][0] == 8
 
 
 def _paint_band(seg, box, u, y0, y1, cls):
@@ -426,3 +433,15 @@ def test_close_front_holes_fills_enclosed_skin_only():
     assert not vote[1, 0] and not vote[1, 7]
     # 눈 행(4-5)은 절대 건드리지 않는다.
     assert not vote[4].any()
+
+
+def test_side_profiles_meet_front_corners_with_uv_flip():
+    """right face u7=앞, left face u0=앞 — 양쪽 끝이 정면 높이와 맞아야 한다."""
+    heights = (8, 7, 6, 5, 4, 3, 2, 1)
+    p = HS.side_profiles_from_front(heights, 8)
+    assert p["left"][0] == heights[7] == 1   # left u0 = front
+    assert p["left"][-1] == 8                # left u7 = back
+    assert p["right"][-1] == heights[0] == 8 # right u7 = front
+    assert p["right"][0] == 8                # right u0 = back
+    straight = HS._interpolate_profile(heights[0], 8)
+    assert p["right"] == tuple(reversed(straight))  # 복사가 아니라 미러

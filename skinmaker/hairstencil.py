@@ -203,6 +203,23 @@ def close_front_holes(vote) -> None:
             vote[int(ys[0]):int(ys[-1]) + 1, u] = True
 
 
+def _interpolate_profile(a: int, b: int) -> tuple[int, ...]:
+    return tuple(round(a + (b - a) * i / 7) for i in range(8))
+
+
+def side_profiles_from_front(heights: tuple[int, ...], back: int) -> dict[str, tuple[int, ...]]:
+    """앞머리 높이를 좌/우 텍스처 면의 author-u 순서로 변환한다.
+
+    UV 계약 (skinModel.js HEAD, 3D 마커로 확인):
+    - right face (x=0):  u0=뒤, u7=앞  → front 높이는 프로파일 끝에 온다.
+    - left face  (x=16): u0=앞, u7=뒤  → front 높이는 프로파일 시작에 온다.
+    한쪽을 그대로 복사하면(미러 없이) 앞머리와 단차가 생긴다.
+    """
+    left = _interpolate_profile(heights[7], back) if heights[7] else (0,) * HEAD_GRID
+    right = tuple(reversed(_interpolate_profile(heights[0], back))) if heights[0] else (0,) * HEAD_GRID
+    return {"left": left, "right": right, "back": (back,) * HEAD_GRID}
+
+
 def mask_stencil(
     seg,
     face: FaceBox,
@@ -308,16 +325,7 @@ def mask_stencil(
     # 옆면 머리선: 앞 가장자리(관자 깊이)에서 뒤통수 끝값까지 보간 — 뒤 모서리에서
     # 끊기지 않고 이어진다 (사용자 지시 2026-10-15: 머리선이 끊김 없이 흘러야).
     # 바깥 가장자리에 hair가 없으면 side face도 비운다 (모호크가 옆면으로 번지지 않게).
-    def interpolate(a: int, b: int) -> tuple[int, ...]:
-        return tuple(round(a + (b - a) * i / 7) for i in range(8))
-
-    left_profile = interpolate(heights[0], back[0]) if heights[0] else (0,) * 8
-    right_profile = interpolate(heights[7], back[0]) if heights[7] else (0,) * 8
-    side_profiles = {
-        "left": left_profile,
-        "right": right_profile,
-        "back": back,
-    }
+    side_profiles = side_profiles_from_front(heights, back[0])
     front = tuple(tuple(bool(b) for b in row) for row in vote)
     body_rows = _body_hair_rows(np.asarray(seg), face, img_size)
     return HairStencil(front, top_hair, side_profiles, body_rows, _bottom_grid(back[0], side_profiles))
