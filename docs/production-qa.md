@@ -20,7 +20,8 @@ not replace, the visual sub-agent.
 - No beard pixels in center-jaw rows 6–7 (side hair is allowed).
 - Both eye regions contain non-skin pixels.
 - Hood-up top face has no isolated 1px accent islands (seam/highlight allowed).
-- Eye rows 4–5 are not covered by a hood L2 shell.
+- Eye rows 5–6 are not covered by a hood L2 shell.
+- Bang policy: loose styles cover eyebrow row 4; tied-up and short/pixie keep it open.
 - Noise-on run must not scatter the hood crown.
 
 Exit status is non-zero on any failed case. Pixel-level QA should also inspect
