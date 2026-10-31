@@ -589,7 +589,7 @@ def _l2_color(hair_c: Color, face_name: str, tone: int = 100) -> Color:
     """L2 셸 색: L1 음영 + 5% 리프트, 선택적 reference tone (100=중립)."""
     # Reference tone maps are relative to their own face median. Damp them so
     # they read as strands, not as large bright/dark patches.
-    mul = L2_LIFT * (1.0 + (tone - 100) / 100.0 * 0.55)
+    mul = L2_LIFT * (1.0 + (tone - 100) / 100.0 * 0.80)
     return shade(shade(hair_c, FACE_SHADE[face_name]), mul)
 
 
@@ -712,7 +712,7 @@ def render_hair_overlay(canvas: SkinCanvas, colors: dict[str, Color], stencil, h
                 # the 2D cells directly creates square patches. A damped column
                 # tone reads as a vertical strand across the whole face.
                 values = [tones[r][u] for r in range(len(tones)) if u < len(tones[r])]
-                tone = max(88, min(112, sum(values) / len(values)))
+                tone = max(85, min(115, sum(values) / len(values)))
         canvas.put(part, face_name, u, v, _l2_color(hair_c, face_name, tone), 1)
 
     if stencil.top_hair:
@@ -791,6 +791,25 @@ def render_hair_overlay(canvas: SkinCanvas, colors: dict[str, Color], stencil, h
         for v in range(3):
             for u in range(2, 6):
                 canvas.put("head", "back", u, v, bun_c, 1)
+
+    # Connected 1px edge darkening on L2 hair adjacent to the face opening or
+    # silhouette. This is colour-only (no alpha holes) and makes the shell read
+    # as a layered hairstyle rather than a flat solid block.
+    for part, faces in (("head", RP.HEAD_FACES), ("body", ("front", "back"))):
+        for face_name in faces:
+            f = canvas.layout.face(part, face_name, 1)
+            mask = [[canvas.get(part, face_name, u, v, 1)[3] for u in range(f.w)] for v in range(f.h)]
+            for v in range(f.h):
+                for u in range(f.w):
+                    if not mask[v][u]:
+                        continue
+                    edge_cell = any(
+                        not (0 <= u + du < f.w and 0 <= v + dv < f.h) or not mask[v + dv][u + du]
+                        for du, dv in ((1, 0), (-1, 0), (0, 1), (0, -1))
+                    )
+                    if edge_cell:
+                        c = canvas.get(part, face_name, u, v, 1)
+                        canvas.put(part, face_name, u, v, shade(c, 0.86), 1)
 
 
 def render(

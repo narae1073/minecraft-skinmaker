@@ -54,10 +54,10 @@ from skinmaker import hairstencil as HS
 # rule 스텐실 렌더의 픽셀 베이스라인. 2026-10-27 L2 헤어를 성긴 가닥으로 개정하며
 # 재기록 — 이전: 2026-10-21 L2 부피 셸 도입. 이후 rule 경로가 조용히 변하면 잡는다.
 NOISE_OFF_GOLDEN = {
-    "short": "ab7e7f9ba67b2d9e",
-    "medium": "4e2a34cd691e5274",
-    "long": "813231bbadca119e",
-    "very_long": "e61e84c99c9e8fcb",
+    "short": "5c4f447eccbcad89",
+    "medium": "ced82ec96eff3ece",
+    "long": "932fc49675c2befd",
+    "very_long": "f03493f697f8a481",
 }
 
 

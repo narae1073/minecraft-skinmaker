@@ -121,6 +121,7 @@ Templates are a means; the gate is measured output quality on defined data.
   not shape.
 - Implemented bounded bang policy: loose styles cover eyebrow row 4; short/pixie
   and tied-up styles keep it open. Eyes stay at rows 5-6.
-- Still missing: reference-derived bang-depth profiles, L2 strand/edge masks
-  (less solid), limited eye-top accents, and a labeled bang benchmark. Reference
-  pixel classification is too noisy for a reliable prior.
+- Started L2 depth: reference tone contrast increased + connected 1px edge outline
+  (colour-only, no alpha holes). Still missing: reference-derived bang-depth
+  profiles, actual L2 strand alpha masks, limited eye-top accents, and a labeled
+  bang benchmark. Reference pixel classification is too noisy for a reliable prior.
