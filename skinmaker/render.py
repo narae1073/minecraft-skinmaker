@@ -282,12 +282,10 @@ def render_head(canvas: SkinCanvas, colors: dict[str, Color], attrs: Attributes,
 
     # 스타일 앞머리: loose 스타일은 눈썹 행(4)까지 덮는 5행 fringe.
     # ponytail/bun(2행)은 이마를 드러내고, short/pixie(3행)는 부분 앞머리.
-    bangs = HS.style_bangs_for_stencil(style, stencil)
-    if bangs >= 3:
-        cols = range(0, 8) if bangs >= 4 else range(1, 7)
-        for v in range(min(bangs, 5)):
-            for u in cols:
-                canvas.put("head", "front", u, v, shade(hair_c, FACE_SHADE["front"]), 0)
+    profile = HS.style_bang_profile(style, stencil)
+    for u, depth in enumerate(profile):
+        for v in range(min(depth, 5)):
+            canvas.put("head", "front", u, v, shade(hair_c, FACE_SHADE["front"]), 0)
 
     # 얼굴 특징 (사용자 결정 2026-10-20): 눈 4-5행, 입 없음, 수염은 턱 6-7행.
     # 홍채색은 사진 측정값 (없으면 템플릿 갈색).
@@ -728,18 +726,16 @@ def render_hair_overlay(canvas: SkinCanvas, colors: dict[str, Color], stencil, h
         for u, is_hair in enumerate(row[: front.w]):
             if is_hair:
                 put("head", "front", u, v)
-    bangs = HS.style_bangs_for_stencil(style, stencil)
-    if bangs >= 3:
-        cols = range(0, 8) if bangs >= 4 else range(1, 7)
-        for v in range(min(bangs, 5)):
-            for u in cols:
-                put("head", "front", u, v)
+    profile = HS.style_bang_profile(style, stencil)
+    for u, depth in enumerate(profile):
+        for v in range(min(depth, 5)):
+            put("head", "front", u, v)
     # Reference-derived bang tips: transparent L2 notches reveal L1 hair, not skin.
-    if bangs >= 5 and pack:
+    if max(profile) >= 5 and pack:
         tips = RP.select_bang_tips(pack, length, style, seed)
         if tips:
             for u, bit in enumerate(tips[:8]):
-                if not bit:
+                if profile[u] >= 5 and not bit:
                     canvas.put("head", "front", u, 4, (0, 0, 0, 0), 1)
     # Limited L2 eye-top accent for some loose outputs: only row 5, never row 6.
     if allow_eye_fringe and style in ("bob", "long_wavy", "curly"):
