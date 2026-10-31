@@ -45,7 +45,7 @@ deploy/        systemd/Cloudflare Tunnel 배포 파일 (예정)
 python3 -m venv .venv
 .venv/bin/pip install -r requirements-dev.txt
 scripts/fetch_assets.sh                 # YuNet + SCHP (66MB)
-.venv/bin/python -m pytest -q           # 641 테스트
+.venv/bin/python -m pytest -q           # 642 테스트
 .venv/bin/python -m skinmaker --model classic   # 더미 스킨 + 프리뷰 → out/
 ```
 
@@ -115,11 +115,11 @@ export SKINMAKER_PARSER=out/models/schp-atr-18-int8-static.onnx   # 경로 지�
 
 ## CI
 
-`.github/workflows/ci.yml` — `test`는 Python 3.12 + YuNet만 받아 641개 테스트를 돌리고, `web`은 Node 24에서 `npm ci`/lint/build를 돌립니다. 모델·사진·생성물은 캐시/다운로드 대상이며 저장소에 커밋하지 않습니다.
+`.github/workflows/ci.yml` — `test`는 Python 3.12 + YuNet만 받아 642개 테스트를 돌리고, `web`은 Node 24에서 `npm ci`/lint/build를 돌립니다. 모델·사진·생성물은 캐시/다운로드 대상이며 저장소에 커밋하지 않습니다.
 
 ## 상태
 
-S0~S4와 웹까지 동작합니다. 테스트 641개 통과. 얼굴 검출(YuNet)과 SCHP 모델은 저장소에 없고 `scripts/fetch_assets.sh`로 받습니다.
+S0~S4와 웹까지 동작합니다. 테스트 642개 통과. 얼굴 검출(YuNet)과 SCHP 모델은 저장소에 없고 `scripts/fetch_assets.sh`로 받습니다.
 
 포즈 추정(`pose.py`)은 현재 비활성입니다. `mediapipe`와 포즈 모델이 빠져 있어 얼굴 비례 밴드로 폴백하며, 되살리려면 의존성과 `assets/pose_landmarker_lite.task`를 복구해야 합니다.
 

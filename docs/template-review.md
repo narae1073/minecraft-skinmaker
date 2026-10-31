@@ -21,6 +21,8 @@ iris-only eyes, so candidates now require human review.
   objective readability score (both eyes, sclera/iris support, adjacency);
   `recommended=true` is a **shortlist for review, not approval**. Approve only
   after visual inspection.
+- `out/production_benchmark/eye_preview.png` renders candidates on a neutral
+  face; use it together with the mask gallery.
 
 `extract_eye_candidate()` is intentionally permissive and is **not** the
 production extractor. The production pack remains the strict, quality-gated

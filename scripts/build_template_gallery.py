@@ -4,7 +4,7 @@ from __future__ import annotations
 import argparse, json, sys
 from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-from skinmaker.template_review import collect_candidates, build_gallery
+from skinmaker.template_review import build_eye_preview, build_gallery, collect_candidates
 
 def main() -> None:
     ap = argparse.ArgumentParser()
@@ -20,6 +20,7 @@ def main() -> None:
     if not approvals.is_file():
         approvals.write_text(json.dumps({}, indent=2), encoding="utf-8")
     build_gallery(c, args.out / "template_gallery.png")
+    build_eye_preview(c, args.out / "eye_preview.png")
     print(json.dumps({k: len(v) for k, v in c.items()}, indent=2))
 
 if __name__ == "__main__":

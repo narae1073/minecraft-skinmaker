@@ -120,6 +120,36 @@ def set_approval(path: Path, kind: str, candidate_id: str, approved: bool, notes
     Path(path).write_text(json.dumps(data, indent=2, sort_keys=True), encoding="utf-8")
 
 
+def eye_preview_image(candidate: dict, scale: int = 24) -> Image.Image:
+    """Render a candidate on a neutral 8x8 face (sclera/iris only)."""
+    im = Image.new("RGB", (8, 8), (224, 172, 105))
+    for v in range(2):
+        for u in range(8):
+            if candidate["sclera"][v][u]:
+                im.putpixel((u, v + 4), (242, 242, 242))
+            elif candidate["iris"][v][u]:
+                im.putpixel((u, v + 4), (59, 42, 26))
+    return im.resize((8 * scale, 8 * scale), Image.NEAREST)
+
+
+def build_eye_preview(candidates: dict, out: Path) -> None:
+    eyes = candidates.get("eyes", [])
+    if not eyes:
+        return
+    W, H, label = 240, 260, 26
+    cols = 4
+    rows = (len(eyes) + cols - 1) // cols
+    sheet = Image.new("RGB", (cols * W + 20, rows * (H + label) + 10), (226, 232, 240))
+    d = ImageDraw.Draw(sheet)
+    for i, c in enumerate(eyes):
+        x = (i % cols) * W + 6; y = (i // cols) * (H + label) + label
+        sheet.paste(eye_preview_image(c), (x + 10, y + 4))
+        d.text((x + 6, y - 18), f"{c['id']} score={c.get('score','-')} rec={c.get('recommended',False)}", fill=(30, 36, 44))
+        d.text((x + 6, y + H - 8), c.get("source", "")[:34], fill=(60, 68, 78))
+    Path(out).parent.mkdir(parents=True, exist_ok=True)
+    sheet.save(out)
+
+
 def build_gallery(candidates: dict, out: Path) -> None:
     """Contact sheet of eye/hood candidates; IDs are used by the review CLI."""
     rows = [("eye", c) for c in candidates.get("eyes", [])]
