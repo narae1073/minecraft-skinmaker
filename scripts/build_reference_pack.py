@@ -13,7 +13,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from skinmaker.reference_pack import build_pack, save_pack
+from skinmaker.reference_pack import apply_template_approvals, build_pack, save_pack
 
 
 def main() -> None:
@@ -26,6 +26,10 @@ def main() -> None:
     ap.add_argument("--hood-down", type=int, default=2)
     ap.add_argument("--split", type=Path, default=None,
                     help="production split.json; builds from its train list only")
+    ap.add_argument("--candidates", type=Path, default=None,
+                    help="template_candidates.json from build_template_gallery")
+    ap.add_argument("--approvals", type=Path, default=None,
+                    help="template_approvals.json; only approved candidates enter the pack")
     args = ap.parse_args()
     include = None
     training = None
@@ -39,6 +43,10 @@ def main() -> None:
                       include=include)
     if training:
         pack["training"] = training
+    if args.candidates and args.candidates.is_file():
+        candidates = json.loads(args.candidates.read_text(encoding="utf-8"))
+        approvals = json.loads(args.approvals.read_text(encoding="utf-8")) if args.approvals and args.approvals.is_file() else {}
+        pack = apply_template_approvals(pack, candidates, approvals)
     save_pack(pack, args.out)
     print(json.dumps({
         "out": str(args.out),
