@@ -75,6 +75,11 @@ def _check(canvas, length: str, style: str, hood: str, beard: str) -> list[str]:
             if max(abs(c[i] - skin[i]) for i in range(3)) > R.NOISE_TOL:
                 problems.append(f"exposed/tied style covers eyebrow row at ({u},4)")
 
+    # The bottom eye row (6) must never receive an L2 hair fringe.
+    for u in (1, 2, 5, 6):
+        if canvas.get("head", "front", u, 6, 1)[3]:
+            problems.append(f"L2 fringe covers bottom eye row at ({u},6)")
+
     if hood == "up":
         top = [[canvas.get("head", "top", u, v, 1) for u in range(8)] for v in range(8)]
         # Seam/highlight accents are allowed, but no accent may be an isolated

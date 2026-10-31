@@ -693,7 +693,8 @@ def render_hood_overlay(canvas: SkinCanvas, colors: dict[str, Color], hood: str,
                 canvas.put("body", "front", u, v, strings, 1)
 
 def render_hair_overlay(canvas: SkinCanvas, colors: dict[str, Color], stencil, hair_length: str = "short",
-                        style: str = "short", pack: dict | None = None, seed: str = "") -> None:
+                        style: str = "short", pack: dict | None = None, seed: str = "",
+                        allow_eye_fringe: bool = False) -> None:
     """L2(오버레이) 헤어 (2026-10-29 개정: solid shell, no alpha holes).
 
     L1 실루엣과 같은 셀을 모두 채운다. 틈(1px hole)을 두지 않고 균일한 5%
@@ -721,7 +722,7 @@ def render_hair_overlay(canvas: SkinCanvas, colors: dict[str, Color], stencil, h
             for u in range(top.w):
                 put("head", "top", u, v)
 
-    # 앞면: L1 앞머리 셀 전체 + 긴 머리 프린지. 눈(4-5행)은 stencil 이 막는다.
+    # 앞면: L1 앞머리 셀 전체 + 긴 머리 프린지. 눈의 아래 행(6)은 항상 보호한다.
     front = canvas.layout.face("head", "front", 1)
     for v, row in enumerate(stencil.front):
         for u, is_hair in enumerate(row[: front.w]):
@@ -733,6 +734,11 @@ def render_hair_overlay(canvas: SkinCanvas, colors: dict[str, Color], stencil, h
         for v in range(min(bangs, 5)):
             for u in cols:
                 put("head", "front", u, v)
+    # Limited L2 eye-top accent for some loose outputs: only row 5, never row 6.
+    if allow_eye_fringe and style in ("bob", "long_wavy", "curly"):
+        if int.from_bytes(hashlib.sha256(f"eye-fringe:{seed}".encode()).digest()[:2], "big") % 3 == 0:
+            for u in (1, 6):
+                put("head", "front", u, 5)
 
     # 옆/뒤: 실루엣의 모든 열을 채운다 (구멍 없음).
     for face_name in ("right", "back", "left"):
@@ -891,7 +897,8 @@ def render(
     )
     if observed.hair_overlay:
         render_hair_overlay(canvas, colors, hair_stencil, attrs.get("hair_length"), style,
-                            pack=pack, seed=seed)
+                            pack=pack, seed=seed,
+                            allow_eye_fringe=attrs.get("hood") not in ("up", "down"))
     if noise_seed is not None:
         _apply_noise(canvas, noise_seed, noise_level)
     # Draw the hood AFTER noise: its flat crown must stay solid. Applying the

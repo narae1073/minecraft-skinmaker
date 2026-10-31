@@ -55,9 +55,9 @@ from skinmaker import hairstencil as HS
 # 재기록 — 이전: 2026-10-21 L2 부피 셸 도입. 이후 rule 경로가 조용히 변하면 잡는다.
 NOISE_OFF_GOLDEN = {
     "short": "5c4f447eccbcad89",
-    "medium": "ced82ec96eff3ece",
+    "medium": "fb14197d05ab89ed",
     "long": "932fc49675c2befd",
-    "very_long": "f03493f697f8a481",
+    "very_long": "1755345081f79872",
 }
 
 
@@ -964,3 +964,15 @@ def test_eyes_are_exactly_one_row_above_chin():
         for u in range(1, 7):
             assert canvas.get("head", "front", u, 7)[:3] == skin, (hood, u)
         assert any(canvas.get("head", "front", u, 6)[:3] != skin for u in (1, 2, 5, 6)), hood
+
+
+def test_eye_top_fringe_is_occasional_and_bottom_row_safe():
+    hits = 0
+    for i in range(30):
+        color = f"#{0x101010 + i * 0x050505:06x}"
+        canvas = R.render(observed(hair=color), attrs(hair_length="long", hair_style="long_wavy"), ())
+        if any(canvas.get("head", "front", u, 5, 1)[3] for u in (1, 6)):
+            hits += 1
+        for u in (1, 2, 5, 6):
+            assert canvas.get("head", "front", u, 6, 1)[3] == 0
+    assert 0 < hits < 30
