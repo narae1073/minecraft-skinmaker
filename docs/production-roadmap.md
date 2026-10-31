@@ -75,9 +75,11 @@ Templates are a means; the gate is measured output quality on defined data.
   noise; face/eye/beard invariants.
 - Add feature flags and fallback to the current renderer.
 
-### Phase 4 — Paired validation
+### Phase 4 — Paired validation (scaffold started)
 
-- Run the 30–50 paired pilot; human preference + VLM + structural checks.
+- `skinmaker/paired_benchmark.py` validates hand-approved pairs; `accepted` requires ≥1 approved pair with zero structural issues.
+- 10-photo current-output pilot seeded with `approved:false`; it is a regression baseline, not ground truth.
+- Next: 30–50 human-approved pairs; human preference + VLM + structural checks.
 - Tune template selection; publish failures, not just wins.
 
 ### Phase 5 — Production hardening
