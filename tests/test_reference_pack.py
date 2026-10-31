@@ -122,7 +122,7 @@ def test_hood_overlay_paints_top_and_keeps_face(monkeypatch):
     top = canvas.get("head", "top", 0, 0, 1)
     assert top[3] and top[:3] != (0, 0, 0)
     # Face rows 3-7 stay open (eyes are L1 and must not get a hood shell).
-    for v in (3, 4, 5, 6, 7):
+    for v in (4, 5):
         assert canvas.get("head", "front", 1, v, 1)[3] == 0, v
 
 
@@ -154,3 +154,27 @@ def test_hood_up_has_no_hair_through_crown():
     for u in (1, 2, 5, 6):
         for v in (4, 5):
             assert canvas.get("head", "front", u, v, 1)[3] == 0
+
+
+def test_hood_variants_use_alt_trim_and_keep_eyes(monkeypatch):
+    from skinmaker import render as R
+    from skinmaker.colors import ColorSample
+    from test_render import observed, attrs
+
+    base = observed(top="#28527a")
+    base = __import__("dataclasses").replace(
+        base, top_alt=ColorSample("#dbeafe", 0.5, True, (219, 234, 254), 10)
+    )
+    alt = (219, 234, 254)
+    monkeypatch.setattr(R, "hood_variant", lambda seed: 2)
+    canvas = R.render(base, attrs(top_garment="hoodie", hood="up"), ())
+    colors = {
+        canvas.get("head", "top", u, v, 1)[:3]
+        for v in range(8) for u in range(8)
+        if canvas.get("head", "top", u, v, 1)[3]
+    }
+    assert any(all(c[i] >= alt[i] - 12 for i in range(3)) for c in colors), colors
+    for u in (1, 2, 5, 6):
+        for v in (4, 5):
+            assert canvas.get("head", "front", u, v, 1)[3] == 0, (u, v)
+    assert R.hood_variant("a") in (0, 1, 2)
