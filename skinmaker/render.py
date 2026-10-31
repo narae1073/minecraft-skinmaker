@@ -606,13 +606,18 @@ def _l2_color(hair_c: Color, face_name: str, tone: int = 100) -> Color:
     return shade(shade(hair_c, FACE_SHADE[face_name]), mul)
 
 
+def hood_variant(seed: str) -> int:
+    """Deterministic hood archetype: snug / oversized / fur-lined."""
+    return int.from_bytes(hashlib.sha256(seed.encode()).digest()[:2], "big") % 3
+
+
 def render_hood_overlay(canvas: SkinCanvas, colors: dict[str, Color], hood: str,
-                        pack: dict | None = None, seed: str = "") -> None:
+                        pack: dict | None = None, seed: str = "",
+                        variant: int | None = None) -> None:
     """Clothing hood from the reference pack, drawn over hair on L2.
 
-    The front rows 3-7 are kept clear as the face opening; hood-up masks are
-    canonical head coverage, not a face mask. Hood-down only paints the body
-    cowl rows.
+    Solid shells with a face opening. Three procedural archetypes vary the
+    brim depth, seam placement, and trim; top_alt supplies fold/trim colour.
     """
     if hood not in ("up", "down"):
         return
@@ -620,54 +625,84 @@ def render_hood_overlay(canvas: SkinCanvas, colors: dict[str, Color], hood: str,
     if pattern is None:
         return
     base = colors.get("top") or colors["hair"]
-    if hood == "up":
-        # Solid shell, with a face opening (front rows 3-6, columns 1-6).
-        for face_name in RP.HEAD_FACES:
-            f = canvas.layout.face("head", face_name, 1)
-            face_base = shade(base, FACE_SHADE[face_name])
-            for v in range(f.h):
-                for u in range(f.w):
-                    if face_name == "front" and v >= 3 and 1 <= u <= 6:
-                        continue
-                    canvas.put("head", face_name, u, v, face_base, 1)
-        # Crown seam + highlight; brim shadow; side-frame shadow.
-        top = shade(base, FACE_SHADE["top"])
-        dark = shade(top, 0.70)
-        light = shade(top, 1.16)
-        for v in range(1, 8):
-            canvas.put("head", "top", 3, v, dark, 1)
-        for u in range(2, 6):
-            canvas.put("head", "top", u, 0, light, 1)
-        back = shade(base, FACE_SHADE["back"])
-        for v in range(0, 8):
-            canvas.put("head", "back", 4, v, shade(back, 0.78), 1)
-        front_base = shade(base, FACE_SHADE["front"])
-        for u in range(8):
-            canvas.put("head", "front", u, 2, shade(front_base, 0.66), 1)
-        for v in range(3, 7):
-            canvas.put("head", "front", 0, v, shade(front_base, 0.82), 1)
-            canvas.put("head", "front", 7, v, shade(front_base, 0.82), 1)
-        # Shoulder cowl + drawstrings in L2 body.
-        for name in ("front", "back"):
-            f = canvas.layout.face("body", name, 1)
-            cowl = shade(base, FACE_SHADE[name])
-            for v in range(2):
-                for u in range(f.w):
-                    canvas.put("body", name, u, v, cowl, 1)
-        strings = shade(base, 1.20)
-        for u in (2, 5):
-            for v in range(3):
-                canvas.put("body", "front", u, v, strings, 1)
-    else:
+    alt = colors.get("top_alt") or shade(base, 0.72)
+    if hood == "down":
         f = canvas.layout.face("body", "front", 1)
         base_front = shade(base, FACE_SHADE["front"])
         for v in range(min(3, f.h)):
             for u in range(f.w):
                 canvas.put("body", "front", u, v, base_front, 1)
-        rim = shade(base_front, 0.72)
+        rim = shade(alt, FACE_SHADE["front"])
         for u in range(f.w):
             canvas.put("body", "front", u, 2, rim, 1)
+        return
 
+    variant = hood_variant(seed) if variant is None else variant % 3
+    opening = 4 if variant == 1 else 3
+    for face_name in RP.HEAD_FACES:
+        f = canvas.layout.face("head", face_name, 1)
+        face_base = shade(base, FACE_SHADE[face_name])
+        for v in range(f.h):
+            for u in range(f.w):
+                if face_name == "front" and v >= opening and 1 <= u <= 6:
+                    continue
+                canvas.put("head", face_name, u, v, face_base, 1)
+
+    top = shade(base, FACE_SHADE["top"])
+    alt_top = shade(alt, FACE_SHADE["top"])
+    dark = shade(top, 0.68)
+    light = shade(top, 1.18)
+    # crown seam / highlight
+    seam_u = 3 if variant != 1 else 4
+    for v in range(1, 8):
+        canvas.put("head", "top", seam_u, v, shade(alt_top, 0.78), 1)
+    for u in range(2, 6):
+        canvas.put("head", "top", u, 0, light, 1)
+    if variant == 2:
+        for v in (2, 4, 6):
+            for u in range(8):
+                if u % 2 == 0:
+                    canvas.put("head", "top", u, v, alt_top, 1)
+
+    back = shade(base, FACE_SHADE["back"])
+    for v in range(8):
+        canvas.put("head", "back", 4, v, shade(back, 0.76), 1)
+    if variant == 1:
+        for u in (2, 5):
+            for v in range(2, 7):
+                canvas.put("head", "back", u, v, shade(back, 0.88), 1)
+
+    front_base = shade(base, FACE_SHADE["front"])
+    alt_front = shade(alt, FACE_SHADE["front"])
+    brim_v = 3 if variant == 1 else 2
+    canvas.put("head", "front", 0, brim_v, shade(front_base, 0.62), 1)
+    for u in range(1, 7):
+        canvas.put("head", "front", u, brim_v, shade(front_base, 0.66), 1)
+    canvas.put("head", "front", 7, brim_v, shade(front_base, 0.62), 1)
+    if variant == 2:
+        for u in range(1, 7):
+            canvas.put("head", "front", u, 1, alt_front if u % 2 else shade(alt_front, 1.18), 1)
+    for v in range(opening, 7):
+        for u in (0, 7):
+            canvas.put("head", "front", u, v, shade(front_base, 0.80 if variant != 2 else 0.70), 1)
+
+    # Shoulder cowl + drawstrings.
+    for name in ("front", "back"):
+        f = canvas.layout.face("body", name, 1)
+        cowl = shade(base, FACE_SHADE[name])
+        rows = 3 if variant == 1 else 2
+        for v in range(rows):
+            for u in range(f.w):
+                canvas.put("body", name, u, v, cowl, 1)
+        if variant == 2:
+            edge = shade(alt, FACE_SHADE[name])
+            for u in range(f.w):
+                canvas.put("body", name, u, 1, edge, 1)
+    strings = shade(alt, 1.10)
+    length = 4 if variant == 1 else 3
+    for u in (2, 5):
+        for v in range(length):
+            canvas.put("body", "front", u, v, strings, 1)
 
 def render_hair_overlay(canvas: SkinCanvas, colors: dict[str, Color], stencil, hair_length: str = "short",
                         style: str = "short", pack: dict | None = None, seed: str = "") -> None:
