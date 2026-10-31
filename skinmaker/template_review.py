@@ -49,6 +49,27 @@ def extract_eye_candidate(image: Image.Image) -> dict | None:
     }
 
 
+def eye_score(c: dict) -> dict:
+    """Objective readability score for human shortlisting (never approval)."""
+    import numpy as np
+    s = np.asarray(c["sclera"], dtype=bool)
+    i = np.asarray(c["iris"], dtype=bool)
+    ns, ni = int(s.sum()), int(i.sum())
+    both = all(bool(s[:, a:b].any() and i[:, a:b].any()) for a, b in ((1, 3), (5, 7)))
+    # Symmetry is guaranteed by extraction, but count adjacent sclera/iris support.
+    adjacent = False
+    for v in range(2):
+        for u in range(1, 7):
+            if s[v][u]:
+                for du, dv in ((1, 0), (-1, 0), (0, 1), (0, -1)):
+                    if 0 <= v + dv < 2 and 0 <= u + du < 8 and i[v + dv][u + du]:
+                        adjacent = True
+    score = (2 if ns >= 2 else 1 if ns else 0) + (2 if ni >= 2 else 1 if ni else 0)
+    score += 2 if both else 0
+    score += 1 if adjacent else 0
+    return {"score": score, "both_eyes": both, "sclera_iris_adjacent": adjacent}
+
+
 def collect_candidates(root: Path, split: dict) -> dict:
     root = Path(root)
     eyes: dict[str, dict] = {}
@@ -62,7 +83,9 @@ def collect_candidates(root: Path, split: dict) -> dict:
             continue
         e = extract_eye_candidate(im)
         if e and e["id"] not in eyes:
-            e["source"] = rel; eyes[e["id"]] = e
+            e["source"] = rel
+            e.update(eye_score(e))
+            eyes[e["id"]] = e
         if rel.startswith("hood_up/"):
             h = RP.extract_hood_up(im)
             if h:
@@ -75,7 +98,11 @@ def collect_candidates(root: Path, split: dict) -> dict:
                 hid = _hash("hood-down-", h["faces"])
                 if hid not in hood_down:
                     h["id"] = hid; h["source"] = rel; hood_down[hid] = h
-    return {"eyes": list(eyes.values()), "hood_up": list(hood_up.values()),
+    eye_list = sorted(eyes.values(), key=lambda c: (-c.get("score", 0), c["id"]))
+    # recommended = objective shortlist, NOT approval
+    for idx, c in enumerate(eye_list):
+        c["recommended"] = idx < 6 and c.get("both_eyes", False) and c.get("score", 0) >= 5
+    return {"eyes": eye_list, "hood_up": list(hood_up.values()),
             "hood_down": list(hood_down.values())}
 
 
@@ -103,7 +130,11 @@ def build_gallery(candidates: dict, out: Path) -> None:
     d = ImageDraw.Draw(sheet)
     for idx, (kind, c) in enumerate(rows):
         y = idx * (cell_h + label) + label
-        d.text((6, y - 18), f"{kind} {c['id']} src={c.get('source','')[:24]}", fill=(30, 36, 44))
+        label_text = f"{kind} {c['id']}"
+        if kind == "eye":
+            label_text += f" score={c.get('score','-')} recommended={c.get('recommended', False)}"
+        label_text += f" src={c.get('source','')[:24]}"
+        d.text((6, y - 18), label_text, fill=(30, 36, 44))
         if kind == "eye":
             im = Image.new("RGB", (8, 2), (35, 35, 35))
             for v in range(2):
