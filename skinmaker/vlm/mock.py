@@ -13,7 +13,7 @@ from typing import Any
 from PIL import Image
 
 # validate() 를 통과하는 최소 필드. 값은 흔한 캐주얼 복장이라 UI 미리보기가
-# 자연스럽다. 8필드를 모두 채운다 — 빠진 필드는 missing 으로 판정되어
+# 자연스럽다. 14필드를 모두 채운다 — 빠진 필드는 missing 으로 판정되어
 # 불확실성 플래그가 생기기 때문이다 (mock 실행이 거짓 경고를 만들지 않게).
 DEFAULT_SCENARIO: dict[str, Any] = {
     "top_garment": "tee",
@@ -22,6 +22,7 @@ DEFAULT_SCENARIO: dict[str, Any] = {
     "sleeve_len": "short",
     "hair_length": "medium",
     "hair_style": "bob",
+    "hood": "none",
     "beard": "none",
     "inner_top": "none",
     "neckwear": "none",

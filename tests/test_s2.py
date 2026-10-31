@@ -27,6 +27,7 @@ GOOD = {
     "sleeve_len": "long",
     "hair_length": "long",
     "hair_style": "long_straight",
+    "hood": "none",
     "beard": "full",
     "inner_top": "shirt",
     "neckwear": "none",

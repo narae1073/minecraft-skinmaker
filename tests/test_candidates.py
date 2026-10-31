@@ -21,6 +21,7 @@ BASE = {
     "sleeve_len": "long",
     "hair_length": "short",
     "hair_style": "short",
+    "hood": "none",
     "beard": "none",
     "inner_top": "none",
     "neckwear": "none",

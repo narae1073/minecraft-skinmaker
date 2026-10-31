@@ -17,6 +17,7 @@ ENUMS: dict[str, tuple[str, ...]] = {
     "sleeve_len": ("none", "short", "three_quarter", "long"),
     "hair_length": ("short", "medium", "long", "very_long"),
     "hair_style": ("short", "pixie", "bob", "long_straight", "long_wavy", "curly", "ponytail", "bun"),
+    "hood": ("none", "up", "down"),
     "beard": ("none", "stubble", "full"),
     "inner_top": ("none", "shirt", "tee", "knit"),
     "neckwear": ("none", "tie"),
@@ -34,6 +35,7 @@ DEFAULTS: dict[str, str] = {
     "sleeve_len": "none",
     "hair_length": "short",
     "hair_style": "short",
+    "hood": "none",
     "beard": "none",
     "inner_top": "none",
     "neckwear": "none",
@@ -44,7 +46,7 @@ DEFAULTS: dict[str, str] = {
 }
 
 FIELD_ORDER: tuple[str, ...] = (
-    "top_garment", "bottom_garment", "pattern", "sleeve_len", "hair_length", "hair_style", "beard",
+    "top_garment", "bottom_garment", "pattern", "sleeve_len", "hair_length", "hair_style", "hood", "beard",
     "inner_top", "neckwear", "closure_type", "collar_type", "pocket_type", "symmetry",
 )
 REVERSED_ORDER: tuple[str, ...] = tuple(reversed(FIELD_ORDER)) + ("hair_bbox",)
@@ -60,6 +62,7 @@ _HINTS = {
     "sleeve_len": "소매 길이. 어깨에서 끝나면 short, 손목이면 long",
     "hair_length": "머리 길이. 모자에 가렸으면 보이는 부분만",
     "hair_style": "머리 스타일. 짧은 컷=short, 픽시=pixie, 단발=bob, 긴 생머리=long_straight, 긴 웨이브=long_wavy, 곱슬=curly, 포니테일=ponytail, 묶은 올림머리=bun",
+    "hood": "상의 후드 상태. 머리에 쓰고 있으면 up, 내려서 목/어깨에 있으면 down, 후드가 없으면 none",
     "beard": "수염. 없으면 none, 짧은 수염·면도 그림자면 stubble, 뚜렷한 수염/콧수염이면 full",
     "inner_top": "안에 껴입은 상의. 목/칼라에 겉옷과 다른 안쪽 옷이 보이면 shirt/tee/knit, 단일 상의·맨목이면 none",
     "neckwear": "넥타이. 칼라 아래 타이가 보이면 tie, 없으면 none",
