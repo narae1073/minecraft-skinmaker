@@ -69,3 +69,12 @@ def test_template_review_approval_and_eye_candidate(tmp_path):
     p = tmp_path / "approvals.json"
     TR.set_approval(p, "eyes", c["id"], True, "ok")
     assert TR.load_approvals(p)["eyes"][c["id"]]["approved"] is True
+
+
+def test_eye_candidate_ranking_is_not_approval():
+    from skinmaker.template_review import eye_score
+    c = {"sclera": [[0, 1, 1, 0, 0, 1, 1, 0] for _ in range(2)],
+         "iris": [[0, 0, 1, 0, 0, 1, 0, 0] for _ in range(2)]}
+    s = eye_score(c)
+    assert s["both_eyes"] and s["sclera_iris_adjacent"]
+    assert s["score"] >= 5
