@@ -37,8 +37,11 @@ STYLE_DRAPE = {"short": (0, 0), "pixie": (0, 0), "bob": (0, 0),
                "long_straight": (5, 5), "long_wavy": (5, 6), "curly": (3, 4),
                "ponytail": (0, 0), "bun": (0, 0)}
 STYLE_BACK_ROWS = {k: v[1] for k, v in STYLE_DRAPE.items()}
-STYLE_BANGS = {"short": 3, "pixie": 3, "bob": 4, "long_straight": 4, "long_wavy": 4,
-               "curly": 4, "ponytail": 2, "bun": 2}
+# Loose styles get a longer fringe that covers the eyebrow row (4); eyes are
+# rows 5-6 and stay visible. Tied-up styles keep the forehead open. Short/pixie
+# stay partial for fully exposed foreheads.
+STYLE_BANGS = {"short": 3, "pixie": 3, "bob": 5, "long_straight": 5, "long_wavy": 5,
+               "curly": 5, "ponytail": 2, "bun": 2}
 _FALLBACK_STYLE = {"short": "short", "medium": "bob", "long": "long_straight", "very_long": "long_wavy"}
 
 
@@ -190,7 +193,7 @@ def style_body_rows(hair_style: str, hair_length: str = "short", stencil=None) -
 
 
 def style_bangs(hair_style: str) -> int:
-    """앞머리 총 행 수 (2=기본, 3=이마를 덮는 긴 앞머리). 눈 4-5행은 보호."""
+    """앞머리 총 행 수 (2=기본, 3=이마를 덮는 긴 앞머리). 눈 5-6행은 보호."""
     return STYLE_BANGS.get(hair_style, 2)
 
 

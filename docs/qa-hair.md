@@ -53,9 +53,10 @@ C. Length: for long-haired portraits, does the front chest hair reach the
    cover the whole torso? Do the bangs reach the brow without covering the eyes?
 D. Continuity: is the side hairline continuous from front to back, with no
    staircase jumps, zero-width columns, or L1/L2 mismatched silhouettes?
-F. Bang line: is there any 1px skin line inside the bangs, or between the bangs
-   and the eyes? Full-fringe styles (bob/long/curly) should have none; pulled-back
-   styles (ponytail/bun) may show a deliberate forehead.
+F. Bang policy: loose styles (bob/long_straight/long_wavy/curly) cover the eyebrow
+   row (4) but keep eyes rows 5-6 visible. Short/pixie and pulled-back
+   ponytail/bun keep the eyebrow row open. L2 may cover at most the top of the
+   eyes in a deliberate, limited style accent, never both eye rows.
 G. Pixel hygiene (mandatory): inspect at 1:1 and 8x. Reject ANY isolated/stray
    pixel, 1px gap, alternating checker, 4x4/grid pattern, or floating trim. Check
    the 2D UV of the top/front faces directly; do NOT infer cleanliness from a
