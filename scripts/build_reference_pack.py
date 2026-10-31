@@ -24,8 +24,21 @@ def main() -> None:
     ap.add_argument("--eyes", type=int, default=6)
     ap.add_argument("--hood-up", type=int, default=4)
     ap.add_argument("--hood-down", type=int, default=2)
+    ap.add_argument("--split", type=Path, default=None,
+                    help="production split.json; builds from its train list only")
     args = ap.parse_args()
-    pack = build_pack(args.refs, args.hair, args.eyes, args.hood_up, args.hood_down)
+    include = None
+    training = None
+    if args.split:
+        import json
+        split = json.loads(args.split.read_text(encoding="utf-8"))
+        include = set(split["train"])
+        training = {"split": args.split.name, "salt": split.get("salt"),
+                    "train_count": len(include), "holdout_count": split.get("holdout_count")}
+    pack = build_pack(args.refs, args.hair, args.eyes, args.hood_up, args.hood_down,
+                      include=include)
+    if training:
+        pack["training"] = training
     save_pack(pack, args.out)
     print(json.dumps({
         "out": str(args.out),

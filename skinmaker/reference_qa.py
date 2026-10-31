@@ -163,12 +163,14 @@ def qa_pack(pack: dict, manifest: dict, root: Path) -> dict:
             "mean_distance": round(float(np.mean(vals)), 4) if vals else None,
             "p90_distance": round(float(np.percentile(vals, 90)), 4) if vals else None,
         }
+    training = pack.get("training")
     return {
         "version": 1,
         "structural_issues": issues,
         "structural_ok": not issues,
         "coverage": summary,
-        "contamination": "The current pack was built from all references, including this holdout; rebuild from manifest.train for an honest score.",
+        "training": training,
+        "contamination": None if training else "Pack has no training-split metadata; it may include holdout references.",
         "paired_benchmark": "Not present. A photo→skin pair set is required before claiming production quality.",
         "train_refs": len(train_refs),
         "holdout_refs": len(holdout_refs),

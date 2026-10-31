@@ -191,15 +191,25 @@ def _medoids(patterns: list[dict], kind: str, k: int) -> list[dict]:
 
 
 def build_pack(root: Path, k_hair: int = 6, k_eyes: int = 6, k_hood_up: int = 4,
-               k_hood_down: int = 2) -> dict:
-    """Build a derived pack from out/reference_skins."""
+               k_hood_down: int = 2, include: set[str] | None = None) -> dict:
+    """Build a derived pack from out/reference_skins.
+
+    include: optional relative paths (posix) to use; used to build a train-only
+    pack so the benchmark holdout stays unseen.
+    """
     root = Path(root)
+    def allowed(path: Path) -> bool:
+        if include is None:
+            return True
+        return path.relative_to(root).as_posix() in include
     hair: dict[str, list[dict]] = {"short": [], "long": []}
     eyes: list[dict] = []
     seen_eyes: set[tuple] = set()
 
     for length in ("short", "long"):
         for path in sorted((root / f"{length}_hair").glob("*.png")):
+            if not allowed(path):
+                continue
             image = _rgba(path)
             hp = extract_hair_pattern(image)
             if hp:
@@ -215,12 +225,16 @@ def build_pack(root: Path, k_hair: int = 6, k_eyes: int = 6, k_hood_up: int = 4,
 
     hood_up = []
     for path in sorted((root / "hood_up").rglob("*.png")):
+        if not allowed(path):
+            continue
         hp = extract_hood_up(_rgba(path))
         if hp:
             hp["source"] = path.name
             hood_up.append(hp)
     hood_down = []
     for path in sorted((root / "hood_down").rglob("*.png")):
+        if not allowed(path):
+            continue
         hp = extract_hood_down(_rgba(path))
         if hp:
             hp["source"] = path.name
