@@ -203,6 +203,7 @@ def build_pack(root: Path, k_hair: int = 6, k_eyes: int = 6, k_hood_up: int = 4,
             return True
         return path.relative_to(root).as_posix() in include
     hair: dict[str, list[dict]] = {"short": [], "long": []}
+    bang_tips: dict[str, list[list[int]]] = {"short": [], "long": []}
     eyes: list[dict] = []
     seen_eyes: set[tuple] = set()
 
@@ -215,6 +216,9 @@ def build_pack(root: Path, k_hair: int = 6, k_eyes: int = 6, k_hood_up: int = 4,
             if hp:
                 hp["source"] = path.name
                 hair[length].append(hp)
+                l2 = _face_array(image, "head", "front", 1)
+                bits = [1 if l2[4][u][3] else 0 for u in range(8)]
+                bang_tips[length].append(bits)
             ep = extract_eye_pattern(image)
             if ep:
                 key = (tuple(map(tuple, ep["sclera"])), tuple(map(tuple, ep["iris"])))
@@ -254,6 +258,13 @@ def build_pack(root: Path, k_hair: int = 6, k_eyes: int = 6, k_hood_up: int = 4,
         "hair": {
             "short": _medoids(hair["short"], "hair", k_hair),
             "long": _medoids(hair["long"], "hair", k_hair),
+        },
+        "bang_tips": {
+            # Most frequent reference L2 row4 patterns (e.g. 11011011).
+            length: [list(bits) for bits, _ in
+                     sorted(__import__("collections").Counter(map(tuple, bang_tips[length])).items(),
+                            key=lambda kv: -kv[1])[:3]]
+            for length in ("short", "long")
         },
         "eyes": _medoids(eyes, "eye", k_eyes),
         "hoods": {
@@ -343,6 +354,17 @@ def select_eyes(pack: dict, seed: str = "", hooded: bool = False) -> dict | None
             return e
         pick -= w
     return eyes[-1]
+
+
+def select_bang_tips(pack: dict, length: str, style: str, seed: str = "") -> list[int] | None:
+    bucket = "long" if length in ("long", "very_long") or style in (
+        "long_straight", "long_wavy", "curly", "ponytail", "bun"
+    ) else "short"
+    tips = pack.get("bang_tips", {}).get(bucket) or []
+    if not tips:
+        return None
+    h = int.from_bytes(hashlib.sha256(f"tips:{bucket}:{style}:{seed}".encode()).digest()[:4], "big")
+    return tips[h % len(tips)]
 
 
 def select_hood(pack: dict, kind: str, seed: str = "") -> dict | None:

@@ -734,6 +734,13 @@ def render_hair_overlay(canvas: SkinCanvas, colors: dict[str, Color], stencil, h
         for v in range(min(bangs, 5)):
             for u in cols:
                 put("head", "front", u, v)
+    # Reference-derived bang tips: transparent L2 notches reveal L1 hair, not skin.
+    if bangs >= 5 and pack:
+        tips = RP.select_bang_tips(pack, length, style, seed)
+        if tips:
+            for u, bit in enumerate(tips[:8]):
+                if not bit:
+                    canvas.put("head", "front", u, 4, (0, 0, 0, 0), 1)
     # Limited L2 eye-top accent for some loose outputs: only row 5, never row 6.
     if allow_eye_fringe and style in ("bob", "long_wavy", "curly"):
         if int.from_bytes(hashlib.sha256(f"eye-fringe:{seed}".encode()).digest()[:2], "big") % 3 == 0:

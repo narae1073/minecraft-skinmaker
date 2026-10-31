@@ -56,8 +56,8 @@ from skinmaker import hairstencil as HS
 NOISE_OFF_GOLDEN = {
     "short": "5c4f447eccbcad89",
     "medium": "fb14197d05ab89ed",
-    "long": "932fc49675c2befd",
-    "very_long": "1755345081f79872",
+    "long": "4206d59ac16675aa",
+    "very_long": "51b8d5e35020bb56",
 }
 
 
