@@ -307,19 +307,6 @@ def render_head(canvas: SkinCanvas, colors: dict[str, Color], attrs: Attributes,
             canvas.put("head", "front", base_u + 1, 4, iris_c, 0)
             canvas.put("head", "front", base_u, 5, iris_c, 0)
             canvas.put("head", "front", base_u + 1, 5, iris_c, 0)
-    beard = attrs.get("beard")
-    if beard == "full":
-        beard_c = shade(hair_c, FACE_SHADE["front"])
-        for v in (6, 7):
-            for u in range(8):
-                canvas.put("head", "front", u, v, beard_c, 0)
-    elif beard == "stubble":
-        beard_c = _mix(shade(hair_c, FACE_SHADE["front"]), shade(skin_c, FACE_SHADE["front"]), 0.55)
-        for u in (0, 1, 6, 7):
-            canvas.put("head", "front", u, 6, beard_c, 0)
-        for u in range(8):
-            canvas.put("head", "front", u, 7, beard_c, 0)
-
     # HEAD ACC.(layer=1)는 손대지 않는다. 기본 투명 유지.
 
 
