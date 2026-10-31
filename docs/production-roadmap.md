@@ -57,6 +57,11 @@ Templates are a means; the gate is measured output quality on defined data.
 
 ### Phase 2 — Template library v2 (train-only, started)
 
+- A relaxed eye extractor raised holdout eye matches from 3 to 93, but produced
+  zero-sclera iris-only templates. Rejected: `reference_qa.quality_ok` now
+  requires sclera/iris support and non-flat hair tone maps. Coverage alone is not
+  a quality signal.
+
 - Extract hair L2/eyes/hood templates **only from the train split**; keep the
   holdout untouched.
 - Expand eye/hood samples with seed labels; filter costume/animal hoods; add

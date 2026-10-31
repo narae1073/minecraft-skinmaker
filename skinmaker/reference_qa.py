@@ -163,11 +163,43 @@ def qa_pack(pack: dict, manifest: dict, root: Path) -> dict:
             "mean_distance": round(float(np.mean(vals)), 4) if vals else None,
             "p90_distance": round(float(np.percentile(vals, 90)), 4) if vals else None,
         }
+    # Quality gate: a large template count must not come from degenerate
+    # iris-only eyes or unsupported masks. This caught a relaxed extractor that
+    # raised eye coverage from 3 to 93 by admitting zero-sclera templates.
+    eye_q = []
+    for p in pack.get("eyes", []):
+        try:
+            sclera = int(np.asarray(p.get("sclera", [])).sum())
+            iris = int(np.asarray(p.get("iris", [])).sum())
+        except ValueError:
+            continue
+        eye_q.append({"id": p.get("id"), "sclera": sclera, "iris": iris})
+    hair_q = []
+    for length in ("short", "long"):
+        for p in pack.get("hair", {}).get(length, []):
+            try:
+                tones = np.asarray([p["faces"][f] for f in RP.HEAD_FACES], dtype=float)
+            except (KeyError, ValueError):
+                continue
+            hair_q.append({"id": p.get("id"), "coverage": int(p.get("coverage", 0)),
+                           "tone_std": round(float(tones.std()), 2)})
+    hood_q = []
+    for kind in ("up", "down"):
+        for p in pack.get("hoods", {}).get(kind, []):
+            hood_q.append({"id": p.get("id"), "coverage": int(p.get("coverage", 0)),
+                           "kind": kind})
+    quality_ok = (
+        bool(eye_q) and all(q["sclera"] >= 1 and q["iris"] >= 1 for q in eye_q)
+        and bool(hair_q) and all(q["tone_std"] > 0.0 for q in hair_q)
+        and bool(hood_q)
+    )
     training = pack.get("training")
     return {
         "version": 1,
         "structural_issues": issues,
         "structural_ok": not issues,
+        "quality_ok": quality_ok,
+        "template_quality": {"eyes": eye_q, "hair": hair_q, "hoods": hood_q},
         "coverage": summary,
         "training": training,
         "contamination": None if training else "Pack has no training-split metadata; it may include holdout references.",
