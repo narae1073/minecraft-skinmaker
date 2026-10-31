@@ -56,7 +56,7 @@ D. Continuity: is the side hairline continuous from front to back, with no
 F. Bang policy: loose styles (bob/long_straight/long_wavy/curly) cover the eyebrow
    row (4) but keep eyes rows 5-6 visible. Short/pixie and pulled-back
    ponytail/bun keep the eyebrow row open. L2 may cover at most the top of the
-   eyes in a deliberate, limited style accent, never both eye rows.
+   eyes (row5) in a deliberate, limited style accent; row6 must stay visible.
 G. Pixel hygiene (mandatory): inspect at 1:1 and 8x. Reject ANY isolated/stray
    pixel, 1px gap, alternating checker, 4x4/grid pattern, or floating trim. Check
    the 2D UV of the top/front faces directly; do NOT infer cleanliness from a
