@@ -660,19 +660,12 @@ def render_hood_overlay(canvas: SkinCanvas, colors: dict[str, Color], hood: str,
         for u in range(2, 6):
             canvas.put("head", "top", u, 0, light, 1)
     if variant == 2:
-        # Continuous fur ring: crown top + side/back top edge, so the band does
-        # not stop at a cube corner and look like scattered pixels.
-        for v in (1, 2):
-            for u in range(8):
-                canvas.put("head", "top", u, v, alt_top, 1)
-        for face_name in ("right", "left", "back"):
-            alt_face = shade(alt, FACE_SHADE[face_name])
-            for v in (0, 1):
-                for u in range(8):
-                    canvas.put("head", face_name, u, v, alt_face, 1)
+        # Fur is a clean front-brim band. Do not ring the crown: on the cube,
+        # a crown band surfaces at the side/back edges as isolated 1px slivers.
+        pass
 
     back = shade(base, FACE_SHADE["back"])
-    for v in range(2 if variant == 2 else 0, 8):
+    for v in range(0, 8):
         canvas.put("head", "back", 4, v, shade(back, 0.76), 1)
     if variant == 1:
         for u in (2, 5):
@@ -687,7 +680,7 @@ def render_hood_overlay(canvas: SkinCanvas, colors: dict[str, Color], hood: str,
         canvas.put("head", "front", u, brim_v, shade(front_base, 0.66), 1)
     canvas.put("head", "front", 7, brim_v, shade(front_base, 0.62), 1)
     if variant == 2:
-        for u in range(1, 7):
+        for u in range(8):
             canvas.put("head", "front", u, 1, alt_front, 1)
     for v in range(opening, 7):
         for u in (0, 7):
@@ -701,15 +694,16 @@ def render_hood_overlay(canvas: SkinCanvas, colors: dict[str, Color], hood: str,
         for v in range(rows):
             for u in range(f.w):
                 canvas.put("body", name, u, v, cowl, 1)
-        if variant == 2:
+        if variant != 2:
             edge = shade(alt, FACE_SHADE[name])
             for u in range(f.w):
                 canvas.put("body", name, u, 1, edge, 1)
-    strings = shade(alt, 1.10)
-    length = 4 if variant == 1 else 3
-    for u in (2, 5):
-        for v in range(length):
-            canvas.put("body", "front", u, v, strings, 1)
+    if variant != 2:
+        strings = shade(alt, 1.10)
+        length = 4 if variant == 1 else 3
+        for u in (2, 5):
+            for v in range(length):
+                canvas.put("body", "front", u, v, strings, 1)
 
 def render_hair_overlay(canvas: SkinCanvas, colors: dict[str, Color], stencil, hair_length: str = "short",
                         style: str = "short", pack: dict | None = None, seed: str = "") -> None:
