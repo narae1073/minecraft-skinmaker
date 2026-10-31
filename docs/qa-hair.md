@@ -56,10 +56,15 @@ D. Continuity: is the side hairline continuous from front to back, with no
 F. Bang line: is there any 1px skin line inside the bangs, or between the bangs
    and the eyes? Full-fringe styles (bob/long/curly) should have none; pulled-back
    styles (ponytail/bun) may show a deliberate forehead.
+G. Pixel hygiene (mandatory): inspect at 1:1 and 8x. Reject ANY isolated/stray
+   pixel, 1px gap, alternating checker, 4x4/grid pattern, or floating trim. Check
+   the 2D UV of the top/front faces directly; do NOT infer cleanliness from a
+   contiguous-looking band. Render with noise 0 AND production noise (50%),
+   because noise is applied after most texture passes.
 E. Style: does the L2 silhouette match the portrait style
    (bob / long straight / wavy / curly / ponytail / bun / pixie)?
 Return JSON only: {"bottom":"PASS|FAIL","l2":"PASS|FAIL","length":"PASS|FAIL",
-"continuity":"PASS|FAIL","bangs":"PASS|FAIL","length":"PASS|FAIL",
+"continuity":"PASS|FAIL","bangs":"PASS|FAIL","pixels":"PASS|FAIL",
 "style":"PASS|FAIL","evidence":["..."]}.
 Do not propose code fixes; report visual defects only.
 ```

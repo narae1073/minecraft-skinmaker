@@ -235,3 +235,19 @@ def test_fur_hood_has_no_body_light_trim(monkeypatch):
             for u in range(f.w):
                 c = canvas.get("body", face, u, v, 1)[:3]
                 assert not all(abs(c[i] - alt[i]) <= 16 for i in range(3)), (face, u, v, c)
+
+
+def test_noise_cannot_scatter_fur_hood_crown(monkeypatch):
+    from skinmaker import render as R
+    from skinmaker.colors import ColorSample
+    from test_render import observed, attrs
+
+    base = observed(top="#28527a")
+    base = __import__("dataclasses").replace(
+        base, top_alt=ColorSample("#dbeafe", 0.5, True, (219, 234, 254), 10)
+    )
+    monkeypatch.setattr(R, "hood_variant", lambda seed: 2)
+    canvas = R.render(base, attrs(top_garment="hoodie", hood="up"), (),
+                      noise_seed=12345, noise_level=0.5)
+    top = {canvas.get("head", "top", u, v, 1) for v in range(8) for u in range(8)}
+    assert len(top) == 1, top  # no noise grid on the hood crown
