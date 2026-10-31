@@ -201,3 +201,41 @@ def test_fur_hood_top_is_connected(monkeypatch):
         assert any(0 <= x < 8 and 0 <= y < 8 and
                    all(abs(grid[y][x][i] - alt[i]) <= 14 for i in range(3))
                    for x, y in neighbors), (u, v)
+
+
+def test_fur_hood_has_no_accent_pixels_in_band(monkeypatch):
+    from skinmaker import render as R
+    from skinmaker.colors import ColorSample
+    from test_render import observed, attrs
+
+    base = observed(top="#28527a")
+    base = __import__("dataclasses").replace(
+        base, top_alt=ColorSample("#dbeafe", 0.5, True, (219, 234, 254), 10)
+    )
+    monkeypatch.setattr(R, "hood_variant", lambda seed: 2)
+    canvas = R.render(base, attrs(top_garment="hoodie", hood="up"), ())
+    grid = [[canvas.get("head", "top", u, v, 1)[:3] for u in range(8)] for v in range(8)]
+    assert len({grid[0][u] for u in range(8)}) == 1, "highlight above fur band"
+    for v in range(3, 8):
+        assert len({grid[v][u] for u in range(8)}) == 1, ("seam below band", v)
+
+
+def test_fur_ring_wraps_sides_and_back(monkeypatch):
+    from skinmaker import render as R
+    from skinmaker.colors import ColorSample
+    from test_render import observed, attrs
+
+    base = observed(top="#28527a")
+    base = __import__("dataclasses").replace(
+        base, top_alt=ColorSample("#dbeafe", 0.5, True, (219, 234, 254), 10)
+    )
+    monkeypatch.setattr(R, "hood_variant", lambda seed: 2)
+    canvas = R.render(base, attrs(top_garment="hoodie", hood="up"), ())
+    from skinmaker.canvas import rgba, shade
+    alt = rgba("#dbeafe")
+    for face in ("right", "left", "back"):
+        expected = shade(alt, R.FACE_SHADE[face])[:3]
+        for v in (0, 1):
+            for u in range(8):
+                c = canvas.get("head", face, u, v, 1)[:3]
+                assert c == expected, (face, u, v, c, expected)
