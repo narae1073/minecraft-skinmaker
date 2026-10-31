@@ -20,6 +20,20 @@ out/paired_benchmark/
 - `photo` must be a clear single-person image; `skin` must be a valid 64×64 RGBA
   texture.
 
+## Review
+
+```bash
+# render [photo | front | back] for every pair
+.venv/bin/python scripts/build_pair_review.py --root out/paired_benchmark
+
+# after a human looks at review_sheet.png
+.venv/bin/python scripts/review_pairs.py list
+.venv/bin/python scripts/review_pairs.py approve <id> --notes "why"
+.venv/bin/python scripts/review_pairs.py reject <id> --notes "what is wrong"
+```
+
+Approval is a human decision; the tooling never auto-approves.
+
 ## Validate
 
 ```bash

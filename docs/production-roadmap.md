@@ -78,7 +78,7 @@ Templates are a means; the gate is measured output quality on defined data.
 ### Phase 4 — Paired validation (scaffold started)
 
 - `skinmaker/paired_benchmark.py` validates hand-approved pairs; `accepted` requires ≥1 approved pair with zero structural issues.
-- 10-photo current-output pilot seeded with `approved:false`; it is a regression baseline, not ground truth.
+- 10-photo current-output pilot seeded with `approved:false`; review sheet at `out/paired_benchmark/review_sheet.png`. The sheet shows the current outputs are still rough; they are a regression baseline, not ground truth.
 - Next: 30–50 human-approved pairs; human preference + VLM + structural checks.
 - Tune template selection; publish failures, not just wins.
 

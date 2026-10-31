@@ -4,7 +4,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from PIL import Image
-from skinmaker.paired_benchmark import check_pairs
+from skinmaker.paired_benchmark import check_pairs, set_approval
 
 
 def _skin(path: Path) -> None:
@@ -32,3 +32,18 @@ def test_paired_benchmark_reports_missing_files(tmp_path):
     r = check_pairs(tmp_path)
     assert r["pair_count"] == 1
     assert any("missing" in p for p in r["structural"][0]["problems"])
+
+
+def test_set_approval_requires_pair_and_updates_meta(tmp_path):
+    import pytest
+    root = tmp_path / "pairs" / "p1"; root.mkdir(parents=True)
+    with pytest.raises(FileNotFoundError):
+        set_approval(tmp_path, "missing", True)
+    _skin(root / "skin.png")
+    Image.new("RGB", (128, 128), (100, 100, 100)).save(root / "photo.jpg")
+    (root / "meta.json").write_text("{}", encoding="utf-8")
+    set_approval(tmp_path, "p1", True, "looks good")
+    meta = json.loads((root / "meta.json").read_text())
+    assert meta["approved"] is True and meta["notes"] == "looks good"
+    set_approval(tmp_path, "p1", False)
+    assert json.loads((root / "meta.json").read_text())["approved"] is False

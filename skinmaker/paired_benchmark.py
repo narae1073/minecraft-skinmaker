@@ -59,6 +59,18 @@ def discover_pairs(root: Path) -> list[Pair]:
     return pairs
 
 
+def set_approval(root: Path, pair_id: str, approved: bool, notes: str = "") -> None:
+    """Human review only; this function never auto-approves."""
+    meta_path = Path(root) / PAIR_DIR / pair_id / "meta.json"
+    if not meta_path.is_file():
+        raise FileNotFoundError(pair_id)
+    meta = json.loads(meta_path.read_text(encoding="utf-8"))
+    meta["approved"] = bool(approved)
+    if notes:
+        meta["notes"] = notes
+    meta_path.write_text(json.dumps(meta, indent=2), encoding="utf-8")
+
+
 def check_pairs(root: Path) -> dict:
     pairs = discover_pairs(root)
     approved = 0
