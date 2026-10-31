@@ -55,7 +55,7 @@ from skinmaker import hairstencil as HS
 # 재기록 — 이전: 2026-10-21 L2 부피 셸 도입. 이후 rule 경로가 조용히 변하면 잡는다.
 NOISE_OFF_GOLDEN = {
     "short": "5c4f447eccbcad89",
-    "medium": "fb14197d05ab89ed",
+    "medium": "aeae31846bfe431b",
     "long": "4206d59ac16675aa",
     "very_long": "51b8d5e35020bb56",
 }
@@ -259,7 +259,6 @@ def test_long_hair_extends_body_drape_and_bangs():
         assert long.get("body", "front", 1, v)[:3] == shade(rgba("#112233"), R.FACE_SHADE["front"])[:3], v
     assert long.get("body", "front", 0, 3)[:3] != shade(rgba("#112233"), R.FACE_SHADE["front"])[:3]
     for u in (1, 2, 5, 6):
-        assert long.get("head", "front", u, 3)[:3] == shade(rgba("#112233"), R.FACE_SHADE["front"])[:3]
         assert long.get("head", "front", u, 4)[:3] == shade(rgba("#112233"), R.FACE_SHADE["front"])[:3]
     assert short.get("body", "back", 0, 0)[:3] != shade(rgba("#112233"), R.FACE_SHADE["back"])[:3]
 

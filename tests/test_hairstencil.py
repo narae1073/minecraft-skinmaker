@@ -458,3 +458,12 @@ def test_short_bangs_follow_visible_front_hairline():
             bang[v][u] = True
     visible = dataclasses.replace(st, front=tuple(tuple(row) for row in bang))
     assert HS.style_bangs_for_stencil("short", visible) == 5
+
+
+def test_bang_profile_shape_and_exceptions():
+    import dataclasses
+    st = HS.rule_stencil("long")
+    assert HS.style_bang_profile("long_straight", st) == (4, 5, 5, 5, 5, 5, 5, 4)
+    et = HS.rule_stencil("short")
+    exposed = dataclasses.replace(et, front=tuple(tuple(False for _ in row) for row in et.front))
+    assert HS.style_bang_profile("short", exposed) == (0, 3, 3, 3, 3, 3, 3, 0)
