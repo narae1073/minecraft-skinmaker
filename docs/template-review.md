@@ -27,3 +27,12 @@ iris-only eyes, so candidates now require human review.
 `extract_eye_candidate()` is intentionally permissive and is **not** the
 production extractor. The production pack remains the strict, quality-gated
 three-template pack until approvals are available.
+
+
+## Eye frequency
+
+`assets/eye_weights.json` controls how often approved eye templates are drawn.
+Current weights: `eye-c252cfa113=6`, `eye-463a25fbfd=2`, others=1. This makes
+c252 the most frequent eye style (~60%). All approved eyes are eligible for
+hooded and non-hooded photos; the old hood-source filter was the reason only
+eye-463 appeared on hooded renders.

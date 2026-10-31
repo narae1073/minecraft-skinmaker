@@ -324,11 +324,25 @@ def select_hair(pack: dict, length: str, style: str, seed: str = "") -> dict | N
 
 
 def select_eyes(pack: dict, seed: str = "", hooded: bool = False) -> dict | None:
+    """Weighted selection; explicit eye_weights make c252 the dominant style.
+
+    The previous hooded/source filter left only eye-463 for hooded renders. The
+    user's explicit preference now wins: all approved eyes are eligible for
+    hooded and non-hooded photos, with c252 weighted most frequent.
+    """
     eyes = pack.get("eyes", [])
-    if hooded:
-        general = [p for p in eyes if not str(p.get("source", "")).startswith(("hood_up/", "hood_down/"))]
-        eyes = general or eyes
-    return _pick(eyes, f"eyes:{seed}:{'hood' if hooded else 'general'}")
+    if not eyes:
+        return None
+    weights = pack.get("eye_weights", {})
+    total = sum(max(1, int(weights.get(e.get("id", ""), 1))) for e in eyes)
+    h = int.from_bytes(hashlib.sha256(f"eyes:{seed}:{'hood' if hooded else 'general'}".encode()).digest()[:4], "big")
+    pick = h % total
+    for e in eyes:
+        w = max(1, int(weights.get(e.get("id", ""), 1)))
+        if pick < w:
+            return e
+        pick -= w
+    return eyes[-1]
 
 
 def select_hood(pack: dict, kind: str, seed: str = "") -> dict | None:

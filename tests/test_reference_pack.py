@@ -270,9 +270,15 @@ def test_approved_templates_replace_pack_patterns():
     assert out["template_approvals"] == {"eyes": ["e1"], "hood_up": ["h1"]}
 
 
-def test_hooded_eye_selection_avoids_hood_reference_sources():
+def test_preferred_eye_is_most_frequent():
     pack = RP.load_pack()
-    for seed in ("a", "b", "c", "d"):
-        hooded = RP.select_eyes(pack, seed, hooded=True)
-        assert hooded is not None
-        assert not str(hooded.get("source", "")).startswith(("hood_up/", "hood_down/")), hooded
+    preferred = "eye-c252cfa113"
+    for hooded in (False, True):
+        counts: dict[str, int] = {}
+        for i in range(300):
+            eye = RP.select_eyes(pack, str(i), hooded=hooded)
+            counts[eye["id"]] = counts.get(eye["id"], 0) + 1
+        assert counts.get(preferred, 0) > max(
+            (n for k, n in counts.items() if k != preferred), default=0
+        ), (hooded, counts)
+        assert counts[preferred] > 120, (hooded, counts)

@@ -270,3 +270,5 @@ S0 quality/face detection (YuNet) → S1 colour measurement (white-balance + ban
 - 2026-11-01 (eye preview): shortlisted eye candidates rendered on a neutral face (`out/production_benchmark/eye_preview.png`) beside mask gallery. Still review-only, 0 approved. **642 passed**.
 
 - 2026-11-01 (user approvals + eye placement): user approved 4 eyes (including 2 zero-sclera anime eyes). Pack rebuilt from approvals; `quality_ok` now allows only explicitly approved zero-sclera templates. All eyes moved to rows **5–6** (one row above chin row7); hooded renders select only non-hood reference eye templates. Beard remains undrawn. **645 passed**.
+
+- 2026-11-01 (eye frequency): all approved eyes eligible for hooded/non-hooded; weighted eye selection `assets/eye_weights.json` makes **c252 ~60%**, 463 20%, 0eb/7de 10% each. This replaces the hood-source filter that left only 463 on hooded renders. Goldens updated, 645 passed.
