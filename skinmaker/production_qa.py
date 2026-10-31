@@ -46,15 +46,18 @@ def _check(canvas, length: str, style: str, hood: str, beard: str) -> list[str]:
     skin = shade(rgba("#e0ac69"), R.FACE_SHADE["front"])[:3]
     # Beard must never be painted. Side columns may be intentional side hair;
     # check the center jaw only (where a beard would be visible).
-    for v in (6, 7):
-        for u in range(2, 6):
-            c = canvas.get("head", "front", u, v)[:3]
-            if max(abs(c[i] - skin[i]) for i in range(3)) > R.NOISE_TOL:
-                problems.append(f"beard/skin mismatch at front({u},{v}): {c}")
-                break
+    # Eyes now occupy row 6; verify the chin row 7 and the center between eyes.
+    for u in range(2, 6):
+        c = canvas.get("head", "front", u, 7)[:3]
+        if max(abs(c[i] - skin[i]) for i in range(3)) > R.NOISE_TOL:
+            problems.append(f"beard/skin mismatch at front({u},7): {c}")
+    for u in (3, 4):
+        c = canvas.get("head", "front", u, 6)[:3]
+        if max(abs(c[i] - skin[i]) for i in range(3)) > R.NOISE_TOL:
+            problems.append(f"beard/skin mismatch at front({u},6): {c}")
     # Both eye regions must contain at least one non-skin pixel.
     for u in (1, 2, 5, 6):
-        for v in (4, 5):
+        for v in (5, 6):
             if canvas.get("head", "front", u, v)[:3] != skin:
                 break
         else:
@@ -76,7 +79,7 @@ def _check(canvas, length: str, style: str, hood: str, beard: str) -> list[str]:
                     problems.append(f"isolated hood pixel at top({u},{v})")
         # Face rows 4-5 must not get a hood L2 shell.
         for u in (1, 2, 5, 6):
-            for v in (4, 5):
+            for v in (5, 6):
                 if canvas.get("head", "front", u, v, 1)[3]:
                     problems.append(f"hood covers eye at ({u},{v})")
     return problems

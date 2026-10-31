@@ -188,8 +188,12 @@ def qa_pack(pack: dict, manifest: dict, root: Path) -> dict:
         for p in pack.get("hoods", {}).get(kind, []):
             hood_q.append({"id": p.get("id"), "coverage": int(p.get("coverage", 0)),
                            "kind": kind})
+    approved_eyes = set(pack.get("template_approvals", {}).get("eyes", []))
     quality_ok = (
-        bool(eye_q) and all(q["sclera"] >= 1 and q["iris"] >= 1 for q in eye_q)
+        bool(eye_q)
+        # Approved zero-sclera anime eyes are allowed only by explicit human
+        # approval; unapproved zero-sclera candidates remain rejected.
+        and all((q["sclera"] >= 1 and q["iris"] >= 1) or q["id"] in approved_eyes for q in eye_q)
         and bool(hair_q) and all(q["tone_std"] > 0.0 for q in hair_q)
         and bool(hood_q)
     )

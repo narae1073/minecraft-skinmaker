@@ -293,9 +293,9 @@ def render_head(canvas: SkinCanvas, colors: dict[str, Color], attrs: Attributes,
     # 홍채색은 사진 측정값 (없으면 템플릿 갈색).
     sclera = rgba("#f2f2f2")
     iris_c = colors["iris"]
-    eye_pattern = RP.select_eyes(pack, seed) if pack else None
+    eye_pattern = RP.select_eyes(pack, seed, hooded=attrs.get("hood") in ("up", "down")) if pack else None
     if eye_pattern:
-        for v, sv in enumerate((4, 5)):
+        for v, sv in enumerate((5, 6)):
             for u in range(8):
                 if eye_pattern["sclera"][v][u]:
                     canvas.put("head", "front", u, sv, sclera, 0)
@@ -303,10 +303,10 @@ def render_head(canvas: SkinCanvas, colors: dict[str, Color], attrs: Attributes,
                     canvas.put("head", "front", u, sv, iris_c, 0)
     else:
         for base_u in (1, 5):
-            canvas.put("head", "front", base_u, 4, sclera, 0)
-            canvas.put("head", "front", base_u + 1, 4, iris_c, 0)
-            canvas.put("head", "front", base_u, 5, iris_c, 0)
+            canvas.put("head", "front", base_u, 5, sclera, 0)
             canvas.put("head", "front", base_u + 1, 5, iris_c, 0)
+            canvas.put("head", "front", base_u, 6, iris_c, 0)
+            canvas.put("head", "front", base_u + 1, 6, iris_c, 0)
     # HEAD ACC.(layer=1)는 손대지 않는다. 기본 투명 유지.
 
 

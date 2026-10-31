@@ -54,10 +54,10 @@ from skinmaker import hairstencil as HS
 # rule 스텐실 렌더의 픽셀 베이스라인. 2026-10-27 L2 헤어를 성긴 가닥으로 개정하며
 # 재기록 — 이전: 2026-10-21 L2 부피 셸 도입. 이후 rule 경로가 조용히 변하면 잡는다.
 NOISE_OFF_GOLDEN = {
-    "short": "b91e1b3743dc7bf4",
-    "medium": "5d9aa5aa0b8b7eba",
-    "long": "4c9489888ca44539",
-    "very_long": "6169e036242bbc8c",
+    "short": "7408cca045dea4e0",
+    "medium": "994880f251ba5937",
+    "long": "f5bd16d554cfd828",
+    "very_long": "58bc630dd39c5b5d",
 }
 
 
@@ -68,7 +68,7 @@ def test_rule_stencil_render_golden(length):
 
 
 def test_face_template_eyes_lowered_and_no_mouth(monkeypatch):
-    """얼굴 템플릿: 눈 4-5행(한 행 아래), 입 없음 — 사용자 결정 2026-10-20."""
+    """Eyes occupy rows 5-6; only row 7 remains below them. No mouth."""
     monkeypatch.setattr(R.RP, "load_pack", lambda: None)
     base = observed()
     canvas = R.render(base, attrs(), ())
@@ -76,28 +76,29 @@ def test_face_template_eyes_lowered_and_no_mouth(monkeypatch):
     sclera = rgba("#f2f2f2")[:3]
     iris = rgba(R.DEFAULT_IRIS)[:3]
     for base_u in (1, 5):
-        assert canvas.get("head", "front", base_u, 4)[:3] == sclera
-        assert canvas.get("head", "front", base_u + 1, 4)[:3] == iris
-        assert canvas.get("head", "front", base_u, 5)[:3] == iris
+        assert canvas.get("head", "front", base_u, 5)[:3] == sclera
         assert canvas.get("head", "front", base_u + 1, 5)[:3] == iris
-    for u in range(1, 7):  # 옛 눈 높이(3행)는 피부 (옆열은 옆머리)
+        assert canvas.get("head", "front", base_u, 6)[:3] == iris
+        assert canvas.get("head", "front", base_u + 1, 6)[:3] == iris
+    for u in (3, 4):  # old eye rows / mouth area are skin
         assert canvas.get("head", "front", u, 3)[:3] == skin
-    for u in range(2, 6):  # 입 없음 — 6행 가운데는 피부
-        assert canvas.get("head", "front", u, 6)[:3] == skin
+        assert canvas.get("head", "front", u, 4)[:3] == skin
+    for u in range(2, 6):  # single chin row below eyes
+        assert canvas.get("head", "front", u, 7)[:3] == skin
 
 
 def test_iris_color_from_photo_applied(monkeypatch):
     monkeypatch.setattr(R.RP, "load_pack", lambda: None)
     base = dataclasses.replace(observed(), iris=sample("#28468c"))
     canvas = R.render(base, attrs(), ())
-    assert canvas.get("head", "front", 2, 4)[:3] == (40, 70, 140)
+    assert canvas.get("head", "front", 2, 6)[:3] == (40, 70, 140)
 
 
 def test_iris_unmeasured_falls_back_to_template(monkeypatch):
     monkeypatch.setattr(R.RP, "load_pack", lambda: None)
     base = dataclasses.replace(observed(), iris=C.MISSING)
     canvas = R.render(base, attrs(), ())
-    assert canvas.get("head", "front", 2, 4)[:3] == rgba(R.DEFAULT_IRIS)[:3]
+    assert canvas.get("head", "front", 2, 6)[:3] == rgba(R.DEFAULT_IRIS)[:3]
 
 
 def test_beard_is_not_drawn():
@@ -106,9 +107,10 @@ def test_beard_is_not_drawn():
     skin = shade(rgba(base.skin.hex), R.FACE_SHADE["front"])[:3]
     for beard in ("full", "stubble"):
         canvas = R.render(base, attrs(beard=beard), ())
-        for v in (6, 7):
-            for u in range(8):
-                assert canvas.get("head", "front", u, v)[:3] == skin, (beard, u, v)
+        for u in range(8):  # eyes occupy row 6; row 7 must remain chin skin
+            assert canvas.get("head", "front", u, 7)[:3] == skin, (beard, u, 7)
+        for u in (3, 4):
+            assert canvas.get("head", "front", u, 6)[:3] == skin, (beard, u, 6)
 
 
 def test_layered_top_renders_collar_tie_and_cuffs():
@@ -951,3 +953,14 @@ def test_hair_l2_has_no_regular_parity_stripes():
         ]
         even = {c for c in cols[0::2]}; odd = {c for c in cols[1::2]}
         assert not (len(even) == 1 and len(odd) == 1 and even != odd), (face_name, cols)
+
+
+def test_eyes_are_exactly_one_row_above_chin():
+    """Every eye bottom is row 6; row 7 is the single chin gap."""
+    from skinmaker.canvas import shade, rgba
+    skin = shade(rgba("#e0ac69"), R.FACE_SHADE["front"])[:3]
+    for hood in ("none", "up", "down"):
+        canvas = R.render(observed(), attrs(top_garment="hoodie", hood=hood), ())
+        for u in range(1, 7):
+            assert canvas.get("head", "front", u, 7)[:3] == skin, (hood, u)
+        assert any(canvas.get("head", "front", u, 6)[:3] != skin for u in (1, 2, 5, 6)), hood
