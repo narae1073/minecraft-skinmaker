@@ -58,6 +58,7 @@ F. Bang policy: loose styles (bob/long_straight/long_wavy/curly) cover the eyebr
    visible bangs; visible short bangs get the 5-row fringe. Pulled-back
    ponytail/bun keep it open. L2 may cover at most the top of the
    eyes (row5) in a deliberate, limited style accent; row6 must stay visible.
+   L2 bang-tip notches must reveal L1 hair, never skin.
 G. Pixel hygiene (mandatory): inspect at 1:1 and 8x. Reject ANY isolated/stray
    pixel, 1px gap, alternating checker, 4x4/grid pattern, or floating trim. Check
    the 2D UV of the top/front faces directly; do NOT infer cleanliness from a

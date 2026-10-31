@@ -282,3 +282,11 @@ def test_preferred_eye_is_most_frequent():
             (n for k, n in counts.items() if k != preferred), default=0
         ), (hooded, counts)
         assert counts[preferred] > 120, (hooded, counts)
+
+
+def test_bang_tip_patterns_are_reference_derived():
+    pack = RP.load_pack()
+    for length in ("short", "long"):
+        tips = pack.get("bang_tips", {}).get(length)
+        assert tips and any(0 in t for t in tips), tips
+        assert all(len(t) == 8 for t in tips)
