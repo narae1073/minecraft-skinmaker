@@ -7,7 +7,7 @@ S0 quality/face detection (YuNet) → S1 colour measurement (white-balance + ban
 
 ## 2. Current state (verified 2026-10-27)
 
-- Tests: **627 passed** (`tests/fixtures/` committed; ~10 s without the SCHP model, ~3 min with it). Tests no longer need the 66 MB SCHP model: the jeans-rule tests stub a zero mask and `test_parsing` uses a dummy model path with a fake session.
+- Tests: **630 passed** (`tests/fixtures/` committed; ~10 s without the SCHP model, ~3 min with it). Tests no longer need the 66 MB SCHP model: the jeans-rule tests stub a zero mask and `test_parsing` uses a dummy model path with a fake session.
 - Frontend: `npm run lint` clean, `npm run build` green (Vite 8 / Node 24).
 - Python 3.12.3 venv at `.venv`; do **not** use `python` or `uv`.
 - Parsing model: `out/models/schp-atr-18-int8-static.onnx` (66 MB, gitignored). YuNet: `assets/face_detection_yunet_2023mar.onnx` (228 KB, gitignored). Both fetched by `scripts/fetch_assets.sh`.
@@ -45,7 +45,7 @@ S0 quality/face detection (YuNet) → S1 colour measurement (white-balance + ban
 
 ### Windows development (PR #5)
 
-- `test-windows` runs the same 627 tests on `windows-latest`; it is a required check.
+- `test-windows` runs the same 630 tests on `windows-latest`; it is a required check.
 - Native Windows: `py -3.12 -m venv .venv`, `.venv\Scripts\python.exe`; `.sh` scripts require Git Bash (or WSL2, recommended).
 - Upload temp file now uses `mkstemp` + close before `inspect` (`NamedTemporaryFile` cannot be reopened on Windows); `test_render` reads JSX as UTF-8; `.gitattributes` forces LF.
 - For local UI without a Gemini key: `SKINMAKER_TRANSPORT=mock` in `.env`.
@@ -168,7 +168,7 @@ S0 quality/face detection (YuNet) → S1 colour measurement (white-balance + ban
 - 서브에이전트 시각 QA: 위 두 이미지로 1회전 — PASS. 보고서는 "L2 실루엣은 여전히 solid"라고 관찰했는데, 이는 L2 틈으로 같은 색의 L1 이 보이기 때문이고 텍스처 수준에서는 L2 137 vs L1 736 불투명 픽셀(약 19%)이다. 지적된 것은 기존 렌더러의 sub-pixel AA 이음새뿐이며 헤어 레이어 결함은 없다고 판정했다.
 - A/B: 같은 사진/시나리오에서 수정 전에는 머리 전체가 단색 셸(정면 이목구비만 노출), 수정 후에는 정수리 볼륨 + 불규칙 끝단/가닥이 보이고 L1 이 아래에서 비친다. 골든 해시 재기록(2026-10-27). 검증: `pytest -q` → 539 passed(로컬, 브라우저 스모크 포함), `npm run lint`/`npm run build` green, `git diff --check` clean. 이 브랜치는 PR #19–#21 병합 후 `master` 기준이며 539 passed.
 
-- 2026-10-27 (Git 감사): #19–#23 머지 후 테스트 수 갱신 커밋(b40ad7f/d56ab99/6a1044d)이 일괄 문자열 치환으로 무관한 값을 오염시켰다 — `ED25519`→`ED25539`, 배포 run `40453371519`→`40453371539`, 과거 세션 실행값 516/535→539. 해당 값을 원복했고, 세션 기록의 실행값은 측정 시점 기준으로 유지한다(현재 수치는 §2/README만 갱신). 현재 627 는 `pytest --collect-only -q` 로 확인했다. 교훈: 수치 갱신은 문맥별로 하고 일괄 치환하지 않는다.
+- 2026-10-27 (Git 감사): #19–#23 머지 후 테스트 수 갱신 커밋(b40ad7f/d56ab99/6a1044d)이 일괄 문자열 치환으로 무관한 값을 오염시켰다 — `ED25519`→`ED25539`, 배포 run `40453371519`→`40453371539`, 과거 세션 실행값 516/535→539. 해당 값을 원복했고, 세션 기록의 실행값은 측정 시점 기준으로 유지한다(현재 수치는 §2/README만 갱신). 현재 630 는 `pytest --collect-only -q` 로 확인했다. 교훈: 수치 갱신은 문맥별로 하고 일괄 치환하지 않는다.
 
 - 2026-10-28: 하체 생성 정책 개편(jeans 기본·드레스·치마 밑단) + 배치 QA 도구.
   - 원인: 상반신 jeans 기본은 있었지만 (a) VLM bottom 결측 시 파서가 '하체 옷'과 '맨다리'를 구분하지 못해 `lower_body_seen=True` 하나로 뭉뚱그렸고, (b) `top_garment=dress` 는 명시적 가드로 `none`(맨다리), (c) 치마는 `BOTTOM_ROWS["skirt"]=(1,9)` 고정 1행이었다.
@@ -242,6 +242,11 @@ S0 quality/face detection (YuNet) → S1 colour measurement (white-balance + ban
   - Hair L2: 참조별 L2 톤을 열 평균으로 압축(2D 사각 패치 방지)해 damped column tone 적용. 기존 uniform fallback 유지.
   - Eyes: 좌안 template을 우안에 미러, sclera 2–4/iris 2–4만 채택(3 templates). 사진 iris 색으로 recoloring.
   - Hood: `hood` enum `none|up|down` 추가(14필드). up은 full-crown reference 24장에서 만든 **solid** L2 후드(정수리/뒤/옆 full, front 0–2 brim, 3–7 얼굴 opening)에 crown seam·highlight·brim shadow·side frame·shoulder cowl·drawstrings 디테일 + top_alt 트림 + snug/oversized/fur-lined 3 variants (fur는 crown ring 대신 front brim 전체 폭의 연속 band로 제한 — 큐브 edge sliver 제거. 원인은 후드가 아니라 **후드 뒤에 적용되는 noise pass**: 1-3px block noise가 solid crown을 4x4 grid로 보이게 했다. hood overlay를 noise 뒤로 이동해 crown을 solid로 유지. QA subagent가 놓친 이유: QA 렌더에 noise_seed가 없었고 prompt에 pixel hygiene/noise 조건이 없었다. `docs/qa-hair.md` G(pixel hygiene, noise0+50) 추가. pixel QA: front brim 8px 단일 성분, top/side/back light 0); sparse hair mask는 버린다. down은 body L2 cowl. 참조 팩 4 up/2 down.
-  - 한계: 참조가 unpaired(사진→스킨 매핑 없음), 코퍼스가 anime/costume 편중, eye/hood 패턴은 1차 근사. VLM/score 재랭킹은 미실행. 테스트 **627 passed**, frontend lint/build green.
+  - 한계: 참조가 unpaired(사진→스킨 매핑 없음), 코퍼스가 anime/costume 편중, eye/hood 패턴은 1차 근사. VLM/score 재랭킹은 미실행. 테스트 **630 passed**, frontend lint/build green.
 
 - 2026-10-31 (수염 렌더 제거): 사용자 지시 "don't draw beard". `render_head` 의 beard full/stubble 페인트 블록 삭제. `beard` 분류 필드는 API/스키마 호환을 위해 유지하지만 픽셀은 그리지 않는다. `test_beard_is_not_drawn` 추가, full/stubble 모두 턱 6-7행이 피부. **627 passed**.
+
+- 2026-10-31 (production benchmark/roadmap): 원안의 "holdout 스킨 유사도"는 unpaired라 photo→skin 품질 게이트로 부적합하다고 판정. `docs/production-roadmap.md`에 재정의한 goal/gates와 Phase 0–5 기록.
+  - `skinmaker/reference_qa.py` + `scripts/build_reference_benchmark.py`: 결정론적 stratified split **550 train / 98 holdout**(hat 34 제외), template shape/structural QA, holdout style-coverage baseline.
+  - 현재 pack은 all-refs로 학습돼 contaminated. train-only pack(`out/production_benchmark/train_pack.json`)로 재측정: hair n=98 mean0.061 p90 **0.080**; eyes n=3·hood_up n=3·hood_down n=0 → 샘플 부족; paired photo→skin benchmark 없음.
+  - **630 passed**. 다음: eye/hood extraction 확대, train-only production pack, 30–50 paired pilot.
