@@ -1,0 +1,18 @@
+# Bang / exposure benchmark
+
+The automatic reference-bang classifier was too noisy. This benchmark requires
+human labels on train-only reference head fronts.
+
+```bash
+.venv/bin/python scripts/build_bang_benchmark.py
+# inspect out/production_benchmark/bang_review_sheet.png
+.venv/bin/python scripts/review_bangs.py set <id> --depth 0-8 --exposure covered|partial|exposed
+.venv/bin/python scripts/review_bangs.py summary
+```
+
+- 60 candidates sampled deterministically from the 550 train references.
+- Labels live in `out/production_benchmark/bang_labels.json`.
+- `summary` gives median depth and exposure counts by long/short.
+- No generated hair or renderer policy changes are derived until labels exist.
+- The current policy remains: loose=5-row eyebrow cover, short/pixie
+  exposure-aware 3/5, tied-up=2; L2 top-eye row accent only.
