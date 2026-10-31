@@ -621,34 +621,52 @@ def render_hood_overlay(canvas: SkinCanvas, colors: dict[str, Color], hood: str,
         return
     base = colors.get("top") or colors["hair"]
     if hood == "up":
+        # Solid shell, with a face opening (front rows 3-6, columns 1-6).
         for face_name in RP.HEAD_FACES:
-            mask = pattern.get("faces", {}).get(face_name)
-            if not mask:
-                continue
             f = canvas.layout.face("head", face_name, 1)
-            for v in range(min(f.h, len(mask))):
-                for u in range(min(f.w, len(mask[v]))):
-                    if not mask[v][u]:
+            face_base = shade(base, FACE_SHADE[face_name])
+            for v in range(f.h):
+                for u in range(f.w):
+                    if face_name == "front" and v >= 3 and 1 <= u <= 6:
                         continue
-                    if face_name == "front" and v >= 3:
-                        continue  # preserve the face/eyes
-                    canvas.put("head", face_name, u, v,
-                               shade(base, FACE_SHADE[face_name]), 1)
-        # 1px brim shadow at the face opening (front row 2).
-        rim = shade(base, FACE_SHADE["front"] * 0.70)
+                    canvas.put("head", face_name, u, v, face_base, 1)
+        # Crown seam + highlight; brim shadow; side-frame shadow.
+        top = shade(base, FACE_SHADE["top"])
+        dark = shade(top, 0.70)
+        light = shade(top, 1.16)
+        for v in range(1, 8):
+            canvas.put("head", "top", 3, v, dark, 1)
+        for u in range(2, 6):
+            canvas.put("head", "top", u, 0, light, 1)
+        back = shade(base, FACE_SHADE["back"])
+        for v in range(0, 8):
+            canvas.put("head", "back", 4, v, shade(back, 0.78), 1)
+        front_base = shade(base, FACE_SHADE["front"])
         for u in range(8):
-            canvas.put("head", "front", u, 2, rim, 1)
+            canvas.put("head", "front", u, 2, shade(front_base, 0.66), 1)
+        for v in range(3, 7):
+            canvas.put("head", "front", 0, v, shade(front_base, 0.82), 1)
+            canvas.put("head", "front", 7, v, shade(front_base, 0.82), 1)
+        # Shoulder cowl + drawstrings in L2 body.
+        for name in ("front", "back"):
+            f = canvas.layout.face("body", name, 1)
+            cowl = shade(base, FACE_SHADE[name])
+            for v in range(2):
+                for u in range(f.w):
+                    canvas.put("body", name, u, v, cowl, 1)
+        strings = shade(base, 1.20)
+        for u in (2, 5):
+            for v in range(3):
+                canvas.put("body", "front", u, v, strings, 1)
     else:
-        for face_name in ("front", "back"):
-            mask = pattern.get("faces", {}).get(face_name)
-            if not mask:
-                continue
-            f = canvas.layout.face("body", face_name, 1)
-            for v in range(min(f.h, len(mask))):
-                for u in range(min(f.w, len(mask[v]))):
-                    if mask[v][u]:
-                        canvas.put("body", face_name, u, v,
-                                   shade(base, FACE_SHADE[face_name]), 1)
+        f = canvas.layout.face("body", "front", 1)
+        base_front = shade(base, FACE_SHADE["front"])
+        for v in range(min(3, f.h)):
+            for u in range(f.w):
+                canvas.put("body", "front", u, v, base_front, 1)
+        rim = shade(base_front, 0.72)
+        for u in range(f.w):
+            canvas.put("body", "front", u, 2, rim, 1)
 
 
 def render_hair_overlay(canvas: SkinCanvas, colors: dict[str, Color], stencil, hair_length: str = "short",
