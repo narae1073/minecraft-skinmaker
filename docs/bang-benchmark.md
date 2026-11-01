@@ -28,3 +28,10 @@ contradictions. This set has 90% depth5 and 8/60 contradictions, so it is
 usable. `assets/bang_prior.json` records median depth 5 for both long and short.
 Depth remains "hair rows from top at center columns"; exposure is forehead/
 eyebrow visibility, not eye visibility.
+
+
+## Renderer link
+
+`skinmaker.hairstencil` loads `median_depth` from `assets/bang_prior.json` for
+loose styles and the short/pixie visible-bang fallback. Current median is 5;
+the SCHP exposure rule and tied-up 2-row rule still take precedence.
