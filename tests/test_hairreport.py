@@ -65,7 +65,7 @@ def test_report_detects_solid_l2_shell():
 def test_report_detects_chin_hair():
     img = render().copy()
     f = get_layout("classic").face("head", "bottom", 0)
-    img.putpixel((f.x + 3, f.y + 0), (17, 34, 51, 255))
+    img.putpixel((f.x + 3, f.y + 7), (17, 34, 51, 255))  # texture row 7 = chin
     report = HR.analyze(img, hair="#112233", skin="#e0ac69", hair_length="very_long")
     assert report["chin_hair"] > 0
     assert not report["ok"]
@@ -77,7 +77,7 @@ def test_report_front_hole_and_hairline_checks():
     base = canvas.image
     r = HR.analyze(base, hair="#112233", skin="#e0ac69", hair_length="long", hair_style="long_straight")
     assert r["ok"], r
-    assert r["front_body_rows"] == 5 and r["back_body_rows"] == 5
+    assert r["front_body_rows"] == 11 and r["back_body_rows"] == 12  # reference drape
 
     broken = base.copy()
     f = get_layout("classic").face("head", "front", 0)

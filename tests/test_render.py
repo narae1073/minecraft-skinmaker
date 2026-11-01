@@ -52,12 +52,12 @@ import hashlib
 from skinmaker import hairstencil as HS
 
 # rule 스텐실 렌더의 픽셀 베이스라인. 2026-10-27 L2 헤어를 성긴 가닥으로 개정하며
-# 재기록 — 2026-11-01 reference L1 shape + tones + L2 sculpt template. 이전: 2026-10-21 L2 부피 셸 도입. 이후 rule 경로가 조용히 변하면 잡는다.
+# 재기록 — 2026-11-01 chin-row flip + reference body drape (이전: reference L1 shape/tones/L2). 이전: 2026-10-21 L2 부피 셸 도입. 이후 rule 경로가 조용히 변하면 잡는다.
 NOISE_OFF_GOLDEN = {
-    "short": "6a4008d861229c68",
-    "medium": "690b11aace171e60",
-    "long": "9ff9789075c38579",
-    "very_long": "b2bf540421ce800c",
+    "short": "f9d45ddc0d3b6ab1",
+    "medium": "d4419820289f130a",
+    "long": "aad4f2e43b6ed7a0",
+    "very_long": "54bd7befaed3252e",
 }
 
 
@@ -65,6 +65,12 @@ NOISE_OFF_GOLDEN = {
 def test_rule_stencil_render_golden(length):
     canvas = R.render(observed(), attrs(hair_length=length), ())
     assert hashlib.sha256(canvas.image.tobytes()).hexdigest()[:16] == NOISE_OFF_GOLDEN[length]
+
+def _hairish(px, hair_hex: str, face: str, tol: int = 45) -> bool:
+    """Within the reference strand-shading range of the flat hair shade."""
+    ref = shade(rgba(hair_hex), R.FACE_SHADE[face])[:3]
+    return max(abs(a - b) for a, b in zip(px[:3], ref)) <= tol
+
 
 
 def test_face_template_eyes_lowered_and_no_mouth(monkeypatch):
@@ -210,16 +216,18 @@ def test_hair_overlay_is_reference_sculpt_not_silhouette_copy():
                             == off.image.getpixel((face.x + u, face.y + v))), (part, face.name, u, v)
 
 
-def test_hair_overlay_body_drape_is_solid_and_switch_off():
-    st = dataclasses.replace(HS.rule_stencil("long"), body_rows=3)
-    base = dataclasses.replace(observed(), hair_stencil=st)
-    canvas = R.render(base, attrs(hair_length="long"), ())
+def test_hair_overlay_body_drape_is_reference_strands_and_switch_off():
+    """Body L2 = reference strand template over the L1 drape, not a solid copy."""
+    base = observed()
+    canvas = R.render(base, attrs(hair_length="long", hair_style="long_straight"), ())
     cells = _opaque_cells(canvas, "body", 1)
-    # long_straight: back 5 rows (8+4+4 per row) + C front profile 2+4+4+2+2.
-    assert len(cells) == 5 * (8 + 4 + 4) + 14
-    assert all(canvas.get("body", "back", u, v, 1)[3] for v in range(5) for u in range(8))
+    back = {(u, v) for (face, u, v) in cells if face == "back"}
+    assert back and len(back) < 0.6 * 8 * 12  # sparse bands, L1 shows between
+    assert {u for u, _ in back} <= {1, 2, 3, 4, 5, 6}  # outer columns stay L1
+    for face, u, v in cells:  # every strand sits on L1 drape hair
+        assert _hairish(canvas.get("body", face, u, v, 0), base.hair.hex, face), (face, u, v)
     off = R.render(dataclasses.replace(base, hair_overlay=False), attrs(hair_length="long"), ())
-    assert off.get("body", "back", 2, 0, 1)[3] == 0
+    assert not _opaque_cells(off, "body", 1)
     assert off.get("head", "front", 0, 0, 1)[3] == 0
 
 
@@ -229,9 +237,9 @@ def test_head_bottom_rear_is_hair_and_chin_is_skin():
         canvas = R.render(observed(hair="#112233"), attrs(hair_length=length), ())
         hair = shade(rgba("#112233"), FACE_SHADE["bottom"])[:3]
         skin = shade(rgba(observed().skin.hex), FACE_SHADE["bottom"])[:3]
-        for v in range(8):
+        for v in range(8):  # physical rows: v0 = chin, v7 = back
             for u in (3, 4):
-                got = canvas.get("head", "bottom", u, v)[:3]
+                got = canvas.get("head", "bottom", u, R.bottom_row(v))[:3]
                 if v >= 8 - rear:
                     assert got == hair, (length, u, v, got)
                 else:
@@ -241,15 +249,13 @@ def test_head_bottom_rear_is_hair_and_chin_is_skin():
 def test_long_hair_extends_body_drape_and_bangs():
     short = R.render(observed(hair="#112233"), attrs(hair_length="short"), ())
     long = R.render(observed(hair="#112233"), attrs(hair_length="long", hair_style="long_straight"), ())
-    # long_straight: back 5행, front chest 3행, 앞머리 row3까지.
-    for v in range(5):
-        assert long.get("body", "back", 0, v)[:3] == shade(rgba("#112233"), R.FACE_SHADE["back"])[:3], v
-    assert long.get("body", "back", 0, 5)[:3] != shade(rgba("#112233"), R.FACE_SHADE["back"])[:3]
-    for v in range(3):
-        assert long.get("body", "front", 0, v)[:3] == shade(rgba("#112233"), R.FACE_SHADE["front"])[:3], v
-    for v in range(1, 5):
-        assert long.get("body", "front", 1, v)[:3] == shade(rgba("#112233"), R.FACE_SHADE["front"])[:3], v
-    assert long.get("body", "front", 0, 3)[:3] != shade(rgba("#112233"), R.FACE_SHADE["front"])[:3]
+    # Reference drape: back to the waist (u0/u7 11 rows), chest locks u0-1/u6-7.
+    for v in range(11):
+        assert _hairish(long.get("body", "back", 0, v), "#112233", "back"), v
+    assert not _hairish(long.get("body", "back", 0, 11), "#112233", "back")
+    for v in range(10):
+        assert _hairish(long.get("body", "front", 1, v), "#112233", "front"), v
+    assert not _hairish(long.get("body", "front", 3, 3), "#112233", "front")
     # Head L1 hair carries reference strand shading (2026-11-01): near, not equal.
     hair_front = shade(rgba("#112233"), R.FACE_SHADE["front"])[:3]
     for u in (2, 5):
@@ -257,7 +263,7 @@ def test_long_hair_extends_body_drape_and_bangs():
     skin_front = shade(rgba(observed().skin.hex), R.FACE_SHADE["front"])[:3]
     for u in (1, 6):
         assert long.get("head", "front", u, 4)[:3] == skin_front
-    assert short.get("body", "back", 0, 0)[:3] != shade(rgba("#112233"), R.FACE_SHADE["back"])[:3]
+    assert not _hairish(short.get("body", "back", 0, 0), "#112233", "back")
 
 
 def test_viewer_js_uv_rects_match_layout():
@@ -343,10 +349,11 @@ def test_mask_stencil_renders_body_back_sides_and_front_shoulder_strands(model):
     right = L.face("body", "right", 0)
     front = L.face("body", "front", 0)
 
-    assert canvas.getpixel((back.x + 4, back.y + 2))[:3] == shade(rgba(base.hair.hex), R.FACE_SHADE["back"])[:3]
-    assert canvas.getpixel((right.x + 2, right.y + 2))[:3] == shade(rgba(base.hair.hex), R.FACE_SHADE["right"])[:3]
+    # Reference drape (2026-11-01): full back, side edge columns, chest locks.
+    assert _hairish(canvas.getpixel((back.x + 4, back.y + 2)), base.hair.hex, "back")
+    assert _hairish(canvas.getpixel((right.x + 0, right.y + 2)), base.hair.hex, "right")
     for u in (0, 1, 6, 7):
-        assert canvas.getpixel((front.x + u, front.y + 1))[:3] == hair
+        assert _hairish(canvas.getpixel((front.x + u, front.y + 1)), base.hair.hex, "front")
     assert canvas.getpixel((front.x + 3, front.y + 0))[:3] == shade(rgba(base.skin.hex), 0.86)[:3]
     assert canvas.getpixel((front.x + 4, front.y + 1))[:3] == shade(rgba(base.skin.hex), 0.86)[:3]
     assert canvas.getpixel((front.x + 3, front.y + 2))[:3] == shade(rgba(base.top.hex), R.FACE_SHADE["front"])[:3]
@@ -909,8 +916,8 @@ def test_l2_style_signatures_are_distinct():
     pony = l2_body("ponytail")
     bun = l2_body("bun")
     assert not bob  # no drape
-    assert len(long_s) > 0 and len(wavy) > len(long_s)
-    assert len(curly) > 0 and len(curly) < len(long_s)
+    # Straight/wavy/curly share one reference drape (refs are unlabelled).
+    assert len(long_s) > 0 and wavy == long_s == curly
     assert any(name == "back" and u in (3, 4) for name, u, v in pony)
     assert not any(name == "back" and u in (0, 1) for name, u, v in pony)
 
@@ -929,14 +936,16 @@ def test_l2_style_signatures_are_distinct():
 
 
 def test_back_drape_caps_mask_evidence_and_no_drape_styles():
-    st = dataclasses.replace(HS.rule_stencil("long"), body_rows=12)
+    """Loose long styles use the reference drape length (back 12, chest 11),
+    not SCHP evidence; no-drape styles stay bare."""
+    st = dataclasses.replace(HS.rule_stencil("long"), body_rows=3)
     base = dataclasses.replace(observed(), hair_stencil=st)
     long = R.render(base, attrs(hair_length="long", hair_style="long_straight"), ())
-    for v in range(5):
-        assert long.get("body", "back", 0, v)[:3] == shade(rgba(base.hair.hex), R.FACE_SHADE["back"])[:3], v
-    assert long.get("body", "back", 0, 6)[:3] != shade(rgba(base.hair.hex), R.FACE_SHADE["back"])[:3]
-    for v in range(3):
-        assert long.get("body", "front", 0, v)[:3] == shade(rgba(base.hair.hex), R.FACE_SHADE["front"])[:3], v
+    for v in range(12):
+        assert _hairish(long.get("body", "back", 3, v), base.hair.hex, "back"), v
+    for v in range(11):
+        assert _hairish(long.get("body", "front", 0, v), base.hair.hex, "front"), v
+    assert not _hairish(long.get("body", "front", 3, 2), base.hair.hex, "front")  # shirt centre
     bob = R.render(base, attrs(hair_length="long", hair_style="bob"), ())
     assert bob.get("body", "back", 0, 0)[:3] != shade(rgba(base.hair.hex), R.FACE_SHADE["back"])[:3]
 

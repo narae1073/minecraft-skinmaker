@@ -30,7 +30,8 @@ from . import hairstencil as HS
 HEAD_GRID = 8
 # A head face (front excluded) with L2 coverage at or above this is a solid shell.
 SOLID_L2 = 0.90
-# v0=front(턱), v7=back. Length → rear rows (mirrors hairstencil).
+DRAPE_TOL = 45
+# Bottom texture: row 7 = front (chin), row 0 = back. Length → rear rows (mirrors hairstencil).
 REAR_ROWS = {"short": 1, "medium": 2, "long": 3, "very_long": 4}
 TOL = 30
 
@@ -104,11 +105,13 @@ def analyze(image: Image.Image, *, hair: str, skin: str, hair_length: str = "sho
         for v in range(bottom.h) for u in range(bottom.w)
     ]
     bottom_hair = sum(1 for p in bottom_px if _near(p, hair_faces["bottom"]))
+    # Texture rows: Minecraft maps the bottom face with row 7 at the chin
+    # (front) and row 0 at the back of the head (render.bottom_row).
     chin_hair = sum(
-        1 for v in range(min(4, bottom.h)) for u in range(bottom.w)
+        1 for v in range(bottom.h - 4, bottom.h) for u in range(bottom.w)
         if _near(image.getpixel((bottom.x + u, bottom.y + v)), hair_faces["bottom"])
     )
-    bottom_rear_px = [p for v in range(bottom.h - rear, bottom.h) for u in range(bottom.w)
+    bottom_rear_px = [p for v in range(0, rear) for u in range(bottom.w)
                       for p in [image.getpixel((bottom.x + u, bottom.y + v))]]
     bottom_rear_hair = sum(1 for p in bottom_rear_px if _near(p, hair_faces["bottom"]))
 
@@ -146,21 +149,25 @@ def analyze(image: Image.Image, *, hair: str, skin: str, hair_length: str = "sho
     row3_hair = sum(fgrid[3])
     style = hair_style if hair_style in HS.STYLE_DRAPE else ""
     expect_front, expect_back = HS.style_drape(style) if style else (0, 0)
-    l2f = layout.face("body", "front", 1); l2b = layout.face("body", "back", 1)
-    def l2_rows(face, u):
-        n = 0
-        for v in range(face.h):
-            if image.getpixel((face.x + u, face.y + v))[3]: n += 1
-            else: break
-        return n
-    # C-형 앞 lock 은 한 열이 5행이 아니므로, 옆 열 중 하나라도 있는 행을 센다.
+    # Drape length is measured on L1 (2026-11-01): L2 over the drape is a
+    # sparse strand template (reference), so L2 runs no longer encode length.
+    # Wider tolerance: the drape carries reference strand shading.
+    f0 = layout.face("body", "front", 0)
     front_body = 0
-    for v in range(l2f.h):
-        if any(image.getpixel((l2f.x + u, l2f.y + v))[3] for u in (0, 1, l2f.w - 2, l2f.w - 1)):
+    for v in range(f0.h):
+        if any(_near(image.getpixel((f0.x + u, f0.y + v)), hair_faces["front"], DRAPE_TOL)
+               for u in (0, 1, f0.w - 2, f0.w - 1)):
             front_body += 1
         else:
             break
-    back_body = l2_rows(l2b, 0)
+    b0 = layout.face("body", "back", 0)
+    back_body = 0
+    for v in range(b0.h):
+        if sum(_near(image.getpixel((b0.x + u, b0.y + v)), hair_faces["back"], DRAPE_TOL)
+               for u in range(b0.w)) >= b0.w // 2:
+            back_body += 1
+        else:
+            break
     full_fringe = style in ("bob", "long_straight", "long_wavy", "curly")
 
     right0 = layout.face("head", "right", 0)
@@ -202,8 +209,9 @@ def analyze(image: Image.Image, *, hair: str, skin: str, hair_length: str = "sho
         problems.append(f"front hairline skin row3 ({row3_hair}/8)")
     if style and expect_front and front_body < expect_front:
         problems.append(f"front chest {front_body} < {expect_front}")
-    if style and back_body > min(6, expect_back + 1):
-        problems.append(f"back drape {back_body} > cap {min(6, expect_back + 1)}")
+    cap = expect_back if style in HS.REF_DRAPE_STYLES else min(6, expect_back + 1)
+    if style and back_body > cap:
+        problems.append(f"back drape {back_body} > cap {cap}")
     return {
         "bottom_hair": bottom_hair,
         "bottom_rear_hair": bottom_rear_hair,

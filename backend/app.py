@@ -136,8 +136,10 @@ async def generate_skin(request: Request, file: UploadFile = File(...), noise_le
             fail(400, "bad_hair_option", f"{name} 값은 {allowed} 중 하나여야 해요: {value!r}")
         return v
 
-    hair_source = _hair_option(hair_source, ("mask", "rule"), "mask", "hair_source")
-    hair_symmetry = _hair_option(hair_symmetry, ("symmetrized", "raw"), "symmetrized", "hair_symmetry")
+    # Deprecated (2026-11-01): the head silhouette comes from the reference
+    # skeleton; the photo mask only supplies evidence (bald, length, bangs).
+    # Both fields are still accepted (old clients) but ignored.
+    hair_source, hair_symmetry = "mask", "symmetrized"
     hair_overlay = _hair_option(hair_overlay, ("on", "off"), "on", "hair_overlay")
     skin_model = resolve_skin_model(skin_model)
     # 처리 과정 시트 (설계 §12): 진위 규칙은 parsing_on 관례. 부재=생성 (기존 동작),

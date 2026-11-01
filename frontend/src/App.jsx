@@ -38,8 +38,6 @@ function App() {
   const [noiseLevel, setNoiseLevel] = useState(50); // 노이즈 세기 % (기본 50 — 사용자 결정 2026-10-13)
   const [skinModel, setSkinModel] = useState('classic'); // 체형: classic(4px 팔) | slim(3px 팔)
   const [showSteps, setShowSteps] = useState(false); // 처리 과정 표시 (기본 해제 — 사용자 결정)
-  const [hairSource, setHairSource] = useState('mask'); // 머리 실루엣 근원 (Tier 0 기본 mask — 사용자 결정 2026-10-15)
-  const [hairSymmetry, setHairSymmetry] = useState('symmetrized'); // 머리 대칭 (기본 대칭화 — 사용자 결정)
   const [hairOverlay, setHairOverlay] = useState('on'); // L2 오버레이 헤어 (기본 켜기 — 사용자 결정 2026-10-21)
   const [catInfo, setCatInfo] = useState(null); // 분류 카테고리 {attributes, candidates, noiseLevel} (설계 §11)
   const [steps, setSteps] = useState(null); // 처리 과정 시트 {clean, full} (설계 §12)
@@ -85,8 +83,6 @@ function App() {
     formData.append('file', file);
     formData.append('noise_level', String(noiseLevel / 100));
     formData.append('steps', showSteps ? '1' : '0');
-    formData.append('hair_source', hairSource);
-    formData.append('hair_symmetry', hairSymmetry);
     formData.append('hair_overlay', hairOverlay);
     formData.append('skin_model', skinModel);
 
@@ -318,32 +314,6 @@ function App() {
               처리 과정 표시 <small>(끄면 단계 이미지를 만들지 않아요)</small>
             </label>
           </div>
-          <div className="config-row">
-            <label htmlFor="hair-source">헤어스타일 표현</label>
-            <select
-              id="hair-source"
-              aria-describedby="hair-source-help"
-              value={hairSource}
-              onChange={(e) => setHairSource(e.target.value)}
-            >
-              <option value="mask">사진 속 머리 모양 반영</option>
-              <option value="rule">머리 길이에 맞춘 기본 모양</option>
-            </select>
-          </div>
-          <p id="hair-source-help" className="config-help">사진에서 머리 윤곽을 찾아 반영하거나, 추정한 머리 길이에 맞춰 단순하게 그려요. 윤곽을 찾지 못하면 기본 모양을 사용해요.</p>
-          <div className="config-row">
-            <label htmlFor="hair-symmetry">머리 좌우 모양</label>
-            <select
-              id="hair-symmetry"
-              aria-describedby="hair-symmetry-help"
-              value={hairSymmetry}
-              onChange={(e) => setHairSymmetry(e.target.value)}
-            >
-              <option value="symmetrized">좌우를 대칭으로 정리</option>
-              <option value="raw">사진의 좌우 차이 유지</option>
-            </select>
-          </div>
-          <p id="hair-symmetry-help" className="config-help">사진의 머리 윤곽을 사용할 때 적용돼요. 대칭으로 정리하거나 사진에서 감지한 좌우 차이를 남길 수 있어요.</p>
           <div className="config-row">
             <label htmlFor="hair-overlay">머리카락 볼륨</label>
             <select

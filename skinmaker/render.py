@@ -246,6 +246,16 @@ L1_TONE_SPAN_DARK, L1_TONE_SPAN_LIGHT = 14.0, 28.0
 L1_TONE_PACK_SPAN = 17.0
 
 
+def bottom_row(v: int) -> int:
+    """Physical bottom row (v0 = chin/front, v7 = back) <-> texture row.
+
+    Minecraft maps the bottom face with v reversed vs the top: texture row 7
+    touches the front. All 456 reference skins paint bottom row 7 like front
+    row 7 (chin skin) and row 0 like the back (hair). Self-inverse.
+    """
+    return 7 - v
+
+
 def _hair_tone(hair_c: Color, face_name: str, u: int, v: int, tones: dict | None) -> Color:
     """Hair colour for one head cell: face shade + reference L1 luma delta.
 
@@ -307,14 +317,15 @@ def render_head(canvas: SkinCanvas, colors: dict[str, Color], attrs: Attributes,
             for v in range(min(rows, f.h)):
                 hair_put(face_name, u, v, _hair_tone(hair_c, face_name, u, v, tones))
 
-    # 머리 아래(bottom): 뒤통수/옆머리 footprint. v0=앞(턱)은 피부 유지.
+    # 머리 아래(bottom): 뒤통수/옆머리 footprint. stencil v0=앞(턱) is physical;
+    # the texture row is flipped (Minecraft: bottom texture row 7 = chin).
     rear = HS.bottom_rear_rows(attrs.get("hair_length"), stencil)
     for v in range(HEAD_GRID := 8):
         if v < HEAD_GRID - rear:
             continue
         for u in range(HEAD_GRID):
             if stencil.bottom[v][u]:
-                hair_put("bottom", u, v, shade(hair_c, FACE_SHADE["bottom"]))
+                hair_put("bottom", u, bottom_row(v), shade(hair_c, FACE_SHADE["bottom"]))
 
     # 스타일 앞머리: loose 스타일은 눈썹 행(4)까지 덮는 5행 fringe.
     # ponytail/bun(2행)은 이마를 드러내고, short/pixie(3행)는 부분 앞머리.
@@ -383,7 +394,11 @@ def render_body(
     hair_stencil=None,
     thickness: int = 1,
     texture: FabricTexture | None = None,
-) -> None:
+    *,
+    drape: dict | None = None,
+    drape_tones: dict | None = None,
+) -> set:
+    """L1 body. Returns reference-drape hair cells (face, u, v); empty otherwise."""
     top_garment = attrs.get("top_garment")
     base = colors["skin"] if top_garment == "none" else colors["top"]
     # 상의 크롭은 VLM pattern 이 복잡할 때만 — 흰 셔츠 주름(HF 10.2)이
@@ -439,6 +454,20 @@ def render_body(
 
     # 관측된 긴 머리만 몸통으로 연장한다. 뒷면/옆면은 턱 아래 마스크 길이,
     # 앞면은 셔츠 중앙을 가리지 않도록 양쪽 바깥 2열에 어깨 가닥만 그린다.
+    if drape:
+        # Reference long-hair drape (2026-11-01): per-column depth from the
+        # reference vote (waist-length back, chest locks, side edge columns),
+        # shaded with a reference body tone map.
+        cells = set()
+        hair_c = colors["hair"]
+        for face_name, depth in drape.get("l1_depth", {}).items():
+            f = canvas.layout.face("body", face_name, 0)
+            for u, rows in enumerate(depth[:f.w]):
+                for v in range(min(rows, f.h)):
+                    canvas.put("body", face_name, u, v, _hair_tone(hair_c, face_name, u, v, drape_tones), 0)
+                    cells.add((face_name, u, v))
+        return cells
+
     back_rows = min(12, max(0, getattr(hair_stencil, "back_body_rows", 0)))
     front_rows = min(12, max(0, getattr(hair_stencil, "front_body_rows", 0)))
     if back_rows or front_rows:
@@ -454,6 +483,7 @@ def render_body(
             for u in cols:
                 if v < front.h:
                     canvas.put("body", "front", u, v, shade(hair_c, FACE_SHADE["front"]), 0)
+    return set()
 
 
 def render_arms(canvas: SkinCanvas, colors: dict[str, Color], attrs: Attributes, pattern: str, sleeve: str | None = None) -> None:
@@ -762,7 +792,8 @@ def _template_head_l2(canvas: SkinCanvas, colors: dict[str, Color], stencil, tmp
                 return True
             return style in LOOSE_STYLES and u in (0, 7) and v < 7
         if face_name == "bottom":
-            return v >= 8 - rear and bool(stencil.bottom[v][u])
+            pv = bottom_row(v)  # template rows are texture rows; stencil is physical
+            return pv >= 8 - rear and bool(stencil.bottom[pv][u])
         profile = stencil.side_profiles.get(face_name, ())
         return u < len(profile) and v < profile[u]
 
@@ -850,13 +881,14 @@ def _legacy_head_l2(canvas, put, stencil, hair_length: str, length: str, style: 
             continue
         for u in range(bottom.w):
             if stencil.bottom[v][u]:
-                put("head", "bottom", u, v)
+                put("head", "bottom", u, bottom_row(v))
 
 
 
 def render_hair_overlay(canvas: SkinCanvas, colors: dict[str, Color], stencil, hair_length: str = "short",
                         style: str = "short", pack: dict | None = None, seed: str = "",
-                        allow_eye_fringe: bool = False) -> None:
+                        allow_eye_fringe: bool = False, drape: dict | None = None,
+                        drape_tones: dict | None = None) -> None:
     """L2(오버레이) 헤어 (2026-10-29 개정: solid shell, no alpha holes).
 
     L1 실루엣과 같은 셀을 모두 채운다. 틈(1px hole)을 두지 않고 균일한 5%
@@ -917,9 +949,22 @@ def render_hair_overlay(canvas: SkinCanvas, colors: dict[str, Color], stencil, h
     else:
         _legacy_head_l2(canvas, put, stencil, hair_length, length, style, pack, seed, allow_eye_fringe)
 
-    # 몸통 드레이프: solid rows (checker 금지). 스타일별 강조를 덧칠한다.
-    body_rows = min(12, max(0, getattr(stencil, "back_body_rows", 0)))
-    front_rows = min(12, max(0, getattr(stencil, "front_body_rows", 0)))
+    # Reference long-hair drape: L2 is the reference strand template (back:
+    # three bands u1 / u3-4 / u6; front: u1/u6 chest strands), clipped to the
+    # L1 drape and coloured like the L1 cell beneath — not a solid copy.
+    if drape:
+        depth = drape.get("l1_depth", {})
+        for face_name, mask in drape.get("l2_mask", {}).items():
+            cols = depth.get(face_name, [])
+            for v, row in enumerate(mask):
+                for u, bit in enumerate(row):
+                    if bit and u < len(cols) and v < cols[u]:
+                        canvas.put("body", face_name, u, v,
+                                   _hair_tone(hair_c, face_name, u, v, drape_tones), 1)
+
+    # 몸통 드레이프 (legacy, no reference drape): solid rows.
+    body_rows = 0 if drape else min(12, max(0, getattr(stencil, "back_body_rows", 0)))
+    front_rows = 0 if drape else min(12, max(0, getattr(stencil, "front_body_rows", 0)))
     if body_rows:
         for face_name in ("back", "right", "left"):
             f = canvas.layout.face("body", face_name, 1)
@@ -933,8 +978,8 @@ def render_hair_overlay(canvas: SkinCanvas, colors: dict[str, Color], stencil, h
                 if v < f.h:
                     put("body", "front", u, v)
 
-    # 롱 웨이브: 몸통 끝단을 열마다 1행씩 더 내려 물결 실루엣 (L1 위 추가 셸).
-    if style == "long_wavy":
+    # 롱 웨이브 (legacy only): 몸통 끝단을 열마다 1행씩 더 내려 물결 실루엣.
+    if style == "long_wavy" and not drape:
         back = canvas.layout.face("body", "back", 1)
         extra = min(6, body_rows + 1)
         for u in range(back.w):
@@ -960,7 +1005,8 @@ def render_hair_overlay(canvas: SkinCanvas, colors: dict[str, Color], stencil, h
     # Connected 1px edge darkening on L2 hair adjacent to the face opening or
     # silhouette. This is colour-only (no alpha holes) and makes the shell read
     # as a layered hairstyle rather than a flat solid block.
-    edge_parts = (("body", ("front", "back")),) if tmpl else (("head", RP.HEAD_FACES), ("body", ("front", "back")))
+    body_edges = () if drape else (("body", ("front", "back")),)
+    edge_parts = body_edges if tmpl else (("head", RP.HEAD_FACES),) + body_edges
     for part, faces in edge_parts:
         for face_name in faces:
             f = canvas.layout.face(part, face_name, 1)
@@ -1044,14 +1090,18 @@ def render(
     front_rows, back_rows = HS.style_drape(style)
     # rule stencil 의 body_rows 는 길이 규칙이지 관측 증거가 아니다.
     evidence = min(12, max(0, hair_stencil.body_rows)) if observed_stencil is not None else 0
-    # 마스크 증거는 뒤 드레이프를 최대 1행만 늘린다. 12행 전체를 덮지 않는다.
-    back_rows = min(6, max(back_rows, min(evidence, back_rows + 1))) if back_rows else 0
+    drape = (pack or {}).get("hair_body") if style in HS.REF_DRAPE_STYLES else None
+    if not drape:
+        # 마스크 증거는 뒤 드레이프를 최대 1행만 늘린다. 12행 전체를 덮지 않는다.
+        back_rows = min(6, max(back_rows, min(evidence, back_rows + 1))) if back_rows else 0
     hair_stencil = replace(hair_stencil, body_rows=back_rows,
                            front_body_rows=front_rows, back_body_rows=back_rows)
     seed = f"{style}:{attrs.get('hair_length')}:{colors['hair'][:3]}"
     hair_cells = render_head(canvas, colors, attrs, hair_stencil, style=style, pack=pack, seed=seed)
     thickness = observed.stripe_px if pattern in ("vertical_stripe", "horizontal_stripe", "check", "plaid") else 1
-    render_body(canvas, colors, attrs, pattern, alt, hair_stencil, thickness,
+    drape_tones = RP.select_body_tones(pack, seed) if drape else None
+    body_cells = render_body(canvas, colors, attrs, pattern, alt, hair_stencil, thickness,
+                drape=drape, drape_tones=drape_tones,
                 texture=observed.top_texture)
     render_arms(canvas, colors, attrs, pattern, resolve_sleeve(attrs, observed))
     render_legs(
@@ -1061,12 +1111,12 @@ def render(
     )
     if observed.hair_overlay:
         render_hair_overlay(canvas, colors, hair_stencil, attrs.get("hair_length"), style,
-                            pack=pack, seed=seed,
+                            pack=pack, seed=seed, drape=drape, drape_tones=drape_tones,
                             allow_eye_fringe=attrs.get("hood") not in ("up", "down"))
     if noise_seed is not None:
         # Reference-shaded hair keeps its strands: block noise would stamp
         # 2-3px squares over them (refs have no such texture on hair).
-        keep = _hair_pixels(canvas, hair_cells) if hair_cells else {}
+        keep = _hair_pixels(canvas, hair_cells, body_cells) if (hair_cells or body_cells) else {}
         _apply_noise(canvas, noise_seed, noise_level)
         px = canvas.image.load()
         for xy, c in keep.items():
@@ -1121,11 +1171,17 @@ def _scaled_step(step: float, level: float) -> float:
     return 1.0 + (step - 1.0) * level
 
 
-def _hair_pixels(canvas: SkinCanvas, hair_cells: set) -> dict:
-    """Snapshot head hair pixels: L1 hair cells + every opaque head L2 pixel
-    (head L2 holds only hair before the hood pass)."""
+def _hair_pixels(canvas: SkinCanvas, hair_cells: set, body_cells: set = frozenset()) -> dict:
+    """Snapshot hair pixels: head L1 hair cells + every opaque head L2 pixel
+    (head L2 holds only hair before the hood pass) + reference body drape
+    cells on L1 and the L2 strands over them."""
     px = canvas.image.load()
     out = {}
+    for face_name, u, v in body_cells:
+        for layer in (0, 1):
+            f = canvas.layout.face("body", face_name, layer)
+            if px[f.x + u, f.y + v][3]:
+                out[(f.x + u, f.y + v)] = px[f.x + u, f.y + v]
     for face_name, u, v in hair_cells:
         f = canvas.layout.face("head", face_name, 0)
         out[(f.x + u, f.y + v)] = px[f.x + u, f.y + v]
