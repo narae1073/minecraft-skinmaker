@@ -169,6 +169,36 @@ def extract_l1_tones(image: Image.Image) -> dict[str, np.ndarray] | None:
     return out
 
 
+SHAPE_FACES = ("front", "right", "left", "back")
+SHAPE_VOTE = 0.6  # 0.5 flips on the ~51% row-3 bang cells; 0.6 is stable
+
+
+def extract_l1_hair_cells(image: Image.Image) -> dict[str, np.ndarray]:
+    """L1 cells whose colour matches the crown (hair) on front/right/left/back."""
+    crown = _face_array(image, "head", "top", 0)[..., :3].reshape(-1, 3).astype(np.int32)
+    hair_c = np.median(crown, axis=0)
+    return {
+        name: np.abs(_face_array(image, "head", name, 0)[..., :3].astype(np.int32) - hair_c).sum(axis=-1) < 120
+        for name in SHAPE_FACES
+    }
+
+
+def vote_l1_shape(cells: list[dict[str, np.ndarray]]) -> dict | None:
+    """Majority L1 hair silhouette as leading-hair depth per column.
+
+    Reference L1 hair is near-identical across skins: back always 8 rows,
+    sides full except an ear notch (short) or front-edge column (long),
+    front rows 0-2 full with temples deeper. Depth = first non-hair row.
+    """
+    if not cells:
+        return None
+    out = {}
+    for name in SHAPE_FACES:
+        freq = np.mean([c[name] for c in cells], axis=0) >= SHAPE_VOTE
+        out[name] = [int(np.flatnonzero(~freq[:, u])[0]) if (~freq[:, u]).any() else 8 for u in range(8)]
+    return {"profiles": out, "count": len(cells)}
+
+
 def cluster_l1_tones(maps: list[dict[str, np.ndarray]], k: int, min_count: int = 10) -> list[dict]:
     """Whole-head k-medoids (L1 distance) over L1 luma-delta maps.
 
@@ -372,6 +402,7 @@ def build_pack(root: Path, k_hair: int = 6, k_eyes: int = 6, k_hood_up: int = 4,
     seen_eyes: set[tuple] = set()
     hair_masks: dict[str, list[dict[str, np.ndarray]]] = {"short": [], "long": []}
     l1_tones: list[dict[str, np.ndarray]] = []
+    l1_cells: dict[str, list[dict[str, np.ndarray]]] = {"short": [], "long": []}
 
     for length in ("short", "long"):
         for path in sorted((root / f"{length}_hair").glob("*.png")):
@@ -381,6 +412,7 @@ def build_pack(root: Path, k_hair: int = 6, k_eyes: int = 6, k_hood_up: int = 4,
             hm = extract_hair_mask(image)
             if hm:
                 hair_masks[length].append(hm)
+            l1_cells[length].append(extract_l1_hair_cells(image))
             lt = extract_l1_tones(image)
             if lt:
                 l1_tones.append(lt)
@@ -465,6 +497,8 @@ def build_pack(root: Path, k_hair: int = 6, k_eyes: int = 6, k_hood_up: int = 4,
         },
         # Real reference L1 hair tone maps (whole-head medoids, length-agnostic).
         "hair_l1_tones": cluster_l1_tones(l1_tones, k_l1),
+        # Majority reference L1 hair silhouette per length bucket.
+        "hair_l1_shape": {length: vote_l1_shape(l1_cells[length]) for length in ("short", "long")},
         "eyes": _medoids(eyes, "eye", k_eyes),
         "hoods": {
             "up": _medoids(hood_up, "hood", k_hood_up),
@@ -613,3 +647,14 @@ def select_l1_tones(pack: dict | None, seed: str = "") -> dict | None:
             return t
         pick -= w
     return items[-1]
+
+
+# Ears exposed (tied up / cropped) -> short skeleton; hair over the ears -> long.
+SHAPE_BUCKET = {"short": "short", "pixie": "short", "ponytail": "short", "bun": "short",
+                "bob": "long", "long_straight": "long", "long_wavy": "long", "curly": "long"}
+
+
+def select_l1_shape(pack: dict | None, style: str) -> dict | None:
+    """Reference L1 hair skeleton for the style (ears exposed vs covered)."""
+    shapes = (pack or {}).get("hair_l1_shape") or {}
+    return shapes.get(SHAPE_BUCKET.get(style, "short"))

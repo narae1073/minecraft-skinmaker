@@ -477,3 +477,44 @@ def test_style_depth_is_driven_by_reference_bang_prior():
     assert HS.style_bangs("bob") == HS.LOOSE_BANGS
     assert HS.style_bangs("long_straight") == HS.LOOSE_BANGS
     assert HS.style_bangs("ponytail") == 2
+
+
+# --- reference L1 skeleton (2026-11-01) ---------------------------------------
+
+def test_reference_stencil_takes_shape_keeps_photo_evidence():
+    shape = {"profiles": {"front": [7, 5, 3, 3, 3, 3, 5, 7], "right": [8, 8, 8, 8, 8, 5, 5, 7],
+                          "left": [7, 5, 5, 8, 8, 8, 8, 8], "back": [8] * 8}}
+    photo = HS.rule_stencil("short")
+    photo = HS.HairStencil(
+        tuple(tuple(v < 5 and 2 <= u <= 5 or v < 1 for u in range(8)) for v in range(8)),
+        True, {"right": (4,) * 8, "left": (4,) * 8, "back": (4,) * 8}, 9, photo.bottom)
+    st = HS.reference_stencil(shape, photo)
+    assert st.side_profiles["right"] == (8, 8, 8, 8, 8, 5, 5, 7)
+    assert st.side_profiles["back"] == (8,) * 8
+    assert [sum(col) for col in zip(*st.front)] == [7, 5, 3, 3, 3, 3, 5, 7]
+    assert st.body_rows == 9 and st.top_hair and st.bottom == photo.bottom
+    # Photo bangs survive as evidence although the reference front has none.
+    assert st.bangs_evidence is True
+    assert HS.style_bangs_for_stencil("short", st) == 5
+    no_bangs = HS.reference_stencil(shape, HS.rule_stencil("short"))
+    assert no_bangs.bangs_evidence is False and HS.style_bangs_for_stencil("short", no_bangs) == 3
+
+
+def test_reference_stencil_keeps_bald():
+    bald = HS.HairStencil(tuple(tuple(False for _ in range(8)) for _ in range(8)), False,
+                          {"right": (0,) * 8, "left": (0,) * 8, "back": (0,) * 8})
+    shape = {"profiles": {"front": [3] * 8, "right": [8] * 8, "left": [8] * 8, "back": [8] * 8}}
+    assert HS.reference_stencil(shape, bald) is bald
+
+
+def test_committed_l1_shape_matches_reference_skeleton():
+    from skinmaker import reference_pack as RP
+    pack = RP.load_pack()
+    for style in ("short", "long_straight"):
+        prof = RP.select_l1_shape(pack, style)["profiles"]
+        assert prof["back"] == [8] * 8  # full back even for short hair
+        assert min(prof["right"][:5]) == 8  # full sides (notch only at the front edge)
+        assert prof["front"][2:6] == [3, 3, 3, 3]
+        assert max(prof["front"][1:7]) <= 5  # eye rows 5-6 never L1 hair
+    assert RP.select_l1_shape(pack, "ponytail") == RP.select_l1_shape(pack, "short")  # ears exposed
+    assert RP.select_l1_shape(pack, "bob") == RP.select_l1_shape(pack, "long_wavy")

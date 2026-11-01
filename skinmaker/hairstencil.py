@@ -16,7 +16,7 @@ from __future__ import annotations
 
 import json
 import math
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from pathlib import Path
 
 import numpy as np
@@ -72,6 +72,9 @@ class HairStencil:
     # 머리 아래(bottom) 8×8. v0=앞(턱), v7=뒤. 렌더가 effective length 로 뒤쪽 행을 트림한다.
     front_body_rows: int = 0
     back_body_rows: int = 0
+    # Photo evidence of centre bangs (rows 3-4). None = read it from `front`.
+    # Set by reference_stencil, whose front is the reference shape, not the photo.
+    bangs_evidence: bool | None = None
 
     @property
     def side_rows(self) -> dict[str, int]:
@@ -220,10 +223,39 @@ def style_bangs_for_stencil(hair_style: str, stencil: "HairStencil") -> int:
     short/pixie class needs photo-dependent disambiguation.
     """
     if hair_style in ("short", "pixie"):
-        center = any(stencil.front[v][u] for v in (3, 4) for u in (2, 3, 4, 5))
+        center = getattr(stencil, "bangs_evidence", None)
+        if center is None:
+            center = _front_center_bangs(stencil.front)
         if center:
             return 5
     return style_bangs(hair_style)
+
+
+def _front_center_bangs(front) -> bool:
+    return any(front[v][u] for v in (3, 4) for u in (2, 3, 4, 5))
+
+
+def is_bald(stencil: "HairStencil") -> bool:
+    return not stencil.top_hair and not any(any(row) for row in stencil.front)
+
+
+def reference_stencil(shape: dict, base: "HairStencil") -> "HairStencil":
+    """Reference L1 hair skeleton + photo evidence (2026-11-01).
+
+    Shape (front/side/back silhouette) comes from the reference majority
+    vote; the photo stencil (SCHP or rule) only contributes evidence: bald
+    crown, body-hair length, bottom footprint and visible centre bangs. The
+    SCHP 8x8 projection gave 1-row foreheads and ragged 4-8-row sides; refs
+    have 3-row L1 fronts and full sides/back for short hair too.
+    """
+    if is_bald(base):
+        return base
+    prof = shape.get("profiles", {})
+    fdepth = prof.get("front") or [2] * HEAD_GRID
+    front = tuple(tuple(v < fdepth[u] for u in range(HEAD_GRID)) for v in range(HEAD_GRID))
+    sides = {f: tuple(prof.get(f) or base.side_profiles.get(f, (0,) * HEAD_GRID)) for f in ("right", "left", "back")}
+    return replace(base, front=front, side_profiles=sides,
+                   bangs_evidence=_front_center_bangs(base.front))
 
 
 def style_bang_profile(hair_style: str, stencil: "HairStencil") -> tuple[int, ...]:

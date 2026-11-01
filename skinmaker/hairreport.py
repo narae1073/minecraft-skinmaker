@@ -165,7 +165,9 @@ def analyze(image: Image.Image, *, hair: str, skin: str, hair_length: str = "sho
 
     right0 = layout.face("head", "right", 0)
     profile = _profile(image, right0, hair_faces["right"])
-    jumps = max((abs(profile[i] - profile[i - 1]) for i in range(1, len(profile))), default=0)
+    # Right face u7 = front. The front 3 columns hold the reference ear notch /
+    # temple edge (e.g. 8,8,8,8,8,5,5,7), so continuity is checked on u0-u4.
+    jumps = max((abs(profile[i] - profile[i - 1]) for i in range(1, min(5, len(profile)))), default=0)
     body = layout.face("body", "back", 0)
     rows = _rows_of_hair(image, body, hair_faces["back"])
     body_rows = 0

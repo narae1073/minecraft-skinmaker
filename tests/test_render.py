@@ -52,12 +52,12 @@ import hashlib
 from skinmaker import hairstencil as HS
 
 # rule 스텐실 렌더의 픽셀 베이스라인. 2026-10-27 L2 헤어를 성긴 가닥으로 개정하며
-# 재기록 — 2026-11-01 L1 reference tones + L2 sculpt template (hair_masks). 이전: 2026-10-21 L2 부피 셸 도입. 이후 rule 경로가 조용히 변하면 잡는다.
+# 재기록 — 2026-11-01 reference L1 shape + tones + L2 sculpt template. 이전: 2026-10-21 L2 부피 셸 도입. 이후 rule 경로가 조용히 변하면 잡는다.
 NOISE_OFF_GOLDEN = {
-    "short": "a0ffca523a95e097",
-    "medium": "74f49dd74bc74bfa",
-    "long": "a5d3e46a2d45404e",
-    "very_long": "9f3535e7484003be",
+    "short": "6a4008d861229c68",
+    "medium": "690b11aace171e60",
+    "long": "9ff9789075c38579",
+    "very_long": "b2bf540421ce800c",
 }
 
 
@@ -185,7 +185,8 @@ def test_hair_overlay_is_reference_sculpt_not_silhouette_copy():
     """L2 is a sparse reference sculpt over L1 (2026-11-01: solid shell → template)."""
     base = observed(hair="#112233")
     canvas = R.render(base, attrs(hair_length="short"), ())
-    stencil = HS.rule_stencil("short")
+    from skinmaker import reference_pack as RP
+    stencil = HS.reference_stencil(RP.select_l1_shape(RP.load_pack(), "short"), HS.rule_stencil("short"))
 
     l1_cells = sum(1 for row in stencil.front for on in row if on) + 64
     l1_cells += sum(sum(stencil.side_profiles[f]) for f in ("right", "back", "left"))
@@ -310,21 +311,19 @@ def test_stencil_wiring_rule_path_identical():
         assert with_stencil.image.tobytes() == without.image.tobytes(), length
 
 
-def test_render_consumes_mask_stencil():
-    """모호크 스텐실 → 옆/뒷면을 머리색으로 못 칠한다 (오늘은 무조건 칠했다).
-
-    스텐실 side_rows 0 → 오른쪽 면이 피부 음영이고, rule(short) 기본과 다르다.
-    """
-    stencil = HS.HairStencil(
-        tuple(tuple(False for _ in range(8)) for _ in range(8)), True,
-        {"left": (0,) * 8, "right": (0,) * 8,
-         "back": (0, 0, 0, 0, 0, 0, 0, 0)})
+def test_render_consumes_mask_stencil_evidence_not_shape():
+    """2026-11-01: the photo stencil supplies evidence (bald, length, bangs);
+    the silhouette comes from the reference skeleton."""
+    bald = HS.HairStencil(
+        tuple(tuple(False for _ in range(8)) for _ in range(8)), False,
+        {"left": (0,) * 8, "right": (0,) * 8, "back": (0,) * 8})
     base = observed()
-    canvas = R.render(dataclasses.replace(base, hair_stencil=stencil), attrs(), ())
-    right = canvas.get("head", "right", 3, 3)[:3]
-    assert right == shade(rgba(base.skin.hex), R.FACE_SHADE["right"])[:3], right
-    legacy = R.render(base, attrs(hair_length="long"), ())
-    assert legacy.get("head", "right", 3, 3)[:3] != right  # 오늘(long)은 옆면 0-5행이 머리색
+    skin_right = shade(rgba(base.skin.hex), R.FACE_SHADE["right"])[:3]
+    canvas = R.render(dataclasses.replace(base, hair_stencil=bald), attrs(), ())
+    assert canvas.get("head", "right", 3, 3)[:3] == skin_right  # bald stays bald
+    mohawk = dataclasses.replace(bald, top_hair=True)
+    canvas = R.render(dataclasses.replace(base, hair_stencil=mohawk), attrs(), ())
+    assert canvas.get("head", "right", 3, 3)[:3] != skin_right  # reference full sides
 
 
 @pytest.mark.parametrize("model", ["classic", "slim"])
@@ -384,15 +383,17 @@ def test_hair_base_always_painted_and_overlay_follows_switch():
 
 
 def test_long_hair_covers_more_than_short():
+    """Reference heads have a full back for short hair too; length shows in the
+    body drape and the ear notch (short exposes ears, long covers them)."""
     short = R.render(observed(), attrs(hair_length="short"), (), "classic")
     long = R.render(observed(), attrs(hair_length="very_long"), (), "classic")
-    back = get_layout("classic").face("head", "back", 0)
-    x, y = back.x + 2, back.y + 6
-    assert short.image.getpixel((x, y)) != long.image.getpixel((x, y))
-    # Reference L1 shading: within the strand delta range of the flat shade.
-    flat = shade(rgba("#3a2a1c"), 0.90)[:3]
-    assert sum(abs(a - b) for a, b in zip(long.image.getpixel((x, y))[:3], flat)) <= 3 * 30
-
+    skin = shade(rgba(observed().skin.hex), R.FACE_SHADE["back"])[:3]
+    for c in (short, long):
+        assert all(c.get("head", "back", u, 7)[:3] != skin for u in range(8))
+    assert long.get("body", "back", 2, 0)[:3] != short.get("body", "back", 2, 0)[:3]
+    skin_r = shade(rgba(observed().skin.hex), R.FACE_SHADE["right"])[:3]
+    assert short.get("head", "right", 5, 5)[:3] == skin_r  # ear notch
+    assert long.get("head", "right", 5, 5)[:3] != skin_r
 
 def test_sleeve_long_vs_short():
     short = R.render(observed(), attrs(sleeve_len="short"), (), "classic")
@@ -916,8 +917,10 @@ def test_l2_style_signatures_are_distinct():
     # bob/short 프린지 차이: bob 은 2행까지, short 은 2행 위를 덮지 않는다.
     bobc = R.render(observed(), _style_attrs("bob", "short"), ())
     shortc = R.render(observed(), _style_attrs("short", "short"), ())
-    assert bobc.get("head", "front", 1, 3, 1)[3] != 0
-    assert shortc.get("head", "front", 1, 3, 1)[3] == 0
+    # Reference short hair has L2 at the temples too (row3 u1: 99% of refs);
+    # the style contrast is the centre fringe: bob covers row 4, short is open.
+    assert bobc.get("head", "front", 3, 4, 1)[3] != 0
+    assert shortc.get("head", "front", 3, 4, 1)[3] == 0
 
     # bun: 뒤통수 상단 밝은 덩어리.
     bunc = R.render(observed(hair="#112233"), _style_attrs("bun"), ())

@@ -669,6 +669,8 @@ def render_hood_overlay(canvas: SkinCanvas, colors: dict[str, Color], hood: str,
         for v in range(f.h):
             for u in range(f.w):
                 if face_name == "front" and v >= opening and 1 <= u <= 6:
+                    # The opening shows the L1 face; hair L2 must not poke through.
+                    canvas.put("head", face_name, u, v, (0, 0, 0, 0), 1)
                     continue
                 canvas.put("head", face_name, u, v, face_base, 1)
 
@@ -1034,6 +1036,11 @@ def render(
     if "hair_style" in attrs.missing or "hair_style" in attrs.coerced:
         style_value = ""
     style = HS.effective_hair_style(style_value, attrs.get("hair_length"), hair_stencil)
+    pack = RP.load_pack()
+    # Reference L1 silhouette; the photo stencil supplies evidence only.
+    shape = RP.select_l1_shape(pack, style) if pack else None
+    if shape:
+        hair_stencil = HS.reference_stencil(shape, hair_stencil)
     front_rows, back_rows = HS.style_drape(style)
     # rule stencil 의 body_rows 는 길이 규칙이지 관측 증거가 아니다.
     evidence = min(12, max(0, hair_stencil.body_rows)) if observed_stencil is not None else 0
@@ -1041,7 +1048,6 @@ def render(
     back_rows = min(6, max(back_rows, min(evidence, back_rows + 1))) if back_rows else 0
     hair_stencil = replace(hair_stencil, body_rows=back_rows,
                            front_body_rows=front_rows, back_body_rows=back_rows)
-    pack = RP.load_pack()
     seed = f"{style}:{attrs.get('hair_length')}:{colors['hair'][:3]}"
     hair_cells = render_head(canvas, colors, attrs, hair_stencil, style=style, pack=pack, seed=seed)
     thickness = observed.stripe_px if pattern in ("vertical_stripe", "horizontal_stripe", "check", "plaid") else 1
