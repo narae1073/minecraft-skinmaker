@@ -24,3 +24,14 @@ Clearing L1/L2 front side cells outside the bang profile was tested and
 rejected: it created bald temple gaps and a much worse hairline. The current
 stencil side hair is retained; the fringe profile only adds/overrides the top
 hairline, it does not erase the photo-derived side silhouette.
+
+## Side/back sheet
+
+```bash
+.venv/bin/python scripts/build_hair_side_ab.py
+```
+
+`out/production_benchmark/hair_side_ab.png` shows front/right/back strips for
+three current styles vs three train references per length. Current sides are
+still darker/flatter; flat side/back reference patterns now receive one dark
+and one light accent.

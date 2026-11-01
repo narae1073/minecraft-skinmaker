@@ -310,3 +310,5 @@ S0 quality/face detection (YuNet) → S1 colour measurement (white-balance + ban
 - 2026-11-01 (additive side locks): bob/long loose no-hood fronts get one L2 hair column at u0/u7 rows3-6 when the edge is empty; adds side volume without erasing SCHP hair or touching eyes. Bob golden changed. 657 tests.
 
 - 2026-11-01 (body-drape accents): the reference dark/light accent columns now also apply to long-style body hair (v>=1), not only the head. Head goldens for long/very_long changed; no eye/QA change. 657 tests.
+
+- 2026-11-01 (side/back A/B + flat accents): side/back sheet added; flat reference tone maps on side/back now get one dark + one light accent. Only very_long golden changed; side/back remain dark. 657 tests.

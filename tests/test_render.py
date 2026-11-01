@@ -57,7 +57,7 @@ NOISE_OFF_GOLDEN = {
     "short": "d391518d983c3ac5",
     "medium": "fbd8c4518a33ea00",
     "long": "a6bf1b8e684a12b6",
-    "very_long": "6458ea7bcfc7c1b6",
+    "very_long": "03faa9443a55404c",
 }
 
 
