@@ -49,8 +49,12 @@ LOOSE_BANGS = _bang_prior_depth("long")
 SHORT_BANGS = _bang_prior_depth("short")
 
 
+# Loose long styles share one reference drape (2026-11-01): references are not
+# labelled straight/wavy/curly, so the old per-style drape lengths were invented.
+# Reference long hair reaches the waist: back 12 rows, chest locks 11.
+REF_DRAPE_STYLES = ("long_straight", "long_wavy", "curly")
 STYLE_DRAPE = {"short": (0, 0), "pixie": (0, 0), "bob": (0, 0),
-               "long_straight": (5, 5), "long_wavy": (5, 6), "curly": (3, 4),
+               "long_straight": (11, 12), "long_wavy": (11, 12), "curly": (11, 12),
                "ponytail": (0, 0), "bun": (0, 0)}
 STYLE_BACK_ROWS = {k: v[1] for k, v in STYLE_DRAPE.items()}
 # Loose styles get a longer fringe that covers the eyebrow row (4); eyes are

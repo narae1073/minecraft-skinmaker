@@ -14,10 +14,15 @@ export function boxWithUV(w, h, d, faces) {
   const order = ['px', 'nx', 'py', 'ny', 'pz', 'nz'];
   order.forEach((key, i) => {
     const [u0, v0, u1, v1] = rectUV(faces[key]);
-    uv.setXY(i * 4 + 0, u0, v1);
-    uv.setXY(i * 4 + 1, u1, v1);
-    uv.setXY(i * 4 + 2, u0, v0);
-    uv.setXY(i * 4 + 3, u1, v0);
+    // Minecraft maps the bottom (ny) texture with v reversed vs the top: the
+    // texture's last row touches the FRONT (chin). BoxGeometry's ny plane puts
+    // the first vertex row at +z (front), so swap rows. Evidence: 456 reference
+    // skins paint bottom row 7 like front row 7 (2026-11-01).
+    const [top, bot] = key === 'ny' ? [v0, v1] : [v1, v0];
+    uv.setXY(i * 4 + 0, u0, top);
+    uv.setXY(i * 4 + 1, u1, top);
+    uv.setXY(i * 4 + 2, u0, bot);
+    uv.setXY(i * 4 + 3, u1, bot);
   });
   uv.needsUpdate = true;
   return geo;

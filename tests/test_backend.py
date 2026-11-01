@@ -422,20 +422,26 @@ def test_generate_echoes_hair_options():
     r_off = post(hair_overlay="off")
     assert r_off.status_code == 200
     assert r_off.json()["data"]["hair_overlay"] == "off"
+    # Deprecated 2026-11-01: hair_source/hair_symmetry are accepted but ignored
+    # (reference skeleton owns the silhouette); responses echo the effective values.
     r_rule = post(hair_source="rule", hair_symmetry="raw")
     assert r_rule.status_code == 200
     body = r_rule.json()["data"]
-    assert body["hair_source"] == "rule"
-    assert body["hair_symmetry"] == "raw"
+    assert body["hair_source"] == "mask"
+    assert body["hair_symmetry"] == "symmetrized"
 
 
-def test_generate_rejects_bad_hair_option():
+def test_generate_ignores_deprecated_hair_options():
     with PHOTO.open("rb") as f:
         r = client().post("/api/v1/generate-skin",
                           files={"file": ("m.jpg", f, "image/jpeg")},
-                          data={"hair_source": "bogus"})
-    assert r.status_code == 400, r.text
-    assert r.json()["detail"]["code"] == "bad_hair_option"
+                          data={"hair_source": "bogus", "hair_symmetry": "bogus"})
+    assert r.status_code == 200, r.text
+    with PHOTO.open("rb") as f:
+        r = client().post("/api/v1/generate-skin",
+                          files={"file": ("m.jpg", f, "image/jpeg")},
+                          data={"hair_overlay": "bogus"})
+    assert r.status_code == 400 and r.json()["detail"]["code"] == "bad_hair_option"
 
 
 def test_generate_returns_steps_sheets():

@@ -199,6 +199,64 @@ def vote_l1_shape(cells: list[dict[str, np.ndarray]]) -> dict | None:
     return {"profiles": out, "count": len(cells)}
 
 
+BODY_FACES = ("front", "back", "right", "left")
+BODY_HAIR_TOL = 90  # body L1 vs crown colour; shirts overlap hair colours more than heads
+
+
+def extract_body_hair(image: Image.Image) -> tuple[dict, dict, dict | None]:
+    """Long-hair body drape: (L1 hair cells, L2 hair cells, L1 luma deltas).
+
+    Deltas are None unless the back is a real drape (rows 0-9 >= 85% hair).
+    """
+    crown = _face_array(image, "head", "top", 0)[..., :3].reshape(-1, 3).astype(np.int32)
+    hair_c = np.median(crown, axis=0)
+    l1c, l2c, deltas = {}, {}, {}
+    for name in BODY_FACES:
+        l1 = _face_array(image, "body", name, 0).astype(np.int32)
+        l2 = _face_array(image, "body", name, 1).astype(np.int32)
+        l1c[name] = np.abs(l1[..., :3] - hair_c).sum(axis=-1) < BODY_HAIR_TOL
+        l2c[name] = (l2[..., 3] > 0) & (np.abs(l2[..., :3] - hair_c).sum(axis=-1) < HAIR_COLOUR_TOL)
+        m = l1c[name]
+        lum = _luma(l1[..., :3].astype(np.float32))
+        med = float(np.median(lum[m])) if m.any() else 0.0
+        delta = np.clip(np.rint(lum - med), -L1_DELTA_CLIP, L1_DELTA_CLIP)
+        tones = np.zeros(m.shape)
+        for u in range(m.shape[1]):
+            col = m[:, u]
+            fill = float(np.median(delta[col, u])) if col.any() else 0.0
+            tones[:, u] = np.where(col, delta[:, u], np.rint(fill))
+        deltas[name] = tones.astype(np.int16)
+    if l1c["back"][:10].mean() < 0.85:
+        return l1c, l2c, None
+    return l1c, l2c, deltas
+
+
+def build_body_drape(l1_cells: list[dict], l2_cells: list[dict], tones: list[dict],
+                     k: int = 6, min_count: int = 10) -> dict | None:
+    """Reference long-hair body drape: L1 depth per column (60% vote), L2
+    strand template (50% vote), and L1 luma-delta medoids (whole body)."""
+    if not l1_cells:
+        return None
+    depth, l2 = {}, {}
+    for name in BODY_FACES:
+        freq = np.mean([c[name] for c in l1_cells], axis=0) >= SHAPE_VOTE
+        depth[name] = [int(np.flatnonzero(~freq[:, u])[0]) if (~freq[:, u]).any() else freq.shape[0]
+                       for u in range(freq.shape[1])]
+        l2[name] = (np.mean([c[name] for c in l2_cells], axis=0) >= 0.5).astype(np.uint8).tolist()
+    tone_items = []
+    if tones:
+        X = np.stack([np.concatenate([t[f].reshape(-1) for f in BODY_FACES]) for t in tones]).astype(np.int32)
+        kk = min(k, len(X))
+        D = np.abs(X[:, None, :] - X[None, :, :]).sum(axis=-1)
+        medoids, assign = _kmedoids(D, kk)
+        for c, idx in enumerate(medoids):
+            count = int((assign == c).sum())
+            if count >= max(1, min(min_count, len(X))):
+                tone_items.append({"faces": {f: tones[idx][f].tolist() for f in BODY_FACES}, "count": count})
+        tone_items.sort(key=lambda t: -t["count"])
+    return {"l1_depth": depth, "l2_mask": l2, "tones": tone_items, "count": len(l1_cells)}
+
+
 def cluster_l1_tones(maps: list[dict[str, np.ndarray]], k: int, min_count: int = 10) -> list[dict]:
     """Whole-head k-medoids (L1 distance) over L1 luma-delta maps.
 
@@ -403,6 +461,9 @@ def build_pack(root: Path, k_hair: int = 6, k_eyes: int = 6, k_hood_up: int = 4,
     hair_masks: dict[str, list[dict[str, np.ndarray]]] = {"short": [], "long": []}
     l1_tones: list[dict[str, np.ndarray]] = []
     l1_cells: dict[str, list[dict[str, np.ndarray]]] = {"short": [], "long": []}
+    body_l1: list[dict] = []
+    body_l2: list[dict] = []
+    body_tones: list[dict] = []
 
     for length in ("short", "long"):
         for path in sorted((root / f"{length}_hair").glob("*.png")):
@@ -413,6 +474,12 @@ def build_pack(root: Path, k_hair: int = 6, k_eyes: int = 6, k_hood_up: int = 4,
             if hm:
                 hair_masks[length].append(hm)
             l1_cells[length].append(extract_l1_hair_cells(image))
+            if length == "long":
+                b1, b2, bt = extract_body_hair(image)
+                body_l1.append(b1)
+                body_l2.append(b2)
+                if bt is not None:
+                    body_tones.append(bt)
             lt = extract_l1_tones(image)
             if lt:
                 l1_tones.append(lt)
@@ -499,6 +566,8 @@ def build_pack(root: Path, k_hair: int = 6, k_eyes: int = 6, k_hood_up: int = 4,
         "hair_l1_tones": cluster_l1_tones(l1_tones, k_l1),
         # Majority reference L1 hair silhouette per length bucket.
         "hair_l1_shape": {length: vote_l1_shape(l1_cells[length]) for length in ("short", "long")},
+        # Long-hair body drape (references: waist-length back, chest locks).
+        "hair_body": build_body_drape(body_l1, body_l2, body_tones),
         "eyes": _medoids(eyes, "eye", k_eyes),
         "hoods": {
             "up": _medoids(hood_up, "hood", k_hood_up),
@@ -507,6 +576,7 @@ def build_pack(root: Path, k_hair: int = 6, k_eyes: int = 6, k_hood_up: int = 4,
     }
     for patterns in (pack["hair"]["short"], pack["hair"]["long"], pack["eyes"],
                      pack["hair_masks"]["short"], pack["hair_masks"]["long"], pack["hair_l1_tones"],
+                     (pack["hair_body"] or {}).get("tones", []),
                      pack["hoods"]["up"], pack["hoods"]["down"]):
         for p in patterns:
             # Keep provenance hashes, not file paths in the renderer-facing pack.
@@ -658,3 +728,18 @@ def select_l1_shape(pack: dict | None, style: str) -> dict | None:
     """Reference L1 hair skeleton for the style (ears exposed vs covered)."""
     shapes = (pack or {}).get("hair_l1_shape") or {}
     return shapes.get(SHAPE_BUCKET.get(style, "short"))
+
+
+def select_body_tones(pack: dict | None, seed: str = "") -> dict | None:
+    """Count-weighted pick of a reference body-drape luma-delta map."""
+    items = ((pack or {}).get("hair_body") or {}).get("tones") or []
+    if not items:
+        return None
+    total = sum(max(1, int(t.get("count", 1))) for t in items)
+    pick = int.from_bytes(hashlib.sha256(f"bodytone:{seed}".encode()).digest()[:4], "big") % total
+    for t in items:
+        w = max(1, int(t.get("count", 1)))
+        if pick < w:
+            return t
+        pick -= w
+    return items[-1]

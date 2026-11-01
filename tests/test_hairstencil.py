@@ -413,11 +413,10 @@ def test_style_targets_and_fallbacks():
     assert HS.style_body_rows("bob", "long", st) == 0
     assert HS.style_body_rows("ponytail", "long", st) == 0
     assert HS.style_body_rows("bun", "long", st) == 0
-    assert HS.style_body_rows("long_straight", "long", st) == 5
-    assert HS.style_body_rows("long_wavy", "long", st) == 6
-    assert HS.style_body_rows("curly", "long", st) == 4
-    assert HS.style_drape("long_straight") == (5, 5)
-    assert HS.style_drape("long_wavy") == (5, 6)
+    # Loose long styles share the reference drape (2026-11-01).
+    for style in HS.REF_DRAPE_STYLES:
+        assert HS.style_body_rows(style, "long", st) == 12
+        assert HS.style_drape(style) == (11, 12)
     assert HS.style_bangs("bob") == 5
     assert HS.style_bangs("short") == 3
 

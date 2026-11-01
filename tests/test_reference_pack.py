@@ -475,3 +475,31 @@ def test_noise_spares_reference_shaded_hair_only():
     body = L.face("body", "front", 0)
     assert any(clean.getpixel((body.x + u, body.y + v)) != noisy.getpixel((body.x + u, body.y + v))
                for v in range(body.h) for u in range(body.w))
+
+
+# --- head bottom orientation + body drape (2026-11-01) ------------------------
+
+def test_bottom_row_is_minecraft_orientation():
+    """Bottom texture row 7 touches the chin (refs paint it like front row 7)."""
+    from skinmaker import render as R
+    assert [R.bottom_row(v) for v in range(8)] == list(range(7, -1, -1))
+    from tests.test_render import attrs, observed
+    im = R.render(observed(hair="#112233"), attrs(hair_length="long"), ()).image
+    f = L.face("head", "bottom", 0)
+    skin = R.shade(R.resolve_colors(observed(hair="#112233"))["skin"], R.FACE_SHADE["bottom"])
+    hair = R.shade(R.rgba("#112233"), R.FACE_SHADE["bottom"])
+    assert im.getpixel((f.x + 3, f.y + 7)) == skin  # chin
+    assert im.getpixel((f.x + 3, f.y + 0)) == hair  # back of the head
+
+
+def test_committed_body_drape_is_reference_shaped():
+    pack = RP.load_pack()
+    hb = pack["hair_body"]
+    assert hb["count"] >= 100
+    d = hb["l1_depth"]
+    assert min(d["back"]) >= 11  # waist-length
+    assert min(d["front"][0], d["front"][1], d["front"][6], d["front"][7]) >= 10
+    assert max(d["front"][3], d["front"][4]) == 0  # shirt centre open
+    back = np.array(hb["l2_mask"]["back"])
+    assert 0 < back.mean() < 0.6 and not back[:, 0].any() and not back[:, 7].any()
+    assert hb["tones"] and all(t["count"] >= 10 for t in hb["tones"])
