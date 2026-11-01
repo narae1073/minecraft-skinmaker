@@ -111,7 +111,6 @@ def health():
 
 @app.post("/api/v1/generate-skin")
 async def generate_skin(request: Request, file: UploadFile = File(...), noise_level: str = Form(None), steps: str = Form(None),
-                        hair_source: str = Form(None), hair_symmetry: str = Form(None),
                         hair_overlay: str = Form(None), skin_model: str = Form(None)):
     # 공개 배포 가드 (로그인 없음): IP당 분당 요청 제한.
     if not _rate_limiter.allow(client_ip(request)):
@@ -126,8 +125,7 @@ async def generate_skin(request: Request, file: UploadFile = File(...), noise_le
         except (TypeError, ValueError):
             fail(400, "bad_noise_level", f"noise_level은 숫자여야 해요: {noise_level!r}")
         level = min(1.0, max(0.0, level))
-    # 머리 실루엣 스텐실 (Tier 0, 2026-10-15): 근원 머리 실루엣(mask, 기본)이냐 길이 규칙(rule)이냐.
-    # 부재=기본, 모르는 값=400 (noise_level의 가비지 관례와 같은 축).
+    # 머리 오버레이 옵션: 부재=기본, 모르는 값=400 (noise_level의 가비지 관례와 같은 축).
     def _hair_option(value, allowed: tuple[str, ...], default: str, name: str) -> str:
         if value is None:
             return default
@@ -136,10 +134,6 @@ async def generate_skin(request: Request, file: UploadFile = File(...), noise_le
             fail(400, "bad_hair_option", f"{name} 값은 {allowed} 중 하나여야 해요: {value!r}")
         return v
 
-    # Deprecated (2026-11-01): the head silhouette comes from the reference
-    # skeleton; the photo mask only supplies evidence (bald, length, bangs).
-    # Both fields are still accepted (old clients) but ignored.
-    hair_source, hair_symmetry = "mask", "symmetrized"
     hair_overlay = _hair_option(hair_overlay, ("on", "off"), "on", "hair_overlay")
     skin_model = resolve_skin_model(skin_model)
     # 처리 과정 시트 (설계 §12): 진위 규칙은 parsing_on 관례. 부재=생성 (기존 동작),
@@ -179,7 +173,6 @@ async def generate_skin(request: Request, file: UploadFile = File(...), noise_le
 
     seg = _parsing.bottom_mask(photo.image) if _parsing.parsing_on() else None
     observed = extract(photo, hair_bbox=result.hair_bbox_px, seg=seg,
-                       hair_source=hair_source, hair_symmetry=hair_symmetry,
                        hair_overlay=hair_overlay == "on")
     # 하체 미관측 jeans 기본 (설계 §10): 요약이 텍스처와 어긋나지 않게 같은
     # resolve_bottom_ex 결정을 요약에도 반영한다 (derived 표기).
@@ -206,7 +199,7 @@ async def generate_skin(request: Request, file: UploadFile = File(...), noise_le
         clean_sheet, full_sheet = steps_sheets(
             photo, candidates[0].image, skin_model, observed, seg,
             # 스탬프는 요청이 아니라 실제 사용 모드 — 마스크 근거 실패면 rule로 기록 (진실 규칙)
-            note="hair=" + ("mask+" + hair_symmetry if observed.hair_stencil else "rule") + " overlay=" + hair_overlay,
+            note="hair=" + ("mask+symmetrized" if observed.hair_stencil else "rule") + " overlay=" + hair_overlay,
         )
         clean_sheet.convert("RGB").save(STEPS_DIR / f"{token}_steps.png")
         full_sheet.convert("RGB").save(STEPS_DIR / f"{token}_steps_full.png")
@@ -242,8 +235,6 @@ async def generate_skin(request: Request, file: UploadFile = File(...), noise_le
             ],
             "noise_level": level,
             "skin_model": skin_model,
-            "hair_source": hair_source,
-            "hair_symmetry": hair_symmetry,
             "hair_overlay": hair_overlay,
             "steps": steps_urls,
         },
