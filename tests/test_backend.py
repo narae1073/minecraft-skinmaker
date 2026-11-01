@@ -401,11 +401,11 @@ def test_generate_category_payload_records_derived(monkeypatch):
     assert any("bottom_garment" in d for d in a["derived"]), a["derived"]
 
 
-def test_generate_echoes_hair_options():
-    """Tier 0 (2026-10-15): 머리 실루엣 근원/대칭 폼 필드.
+def test_generate_hair_overlay_contract():
+    """hair_overlay is the only hair option in the response.
 
-    부재 → 기본(mask, symmetrized) 적용 + 응답 에코 (noise_level 관례).
-    rule은 오늘 렌더와 픽셀 동일 베이스라인 (스텐실 미생성).
+    Deprecated hair_source/hair_symmetry form fields are gone (the reference
+    skeleton owns the silhouette); old clients sending them still succeed.
     """
     def post(**form):
         with PHOTO.open("rb") as f:
@@ -415,20 +415,18 @@ def test_generate_echoes_hair_options():
     r_default = post()
     assert r_default.status_code == 200, r_default.text
     body = r_default.json()["data"]
-    assert body["hair_source"] == "mask"
-    assert body["hair_symmetry"] == "symmetrized"
+    assert "hair_source" not in body
+    assert "hair_symmetry" not in body
     assert body["hair_overlay"] == "on"
 
     r_off = post(hair_overlay="off")
     assert r_off.status_code == 200
     assert r_off.json()["data"]["hair_overlay"] == "off"
-    # Deprecated 2026-11-01: hair_source/hair_symmetry are accepted but ignored
-    # (reference skeleton owns the silhouette); responses echo the effective values.
-    r_rule = post(hair_source="rule", hair_symmetry="raw")
-    assert r_rule.status_code == 200
-    body = r_rule.json()["data"]
-    assert body["hair_source"] == "mask"
-    assert body["hair_symmetry"] == "symmetrized"
+
+    r_legacy = post(hair_source="rule", hair_symmetry="raw")
+    assert r_legacy.status_code == 200
+    legacy = r_legacy.json()["data"]
+    assert "hair_source" not in legacy and "hair_symmetry" not in legacy
 
 
 def test_generate_ignores_deprecated_hair_options():

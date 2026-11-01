@@ -367,3 +367,6 @@ S0 quality/face detection (YuNet) → S1 colour measurement (white-balance + ban
 - 2026-11-01 (template-variant QA coverage, `feat/qa-templates`): 로드맵 item 4 — 49-case matrix 는 스타일당 시드 1개라 hood up 4종/down 2종/eyes 4종 중 일부만 검증했다.
   - `tests/test_production_qa.py`: 팩의 모든 hood 템플릿을 강제 선택해 noise 0/50%에서 `_check` invariant 검증, 모든 eye 템플릿을 강제해 양안/row6 L2 clear 검증. 템플릿 수(4/2/4)를 pin 해 팩 재빌드 시 리뷰를 강제.
   - 검증: **675 passed** (273.77s). 코드 무변경(테스트만); release gate 의 49-case report 는 그대로.
+
+- 2026-11-01 (deprecated hair params 제거, `fix/hair-params`): `hair_source`/`hair_symmetry` 폼·응답 필드를 제거했다. reference skeleton 도입(2026-11-01) 이후 렌더에 영향이 없던 잔재이며, 내부 `extract` 인자는 유지한다(`tests/test_colors.py` 가 계속 검증). 구클라이언트가 보내도 FastAPI가 무시하고 200; `hair_overlay` 만 응답에 남는다.
+  - 검증: **675 passed** (266.03s). backend 계약 테스트 갱신: legacy 필드를 보내도 200·응답에 없음, `hair_overlay` 가비지는 400.
