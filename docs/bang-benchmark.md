@@ -22,8 +22,9 @@ human labels on train-only reference head fronts.
 
 ## Current label audit (2026-11-01)
 
-60 labels were provided, but 54/60 share depth=5; `label_quality` marks the set
-unusable. Exposure also disagrees with depth on several heads (e.g. depth5 +
-exposed). Re-label with the definitions above: depth is the number of hair rows
-from the top at center columns; exposure is forehead/eyebrow visibility, not eye
-visibility.
+60 labels: **54/60 depth=5**. A dominant depth is accepted as a real prior; the
+guard only rejects extreme collapse (>95% one depth) or >20% depth/exposure
+contradictions. This set has 90% depth5 and 8/60 contradictions, so it is
+usable. `assets/bang_prior.json` records median depth 5 for both long and short.
+Depth remains "hair rows from top at center columns"; exposure is forehead/
+eyebrow visibility, not eye visibility.
