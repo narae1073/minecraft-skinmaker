@@ -773,7 +773,7 @@ def render_hair_overlay(canvas: SkinCanvas, colors: dict[str, Color], stencil, h
     if pack:
         cols_for = {"right": (7,), "left": (0,), "back": (0, 7)}
         for face_name in ("right", "left", "back"):
-            mask = RP.select_edge_mask(pack, face_name, seed)
+            mask = RP.select_edge_mask(pack, face_name, seed, length)
             if not mask:
                 continue
             f = canvas.layout.face("head", face_name, 1)
