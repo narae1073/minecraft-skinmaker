@@ -304,3 +304,5 @@ S0 quality/face detection (YuNet) → S1 colour measurement (white-balance + ban
 - 2026-11-01 (hair A/B + highlight): added `scripts/build_hair_ab.py` and read the sheet: center depth5 is right, L2 is mostly solid (no supported interior alpha holes), current is still flatter/darker. Tapered outer corners to `(3,4,5,5,5,5,4,3)` and added one reference-tone dark + light accent column per face. **657 passed**.
 
 - 2026-11-01 (A/B bug + accent): A/B script originally cropped L1 only, hiding L2; fixed composite. Forced one seeded dark accent on flat front/top patterns and strengthened dark/light to 0.85/1.12; loose corners taper to (3,4,5,5,5,5,4,3). Corrected A/B shows L2 highlights/notches; still flatter than refs. 657 tests.
+
+- 2026-11-01 (rejected silhouette clear): clearing stencil front side hair outside the bang profile created bald temple gaps; reverted. Profile remains additive over photo-derived side hair. No code change; 657 tests.
