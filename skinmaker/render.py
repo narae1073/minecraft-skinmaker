@@ -241,8 +241,35 @@ def _shaded_face(canvas: SkinCanvas, part: str, face_name: str, base: Color, lay
     canvas.fill_face(part, face_name, shade(base, FACE_SHADE[face_name]), layer)
 
 
+# Reference L1 hair shading spread (side/back luma p10-p90), 2026-11-01.
+L1_TONE_SPAN_DARK, L1_TONE_SPAN_LIGHT = 14.0, 28.0
+L1_TONE_PACK_SPAN = 17.0
+
+
+def _hair_tone(hair_c: Color, face_name: str, u: int, v: int, tones: dict | None) -> Color:
+    """Hair colour for one head cell: face shade + reference L1 luma delta.
+
+    Deltas are absolute: reference side/back p10-p90 luma span is ~14 for
+    near-black hair rising to ~28 for light hair (relative contrast would
+    vanish on dark hair). The pack's count-weighted effective span is ~17
+    (L1_TONE_PACK_SPAN, measured on the rendered sides/back), so deltas
+    scale by target(luma) / 17.
+    No tone map -> the old flat shade, byte-identical.
+    """
+    c = shade(hair_c, FACE_SHADE[face_name])
+    t = (tones or {}).get("faces", {}).get(face_name)
+    if not t or v >= len(t) or u >= len(t[v]) or not t[v][u]:
+        return c
+    luma = 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2]
+    target = L1_TONE_SPAN_DARK + (L1_TONE_SPAN_LIGHT - L1_TONE_SPAN_DARK) * min(1.0, luma / 160.0)
+    d = t[v][u] * target / L1_TONE_PACK_SPAN
+    return tuple(max(0, min(255, int(round(ch + d)))) for ch in c[:3]) + (c[3],)
+
+
 def render_head(canvas: SkinCanvas, colors: dict[str, Color], attrs: Attributes, stencil=None,
-                style: str = "short", pack: dict | None = None, seed: str = "") -> None:
+                style: str = "short", pack: dict | None = None, seed: str = "") -> set:
+    """L1 head. Returns the (face, u, v) hair cells when reference L1 tones were
+    applied (they are exempt from the block-noise pass), else an empty set."""
     skin_c, hair_c = colors["skin"], colors["hair"]
     if stencil is None:
         from .hairstencil import rule_stencil
@@ -254,14 +281,23 @@ def render_head(canvas: SkinCanvas, colors: dict[str, Color], attrs: Attributes,
         _shaded_face(canvas, "head", face_name, skin_c, 0)
 
     # 정수리: rule은 항상 머리(가마), mask 스텐신은 대머리에서 피부.
+    # Reference L1 shading (2026-11-01): sheen band + strand columns, not flat.
+    tones = RP.select_l1_tones(pack, seed) if pack else None
+    hair_cells: set = set()
+
+    def hair_put(face_name: str, u: int, v: int, c: Color) -> None:
+        canvas.put("head", face_name, u, v, c, 0)
+        hair_cells.add((face_name, u, v))
     if stencil.top_hair:
-        canvas.fill_face("head", "top", shade(hair_c, FACE_SHADE["top"]), 0)
+        for v in range(8):
+            for u in range(8):
+                hair_put("top", u, v, _hair_tone(hair_c, "top", u, v, tones))
 
     front = canvas.layout.face("head", "front", 0)
     for v, row in enumerate(stencil.front):
         for u, is_hair in enumerate(row):
             if is_hair:
-                canvas.put("head", "front", u, v, shade(hair_c, FACE_SHADE["front"]), 0)
+                hair_put("front", u, v, _hair_tone(hair_c, "front", u, v, tones))
 
     # 옆/뒤 커버리지: rule은 길이 표, mask는 앞 실루엣 추론 (긴 머리는 뒤까지).
     for face_name in ("right", "left", "back"):
@@ -269,7 +305,7 @@ def render_head(canvas: SkinCanvas, colors: dict[str, Color], attrs: Attributes,
         f = canvas.layout.face("head", face_name, 0)
         for u, rows in enumerate(profile[:f.w]):
             for v in range(min(rows, f.h)):
-                canvas.put("head", face_name, u, v, shade(hair_c, FACE_SHADE[face_name]), 0)
+                hair_put(face_name, u, v, _hair_tone(hair_c, face_name, u, v, tones))
 
     # 머리 아래(bottom): 뒤통수/옆머리 footprint. v0=앞(턱)은 피부 유지.
     rear = HS.bottom_rear_rows(attrs.get("hair_length"), stencil)
@@ -278,14 +314,14 @@ def render_head(canvas: SkinCanvas, colors: dict[str, Color], attrs: Attributes,
             continue
         for u in range(HEAD_GRID):
             if stencil.bottom[v][u]:
-                canvas.put("head", "bottom", u, v, shade(hair_c, FACE_SHADE["bottom"]), 0)
+                hair_put("bottom", u, v, shade(hair_c, FACE_SHADE["bottom"]))
 
     # 스타일 앞머리: loose 스타일은 눈썹 행(4)까지 덮는 5행 fringe.
     # ponytail/bun(2행)은 이마를 드러내고, short/pixie(3행)는 부분 앞머리.
     profile = HS.style_bang_profile(style, stencil)
     for u, depth in enumerate(profile):
         for v in range(min(depth, 5)):
-            canvas.put("head", "front", u, v, shade(hair_c, FACE_SHADE["front"]), 0)
+            hair_put("front", u, v, _hair_tone(hair_c, "front", u, v, tones))
 
     # 얼굴 특징 (사용자 결정 2026-10-20): 눈 4-5행, 입 없음, 수염은 턱 6-7행.
     # 홍채색은 사진 측정값 (없으면 템플릿 갈색).
@@ -305,7 +341,10 @@ def render_head(canvas: SkinCanvas, colors: dict[str, Color], attrs: Attributes,
             canvas.put("head", "front", base_u + 1, 5, iris_c, 0)
             canvas.put("head", "front", base_u, 6, iris_c, 0)
             canvas.put("head", "front", base_u + 1, 6, iris_c, 0)
+    # Eyes overwrite hair cells (eye-fringe styles); those are not hair.
+    hair_cells -= {("front", u, v) for u in range(8) for v in (5, 6)}
     # HEAD ACC.(layer=1)는 손대지 않는다. 기본 투명 유지.
+    return hair_cells if tones else set()
 
 
 def _pattern_color(base: Color, alt: Color | None, u: int, v: int, w: int, h: int, pattern: str, face_name: str,
@@ -697,7 +736,7 @@ LOOSE_STYLES = ("bob", "long_straight", "long_wavy", "curly")
 
 
 def _template_head_l2(canvas: SkinCanvas, colors: dict[str, Color], stencil, tmpl: dict,
-                      hair_length: str, style: str) -> None:
+                      hair_length: str, style: str, tones: dict | None = None) -> None:
     """Head L2 from a reference sculpt template (2026-11-01).
 
     The template is a majority-vote L2 mask over reference skins: fringe arc,
@@ -729,13 +768,13 @@ def _template_head_l2(canvas: SkinCanvas, colors: dict[str, Color], stencil, tmp
         mask = faces.get(face_name)
         if not mask:
             continue
-        base = shade(hair_c, FACE_SHADE[face_name])
-        if face_name == "front":
-            base = shade(base, L2_FRINGE_LIFT)
+        lift = L2_FRINGE_LIFT if face_name == "front" else 1.0
         for v, row in enumerate(mask[:8]):
             for u, bit in enumerate(row[:8]):
                 if bit and allowed(face_name, u, v):
-                    canvas.put("head", face_name, u, v, base, 1)
+                    # Same tone as the L1 cell beneath (reference ratio 1.00).
+                    c = _hair_tone(hair_c, face_name, u, v, tones)
+                    canvas.put("head", face_name, u, v, shade(c, lift) if lift != 1.0 else c, 1)
 
 
 def _legacy_head_l2(canvas, put, stencil, hair_length: str, length: str, style: str,
@@ -871,7 +910,8 @@ def render_hair_overlay(canvas: SkinCanvas, colors: dict[str, Color], stencil, h
 
     tmpl = RP.select_hair_mask(pack, length, style, seed) if pack else None
     if tmpl:
-        _template_head_l2(canvas, colors, stencil, tmpl, hair_length, style)
+        _template_head_l2(canvas, colors, stencil, tmpl, hair_length, style,
+                          tones=RP.select_l1_tones(pack, seed))
     else:
         _legacy_head_l2(canvas, put, stencil, hair_length, length, style, pack, seed, allow_eye_fringe)
 
@@ -1003,7 +1043,7 @@ def render(
                            front_body_rows=front_rows, back_body_rows=back_rows)
     pack = RP.load_pack()
     seed = f"{style}:{attrs.get('hair_length')}:{colors['hair'][:3]}"
-    render_head(canvas, colors, attrs, hair_stencil, style=style, pack=pack, seed=seed)
+    hair_cells = render_head(canvas, colors, attrs, hair_stencil, style=style, pack=pack, seed=seed)
     thickness = observed.stripe_px if pattern in ("vertical_stripe", "horizontal_stripe", "check", "plaid") else 1
     render_body(canvas, colors, attrs, pattern, alt, hair_stencil, thickness,
                 texture=observed.top_texture)
@@ -1018,7 +1058,13 @@ def render(
                             pack=pack, seed=seed,
                             allow_eye_fringe=attrs.get("hood") not in ("up", "down"))
     if noise_seed is not None:
+        # Reference-shaded hair keeps its strands: block noise would stamp
+        # 2-3px squares over them (refs have no such texture on hair).
+        keep = _hair_pixels(canvas, hair_cells) if hair_cells else {}
         _apply_noise(canvas, noise_seed, noise_level)
+        px = canvas.image.load()
+        for xy, c in keep.items():
+            px[xy] = c
     # Draw the hood AFTER noise: its flat crown must stay solid. Applying the
     # deterministic 1-3px block noise after the hood turns the crown into a
     # grid of isolated light/dark cells.
@@ -1067,6 +1113,22 @@ def _noise_step(rng: random.Random) -> float:
 def _scaled_step(step: float, level: float) -> float:
     """세기 배율 (설계 §9): s → 1 + (s-1)·level. 0=무노이즈, 1=현행, 패턴 불변."""
     return 1.0 + (step - 1.0) * level
+
+
+def _hair_pixels(canvas: SkinCanvas, hair_cells: set) -> dict:
+    """Snapshot head hair pixels: L1 hair cells + every opaque head L2 pixel
+    (head L2 holds only hair before the hood pass)."""
+    px = canvas.image.load()
+    out = {}
+    for face_name, u, v in hair_cells:
+        f = canvas.layout.face("head", face_name, 0)
+        out[(f.x + u, f.y + v)] = px[f.x + u, f.y + v]
+    for f in canvas.layout.part("head", 1).faces.values():
+        for v in range(f.h):
+            for u in range(f.w):
+                if px[f.x + u, f.y + v][3]:
+                    out[(f.x + u, f.y + v)] = px[f.x + u, f.y + v]
+    return out
 
 
 def _apply_noise(canvas: SkinCanvas, seed: int, level: float = 1.0) -> None:

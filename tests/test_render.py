@@ -52,12 +52,12 @@ import hashlib
 from skinmaker import hairstencil as HS
 
 # rule 스텐실 렌더의 픽셀 베이스라인. 2026-10-27 L2 헤어를 성긴 가닥으로 개정하며
-# 재기록 — 2026-11-01 L2 = reference sculpt template (hair_masks). 이전: 2026-10-21 L2 부피 셸 도입. 이후 rule 경로가 조용히 변하면 잡는다.
+# 재기록 — 2026-11-01 L1 reference tones + L2 sculpt template (hair_masks). 이전: 2026-10-21 L2 부피 셸 도입. 이후 rule 경로가 조용히 변하면 잡는다.
 NOISE_OFF_GOLDEN = {
-    "short": "f62a1d981750fd0b",
-    "medium": "210aec2478df0011",
-    "long": "95f0eabfa083cff5",
-    "very_long": "47b8c0543d42c0d9",
+    "short": "a0ffca523a95e097",
+    "medium": "74f49dd74bc74bfa",
+    "long": "a5d3e46a2d45404e",
+    "very_long": "9f3535e7484003be",
 }
 
 
@@ -249,10 +249,13 @@ def test_long_hair_extends_body_drape_and_bangs():
     for v in range(1, 5):
         assert long.get("body", "front", 1, v)[:3] == shade(rgba("#112233"), R.FACE_SHADE["front"])[:3], v
     assert long.get("body", "front", 0, 3)[:3] != shade(rgba("#112233"), R.FACE_SHADE["front"])[:3]
+    # Head L1 hair carries reference strand shading (2026-11-01): near, not equal.
+    hair_front = shade(rgba("#112233"), R.FACE_SHADE["front"])[:3]
     for u in (2, 5):
-        assert long.get("head", "front", u, 4)[:3] == shade(rgba("#112233"), R.FACE_SHADE["front"])[:3]
+        assert sum(abs(a - b) for a, b in zip(long.get("head", "front", u, 4)[:3], hair_front)) <= 45
+    skin_front = shade(rgba(observed().skin.hex), R.FACE_SHADE["front"])[:3]
     for u in (1, 6):
-        assert long.get("head", "front", u, 4)[:3] != shade(rgba("#112233"), R.FACE_SHADE["front"])[:3]
+        assert long.get("head", "front", u, 4)[:3] == skin_front
     assert short.get("body", "back", 0, 0)[:3] != shade(rgba("#112233"), R.FACE_SHADE["back"])[:3]
 
 
@@ -386,7 +389,9 @@ def test_long_hair_covers_more_than_short():
     back = get_layout("classic").face("head", "back", 0)
     x, y = back.x + 2, back.y + 6
     assert short.image.getpixel((x, y)) != long.image.getpixel((x, y))
-    assert long.image.getpixel((x, y))[:3] == shade(rgba("#3a2a1c"), 0.90)[:3]
+    # Reference L1 shading: within the strand delta range of the flat shade.
+    flat = shade(rgba("#3a2a1c"), 0.90)[:3]
+    assert sum(abs(a - b) for a, b in zip(long.image.getpixel((x, y))[:3], flat)) <= 3 * 30
 
 
 def test_sleeve_long_vs_short():

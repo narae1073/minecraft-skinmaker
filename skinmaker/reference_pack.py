@@ -105,22 +105,11 @@ def _mask_vec(masks: dict[str, np.ndarray]) -> np.ndarray:
     return np.concatenate([np.asarray(masks[f], dtype=bool).reshape(-1) for f in MASK_FACES])
 
 
-def cluster_hair_masks(masks: list[dict[str, np.ndarray]], k: int, iters: int = 12,
-                       min_count: int = 10) -> list[dict]:
-    """Deterministic k-medoids (Hamming) over whole-head masks.
+def _kmedoids(D: np.ndarray, k: int, iters: int = 12) -> tuple[list[int], np.ndarray]:
+    """Deterministic k-medoids on a precomputed distance matrix.
 
-    Each cluster template is the per-cell majority vote of its members, so
-    one-off accessories and noise fall out while shared strands survive.
-    Whole-head (not per-face) clustering keeps corners coherent across faces.
-    Clusters with fewer than min_count members are dropped: they are one-off
-    skins (accessories, hoods) rather than a shared hair shape.
+    Init: global medoid, then farthest points. Returns (medoid indices, assignment).
     """
-    if not masks:
-        return []
-    X = np.stack([_mask_vec(m) for m in masks]).astype(np.int8)
-    n = len(X)
-    k = min(k, n)
-    D = (X[:, None, :] != X[None, :, :]).sum(axis=-1)
     medoids = [int(np.argmin(D.sum(axis=1)))]
     while len(medoids) < k:
         d = D[:, medoids].min(axis=1)
@@ -139,7 +128,86 @@ def cluster_hair_masks(masks: list[dict[str, np.ndarray]], k: int, iters: int = 
         if new == medoids:
             break
         medoids = new
-    assign = np.argmin(D[:, medoids], axis=1)
+    return medoids, np.argmin(D[:, medoids], axis=1)
+
+
+L1_TONE_FACES = ("top", "front", "right", "left", "back")
+L1_DELTA_CLIP = 40
+
+
+def extract_l1_tones(image: Image.Image) -> dict[str, np.ndarray] | None:
+    """Reference L1 hair shading as per-cell luma delta from the face median.
+
+    Reference L1 hair is not flat: sides/back carry a sheen band (rows 2-3)
+    darkening toward row 7, plus alternating 1-2px strand columns; 11-14
+    distinct colours per face. Deltas are absolute (not ratios) because
+    artists keep the absolute spread ~constant: p10-p90 luma span 14 for
+    near-black hair, 28 for blonde (ratio would be 0.84 vs 0.13).
+    Only skins whose top/sides/back are >=85% hair qualify. Front uses rows
+    0-3; non-hair cells take their column median (defined for fringe cells).
+    """
+    crown = _face_array(image, "head", "top", 0)[..., :3].reshape(-1, 3).astype(np.int32)
+    hair_c = np.median(crown, axis=0)
+    out: dict[str, np.ndarray] = {}
+    for name in L1_TONE_FACES:
+        l1 = _face_array(image, "head", name, 0).astype(np.int32)
+        m = (np.abs(l1[..., :3] - hair_c).sum(axis=-1) < 120) & (l1[..., 3] > 0)
+        if name == "front":
+            m[4:, :] = False
+            if m.sum() < 8:
+                return None
+        elif m.mean() < 0.85:
+            return None
+        lum = _luma(l1[..., :3].astype(np.float32))
+        delta = np.clip(np.rint(lum - float(np.median(lum[m]))), -L1_DELTA_CLIP, L1_DELTA_CLIP)
+        tones = np.zeros((8, 8))
+        for u in range(8):
+            col = m[:, u]
+            fill = float(np.median(delta[col, u])) if col.any() else 0.0
+            tones[:, u] = np.where(col, delta[:, u], np.rint(fill))
+        out[name] = tones.astype(np.int16)
+    return out
+
+
+def cluster_l1_tones(maps: list[dict[str, np.ndarray]], k: int, min_count: int = 10) -> list[dict]:
+    """Whole-head k-medoids (L1 distance) over L1 luma-delta maps.
+
+    Unlike the L2 masks, the template is the medoid itself (a real reference
+    tone map): averaging would blur the 1-2px strands into a smooth gradient.
+    """
+    if not maps:
+        return []
+    X = np.stack([np.concatenate([m[f].reshape(-1) for f in L1_TONE_FACES]) for m in maps]).astype(np.int32)
+    k = min(k, len(X))
+    D = np.abs(X[:, None, :] - X[None, :, :]).sum(axis=-1)
+    medoids, assign = _kmedoids(D, k)
+    out = []
+    for c, idx in enumerate(medoids):
+        count = int((assign == c).sum())
+        if count < max(1, min(min_count, len(X))):
+            continue
+        out.append({"faces": {f: maps[idx][f].tolist() for f in L1_TONE_FACES}, "count": count})
+    out.sort(key=lambda t: -t["count"])
+    return out
+
+
+def cluster_hair_masks(masks: list[dict[str, np.ndarray]], k: int, iters: int = 12,
+                       min_count: int = 10) -> list[dict]:
+    """Deterministic k-medoids (Hamming) over whole-head masks.
+
+    Each cluster template is the per-cell majority vote of its members, so
+    one-off accessories and noise fall out while shared strands survive.
+    Whole-head (not per-face) clustering keeps corners coherent across faces.
+    Clusters with fewer than min_count members are dropped: they are one-off
+    skins (accessories, hoods) rather than a shared hair shape.
+    """
+    if not masks:
+        return []
+    X = np.stack([_mask_vec(m) for m in masks]).astype(np.int8)
+    n = len(X)
+    k = min(k, n)
+    D = (X[:, None, :] != X[None, :, :]).sum(axis=-1)
+    medoids, assign = _kmedoids(D, k, iters)
     out = []
     for c in range(k):
         members = np.flatnonzero(assign == c)
@@ -283,7 +351,7 @@ def _medoids(patterns: list[dict], kind: str, k: int) -> list[dict]:
 
 def build_pack(root: Path, k_hair: int = 6, k_eyes: int = 6, k_hood_up: int = 4,
                k_hood_down: int = 2, include: set[str] | None = None,
-               k_masks: int = 8) -> dict:
+               k_masks: int = 8, k_l1: int = 8) -> dict:
     """Build a derived pack from out/reference_skins.
 
     include: optional relative paths (posix) to use; used to build a train-only
@@ -303,6 +371,7 @@ def build_pack(root: Path, k_hair: int = 6, k_eyes: int = 6, k_hood_up: int = 4,
     eyes: list[dict] = []
     seen_eyes: set[tuple] = set()
     hair_masks: dict[str, list[dict[str, np.ndarray]]] = {"short": [], "long": []}
+    l1_tones: list[dict[str, np.ndarray]] = []
 
     for length in ("short", "long"):
         for path in sorted((root / f"{length}_hair").glob("*.png")):
@@ -312,6 +381,9 @@ def build_pack(root: Path, k_hair: int = 6, k_eyes: int = 6, k_hood_up: int = 4,
             hm = extract_hair_mask(image)
             if hm:
                 hair_masks[length].append(hm)
+            lt = extract_l1_tones(image)
+            if lt:
+                l1_tones.append(lt)
             hp = extract_hair_pattern(image)
             if hp:
                 hp["source"] = path.name
@@ -391,6 +463,8 @@ def build_pack(root: Path, k_hair: int = 6, k_eyes: int = 6, k_hood_up: int = 4,
             length: cluster_hair_masks(hair_masks[length], k_masks)
             for length in ("short", "long")
         },
+        # Real reference L1 hair tone maps (whole-head medoids, length-agnostic).
+        "hair_l1_tones": cluster_l1_tones(l1_tones, k_l1),
         "eyes": _medoids(eyes, "eye", k_eyes),
         "hoods": {
             "up": _medoids(hood_up, "hood", k_hood_up),
@@ -398,7 +472,7 @@ def build_pack(root: Path, k_hair: int = 6, k_eyes: int = 6, k_hood_up: int = 4,
         },
     }
     for patterns in (pack["hair"]["short"], pack["hair"]["long"], pack["eyes"],
-                     pack["hair_masks"]["short"], pack["hair_masks"]["long"],
+                     pack["hair_masks"]["short"], pack["hair_masks"]["long"], pack["hair_l1_tones"],
                      pack["hoods"]["up"], pack["hoods"]["down"]):
         for p in patterns:
             # Keep provenance hashes, not file paths in the renderer-facing pack.
@@ -518,6 +592,21 @@ def select_hair_mask(pack: dict, length: str, style: str, seed: str = "") -> dic
         return None
     total = sum(max(1, int(t.get("count", 1))) for t in items)
     pick = int.from_bytes(hashlib.sha256(f"mask:{bucket}:{style}:{seed}".encode()).digest()[:4], "big") % total
+    for t in items:
+        w = max(1, int(t.get("count", 1)))
+        if pick < w:
+            return t
+        pick -= w
+    return items[-1]
+
+
+def select_l1_tones(pack: dict | None, seed: str = "") -> dict | None:
+    """Count-weighted pick of a reference L1 hair luma-delta map (whole head)."""
+    items = (pack or {}).get("hair_l1_tones") or []
+    if not items:
+        return None
+    total = sum(max(1, int(t.get("count", 1))) for t in items)
+    pick = int.from_bytes(hashlib.sha256(f"l1tone:{seed}".encode()).digest()[:4], "big") % total
     for t in items:
         w = max(1, int(t.get("count", 1)))
         if pick < w:

@@ -404,3 +404,74 @@ def test_template_l2_is_sparse_and_spares_eyes():
                 for u in range(8):
                     if im.getpixel((f2.x + u, f2.y + v))[3]:
                         assert im.getpixel((f1.x + u, f1.y + v)) != skin, (style, name, u, v)
+
+
+# --- L1 hair shading (2026-11-01) ---------------------------------------------
+
+def test_l1_tones_are_absolute_luma_deltas():
+    im = _skin()
+    for name in RP.L1_TONE_FACES:
+        f = L.face("head", name, 0)
+        for v in range(8):
+            for u in range(8):
+                c = 40 if u % 2 else 30  # 1px strands on near-black hair
+                im.putpixel((f.x + u, f.y + v), (c, c, c, 255))
+    t = RP.extract_l1_tones(im)
+    assert t is not None
+    side = t["right"]
+    assert {int(side[0, 0]), int(side[0, 1])} == {-5, 5}  # +-5 around the 35 median
+
+
+def test_l1_tones_reject_partial_hair_sides():
+    im = _skin()
+    for name in RP.L1_TONE_FACES:
+        f = L.face("head", name, 0)
+        for v in range(8):
+            for u in range(8):
+                im.putpixel((f.x + u, f.y + v), (60, 40, 30, 255))
+    _head_face(im, "back", 0)  # back is skin, not hair
+    assert RP.extract_l1_tones(im) is None
+
+
+def test_committed_l1_tones_render_reference_spread():
+    """Rendered side/back luma p10-p90 span tracks the reference: ~14 dark, ~28 light."""
+    from skinmaker import render as R
+    pack = RP.load_pack()
+    items = pack["hair_l1_tones"]
+    assert items and all(t["count"] >= 10 for t in items)
+    for hc, target in (((25, 20, 18, 255), 14), ((200, 160, 90, 255), 28)):
+        spans = []
+        for t in items:
+            lum = [0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2]
+                   for f in ("right", "back") for v in range(8) for u in range(8)
+                   for c in [R._hair_tone(hc, f, u, v, t)]]
+            spans.append(np.percentile(lum, 90) - np.percentile(lum, 10))
+        w = np.average(spans, weights=[t["count"] for t in items])
+        assert 0.75 * target <= w <= 1.25 * target, (hc, w)
+    assert R._hair_tone((50, 40, 30, 255), "right", 0, 0, None) == R.shade((50, 40, 30, 255), R.FACE_SHADE["right"])
+
+
+def test_noise_spares_reference_shaded_hair_only():
+    from skinmaker import render as R
+    from tests.test_render import attrs, observed
+    a = attrs(hair_length="long", hair_style="long_straight")
+    clean = R.render(observed(), a, ()).image
+    noisy = R.render(observed(), a, (), noise_seed=11).image
+    skin = R.resolve_colors(observed())["skin"]
+    checked = 0
+    for name in ("top", "right", "back"):
+        f = L.face("head", name, 0)
+        skin_c = R.shade(skin, R.FACE_SHADE[name])
+        for v in range(8):
+            for u in range(8):
+                if clean.getpixel((f.x + u, f.y + v)) == skin_c:
+                    continue  # skin keeps its noise
+                checked += 1
+                assert clean.getpixel((f.x + u, f.y + v)) == noisy.getpixel((f.x + u, f.y + v)), (name, u, v)
+    assert checked > 100
+    f2 = L.face("head", "back", 1)
+    assert all(clean.getpixel((f2.x + u, f2.y + v)) == noisy.getpixel((f2.x + u, f2.y + v))
+               for v in range(8) for u in range(8))
+    body = L.face("body", "front", 0)
+    assert any(clean.getpixel((body.x + u, body.y + v)) != noisy.getpixel((body.x + u, body.y + v))
+               for v in range(body.h) for u in range(body.w))
