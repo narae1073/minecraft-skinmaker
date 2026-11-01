@@ -5,7 +5,6 @@ import SkinEditor from './components/SkinEditor';
 import CategoryPanel from './components/CategoryPanel';
 import StepsPanel from './components/StepsPanel';
 import CameraCapture from './components/CameraCapture';
-import SkinPreview from './components/SkinPreview';
 import SelectedPhoto from './components/SelectedPhoto';
 import './App.css';
 
@@ -32,7 +31,6 @@ function App() {
   const [fileError, setFileError] = useState(false);
   const [serverError, setServerError] = useState('');
   const [skins, setSkins] = useState([]); // 현재 결과: {url, flatUrl} 쌍 배열
-  const [previewOpen, setPreviewOpen] = useState(false);
   const [inputPhoto, setInputPhoto] = useState(null);
   const [editorItem, setEditorItem] = useState(null); // SkinEditor 모달 대상 ({url, flatUrl, steps, model})
   const [noiseLevel, setNoiseLevel] = useState(50); // 노이즈 세기 % (기본 50 — 사용자 결정 2026-10-13)
@@ -72,7 +70,6 @@ function App() {
     }
 
     setIsLoading(true);
-    setPreviewOpen(false);
     setSkins([]);
     setInputPhoto(null);
     setServerError('');
@@ -109,7 +106,6 @@ function App() {
           model: resultModel, // 3D 뷰어 체형 (classic | slim)
         }));
         setSkins(pairs);
-        setPreviewOpen(pairs.length > 0);
         setCatInfo({
           attributes: data.data.attributes || null,
           candidates: data.data.candidates || [],
@@ -329,14 +325,9 @@ function App() {
           <p id="hair-overlay-help" className="config-help">머리카락을 바깥쪽에 한 겹 더 그려 입체감을 줘요. 앞머리와 긴 머리도 더 도드라져 보여요.</p>
         </div>
 
-        {previewOpen && skins.length > 0 && (
-          <SkinPreview skins={skins} onClose={() => setPreviewOpen(false)} />
-        )}
-
-        {skins.length > 0 && !previewOpen && (
+        {skins.length > 0 && (
           <div className="result-section">
             <h2>생성된 64×64 스킨 후보 {skins.length}종</h2>
-            <button type="button" className="edit-btn" onClick={() => setPreviewOpen(true)}>미리보기 다시 열기</button>
             <p className="compare-hint">원본 사진을 왼쪽에 두고 스킨을 비교해보세요 (3D 뷰어에서 회전도 가능)</p>
             <div className="compare-grid">
               {inputPhoto && (

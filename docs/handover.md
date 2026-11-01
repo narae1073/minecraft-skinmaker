@@ -358,3 +358,8 @@ S0 quality/face detection (YuNet) → S1 colour measurement (white-balance + ban
 - 2026-11-01 (hood-down 참조 cowl, `feat/hood-down-cowl`, #37 위 stack): 후드 다운이 참조 팩의 `hoods.down` 마스크를 선택만 하고 쓰지 않아, 8×3 솔리드 front 밴드가 상의 패턴 상단 3행(스트라이프 등)을 덮었다.
   - 수정: down 경로가 선택된 마스크의 front/back 셀만 그린다. 위쪽 edge 셀은 `top_alt` fold rim, 나머지는 top 10% 어둡게. body hair 셀은 skip (머리는 옷 위). `production_qa` 에 down front L2 ≤8셀 gate 추가 — 수정 전 코드에서 24셀 red 확인.
   - 검증: **673 passed** (240.72s), production QA 49 ok. A/B: `out/hood_bug/down_compare.png` (stripe/plain before|after), `down_3d_zoom.png`.
+
+- 2026-11-01 (결과 미리보기 모달 제거 + 뷰어 고정, `feat/viewer-ui`, #38 위 stack): 사용자 지시 3건 — ① 변환 후 완성 미리보기 창 제거 ② 자동 회전 제거(마우스 전용) ③ 조명 변화 제거(가장 밝은 고정 조명).
+  - `SkinPreview.jsx`·`previewOpen` 상태·모달 CSS 삭제. 생성 결과는 기존 `.result-section` 에 즉시 표시되고 "미리보기 다시 열기" 버튼도 제거.
+  - `Skin3DViewer`: `useFrame` 자동 회전 제거 → `OrbitControls` 마우스 드래그로만 회전. 조명은 `ambient 1.1` + key `directional 1.8` + fill `0.7` 고정(조명 애니메이션 없음).
+  - 검증: `npm run lint` / `npm run build` green. Headless CDP 실측: 실사진 생성 후 `.skin-preview-dialog` 0개·"미리보기 다시 열기" 없음, 뷰어 2.5s 간격 스크린샷 **픽셀 동일**(자동 회전/조명 변화 0), 마우스 드래그 후 diff 발생(수동 회전 정상). 스크린샷 `out/ui_test/`.
