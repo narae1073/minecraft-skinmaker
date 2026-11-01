@@ -69,8 +69,9 @@ Templates are a means; the gate is measured output quality on defined data.
   holdout untouched.
 - Expand eye/hood samples with seed labels; filter costume/animal hoods; add
   style labels and cluster coverage.
-- Coverage targets: hair p90 distance ≤0.10; eyes ≥20 holdout samples; hood-up
-  ≥10; hood-down ≥5 before claiming style coverage.
+- Coverage targets (gate v2, 2026-11-02): hair p90 ≤0.10; hood-up n≥3
+  (corpus ceiling); hood-down n≥5 **and p90≤0.25**; eyes are user-accepted and
+  data-limited (reported, not gated). See `docs/production-gate-v2.md`.
 
 ### Phase 3 — Structural composition (QA gate started)
 
@@ -82,7 +83,7 @@ Templates are a means; the gate is measured output quality on defined data.
 ### Phase 4 — Paired validation (scaffold started)
 
 - `skinmaker/paired_benchmark.py` validates hand-approved pairs; `accepted` requires ≥1 approved pair with zero structural issues.
-- 10-photo current-output pilot seeded with `approved:false`; review sheet at `out/paired_benchmark/review_sheet.png`. The sheet shows the current outputs are still rough; they are a regression baseline, not ground truth.
+- 84-pair pilot (74 hood-stratified) generated from user photos; **72 human-approved**, `accepted=true`, target 30 met. 12 remain unapproved; per-stratum review sheets live in `out/paired_benchmark/review/`.
 - Next: 30–50 human-approved pairs; human preference + VLM + structural checks.
 - Tune template selection; publish failures, not just wins.
 
@@ -133,3 +134,13 @@ Templates are a means; the gate is measured output quality on defined data.
 Current depth-5 center matches the prior; generated heads remain flatter than
 references. Reference row3 supports only outer-edge gaps, not interior alpha
 holes. Next work is style-specific L2 silhouette/highlight variation, not depth.
+
+
+## Gate v2 (2026-11-02)
+
+- eyes holdout-n gate waived (user-accepted, data-limited); hood-up re-baselined
+  to n≥3; hood-down keeps n≥5 and adds p90≤0.25.
+- Paired benchmark: 72/84 approved, `accepted=true`.
+- Pack v2 (619/100 split, down n=5 but p90=0.328) is **held**, not adopted.
+- Current gate: `ready=false`; residuals = hood-down data/quality, approved
+  hood templates (active-pack review sheet ready), and the pack-v2 decision.

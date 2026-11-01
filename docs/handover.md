@@ -7,7 +7,7 @@ S0 quality/face detection (YuNet) → S1 colour measurement (white-balance + ban
 
 ## 2. Current state (verified 2026-11-01)
 
-- Tests: **675 passed** (`tests/fixtures/` committed; ~10 s without the SCHP model, 273.77 s = 4:33 with it, measured 2026-11-01). Tests no longer need the 66 MB SCHP model: the jeans-rule tests stub a zero mask and `test_parsing` uses a dummy model path with a fake session.
+- Tests: **676 passed** (`tests/fixtures/` committed; ~10 s without the SCHP model, 242.20 s = 4:02 with it, measured 2026-11-02). Tests no longer need the 66 MB SCHP model: the jeans-rule tests stub a zero mask and `test_parsing` uses a dummy model path with a fake session.
 - Frontend: `npm run lint` clean, `npm run build` green (Vite 8 / Node 24).
 - Python 3.12.3 venv at `.venv`; do **not** use `python` or `uv`.
 - Parsing model: `out/models/schp-atr-18-int8-static.onnx` (66 MB, gitignored). YuNet: `assets/face_detection_yunet_2023mar.onnx` (228 KB, gitignored). Both fetched by `scripts/fetch_assets.sh`.
@@ -379,3 +379,9 @@ S0 quality/face detection (YuNet) → S1 colour measurement (white-balance + ban
 
 - 2026-11-02 (파이프라인 개요 갱신, P1-7): `docs/pipeline_overview_ko.md`를 2026-10-29 초안(1df10c7/610 tests)에서 현재 master(226ce53/675 tests) 기준으로 갱신했다. 14필드, reference pack(L1 스켈레톤/음영 톤/L2 마스크/body drape), head bottom row7, 후드 up/down, API 정리(`hair_source`/`hair_symmetry` 제거), 웹 UI(모달 제거·고정 조명·모바일 스크롤), QA 50 cases, 프로덕션 게이트/인게임/스코어링 항목을 반영하고 §8 변경 요약을 추가했다.
   - 검증: 문서 내 stale 수치(610/539/13필드/5필드/8×8 스텐실) 제거, `git diff --cached --check` clean. 문서-only 변경(테스트 수 불변).
+
+- 2026-11-02 (production gate v2 / 라운드 종료, `feat/gate-v2`): D1–D7 결정을 코드·테스트·문서로 고정.
+  - D1 eyes holdout-n **면제**(user-accepted, data-limited; approved eyes 4는 유지), D2 hood_down **n≥5 + p90≤0.25**(count-only 통과 금지), D3 hood_up **n≥3**(코퍼스 상한; 10은 데이터 필요), D5 pack v2 **보류**(v1 split/pack 유지), D6 라벨 불일치 3쌍 stratum 제외(pair 보존).
+  - D4 활성 팩 리뷰 시트 `out/production_benchmark/pack_review/review_sheet.png`(up 4 / down 2) 작성 — **사람 승인만 남음**.
+  - D7 결과: gate v2 `ready=false`; blockers = hood_down n, approved up 0/2, down 0/1. paired **72/30 accepted**. 근거·잔여 리스크는 `docs/production-gate-v2.md`.
+  - 검증: **676 passed** (242.20s), `tests/test_production_status.py` 3 (eyes waiver + hood_down p90 gate).
