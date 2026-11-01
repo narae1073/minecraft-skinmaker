@@ -84,7 +84,7 @@ def analyze(image: Image.Image, *, hair: str, skin: str, hair_length: str = "sho
         return {
             "bottom_hair": 0, "bottom_rear_hair": 0, "bottom_rear_total": 8 * rear,
             "chin_hair": 0, "l2_holes": 0, "side_profile": [0] * 8, "side_jump": 0,
-            "body_rows": 0, "front_holes": 0, "row3_hair": 0, "front_body_rows": 0,
+            "body_rows": 0, "strand_notches": 0, "front_holes": 0, "row3_hair": 0, "front_body_rows": 0,
             "back_body_rows": 0, "expected_front": 0, "expected_back": 0,
             "l2_counts": {}, "bald": True, "problems": [], "ok": True,
         }
@@ -108,6 +108,7 @@ def analyze(image: Image.Image, *, hair: str, skin: str, hair_length: str = "sho
     bottom_rear_hair = sum(1 for p in bottom_rear_px if _near(p, hair_faces["bottom"]))
 
     holes = 0
+    strand_notches = 0
     # 머리만 검사한다. 몸통의 어두운 옷/피부가 머리색과 겹쳐 false hole 이 된다.
     for part in ("head",):
         for face_name in layout.part(part, 0).faces:
@@ -120,7 +121,15 @@ def analyze(image: Image.Image, *, hair: str, skin: str, hair_length: str = "sho
                     ref = hair_faces.get(face_name)
                     if ref is not None and _near(image.getpixel((l1.x + u, l1.y + v)), ref):
                         if image.getpixel((l2.x + u, l2.y + v))[3] == 0:
-                            holes += 1
+                            # Intentional reference-derived notches: front bang
+                            # tip row or side/back lower silhouette edge.
+                            notch = (face_name == "front" and v == 4) or (
+                                face_name in ("right", "left", "back") and u in (0, 7) and v >= 4
+                            )
+                            if notch:
+                                strand_notches += 1
+                            else:
+                                holes += 1
 
     # 앞머리 내부 구멍 / hairline row3 / body front·back drape.
     front0 = layout.face("head", "front", 0)
@@ -195,6 +204,7 @@ def analyze(image: Image.Image, *, hair: str, skin: str, hair_length: str = "sho
         "side_profile": profile,
         "side_jump": jumps,
         "body_rows": body_rows,
+        "strand_notches": strand_notches,
         "front_holes": front_holes,
         "row3_hair": row3_hair,
         "front_body_rows": front_body,

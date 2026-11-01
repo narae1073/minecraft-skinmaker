@@ -30,8 +30,8 @@ row-marker skin).
 .venv/bin/python -m skinmaker.hairreport --batch out/qa_final --out out/hair_report.json
 ```
 
-Checks: rear-bottom coverage, chin hair, L2 alpha holes inside the head hair
-silhouette, side-profile jumps, body-drape rows. Exit status is non-zero when a
+Checks: rear-bottom coverage, chin hair, L2 defect holes inside the head hair
+silhouette, intentional strand notches, side-profile jumps, body-drape rows. Exit status is non-zero when a
 check fails.
 
 Known limits: a dark-skinned subject can be misread as bald; a genuinely bald

@@ -300,3 +300,22 @@ def test_eye_source_blocklist_excludes_bad_pupils():
     # The blocklist must not remove hair/bang data; only eye extraction is filtered.
     pack = RP.load_pack()
     assert pack.get("hair") and pack.get("bang_tips")
+
+
+def test_reference_edge_masks_are_present_and_bounded():
+    pack = RP.load_pack()
+    masks = pack.get("edge_masks", {})
+    for face in ("right", "left", "back"):
+        assert masks.get(face)
+        for m in masks[face]:
+            assert len(m) == 8
+    # Nan test: L2 notches only remove cells where L1 hair remains.
+    from skinmaker import render as R
+    from test_render import observed, attrs
+    canvas = R.render(observed(), attrs(hair_length="long", hair_style="long_straight"), ())
+    for face in ("right", "left", "back"):
+        f = canvas.layout.face("head", face, 1)
+        for v in range(4, 8):
+            for u in range(f.w):
+                if canvas.get("head", face, u, v, 1)[3] == 0:
+                    assert canvas.get("head", face, u, v)[3] == 255, (face, u, v)
