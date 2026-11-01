@@ -7,7 +7,7 @@ S0 quality/face detection (YuNet) → S1 colour measurement (white-balance + ban
 
 ## 2. Current state (verified 2026-11-01)
 
-- Tests: **673 passed** (`tests/fixtures/` committed; ~10 s without the SCHP model, 240.72 s = 4:00 with it, measured 2026-11-01). Tests no longer need the 66 MB SCHP model: the jeans-rule tests stub a zero mask and `test_parsing` uses a dummy model path with a fake session.
+- Tests: **675 passed** (`tests/fixtures/` committed; ~10 s without the SCHP model, 273.77 s = 4:33 with it, measured 2026-11-01). Tests no longer need the 66 MB SCHP model: the jeans-rule tests stub a zero mask and `test_parsing` uses a dummy model path with a fake session.
 - Frontend: `npm run lint` clean, `npm run build` green (Vite 8 / Node 24).
 - Python 3.12.3 venv at `.venv`; do **not** use `python` or `uv`.
 - Parsing model: `out/models/schp-atr-18-int8-static.onnx` (66 MB, gitignored). YuNet: `assets/face_detection_yunet_2023mar.onnx` (228 KB, gitignored). Both fetched by `scripts/fetch_assets.sh`.
@@ -363,3 +363,7 @@ S0 quality/face detection (YuNet) → S1 colour measurement (white-balance + ban
   - `SkinPreview.jsx`·`previewOpen` 상태·모달 CSS 삭제. 생성 결과는 기존 `.result-section` 에 즉시 표시되고 "미리보기 다시 열기" 버튼도 제거.
   - `Skin3DViewer`: `useFrame` 자동 회전 제거 → `OrbitControls` 마우스 드래그로만 회전. 조명은 `ambient 1.1` + key `directional 1.8` + fill `0.7` 고정(조명 애니메이션 없음).
   - 검증: `npm run lint` / `npm run build` green. Headless CDP 실측: 실사진 생성 후 `.skin-preview-dialog` 0개·"미리보기 다시 열기" 없음, 뷰어 2.5s 간격 스크린샷 **픽셀 동일**(자동 회전/조명 변화 0), 마우스 드래그 후 diff 발생(수동 회전 정상). 스크린샷 `out/ui_test/`.
+
+- 2026-11-01 (template-variant QA coverage, `feat/qa-templates`): 로드맵 item 4 — 49-case matrix 는 스타일당 시드 1개라 hood up 4종/down 2종/eyes 4종 중 일부만 검증했다.
+  - `tests/test_production_qa.py`: 팩의 모든 hood 템플릿을 강제 선택해 noise 0/50%에서 `_check` invariant 검증, 모든 eye 템플릿을 강제해 양안/row6 L2 clear 검증. 템플릿 수(4/2/4)를 pin 해 팩 재빌드 시 리뷰를 강제.
+  - 검증: **675 passed** (273.77s). 코드 무변경(테스트만); release gate 의 49-case report 는 그대로.
