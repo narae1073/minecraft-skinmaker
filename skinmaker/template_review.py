@@ -81,7 +81,7 @@ def collect_candidates(root: Path, split: dict) -> dict:
             im = RP._rgba(path)
         except OSError:
             continue
-        e = extract_eye_candidate(im)
+        e = None if RP.eye_source_blocked(Path(rel).stem) else extract_eye_candidate(im)
         if e and e["id"] not in eyes:
             e["source"] = rel
             e.update(eye_score(e))

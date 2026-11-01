@@ -36,3 +36,9 @@ Current weights: `eye-c252cfa113=6`, `eye-463a25fbfd=2`, others=1. This makes
 c252 the most frequent eye style (~60%). All approved eyes are eligible for
 hooded and non-hooded photos; the old hood-source filter was the reason only
 eye-463 appeared on hooded renders.
+
+## Excluded eye sources
+
+`assets/eye_source_blocklist.json` excludes reference eyes with 3px-tall pupils
+or left/right pupil-height asymmetry. They remain usable for hair/bang analysis
+but must not become eye templates or approve candidates.
