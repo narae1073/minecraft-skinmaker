@@ -759,6 +759,13 @@ def render_hair_overlay(canvas: SkinCanvas, colors: dict[str, Color], stencil, h
     for u, depth in enumerate(profile):
         for v in range(min(depth, 5)):
             put("head", "front", u, v)
+    # Additive side locks: one hair column at each front edge for loose styles.
+    # They add volume beside the face without erasing the SCHP side silhouette.
+    if allow_eye_fringe and style in ("bob", "long_straight", "long_wavy", "curly"):
+        for u in (0, 7):
+            for v in range(3, 7):
+                if canvas.get("head", "front", u, v, 1)[3] == 0:
+                    put("head", "front", u, v)
     # Reference-derived bang tips: transparent L2 notches reveal L1 hair, not skin.
     if max(profile) >= 5 and pack:
         tips = RP.select_bang_tips(pack, length, style, seed)
