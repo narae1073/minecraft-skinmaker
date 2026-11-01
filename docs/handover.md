@@ -296,3 +296,5 @@ S0 quality/face detection (YuNet) → S1 colour measurement (white-balance + ban
 - 2026-11-01 (reference edge notches): pack stores dominant L2 outer-edge patterns for right/left/back; renderer removes L2 cells only at lower silhouette edges (v>=4), revealing L1 hair. `hairreport` now separates intentional `strand_notches` from defect holes. 60-label long-bang prior accepted (median5). **655 passed**.
 
 - 2026-11-01 (prior-driven depth): `STYLE_BANGS` now loads the long/short median from `assets/bang_prior.json` instead of hardcoding 5. Current median is 5, so goldens are unchanged. SCHP/exposure exceptions still override for short/pixie. **656 passed**.
+
+- 2026-11-01 (interior tone strand): one reference-derived accent column per head face (largest column-tone residual, seeded among top two) is darkened 10% on rows2+ on L2. Colour-only: no alpha holes, no eye/QA changes. Goldens updated; **656 passed**.

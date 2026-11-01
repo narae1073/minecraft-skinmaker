@@ -701,6 +701,21 @@ def render_hair_overlay(canvas: SkinCanvas, colors: dict[str, Color], stencil, h
     hair_c = colors["hair"]
     length = HS.effective_hair_length(hair_length, stencil)
     pattern = RP.select_hair(pack, length, style, seed) if pack else None
+    accent: dict[str, int | None] = {}
+    if pattern:
+        for face_name, tones in pattern.get("faces", {}).items():
+            if not tones:
+                continue
+            cols = []
+            for u in range(1, max(1, len(tones[0]) - 1)):
+                vals = [row[u] for row in tones if u < len(row)]
+                if vals:
+                    cols.append((abs(sum(vals) / len(vals) - 100), u))
+            cols.sort(reverse=True)
+            top = cols[:2]
+            if top and top[0][0] >= 2:
+                pick = int.from_bytes(hashlib.sha256(f"accent:{face_name}:{seed}".encode()).digest()[:2], "big") % len(top)
+                accent[face_name] = top[pick][1]
 
     def put(part: str, face_name: str, u: int, v: int) -> None:
         tone = 100
@@ -712,7 +727,10 @@ def render_hair_overlay(canvas: SkinCanvas, colors: dict[str, Color], stencil, h
                 # tone reads as a vertical strand across the whole face.
                 values = [tones[r][u] for r in range(len(tones)) if u < len(tones[r])]
                 tone = max(85, min(115, sum(values) / len(values)))
-        canvas.put(part, face_name, u, v, _l2_color(hair_c, face_name, tone), 1)
+        c = _l2_color(hair_c, face_name, tone)
+        if part == "head" and v >= 2 and accent.get(face_name) == u:
+            c = shade(c, 0.90)
+        canvas.put(part, face_name, u, v, c, 1)
 
     if stencil.top_hair:
         top = canvas.layout.face("head", "top", 1)
