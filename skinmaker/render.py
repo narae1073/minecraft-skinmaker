@@ -718,11 +718,14 @@ def render_hair_overlay(canvas: SkinCanvas, colors: dict[str, Color], stencil, h
                 d = dark[int.from_bytes(hashlib.sha256(f"dark:{face_name}:{seed}".encode()).digest()[:2], "big") % len(dark)][1]
                 l = light[int.from_bytes(hashlib.sha256(f"light:{face_name}:{seed}".encode()).digest()[:2], "big") % len(light)][1]
                 accent[face_name] = (d, l) if d != l else (d, None)
-            elif face_name in ("front", "top"):
-                # Flat reference patterns still get one irregular strand; otherwise
-                # a solid dark head has no readable L2 texture.
-                d = 2 + int.from_bytes(hashlib.sha256(f"flat:{face_name}:{seed}".encode()).digest()[:2], "big") % 4
-                accent[face_name] = (d, None)
+            else:
+                # Flat reference patterns still get readable strands; otherwise a
+                # solid dark head has no L2 texture. Keep both accents interior.
+                d = 1 + int.from_bytes(hashlib.sha256(f"flat:{face_name}:{seed}".encode()).digest()[:2], "big") % 6
+                l = 1 + int.from_bytes(hashlib.sha256(f"lightflat:{face_name}:{seed}".encode()).digest()[:2], "big") % 6
+                if l == d:
+                    l = (l % 6) + 1
+                accent[face_name] = (d, l)
 
     def put(part: str, face_name: str, u: int, v: int) -> None:
         tone = 100
