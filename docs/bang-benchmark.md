@@ -18,3 +18,12 @@ human labels on train-only reference head fronts.
 - No generated hair or renderer policy changes are derived until labels exist.
 - The current policy remains: loose=5-row eyebrow cover, short/pixie
   exposure-aware 3/5, tied-up=2; L2 top-eye row accent only.
+
+
+## Current label audit (2026-11-01)
+
+60 labels were provided, but 54/60 share depth=5; `label_quality` marks the set
+unusable. Exposure also disagrees with depth on several heads (e.g. depth5 +
+exposed). Re-label with the definitions above: depth is the number of hair rows
+from the top at center columns; exposure is forehead/eyebrow visibility, not eye
+visibility.

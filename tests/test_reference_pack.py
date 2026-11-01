@@ -290,3 +290,13 @@ def test_bang_tip_patterns_are_reference_derived():
         tips = pack.get("bang_tips", {}).get(length)
         assert tips and any(0 in t for t in tips), tips
         assert all(len(t) == 8 for t in tips)
+
+
+def test_eye_source_blocklist_excludes_bad_pupils():
+    blocked = RP.load_eye_blocklist()
+    assert "c5e01e147580d8c7" in blocked
+    assert RP.eye_source_blocked("c5e01e147580d8c7")
+    assert not RP.eye_source_blocked("definitely-not-blocked")
+    # The blocklist must not remove hair/bang data; only eye extraction is filtered.
+    pack = RP.load_pack()
+    assert pack.get("hair") and pack.get("bang_tips")

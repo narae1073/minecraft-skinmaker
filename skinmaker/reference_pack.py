@@ -23,6 +23,19 @@ EYE_COLS = 8
 HAIR_DEFAULT = 100
 
 
+def load_eye_blocklist(path: Path | None = None) -> set[str]:
+    path = path or Path(__file__).resolve().parent.parent / "assets" / "eye_source_blocklist.json"
+    try:
+        data = json.loads(Path(path).read_text(encoding="utf-8"))
+        return {str(x) for x in data.get("sources", [])}
+    except (OSError, ValueError):
+        return set()
+
+
+def eye_source_blocked(stem: str) -> bool:
+    return stem in load_eye_blocklist()
+
+
 def _rgba(path: Path) -> Image.Image:
     return Image.open(path).convert("RGBA")
 
@@ -219,7 +232,7 @@ def build_pack(root: Path, k_hair: int = 6, k_eyes: int = 6, k_hood_up: int = 4,
                 l2 = _face_array(image, "head", "front", 1)
                 bits = [1 if l2[4][u][3] else 0 for u in range(8)]
                 bang_tips[length].append(bits)
-            ep = extract_eye_pattern(image)
+            ep = None if eye_source_blocked(path.stem) else extract_eye_pattern(image)
             if ep:
                 key = (tuple(map(tuple, ep["sclera"])), tuple(map(tuple, ep["iris"])))
                 if key not in seen_eyes:
