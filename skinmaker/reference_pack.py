@@ -217,6 +217,7 @@ def build_pack(root: Path, k_hair: int = 6, k_eyes: int = 6, k_hood_up: int = 4,
         return path.relative_to(root).as_posix() in include
     hair: dict[str, list[dict]] = {"short": [], "long": []}
     bang_tips: dict[str, list[list[int]]] = {"short": [], "long": []}
+    edge_bits: dict[str, list[list[int]]] = {"right": [], "left": [], "back": []}
     eyes: list[dict] = []
     seen_eyes: set[tuple] = set()
 
@@ -232,6 +233,10 @@ def build_pack(root: Path, k_hair: int = 6, k_eyes: int = 6, k_hood_up: int = 4,
                 l2 = _face_array(image, "head", "front", 1)
                 bits = [1 if l2[4][u][3] else 0 for u in range(8)]
                 bang_tips[length].append(bits)
+                for face_name in ("right", "left", "back"):
+                    ef = _face_array(image, "head", face_name, 1)
+                    for u in (0, 7):
+                        edge_bits[face_name].append([1 if ef[v][u][3] else 0 for v in range(8)])
             ep = None if eye_source_blocked(path.stem) else extract_eye_pattern(image)
             if ep:
                 key = (tuple(map(tuple, ep["sclera"])), tuple(map(tuple, ep["iris"])))
@@ -278,6 +283,12 @@ def build_pack(root: Path, k_hair: int = 6, k_eyes: int = 6, k_hood_up: int = 4,
                      sorted(__import__("collections").Counter(map(tuple, bang_tips[length])).items(),
                             key=lambda kv: -kv[1])[:3]]
             for length in ("short", "long")
+        },
+        "edge_masks": {
+            face: [list(bits) for bits, _ in
+                   sorted(__import__("collections").Counter(map(tuple, edge_bits[face])).items(),
+                          key=lambda kv: -kv[1])[:3]]
+            for face in ("right", "left", "back")
         },
         "eyes": _medoids(eyes, "eye", k_eyes),
         "hoods": {
@@ -378,6 +389,14 @@ def select_bang_tips(pack: dict, length: str, style: str, seed: str = "") -> lis
         return None
     h = int.from_bytes(hashlib.sha256(f"tips:{bucket}:{style}:{seed}".encode()).digest()[:4], "big")
     return tips[h % len(tips)]
+
+
+def select_edge_mask(pack: dict, face_name: str, seed: str = "") -> list[int] | None:
+    masks = pack.get("edge_masks", {}).get(face_name) or []
+    if not masks:
+        return None
+    h = int.from_bytes(hashlib.sha256(f"edge:{face_name}:{seed}".encode()).digest()[:4], "big")
+    return masks[h % len(masks)]
 
 
 def select_hood(pack: dict, kind: str, seed: str = "") -> dict | None:

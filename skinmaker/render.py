@@ -743,13 +743,28 @@ def render_hair_overlay(canvas: SkinCanvas, colors: dict[str, Color], stencil, h
             for u in (1, 6):
                 put("head", "front", u, 5)
 
-    # 옆/뒤: 실루엣의 모든 열을 채운다 (구멍 없음).
+    # 옆/뒤: 실루엣의 모든 열을 채운다.
     for face_name in ("right", "back", "left"):
         profile = stencil.side_profiles.get(face_name, ())
         f = canvas.layout.face("head", face_name, 1)
         for u, rows in enumerate(profile[: f.w]):
             for v in range(min(f.h, rows)):
                 put("head", face_name, u, v)
+    # Reference-derived lower-edge strand notches on the sides/back. Only the
+    # lower half is touched, so L1 hair shows through without opening skin.
+    if pack:
+        cols_for = {"right": (7,), "left": (0,), "back": (0, 7)}
+        for face_name in ("right", "left", "back"):
+            mask = RP.select_edge_mask(pack, face_name, seed)
+            if not mask:
+                continue
+            f = canvas.layout.face("head", face_name, 1)
+            for v in range(4, min(8, f.h)):
+                if mask[v]:
+                    continue
+                for u in cols_for[face_name]:
+                    if u < f.w and canvas.get("head", face_name, u, v, 1)[3]:
+                        canvas.put("head", face_name, u, v, (0, 0, 0, 0), 1)
 
     # 머리 아래: L1 과 같은 footprint, 뒤쪽 행만.
     bottom = canvas.layout.face("head", "bottom", 1)
