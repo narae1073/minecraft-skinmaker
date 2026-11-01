@@ -299,6 +299,25 @@ def test_hood_up_keeps_only_chest_facing_side_lock():
     assert _hairish(up.get("body", "left", 0, 6), base.hair.hex, "left")
 
 
+def test_hood_down_paints_the_reference_cowl(monkeypatch):
+    """Hood down must use the reference cowl mask (front rim + back fold),
+    not a solid 8x3 band over the chest."""
+    pack = R.RP.load_pack()
+    tmpl = pack["hoods"]["down"][0]
+    monkeypatch.setattr(R.RP, "select_hood",
+                        lambda pack, kind, seed="": tmpl if kind == "down" else None)
+    canvas = R.render(observed(), attrs(top_garment="hoodie", hood="down"), ())
+    want = {(face, u, v)
+            for face, rows in tmpl["faces"].items()
+            for v, row in enumerate(rows)
+            for u, bit in enumerate(row) if bit}
+    got = {(face, u, v)
+           for face in ("front", "back")
+           for v in range(12) for u in range(8)
+           if canvas.get("body", face, u, v, 1)[3]}
+    assert got == want
+
+
 def test_viewer_js_uv_rects_match_layout():
     """3D 모델의 UV rect 상수(skinModel.js)가 format.get_layout()과 일치 — 드리프트 방지.
 

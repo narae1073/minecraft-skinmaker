@@ -118,6 +118,13 @@ def _check(canvas, length: str, style: str, hood: str, beard: str) -> list[str]:
                 c = l2[:3] if l2[3] else canvas.get("body", "front", u, 0)[:3]
                 if max(abs(c[i] - hair_front[i]) for i in range(3)) > R.NOISE_TOL * 1.5:
                     problems.append(f"hood-up chest lock cut at ({u},0): {c}")
+    if hood == "down":
+        # Hood down uses the reference cowl (front rim + back fold), not a
+        # solid 8x3 band over the chest (max reference front coverage is 8).
+        n = sum(1 for v in range(3) for u in range(8)
+                if canvas.get("body", "front", u, v, 1)[3])
+        if n > 8:
+            problems.append(f"hood-down solid front band ({n} cells)")
     return problems
 
 
