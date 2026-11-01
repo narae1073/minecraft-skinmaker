@@ -5,9 +5,9 @@
 Photo → Minecraft 64×64 skin pipeline.
 S0 quality/face detection (YuNet) → S1 colour measurement (white-balance + band/cascade) → SCHP human-parsing mask (colour localization for bottom/hair/shoes — default ON) → S2 classification (double query, uncertainty flags) → S3 parametric render (+ deterministic noise) → S4 candidates (1–3 variants from double-query disagreements) → web app (FastAPI + React 19 / three.js with 3D viewer and editor modal).
 
-## 2. Current state (verified 2026-10-27)
+## 2. Current state (verified 2026-11-01)
 
-- Tests: **657 passed** (`tests/fixtures/` committed; ~10 s without the SCHP model, ~3 min with it). Tests no longer need the 66 MB SCHP model: the jeans-rule tests stub a zero mask and `test_parsing` uses a dummy model path with a fake session.
+- Tests: **670 passed** (`tests/fixtures/` committed; ~10 s without the SCHP model, 245.69 s = 4:05 with it, measured 2026-11-01). Tests no longer need the 66 MB SCHP model: the jeans-rule tests stub a zero mask and `test_parsing` uses a dummy model path with a fake session.
 - Frontend: `npm run lint` clean, `npm run build` green (Vite 8 / Node 24).
 - Python 3.12.3 venv at `.venv`; do **not** use `python` or `uv`.
 - Parsing model: `out/models/schp-atr-18-int8-static.onnx` (66 MB, gitignored). YuNet: `assets/face_detection_yunet_2023mar.onnx` (228 KB, gitignored). Both fetched by `scripts/fetch_assets.sh`.
@@ -340,3 +340,11 @@ S0 quality/face detection (YuNet) → S1 colour measurement (white-balance + ban
   - **UI**: removed 헤어스타일 표현 / 머리 좌우 모양 controls. Backend still accepts `hair_source`/`hair_symmetry` but ignores them (echoes mask/symmetrized); `hair_overlay` validation unchanged.
   - `hairreport`: drape length measured on L1 (`DRAPE_TOL` 45 for shaded drape); reference-drape styles cap at 12.
   - 670 passed, production QA 49 ok, lint clean, build ok. A/B: `out/hair_l2_masks/drape_3d.png`, `chin_ab.png`, `chin_marker_bottom.png`.
+
+- 2026-11-01 (deepseek 재탐색/작업 브랜치): 사용자 지시("코드를 재탐색하고 앞으로의 작업을 위해 deepseek branch를 열어")로 Claude 세션 이후 상태를 다시 확인하고 `deepseek` 브랜치를 열었다.
+  - 기준: `origin/master` = `fc39cf0` (PR #36 머지). 종전 워크트리 `feat/hair-chin-drape-ui`(`084d7b5`)와 `git diff` 0 — 로컬 트리는 이미 master와 내용이 동일했다. `deepseek` 는 `origin/master` 에서 생성했고 업스트림은 `origin/deepseek` 로 둔다.
+  - 검증: `.venv/bin/python -m pytest -q` → **670 passed in 245.69s** (2026-11-01 20:52 KST, SCHP 모델 포함). `pytest --collect-only -q` → 670. README/§2 의 657 은 낡은 값이라 670 으로 갱신했고, 과거 세션 기록값은 감사 교훈대로 건드리지 않았다.
+  - 구조 재확인: `format.py`(UV 정본) → `colors.py`(WB·군집·마스크 근거) → `attributes`/`classify`(14필드 이중 질의) → `render.py`(reference pack 의 L1 shape/tones + L2 mask + body drape, 이후 hood/noise) → `candidates.py`; 웹은 `backend/app.py` 단일 `POST /api/v1/generate-skin` + `frontend/src/App.jsx`/`Skin3DViewer`/`skinModel.js`. QA 게이트는 `production_qa.py`(49 케이스), `reference_qa.py`(train/holdout), `paired_benchmark.py`, `production_status.py`(fail-closed).
+  - 게이트 재실행: `scripts/production_status.py` → `ready=false`. blockers = eye/hood holdout 부족(eyes<20, hood_up<10, hood_down<5) + hood_up 0/2·hood_down 0/1 승인 + paired 0/30. eyes 4개만 승인됨 — 코드 문제가 아니라 **인간 라벨/승인 대기**다.
+  - 남은 리스크: `hair_source`/`hair_symmetry` 는 API가 받고 응답에 에코하지만 렌더에는 쓰이지 않는다(하위호환); `pose.py` 는 휴면(mediapipe 제거); 미추적 `docs/pipeline_overview_ko.md` 는 2026-10-29·610 tests 기준이라 현재와 어긋난다(커밋 여부는 사용자 판단).
+  - 이번 커밋은 README/handover 문서만 변경하며 코드·에셋은 무변경. 이후 실제 작업은 기존 `feat/*` PR 흐름을 유지한다.
