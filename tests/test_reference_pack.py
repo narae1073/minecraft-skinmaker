@@ -326,3 +326,81 @@ def test_edge_masks_are_length_specific():
     by_len = pack.get("edge_masks_by_length", {})
     assert by_len["long"]["right"][0] == [0, 0, 0, 0, 1, 1, 1, 0]
     assert by_len["short"]["right"][0] == [0, 0, 0, 0, 1, 1, 0, 0]
+
+
+# --- L2 hair sculpt templates (2026-11-01) ----------------------------------
+
+def _mask(cells: dict[str, list[tuple[int, int]]]) -> dict[str, np.ndarray]:
+    out = {f: np.zeros((8, 8), dtype=bool) for f in RP.MASK_FACES}
+    for f, uv in cells.items():
+        for u, v in uv:
+            out[f][v, u] = True
+    return out
+
+
+def test_hair_mask_rejects_non_hair_colour_l2():
+    im = _skin()
+    f0 = L.face("head", "top", 0)
+    for v in range(8):
+        for u in range(8):
+            im.putpixel((f0.x + u, f0.y + v), (60, 40, 30, 255))
+    back = L.face("head", "back", 1)
+    for v in range(8):
+        im.putpixel((back.x + 0, back.y + v), (62, 41, 31, 255))  # hair strand
+        im.putpixel((back.x + 7, back.y + v), (62, 41, 31, 255))
+        im.putpixel((back.x + 4, back.y + v), (40, 220, 60, 255))  # green ribbon
+    m = RP.extract_hair_mask(im)
+    assert m is not None
+    assert m["back"][:, 0].all() and m["back"][:, 7].all()
+    assert not m["back"][:, 4].any()
+
+
+def test_cluster_majority_vote_and_min_count():
+    common = _mask({"front": [(u, 1) for u in range(2, 6)], "back": [(0, v) for v in range(8)]})
+    noisy = []
+    for i in range(12):
+        m = {f: a.copy() for f, a in common.items()}
+        m["top"][i % 8, i % 8] = True  # one-off pixel per skin
+        noisy.append(m)
+    outlier = _mask({"top": [(u, v) for u in range(8) for v in range(8)]})
+    out = RP.cluster_hair_masks(noisy + [outlier], k=2, min_count=3)
+    assert len(out) == 1 and out[0]["count"] == 12
+    t = out[0]["faces"]
+    assert sum(map(sum, t["top"])) == 0  # one-offs voted out
+    assert [row[0] for row in t["back"]] == [1] * 8
+    assert RP.cluster_hair_masks(noisy + [outlier], k=2, min_count=3) == out  # deterministic
+
+
+def test_committed_hair_masks_are_sparse_reference_sculpts():
+    pack = RP.load_pack()
+    for length in ("short", "long"):
+        items = pack["hair_masks"][length]
+        assert items and all(t["count"] >= 10 for t in items)
+        for t in items:
+            cov = {f: sum(map(sum, t["faces"][f])) / 64 for f in RP.MASK_FACES}
+            # Reference L2 is never a solid shell (median top 0.12, sides 0.20).
+            assert cov["top"] <= 0.3 and cov["right"] <= 0.5 and cov["back"] <= 0.6
+            assert cov["front"] > 0.2  # fringe arc present
+        assert RP.select_hair_mask(pack, length, "short", "s") is RP.select_hair_mask(pack, length, "short", "s")
+
+
+def test_template_l2_is_sparse_and_spares_eyes():
+    from skinmaker import render as R
+    from tests.test_render import attrs, observed
+    for style, length in (("long_straight", "long"), ("short", "short"), ("bob", "medium")):
+        im = R.render(observed(), attrs(hair_length=length, hair_style=style), ()).image
+        top = L.face("head", "top", 1)
+        n_top = sum(im.getpixel((top.x + u, top.y + v))[3] > 0 for v in range(8) for u in range(8))
+        assert n_top <= 0.3 * 64, style
+        front = L.face("head", "front", 1)
+        for v in (5, 6):
+            for u in range(1, 7):
+                assert im.getpixel((front.x + u, front.y + v))[3] == 0, (style, u, v)
+        # L2 head pixels on top/sides/back only sit over L1 hair (never skin).
+        for name in ("top", "right", "left", "back"):
+            f1, f2 = L.face("head", name, 0), L.face("head", name, 1)
+            skin = R.shade(R.resolve_colors(observed())["skin"], R.FACE_SHADE[name])
+            for v in range(8):
+                for u in range(8):
+                    if im.getpixel((f2.x + u, f2.y + v))[3]:
+                        assert im.getpixel((f1.x + u, f1.y + v)) != skin, (style, name, u, v)
