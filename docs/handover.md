@@ -376,3 +376,6 @@ S0 quality/face detection (YuNet) → S1 colour measurement (white-balance + ban
 
 - 2026-11-02 (모바일 결과 가시성, `fix/mobile-result-scroll`): 미리보기 모달 제거 후 모바일에서 변환 결과가 화면 밖에 남는 회귀(scrollY=0, result top=919 > viewport 701). 결과 섹션이 뷰포트 아래일 때만 `scrollIntoView`(reduced-motion 존중), 이미 보이면 스크롤하지 않는다.
   - 검증: headless CDP 모바일 창 before `scrollY=0/top=919` → after `scrollY=919/top=0`; `npm run lint`/`build` green.
+
+- 2026-11-02 (파이프라인 개요 갱신, P1-7): `docs/pipeline_overview_ko.md`를 2026-10-29 초안(1df10c7/610 tests)에서 현재 master(226ce53/675 tests) 기준으로 갱신했다. 14필드, reference pack(L1 스켈레톤/음영 톤/L2 마스크/body drape), head bottom row7, 후드 up/down, API 정리(`hair_source`/`hair_symmetry` 제거), 웹 UI(모달 제거·고정 조명·모바일 스크롤), QA 50 cases, 프로덕션 게이트/인게임/스코어링 항목을 반영하고 §8 변경 요약을 추가했다.
+  - 검증: 문서 내 stale 수치(610/539/13필드/5필드/8×8 스텐실) 제거, `git diff --cached --check` clean. 문서-only 변경(테스트 수 불변).
