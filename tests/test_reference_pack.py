@@ -319,3 +319,10 @@ def test_reference_edge_masks_are_present_and_bounded():
             for u in range(f.w):
                 if canvas.get("head", face, u, v, 1)[3] == 0:
                     assert canvas.get("head", face, u, v)[3] == 255, (face, u, v)
+
+
+def test_edge_masks_are_length_specific():
+    pack = RP.load_pack()
+    by_len = pack.get("edge_masks_by_length", {})
+    assert by_len["long"]["right"][0] == [0, 0, 0, 0, 1, 1, 1, 0]
+    assert by_len["short"]["right"][0] == [0, 0, 0, 0, 1, 1, 0, 0]
