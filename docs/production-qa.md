@@ -13,6 +13,7 @@ not replace, the visual sub-agent.
 - hood: none / up / down
 - noise: 0% and 50%
 - one explicit beard=`full` case
+- one slim-geometry case (hood up, long hair, noise 0)
 
 ## Hard checks
 

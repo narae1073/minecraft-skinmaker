@@ -13,7 +13,7 @@ It checks:
 - holdout size 50–100, structural/quality pack QA, train-split provenance;
 - hair holdout n≥50 and p90≤0.10;
 - eye/hood-up/hood-down holdout sufficiency;
-- deterministic 49-case render matrix;
+- deterministic 50-case render matrix;
 - approved eye/hood templates (human review);
 - at least one approved paired photo→skin example, target 30;
 - approved paired benchmark structural acceptance.

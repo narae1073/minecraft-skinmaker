@@ -7,7 +7,6 @@ from . import attributes as A
 from . import colors as C
 from . import render as R
 from .canvas import rgba, shade
-from .format import get_layout
 from .validate import validate_image
 
 
@@ -39,10 +38,10 @@ STYLES = (
 HOODS = ("none", "up", "down")
 
 
-def _check(canvas, length: str, style: str, hood: str, beard: str) -> list[str]:
+def _check(canvas, length: str, style: str, hood: str, beard: str,
+           model: str = "classic") -> list[str]:
     problems: list[str] = []
-    L = get_layout("classic")
-    problems += [str(p) for p in validate_image(canvas.image)]
+    problems += [str(p) for p in validate_image(canvas.image, model)]
     skin = shade(rgba("#e0ac69"), R.FACE_SHADE["front"])[:3]
     # Beard must never be painted. Side columns may be intentional side hair;
     # check the center jaw only (where a beard would be visible).
@@ -147,6 +146,13 @@ def run_matrix(styles=STYLES, hoods=HOODS, noise_levels=(0.0, 0.5)) -> dict:
     problems = _check(canvas, "short", "short", "none", "full")
     cases.append({"style": "short", "length": "short", "hood": "none", "noise": 0.0,
                   "beard": "full", "problems": problems})
+    # Slim geometry has its own mirror/validation contract; one hood-up
+    # long-hair case keeps it covered by the same invariants.
+    attrs = _attrs("long", "long_straight", "up")
+    canvas = R.render(_observed(), attrs, (), model="slim")
+    problems = _check(canvas, "long", "long_straight", "up", "none", model="slim")
+    cases.append({"style": "long_straight", "length": "long", "hood": "up",
+                  "noise": 0.0, "model": "slim", "problems": problems})
     return {
         "version": 1,
         "case_count": len(cases),
