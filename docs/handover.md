@@ -373,3 +373,6 @@ S0 quality/face detection (YuNet) → S1 colour measurement (white-balance + ban
 
 - 2026-11-01 (slim-geometry QA, `feat/slim-qa`): `production_qa` 가 classic 만 검사하던 공백. slim 1케이스(hood up, long hair, noise 0) 추가, `_check(model=)` 로 `validate_image(model)`; 사용하지 않던 `get_layout` 제거. **50 cases**.
   - 검증: 50 cases ok, **675 passed**. 문서(`production-roadmap`, `production-status`, `production-qa`)의 49-case 표기도 50으로 갱신.
+
+- 2026-11-02 (모바일 결과 가시성, `fix/mobile-result-scroll`): 미리보기 모달 제거 후 모바일에서 변환 결과가 화면 밖에 남는 회귀(scrollY=0, result top=919 > viewport 701). 결과 섹션이 뷰포트 아래일 때만 `scrollIntoView`(reduced-motion 존중), 이미 보이면 스크롤하지 않는다.
+  - 검증: headless CDP 모바일 창 before `scrollY=0/top=919` → after `scrollY=919/top=0`; `npm run lint`/`build` green.

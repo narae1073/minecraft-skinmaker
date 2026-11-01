@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { QRCodeSVG } from 'qrcode.react';
 import Skin3DViewer from './components/Skin3DViewer';
 import SkinEditor from './components/SkinEditor';
@@ -15,6 +15,7 @@ function App() {
     : window.location.origin;
   const cameraInputRef = useRef(null);
   const fileInputRef = useRef(null);
+  const resultRef = useRef(null);
   const [cameraOpen, setCameraOpen] = useState(false);
 
   const openCamera = () => {
@@ -39,6 +40,16 @@ function App() {
   const [hairOverlay, setHairOverlay] = useState('on'); // L2 오버레이 헤어 (기본 켜기 — 사용자 결정 2026-10-21)
   const [catInfo, setCatInfo] = useState(null); // 분류 카테고리 {attributes, candidates, noiseLevel} (설계 §11)
   const [steps, setSteps] = useState(null); // 처리 과정 시트 {clean, full} (설계 §12)
+
+  // 결과 섹션은 설정 아래에 있다. 모바일에서 변환 후 결과가 화면 밖이면
+  // (미리보기 모달 제거 이후) 결과가 보이도록 스크롤한다.
+  useEffect(() => {
+    if (!skins.length) return;
+    const el = resultRef.current;
+    if (!el || el.getBoundingClientRect().top < window.innerHeight) return;
+    const reduce = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+    el.scrollIntoView({ behavior: reduce ? 'auto' : 'smooth', block: 'start' });
+  }, [skins]);
 
   // 사이드바 및 스킨 기록 관련 상태
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
@@ -326,7 +337,7 @@ function App() {
         </div>
 
         {skins.length > 0 && (
-          <div className="result-section">
+          <div className="result-section" ref={resultRef}>
             <h2>생성된 64×64 스킨 후보 {skins.length}종</h2>
             <p className="compare-hint">원본 사진을 왼쪽에 두고 스킨을 비교해보세요 (3D 뷰어에서 회전도 가능)</p>
             <div className="compare-grid">
