@@ -370,3 +370,6 @@ S0 quality/face detection (YuNet) → S1 colour measurement (white-balance + ban
 
 - 2026-11-01 (deprecated hair params 제거, `fix/hair-params`): `hair_source`/`hair_symmetry` 폼·응답 필드를 제거했다. reference skeleton 도입(2026-11-01) 이후 렌더에 영향이 없던 잔재이며, 내부 `extract` 인자는 유지한다(`tests/test_colors.py` 가 계속 검증). 구클라이언트가 보내도 FastAPI가 무시하고 200; `hair_overlay` 만 응답에 남는다.
   - 검증: **675 passed** (266.03s). backend 계약 테스트 갱신: legacy 필드를 보내도 200·응답에 없음, `hair_overlay` 가비지는 400.
+
+- 2026-11-01 (slim-geometry QA, `feat/slim-qa`): `production_qa` 가 classic 만 검사하던 공백. slim 1케이스(hood up, long hair, noise 0) 추가, `_check(model=)` 로 `validate_image(model)`; 사용하지 않던 `get_layout` 제거. **50 cases**.
+  - 검증: 50 cases ok, **675 passed**. 문서(`production-roadmap`, `production-status`, `production-qa`)의 49-case 표기도 50으로 갱신.

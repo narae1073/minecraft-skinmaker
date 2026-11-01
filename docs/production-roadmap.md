@@ -74,7 +74,7 @@ Templates are a means; the gate is measured output quality on defined data.
 
 ### Phase 3 — Structural composition (QA gate started)
 
-- Deterministic matrix: `scripts/run_production_qa.py` (49 cases, styles × hoods × noise + beard).
+- Deterministic matrix: `scripts/run_production_qa.py` (50 cases, styles × hoods × noise + beard + slim).
 - Warp templates to the measured hairline/head; no isolated pixels; hood after
   noise; face/eye/beard invariants.
 - Add feature flags and fallback to the current renderer.

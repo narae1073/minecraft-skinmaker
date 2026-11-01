@@ -62,7 +62,8 @@ def test_production_matrix_passes_current_contract():
     r = run_matrix(styles=(("short", "short"), ("long_straight", "long")),
                    hoods=("none", "up", "down"), noise_levels=(0.0, 0.5))
     assert r["ok"], r["failures"]
-    assert r["case_count"] == 12 + 1
+    assert r["case_count"] == 12 + 2  # beard case + slim-geometry case
+    assert any(c.get("model") == "slim" for c in r["cases"])
 
 
 def test_production_matrix_reports_beard_case():
