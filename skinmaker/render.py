@@ -735,7 +735,7 @@ def render_hair_overlay(canvas: SkinCanvas, colors: dict[str, Color], stencil, h
                 values = [tones[r][u] for r in range(len(tones)) if u < len(tones[r])]
                 tone = max(85, min(115, sum(values) / len(values)))
         c = _l2_color(hair_c, face_name, tone)
-        if part == "head" and v >= 2 and accent.get(face_name):
+        if (part == "head" and v >= 2 or part == "body" and style in ("long_straight", "long_wavy", "curly") and v >= 1) and accent.get(face_name):
             dark_u, light_u = accent[face_name]
             if u == dark_u:
                 c = shade(c, 0.85)
