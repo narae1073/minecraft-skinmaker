@@ -266,6 +266,39 @@ def test_long_hair_extends_body_drape_and_bangs():
     assert not _hairish(short.get("body", "back", 0, 0), "#112233", "back")
 
 
+def test_hood_up_hides_back_drape_and_keeps_chest_locks():
+    """Hood up covers the back of the head/upper back: no hair down the back.
+    The chest locks stay and must start at the shoulder — the hood cowl is
+    clothing and the hair falls over it (regression: locks were cut two rows
+    below the head in production)."""
+    base = observed(hair="#112233")
+    kw = dict(top_garment="hoodie", hair_length="long", hair_style="long_straight")
+    bare = R.render(base, attrs(hood="none", **kw), ())
+    up = R.render(base, attrs(hood="up", **kw), ())
+
+    assert _hairish(bare.get("body", "back", 3, 6), base.hair.hex, "back")
+    for u in range(8):
+        for v in range(12):
+            assert not _hairish(up.get("body", "back", u, v), base.hair.hex, "back"), (u, v)
+
+    for u in (0, 1, 6, 7):
+        l2 = up.get("body", "front", u, 0, 1)
+        visible = l2 if l2[3] else up.get("body", "front", u, 0, 0)
+        assert _hairish(visible, base.hair.hex, "front"), (u, visible)
+
+
+def test_hood_up_keeps_only_chest_facing_side_lock():
+    """Side faces author u in the same order as the head: right u0=back,
+    left u0=front. Hood up keeps the chest-facing edge column, drops the back."""
+    base = observed(hair="#112233")
+    up = R.render(base, attrs(top_garment="hoodie", hair_length="long",
+                              hair_style="long_straight", hood="up"), ())
+    assert not _hairish(up.get("body", "right", 0, 6), base.hair.hex, "right")
+    assert _hairish(up.get("body", "right", 3, 6), base.hair.hex, "right")
+    assert not _hairish(up.get("body", "left", 3, 6), base.hair.hex, "left")
+    assert _hairish(up.get("body", "left", 0, 6), base.hair.hex, "left")
+
+
 def test_viewer_js_uv_rects_match_layout():
     """3D 모델의 UV rect 상수(skinModel.js)가 format.get_layout()과 일치 — 드리프트 방지.
 

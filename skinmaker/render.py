@@ -385,6 +385,24 @@ def _pattern_color(base: Color, alt: Color | None, u: int, v: int, w: int, h: in
     return shaded
 
 
+def _drape_column_visible(face_name: str, u: int, width: int, hide_back: bool) -> bool:
+    """Hood-up policy: the hood covers the back of the head and upper back.
+
+    Hide the whole back face and the back-facing edge column of the side
+    faces. Author order matches the head (see hairstencil.side_profiles_from_front):
+    right u0 = back, left u0 = front, so the chest-facing edge survives.
+    """
+    if not hide_back:
+        return True
+    if face_name == "back":
+        return False
+    if face_name == "right":
+        return u == width - 1
+    if face_name == "left":
+        return u == 0
+    return True
+
+
 def render_body(
     canvas: SkinCanvas,
     colors: dict[str, Color],
@@ -397,6 +415,7 @@ def render_body(
     *,
     drape: dict | None = None,
     drape_tones: dict | None = None,
+    hide_back_drape: bool = False,
 ) -> set:
     """L1 body. Returns reference-drape hair cells (face, u, v); empty otherwise."""
     top_garment = attrs.get("top_garment")
@@ -463,6 +482,8 @@ def render_body(
         for face_name, depth in drape.get("l1_depth", {}).items():
             f = canvas.layout.face("body", face_name, 0)
             for u, rows in enumerate(depth[:f.w]):
+                if not _drape_column_visible(face_name, u, f.w, hide_back_drape):
+                    continue
                 for v in range(min(rows, f.h)):
                     canvas.put("body", face_name, u, v, _hair_tone(hair_c, face_name, u, v, drape_tones), 0)
                     cells.add((face_name, u, v))
@@ -472,7 +493,7 @@ def render_body(
     front_rows = min(12, max(0, getattr(hair_stencil, "front_body_rows", 0)))
     if back_rows or front_rows:
         hair_c = colors["hair"]
-        for face_name in ("back", "right", "left"):
+        for face_name in (() if hide_back_drape else ("back", "right", "left")):
             f = canvas.layout.face("body", face_name, 0)
             for v in range(min(back_rows, f.h)):
                 for u in range(f.w):
@@ -667,11 +688,14 @@ def hood_variant(seed: str) -> int:
 
 def render_hood_overlay(canvas: SkinCanvas, colors: dict[str, Color], hood: str,
                         pack: dict | None = None, seed: str = "",
-                        variant: int | None = None) -> None:
+                        variant: int | None = None, body_hair_cells: set | None = None) -> None:
     """Clothing hood from the reference pack, drawn over hair on L2.
 
     Solid shells with a face opening. Three procedural archetypes vary the
     brim depth, seam placement, and trim; top_alt supplies fold/trim colour.
+    ``body_hair_cells`` are the L1 body-drape cells: hair falls **over** the hoodie
+    cowl at the neckline, so the cowl must not paint those cells (they would
+    cut the chest locks two rows below the head).
     """
     if hood not in ("up", "down"):
         return
@@ -680,15 +704,22 @@ def render_hood_overlay(canvas: SkinCanvas, colors: dict[str, Color], hood: str,
         return
     base = colors.get("top") or colors["hair"]
     alt = colors.get("top_alt") or shade(base, 0.72)
+    body_hair_cells = body_hair_cells or set()
+
+    def put_cowl(face_name: str, u: int, v: int, color: Color) -> None:
+        if (face_name, u, v) in body_hair_cells:
+            return
+        canvas.put("body", face_name, u, v, color, 1)
+
     if hood == "down":
         f = canvas.layout.face("body", "front", 1)
         base_front = shade(base, FACE_SHADE["front"])
         for v in range(min(3, f.h)):
             for u in range(f.w):
-                canvas.put("body", "front", u, v, base_front, 1)
+                put_cowl("front", u, v, base_front)
         rim = shade(alt, FACE_SHADE["front"])
         for u in range(f.w):
-            canvas.put("body", "front", u, 2, rim, 1)
+            put_cowl("front", u, 2, rim)
         return
 
     variant = hood_variant(seed) if variant is None else variant % 3
@@ -749,11 +780,11 @@ def render_hood_overlay(canvas: SkinCanvas, colors: dict[str, Color], hood: str,
         rows = 3 if variant == 1 else 2
         for v in range(rows):
             for u in range(f.w):
-                canvas.put("body", name, u, v, cowl, 1)
+                put_cowl(name, u, v, cowl)
         if variant != 2:
             edge = shade(alt, FACE_SHADE[name])
             for u in range(f.w):
-                canvas.put("body", name, u, 1, edge, 1)
+                put_cowl(name, u, 1, edge)
     if variant != 2:
         strings = shade(alt, 1.10)
         length = 4 if variant == 1 else 3
@@ -888,7 +919,7 @@ def _legacy_head_l2(canvas, put, stencil, hair_length: str, length: str, style: 
 def render_hair_overlay(canvas: SkinCanvas, colors: dict[str, Color], stencil, hair_length: str = "short",
                         style: str = "short", pack: dict | None = None, seed: str = "",
                         allow_eye_fringe: bool = False, drape: dict | None = None,
-                        drape_tones: dict | None = None) -> None:
+                        drape_tones: dict | None = None, hide_back_drape: bool = False) -> None:
     """L2(오버레이) 헤어 (2026-10-29 개정: solid shell, no alpha holes).
 
     L1 실루엣과 같은 셀을 모두 채운다. 틈(1px hole)을 두지 않고 균일한 5%
@@ -958,12 +989,13 @@ def render_hair_overlay(canvas: SkinCanvas, colors: dict[str, Color], stencil, h
             cols = depth.get(face_name, [])
             for v, row in enumerate(mask):
                 for u, bit in enumerate(row):
-                    if bit and u < len(cols) and v < cols[u]:
+                    if (bit and u < len(cols) and v < cols[u]
+                            and _drape_column_visible(face_name, u, len(row), hide_back_drape)):
                         canvas.put("body", face_name, u, v,
                                    _hair_tone(hair_c, face_name, u, v, drape_tones), 1)
 
     # 몸통 드레이프 (legacy, no reference drape): solid rows.
-    body_rows = 0 if drape else min(12, max(0, getattr(stencil, "back_body_rows", 0)))
+    body_rows = 0 if (drape or hide_back_drape) else min(12, max(0, getattr(stencil, "back_body_rows", 0)))
     front_rows = 0 if drape else min(12, max(0, getattr(stencil, "front_body_rows", 0)))
     if body_rows:
         for face_name in ("back", "right", "left"):
@@ -979,7 +1011,7 @@ def render_hair_overlay(canvas: SkinCanvas, colors: dict[str, Color], stencil, h
                     put("body", "front", u, v)
 
     # 롱 웨이브 (legacy only): 몸통 끝단을 열마다 1행씩 더 내려 물결 실루엣.
-    if style == "long_wavy" and not drape:
+    if style == "long_wavy" and not drape and not hide_back_drape:
         back = canvas.layout.face("body", "back", 1)
         extra = min(6, body_rows + 1)
         for u in range(back.w):
@@ -988,7 +1020,7 @@ def render_hair_overlay(canvas: SkinCanvas, colors: dict[str, Color], stencil, h
                     put("body", "back", u, v)
 
     # 포니테일: 몸통 뒤 중앙 2열에 꼬리 strip. L1 드레이프는 0.
-    if style == "ponytail":
+    if style == "ponytail" and not hide_back_drape:
         back = canvas.layout.face("body", "back", 1)
         for v in range(min(5, back.h)):
             for u in (3, 4):
@@ -1100,8 +1132,14 @@ def render(
     hair_cells = render_head(canvas, colors, attrs, hair_stencil, style=style, pack=pack, seed=seed)
     thickness = observed.stripe_px if pattern in ("vertical_stripe", "horizontal_stripe", "check", "plaid") else 1
     drape_tones = RP.select_body_tones(pack, seed) if drape else None
+    # Hood up: the hood covers the back of the head and upper back, so the
+    # reference drape is front-only (chest locks). Only hide the drape when a
+    # hood template will actually be drawn; otherwise there is nothing to
+    # cover it (no pack, or a pack without hood templates).
+    hide_back_drape = (attrs.get("hood") == "up" and bool(pack)
+                       and RP.select_hood(pack, "up", seed) is not None)
     body_cells = render_body(canvas, colors, attrs, pattern, alt, hair_stencil, thickness,
-                drape=drape, drape_tones=drape_tones,
+                drape=drape, drape_tones=drape_tones, hide_back_drape=hide_back_drape,
                 texture=observed.top_texture)
     render_arms(canvas, colors, attrs, pattern, resolve_sleeve(attrs, observed))
     render_legs(
@@ -1112,6 +1150,7 @@ def render(
     if observed.hair_overlay:
         render_hair_overlay(canvas, colors, hair_stencil, attrs.get("hair_length"), style,
                             pack=pack, seed=seed, drape=drape, drape_tones=drape_tones,
+                            hide_back_drape=hide_back_drape,
                             allow_eye_fringe=attrs.get("hood") not in ("up", "down"))
     if noise_seed is not None:
         # Reference-shaded hair keeps its strands: block noise would stamp
@@ -1124,7 +1163,8 @@ def render(
     # Draw the hood AFTER noise: its flat crown must stay solid. Applying the
     # deterministic 1-3px block noise after the hood turns the crown into a
     # grid of isolated light/dark cells.
-    render_hood_overlay(canvas, colors, attrs.get("hood"), pack=pack, seed=seed)
+    render_hood_overlay(canvas, colors, attrs.get("hood"), pack=pack, seed=seed,
+                        body_hair_cells=body_cells)
     return canvas
 
 

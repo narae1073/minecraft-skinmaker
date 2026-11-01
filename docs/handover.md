@@ -7,7 +7,7 @@ S0 quality/face detection (YuNet) → S1 colour measurement (white-balance + ban
 
 ## 2. Current state (verified 2026-11-01)
 
-- Tests: **670 passed** (`tests/fixtures/` committed; ~10 s without the SCHP model, 245.69 s = 4:05 with it, measured 2026-11-01). Tests no longer need the 66 MB SCHP model: the jeans-rule tests stub a zero mask and `test_parsing` uses a dummy model path with a fake session.
+- Tests: **672 passed** (`tests/fixtures/` committed; ~10 s without the SCHP model, 241.61 s = 4:01 with it, measured 2026-11-01). Tests no longer need the 66 MB SCHP model: the jeans-rule tests stub a zero mask and `test_parsing` uses a dummy model path with a fake session.
 - Frontend: `npm run lint` clean, `npm run build` green (Vite 8 / Node 24).
 - Python 3.12.3 venv at `.venv`; do **not** use `python` or `uv`.
 - Parsing model: `out/models/schp-atr-18-int8-static.onnx` (66 MB, gitignored). YuNet: `assets/face_detection_yunet_2023mar.onnx` (228 KB, gitignored). Both fetched by `scripts/fetch_assets.sh`.
@@ -348,3 +348,9 @@ S0 quality/face detection (YuNet) → S1 colour measurement (white-balance + ban
   - 게이트 재실행: `scripts/production_status.py` → `ready=false`. blockers = eye/hood holdout 부족(eyes<20, hood_up<10, hood_down<5) + hood_up 0/2·hood_down 0/1 승인 + paired 0/30. eyes 4개만 승인됨 — 코드 문제가 아니라 **인간 라벨/승인 대기**다.
   - 남은 리스크: `hair_source`/`hair_symmetry` 는 API가 받고 응답에 에코하지만 렌더에는 쓰이지 않는다(하위호환); `pose.py` 는 휴면(mediapipe 제거); 미추적 `docs/pipeline_overview_ko.md` 는 2026-10-29·610 tests 기준이라 현재와 어긋난다(커밋 여부는 사용자 판단).
   - 이번 커밋은 README/handover 문서만 변경하며 코드·에셋은 무변경. 이후 실제 작업은 기존 `feat/*` PR 흐름을 유지한다.
+
+- 2026-11-01 (hood-up + 긴 머리 렌더 수정, `deepseek`): 프로덕션에서 후드 업 + 긴 흑발 사진이 ① 앞 chest lock 이 머리 바로 아래 2행에서 절단되고 ② 뒷머리 드레이프가 후드 위로 노출됐다.
+  - 원인: `render_body`/`render_hair_overlay` 가 hood 와 무관하게 reference drape(back 12행, front u0-1/u6-7 11행)를 그리고, `render_hood_overlay` 의 cowl(L2 front/back rows 0-1~2)이 front lock 상단을 덮었다. 후드는 L2, 머리는 L1 이라 옷이 머리 위에 그려진 것.
+  - 수정: hood up 에서 `hide_back_drape` — body back 전체 + side face 의 뒤쪽 edge column 만 제거(right u0=뒤·left u0=앞, 앞쪽 edge 는 유지). front lock 은 유지하고 hood cowl 이 `body_hair_cells` 를 덮지 않게 skip (머리는 옷 위로 떨어진다). ponytail tail·long_wavy legacy tail 도 hood up 에서 숨김. hood down 의 front cowl 도 같은 skip 을 적용.
+  - 검증: 신규 테스트 2개(hood-up back hair 0 / chest lock row0 / side edge 방향), production QA 49 ok. QA matrix 에 hood-up back-hair·chest-lock gate 를 추가했고, 수정 전 코드에 같은 gate 를 돌려 `ok=False`(`hood-up back hair at (0,0)`)로 회귀를 잡는 것을 확인했다.
+  - A/B: `out/hood_bug/compare_3d.png` (before | after, front/back), `before.png` / `after.png`. **672 passed** (241.61s), production QA 49 ok. 코드 변경: `render.py`, `production_qa.py`, `tests/test_render.py`.

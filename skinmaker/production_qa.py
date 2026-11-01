@@ -100,6 +100,24 @@ def _check(canvas, length: str, style: str, hood: str, beard: str) -> list[str]:
             for v in (5, 6):
                 if canvas.get("head", "front", u, v, 1)[3]:
                     problems.append(f"hood covers eye at ({u},{v})")
+        # Hood-up policy (2026-11-01): the hood covers the back of the head and
+        # upper back, so long hair must not show on the body back. The chest
+        # locks do show and must start at the shoulder: the cowl is clothing
+        # and the hair falls over it (production bug: locks cut 2 rows down).
+        top_back = shade(rgba("#2f6fb5"), R.FACE_SHADE["back"])[:3]
+        for u in range(8):
+            for v in range(12):
+                c = canvas.get("body", "back", u, v)[:3]
+                if max(abs(c[i] - top_back[i]) for i in range(3)) > R.NOISE_TOL:
+                    problems.append(f"hood-up back hair at ({u},{v}): {c}")
+                    break
+        if style in ("long_straight", "long_wavy", "curly"):
+            hair_front = shade(rgba("#3a2a1c"), R.FACE_SHADE["front"])[:3]
+            for u in (0, 1, 6, 7):
+                l2 = canvas.get("body", "front", u, 0, 1)
+                c = l2[:3] if l2[3] else canvas.get("body", "front", u, 0)[:3]
+                if max(abs(c[i] - hair_front[i]) for i in range(3)) > R.NOISE_TOL * 1.5:
+                    problems.append(f"hood-up chest lock cut at ({u},0): {c}")
     return problems
 
 
