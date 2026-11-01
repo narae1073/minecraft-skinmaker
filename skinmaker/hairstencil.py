@@ -14,8 +14,10 @@
 """
 from __future__ import annotations
 
+import json
 import math
 from dataclasses import dataclass, field
+from pathlib import Path
 
 import numpy as np
 
@@ -33,6 +35,20 @@ LENGTH_BOTTOM_REAR = {"short": 1, "medium": 2, "long": 3, "very_long": 4}
 HAIR_STYLES = ("short", "pixie", "bob", "long_straight", "long_wavy", "curly", "ponytail", "bun")
 # 스타일별 몸통 드레이프 상한/고정. bob·ponytail·bun 은 몸통으로 흘리지 않는다.
 # (front chest, back) rows. Back is capped at 6; no style covers the whole torso.
+def _bang_prior_depth(length: str, fallback: int = 5) -> int:
+    path = Path(__file__).resolve().parent.parent / "assets" / "bang_prior.json"
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+        v = int(data["by_length"][length]["median_depth"])
+        return max(2, min(5, v))
+    except (OSError, KeyError, TypeError, ValueError):
+        return fallback
+
+
+LOOSE_BANGS = _bang_prior_depth("long")
+SHORT_BANGS = _bang_prior_depth("short")
+
+
 STYLE_DRAPE = {"short": (0, 0), "pixie": (0, 0), "bob": (0, 0),
                "long_straight": (5, 5), "long_wavy": (5, 6), "curly": (3, 4),
                "ponytail": (0, 0), "bun": (0, 0)}
@@ -40,8 +56,8 @@ STYLE_BACK_ROWS = {k: v[1] for k, v in STYLE_DRAPE.items()}
 # Loose styles get a longer fringe that covers the eyebrow row (4); eyes are
 # rows 5-6 and stay visible. Tied-up styles keep the forehead open. Short/pixie
 # stay partial for fully exposed foreheads.
-STYLE_BANGS = {"short": 3, "pixie": 3, "bob": 5, "long_straight": 5, "long_wavy": 5,
-               "curly": 5, "ponytail": 2, "bun": 2}
+STYLE_BANGS = {"short": 3, "pixie": 3, "bob": LOOSE_BANGS, "long_straight": LOOSE_BANGS,
+               "long_wavy": LOOSE_BANGS, "curly": LOOSE_BANGS, "ponytail": 2, "bun": 2}
 _FALLBACK_STYLE = {"short": "short", "medium": "bob", "long": "long_straight", "very_long": "long_wavy"}
 
 

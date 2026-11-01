@@ -467,3 +467,13 @@ def test_bang_profile_shape_and_exceptions():
     et = HS.rule_stencil("short")
     exposed = dataclasses.replace(et, front=tuple(tuple(False for _ in row) for row in et.front))
     assert HS.style_bang_profile("short", exposed) == (0, 3, 3, 3, 3, 3, 3, 0)
+
+
+def test_style_depth_is_driven_by_reference_bang_prior():
+    import json
+    prior = json.loads(Path("assets/bang_prior.json").read_text())
+    assert HS.LOOSE_BANGS == prior["by_length"]["long"]["median_depth"]
+    assert HS.SHORT_BANGS == prior["by_length"]["short"]["median_depth"]
+    assert HS.style_bangs("bob") == HS.LOOSE_BANGS
+    assert HS.style_bangs("long_straight") == HS.LOOSE_BANGS
+    assert HS.style_bangs("ponytail") == 2
