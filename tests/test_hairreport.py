@@ -1,4 +1,4 @@
-"""Deterministic hair QA: bottom coverage, L2 holes, profile/drape."""
+"""Deterministic hair QA: bottom coverage, sparse L2, profile/drape."""
 import sys
 from pathlib import Path
 
@@ -37,23 +37,28 @@ def render(length="very_long", hair="#112233"):
     return canvas.image
 
 
-def test_report_passes_long_solid_skin():
+def test_report_passes_long_sculpted_skin():
     img = render()
     report = HR.analyze(img, hair="#112233", skin="#e0ac69", hair_length="very_long")
     assert report["ok"], report
-    assert report["l2_holes"] == 0
+    # Reference-style L2: L1 hair stays visible between sculpted strands.
+    assert report["l2_holes"] > 0
+    assert report["l2_counts"]["top"] <= 0.3 * 64
     assert report["chin_hair"] == 0
     assert report["bottom_rear_hair"] >= report["bottom_rear_total"] * 0.9
     assert report["side_jump"] <= 1
     assert report["body_rows"] >= 6
 
 
-def test_report_detects_l2_hole():
+def test_report_detects_solid_l2_shell():
+    """The pre-2026-11-01 silhouette copy (solid L2 face) is a defect."""
     img = render().copy()
     f = get_layout("classic").face("head", "back", 1)
-    img.putpixel((f.x + 3, f.y + 4), (0, 0, 0, 0))
+    for v in range(f.h):
+        for u in range(f.w):
+            img.putpixel((f.x + u, f.y + v), (17, 34, 51, 255))
     report = HR.analyze(img, hair="#112233", skin="#e0ac69", hair_length="very_long")
-    assert report["l2_holes"] > 0
+    assert any("solid L2 shell on back" in p for p in report["problems"])
     assert not report["ok"]
 
 

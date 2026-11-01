@@ -76,6 +76,84 @@ def extract_hair_pattern(image: Image.Image) -> dict | None:
     return {"faces": faces, "coverage": coverage}
 
 
+MASK_FACES = HEAD_FACES + ("bottom",)
+# L1 crown colour distance (sum |dRGB|) under which an L2 pixel counts as hair.
+# Rejects bows/clips/glasses on L2 (3-9% of reference L2 pixels).
+HAIR_COLOUR_TOL = 150
+
+
+def extract_hair_mask(image: Image.Image) -> dict[str, np.ndarray] | None:
+    """Hair-coloured L2 cells per head face (8x8 bool), or None if no L2 hair.
+
+    Reference L2 hair is a sparse sculpt (median coverage top 0.12, sides
+    0.20, back 0.38, front 0.45), not a copy of the L1 silhouette.
+    """
+    crown = _face_array(image, "head", "top", 0)[..., :3].reshape(-1, 3).astype(np.int32)
+    hair_c = np.median(crown, axis=0)
+    masks: dict[str, np.ndarray] = {}
+    total = 0
+    for name in MASK_FACES:
+        l2 = _face_array(image, "head", name, 1).astype(np.int32)
+        hairish = np.abs(l2[..., :3] - hair_c).sum(axis=-1) < HAIR_COLOUR_TOL
+        m = (l2[..., 3] > 0) & hairish
+        masks[name] = m
+        total += int(m.sum())
+    return masks if total >= 12 else None
+
+
+def _mask_vec(masks: dict[str, np.ndarray]) -> np.ndarray:
+    return np.concatenate([np.asarray(masks[f], dtype=bool).reshape(-1) for f in MASK_FACES])
+
+
+def cluster_hair_masks(masks: list[dict[str, np.ndarray]], k: int, iters: int = 12,
+                       min_count: int = 10) -> list[dict]:
+    """Deterministic k-medoids (Hamming) over whole-head masks.
+
+    Each cluster template is the per-cell majority vote of its members, so
+    one-off accessories and noise fall out while shared strands survive.
+    Whole-head (not per-face) clustering keeps corners coherent across faces.
+    Clusters with fewer than min_count members are dropped: they are one-off
+    skins (accessories, hoods) rather than a shared hair shape.
+    """
+    if not masks:
+        return []
+    X = np.stack([_mask_vec(m) for m in masks]).astype(np.int8)
+    n = len(X)
+    k = min(k, n)
+    D = (X[:, None, :] != X[None, :, :]).sum(axis=-1)
+    medoids = [int(np.argmin(D.sum(axis=1)))]
+    while len(medoids) < k:
+        d = D[:, medoids].min(axis=1)
+        d[medoids] = -1
+        medoids.append(int(np.argmax(d)))
+    for _ in range(iters):
+        assign = np.argmin(D[:, medoids], axis=1)
+        new = []
+        for c in range(k):
+            members = np.flatnonzero(assign == c)
+            if not members.size:
+                new.append(medoids[c])
+                continue
+            sub = D[np.ix_(members, members)].sum(axis=1)
+            new.append(int(members[int(np.argmin(sub))]))
+        if new == medoids:
+            break
+        medoids = new
+    assign = np.argmin(D[:, medoids], axis=1)
+    out = []
+    for c in range(k):
+        members = np.flatnonzero(assign == c)
+        if members.size < max(1, min(min_count, n)):
+            continue
+        vote = X[members].mean(axis=0) >= 0.5
+        faces = {}
+        for i, f in enumerate(MASK_FACES):
+            faces[f] = vote[i * 64:(i + 1) * 64].reshape(8, 8).astype(np.uint8).tolist()
+        out.append({"faces": faces, "count": int(members.size)})
+    out.sort(key=lambda t: -t["count"])
+    return out
+
+
 def extract_eye_pattern(image: Image.Image) -> dict | None:
     """Sclera/iris masks in the standard front rows 4-5.
 
@@ -204,7 +282,8 @@ def _medoids(patterns: list[dict], kind: str, k: int) -> list[dict]:
 
 
 def build_pack(root: Path, k_hair: int = 6, k_eyes: int = 6, k_hood_up: int = 4,
-               k_hood_down: int = 2, include: set[str] | None = None) -> dict:
+               k_hood_down: int = 2, include: set[str] | None = None,
+               k_masks: int = 8) -> dict:
     """Build a derived pack from out/reference_skins.
 
     include: optional relative paths (posix) to use; used to build a train-only
@@ -223,12 +302,16 @@ def build_pack(root: Path, k_hair: int = 6, k_eyes: int = 6, k_hood_up: int = 4,
     }
     eyes: list[dict] = []
     seen_eyes: set[tuple] = set()
+    hair_masks: dict[str, list[dict[str, np.ndarray]]] = {"short": [], "long": []}
 
     for length in ("short", "long"):
         for path in sorted((root / f"{length}_hair").glob("*.png")):
             if not allowed(path):
                 continue
             image = _rgba(path)
+            hm = extract_hair_mask(image)
+            if hm:
+                hair_masks[length].append(hm)
             hp = extract_hair_pattern(image)
             if hp:
                 hp["source"] = path.name
@@ -303,6 +386,11 @@ def build_pack(root: Path, k_hair: int = 6, k_eyes: int = 6, k_hood_up: int = 4,
             }
             for length in ("long", "short")
         },
+        # Whole-head L2 hair sculpt templates (majority vote per cluster).
+        "hair_masks": {
+            length: cluster_hair_masks(hair_masks[length], k_masks)
+            for length in ("short", "long")
+        },
         "eyes": _medoids(eyes, "eye", k_eyes),
         "hoods": {
             "up": _medoids(hood_up, "hood", k_hood_up),
@@ -310,6 +398,7 @@ def build_pack(root: Path, k_hair: int = 6, k_eyes: int = 6, k_hood_up: int = 4,
         },
     }
     for patterns in (pack["hair"]["short"], pack["hair"]["long"], pack["eyes"],
+                     pack["hair_masks"]["short"], pack["hair_masks"]["long"],
                      pack["hoods"]["up"], pack["hoods"]["down"]):
         for p in patterns:
             # Keep provenance hashes, not file paths in the renderer-facing pack.
@@ -417,3 +506,21 @@ def select_edge_mask(pack: dict, face_name: str, seed: str = "", length: str = "
 
 def select_hood(pack: dict, kind: str, seed: str = "") -> dict | None:
     return _pick(pack.get("hoods", {}).get(kind, []), f"hood:{kind}:{seed}")
+
+
+def select_hair_mask(pack: dict, length: str, style: str, seed: str = "") -> dict | None:
+    """Count-weighted pick of a whole-head L2 hair template for the length bucket."""
+    bucket = "long" if length in ("long", "very_long") or style in (
+        "long_straight", "long_wavy", "curly", "ponytail", "bun"
+    ) else "short"
+    items = (pack or {}).get("hair_masks", {}).get(bucket) or []
+    if not items:
+        return None
+    total = sum(max(1, int(t.get("count", 1))) for t in items)
+    pick = int.from_bytes(hashlib.sha256(f"mask:{bucket}:{style}:{seed}".encode()).digest()[:4], "big") % total
+    for t in items:
+        w = max(1, int(t.get("count", 1)))
+        if pick < w:
+            return t
+        pick -= w
+    return items[-1]

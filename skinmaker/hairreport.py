@@ -2,7 +2,10 @@
 
 Texture-level checks complement the visual sub-agent:
 - bottom rear hair coverage vs chin skin,
-- L2 alpha holes inside the L1 hair silhouette,
+- L2 coverage per head face (reference L2 is a sparse sculpt: median top
+  0.12 / sides 0.20 / back 0.38, no reference face >=0.95). A near-solid L2
+  face is the old silhouette-copy defect. Uncovered L1 hair under L2
+  (``l2_holes``) is reported but is not a problem since 2026-11-01.
 - L1/L2 side-profile continuity,
 - body-drape row count,
 - style signature (opaque L2 cells per face).
@@ -25,6 +28,8 @@ from .render import FACE_SHADE
 from . import hairstencil as HS
 
 HEAD_GRID = 8
+# A head face (front excluded) with L2 coverage at or above this is a solid shell.
+SOLID_L2 = 0.90
 # v0=front(턱), v7=back. Length → rear rows (mirrors hairstencil).
 REAR_ROWS = {"short": 1, "medium": 2, "long": 3, "very_long": 4}
 TOL = 30
@@ -183,8 +188,10 @@ def analyze(image: Image.Image, *, hair: str, skin: str, hair_length: str = "sho
         problems.append(f"bottom rear coverage {bottom_rear_hair}/{len(bottom_rear_px)}")
     if chin_hair:
         problems.append(f"chin hair {chin_hair}px")
-    if holes:
-        problems.append(f"L2 alpha holes {holes}")
+    for face_name in ("top", "right", "left", "back"):
+        f = layout.face("head", face_name, 1)
+        if l2_counts.get(face_name, 0) >= SOLID_L2 * f.w * f.h:
+            problems.append(f"solid L2 shell on {face_name} ({l2_counts[face_name]}/{f.w * f.h})")
     if jumps > 1:
         problems.append(f"side profile jump {jumps}")
     if front_holes:

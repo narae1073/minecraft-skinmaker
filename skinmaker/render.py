@@ -690,62 +690,58 @@ def render_hood_overlay(canvas: SkinCanvas, colors: dict[str, Color], hood: str,
             for v in range(length):
                 canvas.put("body", "front", u, v, strings, 1)
 
-def render_hair_overlay(canvas: SkinCanvas, colors: dict[str, Color], stencil, hair_length: str = "short",
-                        style: str = "short", pack: dict | None = None, seed: str = "",
-                        allow_eye_fringe: bool = False) -> None:
-    """L2(오버레이) 헤어 (2026-10-29 개정: solid shell, no alpha holes).
+# Reference L2 hair is the same colour as the L1 under it (median ratio 1.00 on
+# top/sides/back; front fringe ~1.02-1.12). Volume comes from the shape, not tone.
+L2_FRINGE_LIFT = 1.04
+LOOSE_STYLES = ("bob", "long_straight", "long_wavy", "curly")
 
-    L1 실루엣과 같은 셀을 모두 채운다. 틈(1px hole)을 두지 않고 균일한 5%
-    리프트만 준다. 열별 2톤은 규칙적인 세로 줄무늬를 만들어 제거했다.
+
+def _template_head_l2(canvas: SkinCanvas, colors: dict[str, Color], stencil, tmpl: dict,
+                      hair_length: str, style: str) -> None:
+    """Head L2 from a reference sculpt template (2026-11-01).
+
+    The template is a majority-vote L2 mask over reference skins: fringe arc,
+    temple locks, vertical edge strands, back crown corners. It is clipped to
+    where the photo says hair is: on top/sides/back/bottom only over L1 hair;
+    on the front over L1 hair, inside the style's bang depth, or (loose
+    styles) the temple columns. Eye rows 5-6 (u1-6) are never covered.
     """
     hair_c = colors["hair"]
-    length = HS.effective_hair_length(hair_length, stencil)
-    pattern = RP.select_hair(pack, length, style, seed) if pack else None
-    accent: dict[str, tuple[int, int] | None] = {}
-    if pattern:
-        for face_name, tones in pattern.get("faces", {}).items():
-            if not tones:
-                continue
-            cols = []
-            for u in range(1, max(1, len(tones[0]) - 1)):
-                vals = [row[u] for row in tones if u < len(row)]
-                if vals:
-                    cols.append((abs(sum(vals) / len(vals) - 100), u))
-            cols.sort(reverse=True)
-            if cols and cols[0][0] >= 2:
-                dark = cols[:2]
-                light = sorted(cols)[:2]
-                d = dark[int.from_bytes(hashlib.sha256(f"dark:{face_name}:{seed}".encode()).digest()[:2], "big") % len(dark)][1]
-                l = light[int.from_bytes(hashlib.sha256(f"light:{face_name}:{seed}".encode()).digest()[:2], "big") % len(light)][1]
-                accent[face_name] = (d, l) if d != l else (d, None)
-            else:
-                # Flat reference patterns still get readable strands; otherwise a
-                # solid dark head has no L2 texture. Keep both accents interior.
-                d = 1 + int.from_bytes(hashlib.sha256(f"flat:{face_name}:{seed}".encode()).digest()[:2], "big") % 6
-                l = 1 + int.from_bytes(hashlib.sha256(f"lightflat:{face_name}:{seed}".encode()).digest()[:2], "big") % 6
-                if l == d:
-                    l = (l % 6) + 1
-                accent[face_name] = (d, l)
+    faces = tmpl.get("faces", {})
+    bangs = HS.style_bang_profile(style, stencil)
+    rear = HS.bottom_rear_rows(hair_length, stencil)
 
-    def put(part: str, face_name: str, u: int, v: int) -> None:
-        tone = 100
-        if pattern:
-            tones = pattern.get("faces", {}).get(face_name)
-            if tones and u < len(tones[0]):
-                # Column average: reference skins use broad shading; applying
-                # the 2D cells directly creates square patches. A damped column
-                # tone reads as a vertical strand across the whole face.
-                values = [tones[r][u] for r in range(len(tones)) if u < len(tones[r])]
-                tone = max(85, min(115, sum(values) / len(values)))
-        c = _l2_color(hair_c, face_name, tone)
-        if (part == "head" and v >= 2 or part == "body" and style in ("long_straight", "long_wavy", "curly") and v >= 1) and accent.get(face_name):
-            dark_u, light_u = accent[face_name]
-            if u == dark_u:
-                c = shade(c, 0.85)
-            elif light_u is not None and u == light_u:
-                c = shade(c, 1.12)
-        canvas.put(part, face_name, u, v, c, 1)
+    def allowed(face_name: str, u: int, v: int) -> bool:
+        if face_name == "top":
+            return bool(stencil.top_hair)
+        if face_name == "front":
+            if v >= 5 and 1 <= u <= 6:
+                return False
+            if stencil.front[v][u] or v < bangs[u]:
+                return True
+            return style in LOOSE_STYLES and u in (0, 7) and v < 7
+        if face_name == "bottom":
+            return v >= 8 - rear and bool(stencil.bottom[v][u])
+        profile = stencil.side_profiles.get(face_name, ())
+        return u < len(profile) and v < profile[u]
 
+    for face_name in RP.MASK_FACES:
+        mask = faces.get(face_name)
+        if not mask:
+            continue
+        base = shade(hair_c, FACE_SHADE[face_name])
+        if face_name == "front":
+            base = shade(base, L2_FRINGE_LIFT)
+        for v, row in enumerate(mask[:8]):
+            for u, bit in enumerate(row[:8]):
+                if bit and allowed(face_name, u, v):
+                    canvas.put("head", face_name, u, v, base, 1)
+
+
+def _legacy_head_l2(canvas, put, stencil, hair_length: str, length: str, style: str,
+                    pack, seed: str, allow_eye_fringe: bool) -> None:
+    """Pre-2026-11-01 solid-shell head L2 (L1 silhouette copy). Fallback when
+    the pack has no hair_masks; kept so pack-less renders stay unchanged."""
     if stencil.top_hair:
         top = canvas.layout.face("head", "top", 1)
         for v in range(top.h):
@@ -815,6 +811,70 @@ def render_hair_overlay(canvas: SkinCanvas, colors: dict[str, Color], stencil, h
             if stencil.bottom[v][u]:
                 put("head", "bottom", u, v)
 
+
+
+def render_hair_overlay(canvas: SkinCanvas, colors: dict[str, Color], stencil, hair_length: str = "short",
+                        style: str = "short", pack: dict | None = None, seed: str = "",
+                        allow_eye_fringe: bool = False) -> None:
+    """L2(오버레이) 헤어 (2026-10-29 개정: solid shell, no alpha holes).
+
+    L1 실루엣과 같은 셀을 모두 채운다. 틈(1px hole)을 두지 않고 균일한 5%
+    리프트만 준다. 열별 2톤은 규칙적인 세로 줄무늬를 만들어 제거했다.
+    """
+    hair_c = colors["hair"]
+    length = HS.effective_hair_length(hair_length, stencil)
+    pattern = RP.select_hair(pack, length, style, seed) if pack else None
+    accent: dict[str, tuple[int, int] | None] = {}
+    if pattern:
+        for face_name, tones in pattern.get("faces", {}).items():
+            if not tones:
+                continue
+            cols = []
+            for u in range(1, max(1, len(tones[0]) - 1)):
+                vals = [row[u] for row in tones if u < len(row)]
+                if vals:
+                    cols.append((abs(sum(vals) / len(vals) - 100), u))
+            cols.sort(reverse=True)
+            if cols and cols[0][0] >= 2:
+                dark = cols[:2]
+                light = sorted(cols)[:2]
+                d = dark[int.from_bytes(hashlib.sha256(f"dark:{face_name}:{seed}".encode()).digest()[:2], "big") % len(dark)][1]
+                l = light[int.from_bytes(hashlib.sha256(f"light:{face_name}:{seed}".encode()).digest()[:2], "big") % len(light)][1]
+                accent[face_name] = (d, l) if d != l else (d, None)
+            else:
+                # Flat reference patterns still get readable strands; otherwise a
+                # solid dark head has no L2 texture. Keep both accents interior.
+                d = 1 + int.from_bytes(hashlib.sha256(f"flat:{face_name}:{seed}".encode()).digest()[:2], "big") % 6
+                l = 1 + int.from_bytes(hashlib.sha256(f"lightflat:{face_name}:{seed}".encode()).digest()[:2], "big") % 6
+                if l == d:
+                    l = (l % 6) + 1
+                accent[face_name] = (d, l)
+
+    def put(part: str, face_name: str, u: int, v: int) -> None:
+        tone = 100
+        if pattern:
+            tones = pattern.get("faces", {}).get(face_name)
+            if tones and u < len(tones[0]):
+                # Column average: reference skins use broad shading; applying
+                # the 2D cells directly creates square patches. A damped column
+                # tone reads as a vertical strand across the whole face.
+                values = [tones[r][u] for r in range(len(tones)) if u < len(tones[r])]
+                tone = max(85, min(115, sum(values) / len(values)))
+        c = _l2_color(hair_c, face_name, tone)
+        if (part == "head" and v >= 2 or part == "body" and style in ("long_straight", "long_wavy", "curly") and v >= 1) and accent.get(face_name):
+            dark_u, light_u = accent[face_name]
+            if u == dark_u:
+                c = shade(c, 0.85)
+            elif light_u is not None and u == light_u:
+                c = shade(c, 1.12)
+        canvas.put(part, face_name, u, v, c, 1)
+
+    tmpl = RP.select_hair_mask(pack, length, style, seed) if pack else None
+    if tmpl:
+        _template_head_l2(canvas, colors, stencil, tmpl, hair_length, style)
+    else:
+        _legacy_head_l2(canvas, put, stencil, hair_length, length, style, pack, seed, allow_eye_fringe)
+
     # 몸통 드레이프: solid rows (checker 금지). 스타일별 강조를 덧칠한다.
     body_rows = min(12, max(0, getattr(stencil, "back_body_rows", 0)))
     front_rows = min(12, max(0, getattr(stencil, "front_body_rows", 0)))
@@ -858,7 +918,8 @@ def render_hair_overlay(canvas: SkinCanvas, colors: dict[str, Color], stencil, h
     # Connected 1px edge darkening on L2 hair adjacent to the face opening or
     # silhouette. This is colour-only (no alpha holes) and makes the shell read
     # as a layered hairstyle rather than a flat solid block.
-    for part, faces in (("head", RP.HEAD_FACES), ("body", ("front", "back"))):
+    edge_parts = (("body", ("front", "back")),) if tmpl else (("head", RP.HEAD_FACES), ("body", ("front", "back")))
+    for part, faces in edge_parts:
         for face_name in faces:
             f = canvas.layout.face(part, face_name, 1)
             mask = [[canvas.get(part, face_name, u, v, 1)[3] for u in range(f.w)] for v in range(f.h)]

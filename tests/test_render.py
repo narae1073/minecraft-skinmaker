@@ -52,12 +52,12 @@ import hashlib
 from skinmaker import hairstencil as HS
 
 # rule 스텐실 렌더의 픽셀 베이스라인. 2026-10-27 L2 헤어를 성긴 가닥으로 개정하며
-# 재기록 — 이전: 2026-10-21 L2 부피 셸 도입. 이후 rule 경로가 조용히 변하면 잡는다.
+# 재기록 — 2026-11-01 L2 = reference sculpt template (hair_masks). 이전: 2026-10-21 L2 부피 셸 도입. 이후 rule 경로가 조용히 변하면 잡는다.
 NOISE_OFF_GOLDEN = {
-    "short": "d391518d983c3ac5",
-    "medium": "fbd8c4518a33ea00",
-    "long": "a6bf1b8e684a12b6",
-    "very_long": "03faa9443a55404c",
+    "short": "f62a1d981750fd0b",
+    "medium": "210aec2478df0011",
+    "long": "95f0eabfa083cff5",
+    "very_long": "47b8c0543d42c0d9",
 }
 
 
@@ -181,32 +181,23 @@ def _opaque_cells(canvas, part: str, layer: int) -> set[tuple[str, int, int]]:
     return cells
 
 
-def test_hair_overlay_is_solid_shell_with_no_alpha_holes():
-    """L2 는 L1 실루엣과 같은 셀을 채운다 (2026-10-29: 성긴 가닥 → solid)."""
+def test_hair_overlay_is_reference_sculpt_not_silhouette_copy():
+    """L2 is a sparse reference sculpt over L1 (2026-11-01: solid shell → template)."""
     base = observed(hair="#112233")
     canvas = R.render(base, attrs(hair_length="short"), ())
     stencil = HS.rule_stencil("short")
 
-    for v, row in enumerate(stencil.front):
-        for u, on in enumerate(row):
-            if on:
-                assert canvas.get("head", "front", u, v, 1)[3], (u, v)
-    for face_name in ("right", "back", "left"):
-        profile = stencil.side_profiles[face_name]
-        for u, rows in enumerate(profile):
-            for v in range(rows):
-                assert canvas.get("head", face_name, u, v, 1)[3], (face_name, u, v)
-    for v in range(8):
-        for u in range(8):
-            assert canvas.get("head", "top", u, v, 1)[3]
+    l1_cells = sum(1 for row in stencil.front for on in row if on) + 64
+    l1_cells += sum(sum(stencil.side_profiles[f]) for f in ("right", "back", "left"))
+    l2_cells = sum(1 for (face, _, _) in _opaque_cells(canvas, "head", 1) if face != "bottom")
+    assert 0 < l2_cells < 0.5 * l1_cells  # not a copy of the L1 silhouette
+    top = sum(1 for (face, _, _) in _opaque_cells(canvas, "head", 1) if face == "top")
+    assert top <= 0.3 * 64
 
-    # 눈(4-5행)은 L2 로 덮지 않는다.
-    for u in (1, 2, 5, 6):
-        for v in (4, 5):
+    # 눈(5-6행)은 L2 로 덮지 않는다.
+    for u in range(1, 7):
+        for v in (5, 6):
             assert canvas.get("head", "front", u, v, 1)[3] == 0, (u, v)
-
-    # L2 는 L1 위의 하이라이트(더 밝은 톤)다.
-    assert sum(canvas.get("head", "front", 0, 0, 1)[:3]) > sum(canvas.get("head", "front", 0, 0, 0)[:3])
 
     # L1 은 on/off 와 무관하게 픽셀 동일.
     off = R.render(dataclasses.replace(base, hair_overlay=False), attrs(hair_length="short"), ())
@@ -967,13 +958,11 @@ def test_eyes_are_exactly_one_row_above_chin():
         assert any(canvas.get("head", "front", u, 6)[:3] != skin for u in (1, 2, 5, 6)), hood
 
 
-def test_eye_top_fringe_is_occasional_and_bottom_row_safe():
-    hits = 0
+def test_template_l2_never_covers_eye_rows():
+    """Reference templates keep both eye rows clear (row5 L2 in <=10% of refs)."""
     for i in range(30):
         color = f"#{0x101010 + i * 0x050505:06x}"
         canvas = R.render(observed(hair=color), attrs(hair_length="long", hair_style="long_wavy"), ())
-        if any(canvas.get("head", "front", u, 5, 1)[3] for u in (1, 6)):
-            hits += 1
-        for u in (1, 2, 5, 6):
-            assert canvas.get("head", "front", u, 6, 1)[3] == 0
-    assert 0 < hits < 30
+        for u in range(1, 7):
+            for v in (5, 6):
+                assert canvas.get("head", "front", u, v, 1)[3] == 0, (i, u, v)
