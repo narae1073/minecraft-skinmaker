@@ -229,10 +229,10 @@ def style_bangs_for_stencil(hair_style: str, stencil: "HairStencil") -> int:
 def style_bang_profile(hair_style: str, stencil: "HairStencil") -> tuple[int, ...]:
     """Per-column fringe depth: rounded center-longer, edge-shorter profile."""
     if hair_style in ("bob", "long_straight", "long_wavy", "curly"):
-        return (4, 5, 5, 5, 5, 5, 5, 4)
+        return (3, 4, 5, 5, 5, 5, 4, 3)
     if hair_style in ("short", "pixie"):
         if style_bangs_for_stencil(hair_style, stencil) == 5:
-            return (4, 5, 5, 5, 5, 5, 5, 4)
+            return (3, 4, 5, 5, 5, 5, 4, 3)
         return (0, 3, 3, 3, 3, 3, 3, 0)
     if hair_style in ("ponytail", "bun"):
         return (0, 2, 2, 2, 2, 2, 2, 0)

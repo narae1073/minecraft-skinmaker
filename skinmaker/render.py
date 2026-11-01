@@ -701,7 +701,7 @@ def render_hair_overlay(canvas: SkinCanvas, colors: dict[str, Color], stencil, h
     hair_c = colors["hair"]
     length = HS.effective_hair_length(hair_length, stencil)
     pattern = RP.select_hair(pack, length, style, seed) if pack else None
-    accent: dict[str, int | None] = {}
+    accent: dict[str, tuple[int, int] | None] = {}
     if pattern:
         for face_name, tones in pattern.get("faces", {}).items():
             if not tones:
@@ -712,10 +712,12 @@ def render_hair_overlay(canvas: SkinCanvas, colors: dict[str, Color], stencil, h
                 if vals:
                     cols.append((abs(sum(vals) / len(vals) - 100), u))
             cols.sort(reverse=True)
-            top = cols[:2]
-            if top and top[0][0] >= 2:
-                pick = int.from_bytes(hashlib.sha256(f"accent:{face_name}:{seed}".encode()).digest()[:2], "big") % len(top)
-                accent[face_name] = top[pick][1]
+            if cols and cols[0][0] >= 2:
+                dark = cols[:2]
+                light = sorted(cols)[:2]
+                d = dark[int.from_bytes(hashlib.sha256(f"dark:{face_name}:{seed}".encode()).digest()[:2], "big") % len(dark)][1]
+                l = light[int.from_bytes(hashlib.sha256(f"light:{face_name}:{seed}".encode()).digest()[:2], "big") % len(light)][1]
+                accent[face_name] = (d, l) if d != l else (d, None)
 
     def put(part: str, face_name: str, u: int, v: int) -> None:
         tone = 100
@@ -728,8 +730,12 @@ def render_hair_overlay(canvas: SkinCanvas, colors: dict[str, Color], stencil, h
                 values = [tones[r][u] for r in range(len(tones)) if u < len(tones[r])]
                 tone = max(85, min(115, sum(values) / len(values)))
         c = _l2_color(hair_c, face_name, tone)
-        if part == "head" and v >= 2 and accent.get(face_name) == u:
-            c = shade(c, 0.90)
+        if part == "head" and v >= 2 and accent.get(face_name):
+            dark_u, light_u = accent[face_name]
+            if u == dark_u:
+                c = shade(c, 0.90)
+            elif light_u is not None and u == light_u:
+                c = shade(c, 1.08)
         canvas.put(part, face_name, u, v, c, 1)
 
     if stencil.top_hair:

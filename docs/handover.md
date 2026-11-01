@@ -300,3 +300,5 @@ S0 quality/face detection (YuNet) → S1 colour measurement (white-balance + ban
 - 2026-11-01 (interior tone strand): one reference-derived accent column per head face (largest column-tone residual, seeded among top two) is darkened 10% on rows2+ on L2. Colour-only: no alpha holes, no eye/QA changes. Goldens updated; **656 passed**.
 
 - 2026-11-01 (length-specific edge masks): `edge_masks_by_length` stores long/short L2 outer-edge patterns; renderer selects by effective length. Top patterns match the prior aggregate, so goldens are unchanged. **657 passed**.
+
+- 2026-11-01 (hair A/B + highlight): added `scripts/build_hair_ab.py` and read the sheet: center depth5 is right, L2 is mostly solid (no supported interior alpha holes), current is still flatter/darker. Tapered outer corners to `(3,4,5,5,5,5,4,3)` and added one reference-tone dark + light accent column per face. **657 passed**.

@@ -126,3 +126,10 @@ Templates are a means; the gate is measured output quality on defined data.
   (colour-only, no alpha holes). Still missing: reference-derived bang-depth
   profiles, reference bang-tip + length-specific side/back edge notches (done; reveal L1), one reference-tone interior accent strand (colour-only), full L2 strand alpha masks, limited eye-top accents (implemented: row5 only, seeded, bottom row always clear), and a labeled
   bang benchmark. Reference pixel classification is too noisy for a reliable prior.
+
+
+## Hair A/B result (2026-11-01)
+
+Current depth-5 center matches the prior; generated heads remain flatter than
+references. Reference row3 supports only outer-edge gaps, not interior alpha
+holes. Next work is style-specific L2 silhouette/highlight variation, not depth.
