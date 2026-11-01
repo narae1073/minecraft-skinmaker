@@ -81,18 +81,28 @@ def label_quality(labels: dict, candidates: list[dict]) -> dict:
     for r in rows:
         counts[r.get("depth")] = counts.get(r.get("depth"), 0) + 1
     share = max(counts.values()) / len(rows)
-    usable = len(rows) >= 10 and len(depths) >= 3 and len(exposures) >= 2 and share <= 0.8
+    # A dominant depth is a real prior, not a defect. Reject contradictions only:
+    # "exposed" cannot be depth>=5 (hair over the eyebrow row), and "covered"
+    # cannot be depth<5.
+    violations = sum(
+        1 for r in rows
+        if (r.get("exposure") == "exposed" and r.get("depth", 0) >= 5)
+        or (r.get("exposure") == "covered" and r.get("depth", 0) < 5)
+    )
+    violation_share = violations / len(rows)
+    usable = len(rows) >= 10 and len(exposures) >= 2 and share <= 0.95 and violation_share <= 0.20
     reason = ""
     if len(rows) < 10:
         reason = "fewer than 10 labels"
-    elif len(depths) < 3:
-        reason = "fewer than 3 depth values (collapsed)"
     elif len(exposures) < 2:
         reason = "only one exposure class (collapsed)"
-    elif share > 0.8:
+    elif share > 0.95:
         reason = f"{share:.0%} of labels share one depth"
+    elif violation_share > 0.20:
+        reason = f"{violation_share:.0%} depth/exposure contradictions"
     return {"usable": usable, "reason": reason or "ok", "n": len(rows),
-            "depth_counts": counts, "exposure_counts": {e: sum(1 for r in rows if r.get("exposure") == e) for e in EXPOSURES}}
+            "depth_counts": counts, "exposure_counts": {e: sum(1 for r in rows if r.get("exposure") == e) for e in EXPOSURES},
+            "violations": violations, "dominant_share": round(share, 3)}
 
 
 def summarize(labels: dict, candidates: list[dict]) -> dict:

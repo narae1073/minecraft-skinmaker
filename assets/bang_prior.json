@@ -1,0 +1,42 @@
+{
+  "by_length": {
+    "long": {
+      "exposure": {
+        "covered": 8,
+        "exposed": 6,
+        "partial": 10
+      },
+      "median_depth": 5,
+      "n": 24
+    },
+    "short": {
+      "exposure": {
+        "covered": 6,
+        "exposed": 3,
+        "partial": 27
+      },
+      "median_depth": 5,
+      "n": 36
+    }
+  },
+  "quality": {
+    "depth_counts": {
+      "3": 1,
+      "4": 1,
+      "5": 54,
+      "6": 4
+    },
+    "dominant_share": 0.9,
+    "exposure_counts": {
+      "covered": 14,
+      "exposed": 9,
+      "partial": 37
+    },
+    "n": 60,
+    "reason": "ok",
+    "usable": true,
+    "violations": 8
+  },
+  "source": "human bang labels",
+  "version": 1
+}
