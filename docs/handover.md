@@ -302,3 +302,5 @@ S0 quality/face detection (YuNet) → S1 colour measurement (white-balance + ban
 - 2026-11-01 (length-specific edge masks): `edge_masks_by_length` stores long/short L2 outer-edge patterns; renderer selects by effective length. Top patterns match the prior aggregate, so goldens are unchanged. **657 passed**.
 
 - 2026-11-01 (hair A/B + highlight): added `scripts/build_hair_ab.py` and read the sheet: center depth5 is right, L2 is mostly solid (no supported interior alpha holes), current is still flatter/darker. Tapered outer corners to `(3,4,5,5,5,5,4,3)` and added one reference-tone dark + light accent column per face. **657 passed**.
+
+- 2026-11-01 (A/B bug + accent): A/B script originally cropped L1 only, hiding L2; fixed composite. Forced one seeded dark accent on flat front/top patterns and strengthened dark/light to 0.85/1.12; loose corners taper to (3,4,5,5,5,5,4,3). Corrected A/B shows L2 highlights/notches; still flatter than refs. 657 tests.

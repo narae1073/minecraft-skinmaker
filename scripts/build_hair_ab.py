@@ -21,11 +21,17 @@ def head_crop(path: Path) -> Image.Image:
         out.paste(bit, (0, 0), bit)
     return out.resize((150, 150), Image.NEAREST)
 
+def composite_head(im: Image.Image) -> Image.Image:
+    out = Image.new("RGBA", (8, 8), (0, 0, 0, 0))
+    for layer in (0, 1):
+        f = L.face("head", "front", layer)
+        bit = im.crop((f.x, f.y, f.x + 8, f.y + 8))
+        out.paste(bit, (0, 0), bit)
+    return out.resize((150, 150), Image.NEAREST)
+
 def render_head(style: str, length: str) -> Image.Image:
     c = R.render(observed(), attrs(hair_length=length, hair_style=style), ())
-    c.image = c.image.copy()
-    f = L.face("head", "front", 0)
-    return c.image.crop((f.x, f.y, f.x + 8, f.y + 8)).resize((150, 150), Image.NEAREST)
+    return composite_head(c.image)
 
 def main() -> None:
     ap = argparse.ArgumentParser()
