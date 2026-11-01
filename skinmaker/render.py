@@ -712,14 +712,23 @@ def render_hood_overlay(canvas: SkinCanvas, colors: dict[str, Color], hood: str,
         canvas.put("body", face_name, u, v, color, 1)
 
     if hood == "down":
-        f = canvas.layout.face("body", "front", 1)
-        base_front = shade(base, FACE_SHADE["front"])
-        for v in range(min(3, f.h)):
-            for u in range(f.w):
-                put_cowl("front", u, v, base_front)
-        rim = shade(alt, FACE_SHADE["front"])
-        for u in range(f.w):
-            put_cowl("front", u, 2, rim)
+        # Reference cowl (2026-11-01): a sparse rim around the neck opening on
+        # the front and the folded hood across the shoulders on the back. The
+        # old solid 8x3 front band hid the top garment's pattern.
+        faces = pattern.get("faces", {})
+        for face_name in ("front", "back"):
+            mask = faces.get(face_name) or []
+            f = canvas.layout.face("body", face_name, 1)
+            for v, row in enumerate(mask[:f.h]):
+                for u, bit in enumerate(row[:f.w]):
+                    if not bit:
+                        continue
+                    darker = shade(shade(base, FACE_SHADE[face_name]), 0.90)
+                    is_top_edge = v == 0 or not (
+                        v - 1 < len(mask) and u < len(mask[v - 1]) and mask[v - 1][u]
+                    )
+                    c = shade(alt, FACE_SHADE[face_name]) if is_top_edge else darker
+                    put_cowl(face_name, u, v, c)
         return
 
     variant = hood_variant(seed) if variant is None else variant % 3

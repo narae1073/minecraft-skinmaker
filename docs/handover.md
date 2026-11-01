@@ -7,7 +7,7 @@ S0 quality/face detection (YuNet) → S1 colour measurement (white-balance + ban
 
 ## 2. Current state (verified 2026-11-01)
 
-- Tests: **672 passed** (`tests/fixtures/` committed; ~10 s without the SCHP model, 241.61 s = 4:01 with it, measured 2026-11-01). Tests no longer need the 66 MB SCHP model: the jeans-rule tests stub a zero mask and `test_parsing` uses a dummy model path with a fake session.
+- Tests: **673 passed** (`tests/fixtures/` committed; ~10 s without the SCHP model, 240.72 s = 4:00 with it, measured 2026-11-01). Tests no longer need the 66 MB SCHP model: the jeans-rule tests stub a zero mask and `test_parsing` uses a dummy model path with a fake session.
 - Frontend: `npm run lint` clean, `npm run build` green (Vite 8 / Node 24).
 - Python 3.12.3 venv at `.venv`; do **not** use `python` or `uv`.
 - Parsing model: `out/models/schp-atr-18-int8-static.onnx` (66 MB, gitignored). YuNet: `assets/face_detection_yunet_2023mar.onnx` (228 KB, gitignored). Both fetched by `scripts/fetch_assets.sh`.
@@ -354,3 +354,7 @@ S0 quality/face detection (YuNet) → S1 colour measurement (white-balance + ban
   - 수정: hood up 에서 `hide_back_drape` — body back 전체 + side face 의 뒤쪽 edge column 만 제거(right u0=뒤·left u0=앞, 앞쪽 edge 는 유지). front lock 은 유지하고 hood cowl 이 `body_hair_cells` 를 덮지 않게 skip (머리는 옷 위로 떨어진다). ponytail tail·long_wavy legacy tail 도 hood up 에서 숨김. hood down 의 front cowl 도 같은 skip 을 적용.
   - 검증: 신규 테스트 2개(hood-up back hair 0 / chest lock row0 / side edge 방향), production QA 49 ok. QA matrix 에 hood-up back-hair·chest-lock gate 를 추가했고, 수정 전 코드에 같은 gate 를 돌려 `ok=False`(`hood-up back hair at (0,0)`)로 회귀를 잡는 것을 확인했다.
   - A/B: `out/hood_bug/compare_3d.png` (before | after, front/back), `before.png` / `after.png`. **672 passed** (241.61s), production QA 49 ok. 코드 변경: `render.py`, `production_qa.py`, `tests/test_render.py`.
+
+- 2026-11-01 (hood-down 참조 cowl, `feat/hood-down-cowl`, #37 위 stack): 후드 다운이 참조 팩의 `hoods.down` 마스크를 선택만 하고 쓰지 않아, 8×3 솔리드 front 밴드가 상의 패턴 상단 3행(스트라이프 등)을 덮었다.
+  - 수정: down 경로가 선택된 마스크의 front/back 셀만 그린다. 위쪽 edge 셀은 `top_alt` fold rim, 나머지는 top 10% 어둡게. body hair 셀은 skip (머리는 옷 위). `production_qa` 에 down front L2 ≤8셀 gate 추가 — 수정 전 코드에서 24셀 red 확인.
+  - 검증: **673 passed** (240.72s), production QA 49 ok. A/B: `out/hood_bug/down_compare.png` (stripe/plain before|after), `down_3d_zoom.png`.
