@@ -478,3 +478,5 @@ S0 quality/face detection (YuNet) → S1 colour measurement (white-balance + ban
 - 2026-11-02 (structure masks, `feat/structure-masks`): editor keys closure_type/collar_type/pocket_type/neckwear; structure drawers + tie accept body.front mask; seeds 11/16/2/6/2 cells. Tests 705; QA 50; asset/approval unchanged.
 
 - 2026-11-02 (inner_top + approval CLI, `feat/inner-approval`): inner_top mask (body throat + arm cuffs, 38-cell seed); scripts/approve_attribute_masks.py validates draft -> asset + SHA approval (requires --yes). Tests 708; QA 50; production asset unchanged until run.
+
+- 2026-11-02 (top_garment, `feat/top-garment`): body/arm/leg(0-8) mask, seed tee/vest 550, dress 582; editor 14 keys/56 entries. Tests 709; QA 50. All 14 shape keys done; approval CLI promotes drafts; paired deferred.

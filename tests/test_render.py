@@ -1250,3 +1250,20 @@ def test_inner_mask_override_clips_neck_cells():
     inner = canvas.image.getpixel((f.x + 3, f.y + 0))[:3]
     top = canvas.image.getpixel((f.x + 3, f.y + 1))[:3]
     assert inner != top
+
+
+def test_top_garment_mask_overrides_body_and_arm():
+    body_grid = [[0] * 8 for _ in range(12)]
+    body_grid[1][1] = 1
+    arm_grid = [[0] * 4 for _ in range(12)]
+    arm_grid[0][0] = 1
+    canvas = R.render(observed(), attrs(top_garment="tee", hood="none"), (),
+                      mask_override={"top_garment.tee": {"L1": {"body.front": body_grid, "r_arm.front": arm_grid}}})
+    f = canvas.layout.face("body", "front", 0)
+    top = canvas.image.getpixel((f.x + 1, f.y + 1))[:3]
+    skin = canvas.image.getpixel((f.x + 1, f.y + 2))[:3]
+    assert top != skin
+    a = canvas.layout.face("r_arm", "front", 0)
+    arm_top = canvas.image.getpixel((a.x + 0, a.y + 0))[:3]
+    arm_skin = canvas.image.getpixel((a.x + 1, a.y + 0))[:3]
+    assert arm_top != arm_skin

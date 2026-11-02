@@ -122,3 +122,16 @@ editor-only (draft); production approval is still separate.
   the schema first.
   - `python scripts/approve_attribute_masks.py --draft out/mask_editor/attribute_masks.json --yes`
 - The gate reads the promoted asset; the paired baseline stays stale.
+
+## Phase 2e — top_garment (final shape key)
+
+- `top_garment` (tee/hoodie/jacket/shirt/sweater/vest/uniform/apron/overalls/
+  dress/none) participates in body, arm and leg masks.
+- Body: the top mask clips body garment cells (outside → skin), preserving the
+  pattern/texture inside.
+- Arms: the top mask combines with `sleeve_len` (vest etc. can have no sleeves).
+- Legs: `apply_top_leg_masks` clips dress/top garment rows 0–8; shoes stay.
+- Editor seeds top masks from the `top_garment=none` diff across body/arms/legs
+  (tee/vest 550, dress 582 cells).
+- All 14 shape keys are now editable; `pattern`/`symmetry` are colour/pattern
+  rules, not shape masks.

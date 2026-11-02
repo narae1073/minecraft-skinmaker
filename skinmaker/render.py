@@ -460,21 +460,24 @@ def render_body(
     # plain 인데도 크롭되던 오탐을 막는다. 하의는 pattern 필드가 없어 HF 게이트.
     use_texture = texture is not None and pattern in COMPLEX_PATTERNS
     # dress는 상의색 그대로. overalls/uniform/apron도 v1은 단색 베이스.
+    top_value = attrs.get("top_garment")
     for face_name in canvas.layout.part("body", 0).faces:
         f = canvas.layout.face("body", face_name, 0)
         # 75% 규칙: graphic은 앞면만, 뒷면·측면은 plain.
         front_only = pattern == "graphic" and face_name != "front"
         p = pattern if not front_only else "plain"
-        if use_texture and not front_only:
-            tile = texture.body.resize((f.w, f.h), Image.NEAREST)
-            for v in range(f.h):
-                for u in range(f.w):
+        top_mask = AM.get_mask(masks or {}, "top_garment", top_value, "L1", "body", face_name) if top_value != "none" else None
+        tile = texture.body.resize((f.w, f.h), Image.NEAREST) if use_texture and not front_only else None
+        for v in range(f.h):
+            for u in range(f.w):
+                if top_mask is not None and not (v < len(top_mask) and u < len(top_mask[v]) and top_mask[v][u]):
+                    canvas.put("body", face_name, u, v, shade(colors["skin"], FACE_SHADE[face_name]), 0)
+                    continue
+                if tile is not None:
                     c = shade(tile.getpixel((u, v)) + (255,), FACE_SHADE[face_name])
-                    canvas.put("body", face_name, u, v, c, 0)
-        else:
-            for v in range(f.h):
-                for u in range(f.w):
-                    canvas.put("body", face_name, u, v, _pattern_color(base, alt, u, v, f.w, f.h, p, face_name, thickness), 0)
+                else:
+                    c = _pattern_color(base, alt, u, v, f.w, f.h, p, face_name, thickness)
+                canvas.put("body", face_name, u, v, c, 0)
     if top_garment != "none":
         if attrs.get("inner_top") != "none":
             # 겹쳐 입은 상의 (2026-10-21): 목 V·라펠에 안쪽 옷, 타이 1px.
@@ -574,11 +577,16 @@ def render_arms(canvas: SkinCanvas, colors: dict[str, Color], attrs: Attributes,
     use_texture = texture is not None and pattern in COMPLEX_PATTERNS
     pattern_on_sleeve = "plain" if pattern == "graphic" else pattern
     sleeve_value = attrs.get("sleeve_len") or sleeve
+    top_value = attrs.get("top_garment")
 
     for part in ("r_arm", "l_arm"):
         for face_name in canvas.layout.part(part, 0).faces:
             f = canvas.layout.face(part, face_name, 0)
             grid = AM.get_mask(masks or {}, "sleeve_len", sleeve_value, "L1", part, face_name)
+            top_grid = AM.get_mask(masks or {}, "top_garment", top_value, "L1", part, face_name) if top_value != "none" else None
+
+            def top_bit(u: int, v: int) -> bool:
+                return top_grid is None or (v < len(top_grid) and u < len(top_grid[v]) and bool(top_grid[v][u]))
             tile = texture.body.resize((f.w, f.h), Image.NEAREST) if use_texture else None
 
             def sleeve_color(u: int, v: int) -> Color:
@@ -595,7 +603,7 @@ def render_arms(canvas: SkinCanvas, colors: dict[str, Color], attrs: Attributes,
                 for v in range(f.h):
                     for u in range(f.w):
                         bit = (v < len(grid) and u < len(grid[v]) and grid[v][u]) if grid else shirt_base is not None
-                        c = sleeve_color(u, v) if (bit and shirt_base is not None) else shade(colors["skin"], FACE_SHADE[face_name])
+                        c = sleeve_color(u, v) if (bit and shirt_base is not None and top_bit(u, v)) else shade(colors["skin"], FACE_SHADE[face_name])
                         canvas.put(part, face_name, u, v, c, 0)
                 continue
             seam_row = shirt_end if shirt_end < f.h - 1 and sleeve not in ("long", "none") else -1
@@ -603,12 +611,12 @@ def render_arms(canvas: SkinCanvas, colors: dict[str, Color], attrs: Attributes,
                 for u in range(f.w):
                     if grid:
                         bit = v < len(grid) and u < len(grid[v]) and grid[v][u]
-                        if bit and shirt_base is not None:
+                        if bit and shirt_base is not None and top_bit(u, v):
                             c = shade(shirt_base, 0.66) if v == seam_row else sleeve_color(u, v)
                         else:
                             c = shade(colors["skin"], FACE_SHADE[face_name])
                     else:
-                        is_shirt = shirt_base is not None and v <= shirt_end
+                        is_shirt = shirt_base is not None and v <= shirt_end and top_bit(u, v)
                         if not is_shirt:
                             c = shade(colors["skin"], FACE_SHADE[face_name])
                         elif v == seam_row:
@@ -635,6 +643,24 @@ def _render_cuffs(canvas: SkinCanvas, colors: dict[str, Color], attrs: Attribute
                 if grid is not None and (v < 0 or v >= len(grid) or u >= len(grid[v]) or not grid[v][u]):
                     continue
                 canvas.put(part, face_name, u, v, shade(colors["inner"], FACE_SHADE[face_name]), 0)
+
+
+def apply_top_leg_masks(canvas: SkinCanvas, colors: dict[str, Color], attrs: Attributes, masks: dict) -> None:
+    """Top-garment mask on the leg garment rows (0-8), e.g. a dress silhouette."""
+    top = attrs.get("top_garment")
+    if not top or top == "none":
+        return
+    for part in ("r_leg", "l_leg"):
+        for face_name in canvas.layout.part(part, 0).faces:
+            grid = AM.get_mask(masks or {}, "top_garment", top, "L1", part, face_name)
+            if not grid:
+                continue
+            f = canvas.layout.face(part, face_name, 0)
+            for v in range(min(9, f.h)):
+                for u in range(f.w):
+                    bit = v < len(grid) and u < len(grid[v]) and grid[v][u]
+                    c = shade(colors["top"], FACE_SHADE[face_name]) if bit else shade(colors["skin"], FACE_SHADE[face_name])
+                    canvas.put(part, face_name, u, v, c, 0)
 
 
 def apply_bottom_masks(canvas: SkinCanvas, colors: dict[str, Color], attrs: Attributes, masks: dict) -> None:
@@ -1397,6 +1423,7 @@ def render(
         texture=observed.bottom_texture,
     )
     apply_bottom_masks(canvas, colors, attrs, masks)
+    apply_top_leg_masks(canvas, colors, attrs, masks)
     if observed.hair_overlay:
         render_hair_overlay(canvas, colors, hair_stencil, attrs.get("hair_length"), style,
                             pack=pack, seed=seed, drape=drape, drape_tones=drape_tones,
