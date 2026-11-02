@@ -1226,3 +1226,14 @@ def test_bottom_mask_override_clips_leg_rows():
     pants = canvas.image.getpixel((f.x + 0, f.y + 0))[:3]
     skin = canvas.image.getpixel((f.x + 1, f.y + 0))[:3]
     assert pants != skin
+
+
+def test_structure_mask_override_clips_zipper_cells():
+    grid = [[0] * 8 for _ in range(12)]
+    grid[1][4] = 1
+    canvas = R.render(observed(), attrs(closure_type="zipper", hood="none", collar_type="none"), (),
+                      mask_override={"closure_type.zipper": {"L1": {"body.front": grid}}})
+    f = canvas.layout.face("body", "front", 0)
+    zipper = canvas.image.getpixel((f.x + 4, f.y + 1))[:3]
+    base = canvas.image.getpixel((f.x + 4, f.y + 2))[:3]
+    assert zipper != base
