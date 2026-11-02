@@ -98,3 +98,16 @@ def test_shirt_collar_without_closure_tag_draws_buttons():
     base = shade(rgba(observed().top.hex), 1.0)[:3]
     for v in (1, 4, 7, 10):
         assert canvas.image.getpixel((f.x + 4, f.y + v))[:3] != base, v
+
+
+def test_zipper_color_is_derived_from_top():
+    """Notes 2026-11-02 (30x): the zip must resemble the top, not fixed silver."""
+    from skinmaker.structure import _zipper_color
+
+    canvas = R.render(observed(), attrs(closure_type="zipper", collar_type="none"), (), "classic")
+    f = front(canvas)
+    px = canvas.image.getpixel((f.x + 4, f.y + 1))[:3]
+    assert px[2] > px[0]  # blue top -> blue-derived zipper
+    assert px != (201, 206, 214)  # not the old fixed METAL
+    assert _zipper_color((20, 20, 20, 255))[0] > 20      # dark top -> lighter zip
+    assert _zipper_color((240, 240, 240, 255))[0] < 240  # light top -> darker zip

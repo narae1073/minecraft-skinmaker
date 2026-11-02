@@ -21,10 +21,28 @@ def _put(canvas: SkinCanvas, u: int, v: int, color: Color) -> None:
         pass
 
 
+def _zipper_color(top: Color) -> Color:
+    """Zipper follows the top garment, not a fixed silver.
+
+    Notes 2026-11-02 (30x): the zip should resemble the top/jacket/hood. Use a
+    darker variant for mid/light tops; lighten very dark tops so the teeth stay
+    visible. No fixed METAL here.
+    """
+    r, g, b, a = top
+    luma = 0.2126 * r + 0.7152 * g + 0.0722 * b
+    if luma < 60:
+        t = 0.45
+        return (int(round(r * (1 - t) + 255 * t)),
+                int(round(g * (1 - t) + 255 * t)),
+                int(round(b * (1 - t) + 255 * t)), a)
+    return shade(top, 0.72 if luma > 200 else 0.78)
+
+
 def draw_zipper(canvas: SkinCanvas, attrs: Attributes, colors: dict[str, Color]) -> None:
-    """1px centre zip with alternating teeth; front rows 1-11."""
+    """1px centre zip with alternating teeth; colour derived from the top."""
+    zip_c = _zipper_color(colors.get("top") or colors["skin"])
     for v in range(1, 12):
-        color = METAL if v % 2 else shade(METAL, 0.65)
+        color = zip_c if v % 2 else shade(zip_c, 0.82)
         _put(canvas, 4, v, color)
 
 

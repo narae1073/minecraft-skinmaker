@@ -417,3 +417,7 @@ S0 quality/face detection (YuNet) → S1 colour measurement (white-balance + ban
   - `benchmark_baseline.json`(mask_sha+policy) 없거나 불일치하면 **paired benchmark stale** blocker. 현재 72쌍은 pre-mask v1이라 baseline missing으로 `ready=false`.
   - 현재 blocker는 **1개**: `paired benchmark baseline missing (regenerate/re-approve)`; 나머지(hair/QA/eyes/mask approval/pairs count)는 통과.
   - 문서: `docs/production-gate-v3.md`, `docs/production-status.md`. 테스트 4개.
+
+- 2026-11-02 (지퍼 색, `feat/zipper-color`, notes 30건): `draw_zipper`의 고정 `METAL`을 상의 색 파생으로 변경. 중간/밝은 상의는 0.78 shade, 아주 어두운 상의는 흰색 45% mix로 대비 유지; 단추는 그대로.
+  - 검증: **681 passed** (243.78s), QA 50 ok; `test_zipper_color_is_derived_from_top`; A/B `out/zipper_ab/zipper_ab.png`(before silver → after blue-derived).
+  - 주의: notes 30건 중 "지퍼 색이 상의/잠바/후드 색을 닮아야"를 직접 해결. 72 approved pairs는 여전히 pre-mask v1이며 paired baseline은 보류 상태다.
