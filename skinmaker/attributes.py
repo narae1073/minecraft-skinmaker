@@ -22,7 +22,7 @@ ENUMS: dict[str, tuple[str, ...]] = {
     "inner_top": ("none", "shirt", "tee", "knit"),
     "neckwear": ("none", "tie"),
     # 구조 (2026-10-28): 옷의 여밈/칼라/주머니/대칭. 크롭 천 위에 1px 로 얹는다.
-    "closure_type": ("none", "zipper", "buttons"),
+    "closure_type": ("none", "zipper", "buttons", "open"),
     "collar_type": ("none", "crew", "v_neck", "shirt", "hood"),
     "pocket_type": ("none", "patch"),
     "symmetry": ("symmetric", "asymmetric"),
@@ -66,7 +66,7 @@ _HINTS = {
     "beard": "수염. 없으면 none, 짧은 수염·면도 그림자면 stubble, 뚜렷한 수염/콧수염이면 full",
     "inner_top": "안에 껴입은 상의. 목/칼라에 겉옷과 다른 안쪽 옷이 보이면 shirt/tee/knit, 단일 상의·맨목이면 none",
     "neckwear": "넥타이. 칼라 아래 타이가 보이면 tie, 없으면 none",
-    "closure_type": "앞여밈. 지퍼가 보이면 zipper, 단추가 보이면 buttons, 없으면 none",
+    "closure_type": "앞여밈. 지퍼가 채워져 보이면 zipper, 단추가 채워져 보이면 buttons, 앞이 열려 안쪽 옷이 보이면 open, 여밈이 없으면 none",
     "collar_type": "칼라. 라운드=crew, 브이넥=v_neck, 셔츠칼라=shirt, 후드=hood, 없으면 none",
     "pocket_type": "주머니. 겉으로 붙은 사각 주머니가 보이면 patch, 없으면 none",
     "symmetry": "옷/무늬가 좌우 대칭으로 보이면 symmetric, 한쪽만 다르면 asymmetric",

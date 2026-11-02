@@ -103,14 +103,38 @@ def draw_patch_pockets(canvas: SkinCanvas, attrs: Attributes, colors: dict[str, 
             _put(canvas, x1, v, dark)
 
 
+def draw_open_front(canvas: SkinCanvas, attrs: Attributes, colors: dict[str, Color]) -> None:
+    """Open jacket: show a 2px inner-layer strip, no zipper/buttons.
+
+    Notes 2026-11-02 (15x): open jacket with an inner tee/hoodie was rendered
+    closed. The body base is already the jacket; replace the centre with the
+    inner layer and draw darker jacket edges. The collar is drawn afterwards.
+    """
+    inner = colors.get("inner") or shade(colors["skin"], 0.92)
+    edge = shade(colors["top"], 0.62)
+    for v in range(12):
+        _put(canvas, 3, v, shade(inner, 0.92))
+        _put(canvas, 4, v, inner)
+    for v in range(1, 12):
+        _put(canvas, 2, v, edge)
+        _put(canvas, 5, v, edge)
+    if attrs.get("neckwear") == "tie":
+        tie = colors.get("tie")
+        if tie:
+            for v in (0, 1, 2):
+                _put(canvas, 4, v, tie)
+
+
 def apply_structure(canvas: SkinCanvas, attrs: Attributes, colors: dict[str, Color]) -> None:
     """Overlay structural tags on the body front. Unknown/absent → no-op."""
     if attrs.get("top_garment") == "none":
         return
+    closure = attrs.get("closure_type")
+    if closure == "open":
+        draw_open_front(canvas, attrs, colors)
     collar = attrs.get("collar_type")
     if collar in ("crew", "v_neck", "shirt", "hood"):
         draw_collar(canvas, attrs, colors)
-    closure = attrs.get("closure_type")
     # VLM 이 단추를 놓쳐도 셔츠 칼라면 단추 여밈으로 보수적으로 보정한다
     # (폴로/버튼업 공통; 지퍼를 임의로 그리지는 않는다).
     if (

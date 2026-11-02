@@ -12,7 +12,7 @@ const KOR = {
   beard: { none: "없음", stubble: "짧은 수염", full: "수염" },
   inner_top: { none: "없음", shirt: "셔츠", tee: "티셔츠", knit: "니트" },
   neckwear: { none: "없음", tie: "넥타이" },
-  closure_type: { none: "없음", zipper: "지퍼", buttons: "단추" },
+  closure_type: { none: "없음", zipper: "지퍼", buttons: "단추", open: "열림" },
   collar_type: { none: "없음", crew: "라운드", v_neck: "브이넥", shirt: "셔츠칼라", hood: "후드" },
   pocket_type: { none: "없음", patch: "패치 주머니" },
   symmetry: { symmetric: "대칭", asymmetric: "비대칭" },
