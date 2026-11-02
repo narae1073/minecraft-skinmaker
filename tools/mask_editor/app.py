@@ -40,6 +40,10 @@ MASKABLE = {
     "beard": ("stubble", "full"),
     "sleeve_len": ("none", "short", "three_quarter", "long"),
     "bottom_garment": ("jeans", "shorts", "skirt", "pants", "none"),
+    "closure_type": ("none", "zipper", "buttons", "open"),
+    "collar_type": ("none", "crew", "v_neck", "shirt", "hood"),
+    "pocket_type": ("none", "patch"),
+    "neckwear": ("none", "tie"),
 }
 app = FastAPI(title="skinmaker attribute mask editor")
 
@@ -133,6 +137,26 @@ def _seed_bottom(value: str) -> dict:
     return {"L1": grids, "L2": {}}
 
 
+def _seed_structure(key: str, value: str) -> dict:
+    if value == "none":
+        return {}
+    if key == "neckwear":
+        # The tie colour can equal the inner colour in synthetic QA colours;
+        # seed the known tie cells instead of a colour diff.
+        return {"L1": {"body.front": [[1 if (u == 4 and v in (1, 2)) else 0 for u in range(8)] for v in range(12)]}}
+    base = dict(Q._attrs("long", "long_straight", "none").values)
+    base["top_garment"] = "hoodie"
+    base["inner_top"] = "none"
+    base[key] = "none"
+    baseline = R.render(Q._observed(), A.validate(base), (), mask_override={})
+    base[key] = value
+    target = R.render(Q._observed(), A.validate(base), (), mask_override={})
+    f = LAYOUT.face("body", "front", 0)
+    grid = [[1 if target.get("body", "front", u, v, 0)[:3] != baseline.get("body", "front", u, v, 0)[:3] else 0
+             for u in range(f.w)] for v in range(f.h)]
+    return {"L1": {"body.front": grid}, "L2": {}}
+
+
 def _defaults() -> dict:
     approved = AM.load_masks()
     saved = {}
@@ -147,7 +171,16 @@ def _defaults() -> dict:
             name = f"{key}.{value}"
             src = (saved.get(name) if isinstance(saved, dict) else None) or approved.get(name)
             if src is None:
-                src = _seed_hair(key, value) or _seed_sleeve(key, value) or _seed_bottom(value)
+                if key in ("hair_style", "hair_length"):
+                    src = _seed_hair(key, value)
+                elif key == "sleeve_len":
+                    src = _seed_sleeve(key, value)
+                elif key == "bottom_garment":
+                    src = _seed_bottom(value)
+                elif key in ("closure_type", "collar_type", "pocket_type", "neckwear"):
+                    src = _seed_structure(key, value)
+                else:
+                    src = {}
             masks[name] = _normalize_key(src)
     return masks
 
@@ -177,12 +210,15 @@ async def save(req: Request):
 
 
 def _attrs_for(key: str, value: str) -> A.Attributes:
-    hood = "none" if key in ("hair_style", "hair_length", "beard", "sleeve_len", "bottom_garment") else "up"
+    hood = "none" if key in ("hair_style", "hair_length", "beard", "sleeve_len", "bottom_garment",
+                             "closure_type", "collar_type", "pocket_type", "neckwear") else "up"
     if key == "hood":
         hood = value
     base = dict(Q._attrs("long", "long_straight", hood).values)
     base.setdefault("headwear", "none")
     base.setdefault("hood_fit", "normal")
+    if key == "neckwear":
+        base["inner_top"] = "shirt"
     base[key] = value
     return A.validate(base)
 

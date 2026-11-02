@@ -19,7 +19,7 @@ def test_defaults_expose_key_value_tree_and_general_masks():
     r = c.get("/api/defaults")
     assert r.status_code == 200
     j = r.json()
-    assert set(j["maskable"]) == {"hood", "headwear", "hood_fit", "hair_style", "hair_length", "beard", "sleeve_len", "bottom_garment"}
+    assert set(j["maskable"]) == {"hood", "headwear", "hood_fit", "hair_style", "hair_length", "beard", "sleeve_len", "bottom_garment", "closure_type", "collar_type", "pocket_type", "neckwear"}
     assert "hood.up" in j["masks"] and "headwear.cap" in j["masks"]
     hair_cells = sum(sum(row) for grid in j["masks"]["hair_style.bob"]["L1"].values() for row in grid)
     assert hair_cells > 0

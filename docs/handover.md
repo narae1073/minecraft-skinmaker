@@ -474,3 +474,5 @@ S0 quality/face detection (YuNet) → S1 colour measurement (white-balance + ban
 - 2026-11-02 (all-part editor + sleeve, `feat/all-part-sleeve`): editor PARTS 6 / FACES 36 / real dims; viewer `pick(part,layer)` for body/arms/legs; part tabs + dynamic atlas grid; `sleeve_len` masks seed + `render_arms` clip. Tests 703; QA 50; asset/approval unchanged.
 
 - 2026-11-02 (bottom masks, `feat/bottom-masks`): all-part editor + `bottom_garment` (jeans/shorts/skirt/pants/none). `render_legs` 후 apply_bottom_masks가 rows0-8 clip (shoes rows9-11 유지); editor는 bottom=none 대비 diff seed (352 cells). Tests 704; QA 50; asset/approval unchanged.
+
+- 2026-11-02 (structure masks, `feat/structure-masks`): editor keys closure_type/collar_type/pocket_type/neckwear; structure drawers + tie accept body.front mask; seeds 11/16/2/6/2 cells. Tests 705; QA 50; asset/approval unchanged.

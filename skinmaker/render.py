@@ -451,6 +451,7 @@ def render_body(
     drape_tones: dict | None = None,
     hide_back_drape: bool = False,
     hide_body_back_hair: bool = False,
+    masks: dict | None = None,
 ) -> set:
     """L1 body. Returns reference-drape hair cells (face, u, v); empty otherwise."""
     top_garment = attrs.get("top_garment")
@@ -1367,7 +1368,7 @@ def render(
     )
     body_cells = render_body(canvas, colors, attrs, pattern, alt, hair_stencil, thickness,
                 drape=drape, drape_tones=drape_tones, hide_back_drape=hide_back_drape,
-                hide_body_back_hair=hide_body_back_hair,
+                hide_body_back_hair=hide_body_back_hair, masks=masks,
                 texture=observed.top_texture)
     render_arms(canvas, colors, attrs, pattern, resolve_sleeve(attrs, observed),
                 alt=alt, texture=observed.top_texture, thickness=thickness, masks=masks)

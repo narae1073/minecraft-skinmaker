@@ -97,3 +97,16 @@ editor-only (draft); production approval is still separate.
   starting silhouette; shorts/skirt row boundaries may need painting because the
   current diff covers the same garment rows.
 - Production asset/approval unchanged; masks are editor drafts.
+
+## Phase 2c — structure keys
+
+- Editor keys: `closure_type` (none/zipper/buttons/open), `collar_type`
+  (none/crew/v_neck/shirt/hood), `pocket_type` (none/patch), `neckwear`
+  (none/tie).
+- `structure.draw_*` accepts a body.front mask; `apply_structure` clips zipper,
+  buttons, collar, open-front and patch pockets to the mask.
+- `render_body` clips the neckwear tie to the `neckwear.tie` mask (inner-top
+  throat cells remain).
+- Seeds: zipper 11, buttons 16, crew 2, patch 6, tie 2 cells (neckwear uses the
+  known tie cells because the synthetic QA tie/inner colours can match).
+- Production asset unchanged; editor drafts.
