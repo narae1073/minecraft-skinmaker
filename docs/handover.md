@@ -456,3 +456,5 @@ S0 quality/face detection (YuNet) → S1 colour measurement (white-balance + ban
 
 - 2026-11-02 (hood_fit/ears, `feat/hood-fit`): `hood_fit`(normal/shallow/deep) + UI. 후드 up + shallow이면 hood overlay 뒤 side-front(u6/u1, v4-5)에 skin shade 귀 2px. VLM E2E 09는 `hood_fit=normal`(자동 감지 실패; UI에서 shallow 수정). A/B `out/hood_audit/ears_ab.png`. 후드 6건은 마스크/headwear/hood_fit으로 모두 처리(09는 수동 설정).
   - 남은 골: dark gold hair 3건.
+
+- 2026-11-02 (hair audit, `docs/hair-audit`): dark hair 3건(00/02/06)은 source-limited. SCHP mask dark(#3e1a0c/#191615/#1f1c1a), VLM bbox-only도 dark/empty, bright clustering에도 gold 없음. 02 blonde는 뒤에 있는 다른 사람; 00/06은 auburn/brown. 수동 hair color override 또는 머리가 보이는 사진이 필요. 크롭 `out/hair_audit_crops.png`; 문서 `docs/color-audit-2026-11-02.md`.
