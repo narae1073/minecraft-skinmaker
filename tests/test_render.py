@@ -1123,3 +1123,19 @@ def test_hoodie_outer_overrides_a_background_contaminated_top():
     f = canvas.layout.face("body", "front", 0)
     px = canvas.image.getpixel((f.x + 2, f.y + 10))[:3]
     assert px[0] > px[2] + 20, px  # beige, not light blue
+
+
+def test_low_confidence_light_hair_keeps_gold():
+    """Gold hair sampled with low confidence must not fall back to dark brown."""
+    import dataclasses
+    from skinmaker.colors import ColorSample
+
+    base = dataclasses.replace(
+        observed(), hair=ColorSample("#ddc19c", 0.4, False, (221, 193, 156), 80)
+    )
+    colors = R.resolve_colors(base)
+    assert colors["hair"][:3] == (221, 193, 156)
+    dark = dataclasses.replace(
+        observed(), hair=ColorSample("#3e1a0c", 0.4, False, (62, 26, 12), 80)
+    )
+    assert R.resolve_colors(dark)["hair"] == rgba(R.DEFAULT_HAIR)

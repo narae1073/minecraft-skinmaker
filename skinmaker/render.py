@@ -114,9 +114,22 @@ def resolve_colors(observed: ObservedColors) -> dict[str, Color]:
         return _hex_or(sample.hex, fallback)
 
     top = pick(observed.top, DEFAULT_TOP)
+
+    def hair_color(sample):
+        if sample.missing:
+            return rgba(DEFAULT_HAIR)
+        if sample.confident:
+            return _hex_or(sample.hex, DEFAULT_HAIR)
+        # A non-confident light sample (gold/blond hair, small face or hat) is
+        # still closer than the dark default; dark low-confidence samples stay
+        # on the default (they are usually shadow/hat pixels).
+        c = _hex_or(sample.hex, DEFAULT_HAIR)
+        lum = 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2]
+        return c if lum > 90 else rgba(DEFAULT_HAIR)
+
     return {
         "skin": pick(observed.skin, DEFAULT_SKIN),
-        "hair": pick(observed.hair, DEFAULT_HAIR),
+        "hair": hair_color(observed.hair),
         "iris": pick(observed.iris, DEFAULT_IRIS),
         "inner": pick(observed.inner, DEFAULT_INNER),
         "tie": pick(observed.tie, DEFAULT_TIE),
