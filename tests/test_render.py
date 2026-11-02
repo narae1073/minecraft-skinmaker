@@ -1072,3 +1072,54 @@ def test_hood_down_long_hair_skips_body_back_hair():
             for v in range(12):
                 for u in range(8):
                     assert long.get("body", "back", u, v, layer) == short.get("body", "back", u, v, layer), (length, layer, u, v)
+
+
+def test_dark_outer_sample_does_not_override_a_single_light_jacket():
+    """Notes: teal/gray single jackets became black because the outer sample
+    (shadow) overrode a confident top."""
+    import dataclasses
+    from skinmaker.colors import ColorSample
+
+    base = observed(top="#498ba4")
+    base = dataclasses.replace(
+        base,
+        outer=ColorSample("#111011", 0.9, True, (17, 16, 17), 400),
+        inner=ColorSample("#400e0a", 0.8, True, (64, 14, 10), 200),
+    )
+    canvas = R.render(base, attrs(top_garment="jacket", inner_top="tee",
+                                  closure_type="zipper", collar_type="none"), ())
+    f = canvas.layout.face("body", "front", 0)
+    px = canvas.image.getpixel((f.x + 1, f.y + 6))[:3]
+    assert px[2] > px[0] and px[2] > 40, px  # teal-ish, not near-black
+
+
+def test_legit_dark_outer_with_light_inner_is_used():
+    """A layered light inner shirt + dark outer jacket must still use outer."""
+    import dataclasses
+    from skinmaker.colors import ColorSample
+
+    base = observed(top="#498ba4")
+    base = dataclasses.replace(
+        base,
+        outer=ColorSample("#111011", 0.9, True, (17, 16, 17), 400),
+        inner=ColorSample("#f2f2f2", 0.9, True, (242, 242, 242), 400),
+    )
+    canvas = R.render(base, attrs(top_garment="jacket", inner_top="tee",
+                                  closure_type="open", collar_type="none"), ())
+    f = canvas.layout.face("body", "front", 0)
+    px = canvas.image.getpixel((f.x + 2, f.y + 10))[:3]
+    assert px[0] < 40 and px[1] < 40 and px[2] < 40, px  # used the dark outer
+
+
+def test_hoodie_outer_overrides_a_background_contaminated_top():
+    """Hoodie top sampled as light blue (background) while outer is beige."""
+    import dataclasses
+    from skinmaker.colors import ColorSample
+
+    base = observed(top="#cae5ff")
+    base = dataclasses.replace(base, outer=ColorSample("#8e7a63", 0.9, True, (142, 122, 99), 400))
+    canvas = R.render(base, attrs(top_garment="hoodie", inner_top="none",
+                                  closure_type="none", collar_type="none"), ())
+    f = canvas.layout.face("body", "front", 0)
+    px = canvas.image.getpixel((f.x + 2, f.y + 10))[:3]
+    assert px[0] > px[2] + 20, px  # beige, not light blue

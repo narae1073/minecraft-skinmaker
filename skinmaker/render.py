@@ -1151,10 +1151,28 @@ def render(
     canvas = SkinCanvas(model)
     colors = resolve_colors(observed)
     # 겉옷색 구조: 재킷류/레이어드는 배경 제거 겉옷 표본 우선 (정장의 흰 셔츠 오염 대응).
-    if (
-        (attrs.get("inner_top") != "none" or attrs.get("top_garment") in JACKET_LIKE)
+    # 단, 단일 겉옷(inner_top=none)에서 outer가 거의 검정이면 그림자/바지를 잡은
+    # 것이므로 더 밝고 확신 있는 top 색을 유지한다 (notes 2026-11-02: teal/gray
+    # jacket → black). Layered outfits still prefer the outer sample.
+    use_outer = (
+        (attrs.get("inner_top") != "none" or attrs.get("top_garment") in JACKET_LIKE
+         or attrs.get("top_garment") == "hoodie")
         and not observed.outer.missing
-    ):
+    )
+    if use_outer and observed.top.confident and not observed.top.missing:
+        def _lum(c):
+            return 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2]
+        outer_dark = _lum(observed.outer.rgb) < 60
+        top_brighter = _lum(observed.top.rgb) - _lum(observed.outer.rgb) > 40
+        # A dark inner sample (or none) means there is no credible light inner
+        # shirt; the top sample is the garment, so the dark outer is shadow.
+        inner_weak = (
+            observed.inner.missing or not observed.inner.confident
+            or _lum(observed.inner.rgb) < 60
+        )
+        if outer_dark and top_brighter and inner_weak and attrs.get("inner_top") != "none":
+            use_outer = False
+    if use_outer:
         colors["top"] = _hex_or(observed.outer.hex, DEFAULT_TOP)
     # 승인 규칙: 타이는 색이 실제로 측정된 경우에만 그린다 — 아니면 셔츠로 채운다.
     if attrs.get("neckwear") == "tie" and (observed.tie.missing or not observed.tie.confident):
