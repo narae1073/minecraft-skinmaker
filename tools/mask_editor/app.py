@@ -44,6 +44,7 @@ MASKABLE = {
     "collar_type": ("none", "crew", "v_neck", "shirt", "hood"),
     "pocket_type": ("none", "patch"),
     "neckwear": ("none", "tie"),
+    "inner_top": ("none", "shirt", "tee", "knit"),
 }
 app = FastAPI(title="skinmaker attribute mask editor")
 
@@ -157,6 +158,29 @@ def _seed_structure(key: str, value: str) -> dict:
     return {"L1": {"body.front": grid}, "L2": {}}
 
 
+def _seed_inner(value: str) -> dict:
+    if value == "none":
+        return {}
+    base = dict(Q._attrs("long", "long_straight", "none").values)
+    base["top_garment"] = "hoodie"
+    base["inner_top"] = "none"
+    baseline = R.render(Q._observed(), A.validate(base), (), mask_override={})
+    base["inner_top"] = value
+    target = R.render(Q._observed(), A.validate(base), (), mask_override={})
+    grids = {}
+    f = LAYOUT.face("body", "front", 0)
+    grids["body.front"] = [[1 if target.get("body", "front", u, v, 0)[:3] != baseline.get("body", "front", u, v, 0)[:3] else 0
+                            for u in range(f.w)] for v in range(f.h)]
+    for part in ("r_arm", "l_arm"):
+        for face in PART_FACES[part]:
+            f = LAYOUT.face(part, face, 0)
+            grid = [[1 if target.get(part, face, u, v, 0)[:3] != baseline.get(part, face, u, v, 0)[:3] else 0
+                     for u in range(f.w)] for v in range(f.h)]
+            if any(any(r) for r in grid):
+                grids[f"{part}.{face}"] = grid
+    return {"L1": grids, "L2": {}}
+
+
 def _defaults() -> dict:
     approved = AM.load_masks()
     saved = {}
@@ -179,6 +203,8 @@ def _defaults() -> dict:
                     src = _seed_bottom(value)
                 elif key in ("closure_type", "collar_type", "pocket_type", "neckwear"):
                     src = _seed_structure(key, value)
+                elif key == "inner_top":
+                    src = _seed_inner(value)
                 else:
                     src = {}
             masks[name] = _normalize_key(src)
@@ -211,7 +237,7 @@ async def save(req: Request):
 
 def _attrs_for(key: str, value: str) -> A.Attributes:
     hood = "none" if key in ("hair_style", "hair_length", "beard", "sleeve_len", "bottom_garment",
-                             "closure_type", "collar_type", "pocket_type", "neckwear") else "up"
+                             "closure_type", "collar_type", "pocket_type", "neckwear", "inner_top") else "up"
     if key == "hood":
         hood = value
     base = dict(Q._attrs("long", "long_straight", hood).values)

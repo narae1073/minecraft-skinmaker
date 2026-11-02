@@ -1236,4 +1236,17 @@ def test_structure_mask_override_clips_zipper_cells():
     f = canvas.layout.face("body", "front", 0)
     zipper = canvas.image.getpixel((f.x + 4, f.y + 1))[:3]
     base = canvas.image.getpixel((f.x + 4, f.y + 2))[:3]
+    top = shade(rgba(observed().top.hex), R.FACE_SHADE["front"])[:3]
     assert zipper != base
+    assert base == top
+
+
+def test_inner_mask_override_clips_neck_cells():
+    grid = [[0] * 8 for _ in range(12)]
+    grid[0][3] = 1
+    canvas = R.render(observed(), attrs(inner_top="shirt", hood="none", collar_type="none"), (),
+                      mask_override={"inner_top.shirt": {"L1": {"body.front": grid}}})
+    f = canvas.layout.face("body", "front", 0)
+    inner = canvas.image.getpixel((f.x + 3, f.y + 0))[:3]
+    top = canvas.image.getpixel((f.x + 3, f.y + 1))[:3]
+    assert inner != top
