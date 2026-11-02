@@ -39,6 +39,7 @@ MASKABLE = {
     "hair_length": ("short", "medium", "long", "very_long"),
     "beard": ("stubble", "full"),
     "sleeve_len": ("none", "short", "three_quarter", "long"),
+    "bottom_garment": ("jeans", "shorts", "skirt", "pants", "none"),
 }
 app = FastAPI(title="skinmaker attribute mask editor")
 
@@ -112,6 +113,26 @@ def _seed_sleeve(key: str, value: str) -> dict:
     return {"L1": grids, "L2": {}}
 
 
+def _seed_bottom(value: str) -> dict:
+    if value == "none":
+        return {}
+    base = dict(Q._attrs("long", "long_straight", "none").values)
+    base["bottom_garment"] = "none"
+    baseline = R.render(Q._observed(), A.validate(base), (), mask_override={})
+    base["bottom_garment"] = value
+    target = R.render(Q._observed(), A.validate(base), (), mask_override={})
+    grids = {}
+    for part in ("r_leg", "l_leg"):
+        for face in PART_FACES[part]:
+            f = LAYOUT.face(part, face, 0)
+            rows = min(9, f.h)
+            grids[f"{part}.{face}"] = [
+                [1 if target.get(part, face, u, v, 0)[:3] != baseline.get(part, face, u, v, 0)[:3] else 0
+                 for u in range(f.w)] for v in range(rows)
+            ]
+    return {"L1": grids, "L2": {}}
+
+
 def _defaults() -> dict:
     approved = AM.load_masks()
     saved = {}
@@ -126,7 +147,7 @@ def _defaults() -> dict:
             name = f"{key}.{value}"
             src = (saved.get(name) if isinstance(saved, dict) else None) or approved.get(name)
             if src is None:
-                src = _seed_hair(key, value) or _seed_sleeve(key, value)
+                src = _seed_hair(key, value) or _seed_sleeve(key, value) or _seed_bottom(value)
             masks[name] = _normalize_key(src)
     return masks
 
@@ -156,7 +177,7 @@ async def save(req: Request):
 
 
 def _attrs_for(key: str, value: str) -> A.Attributes:
-    hood = "none" if key in ("hair_style", "hair_length", "beard", "sleeve_len") else "up"
+    hood = "none" if key in ("hair_style", "hair_length", "beard", "sleeve_len", "bottom_garment") else "up"
     if key == "hood":
         hood = value
     base = dict(Q._attrs("long", "long_straight", hood).values)
