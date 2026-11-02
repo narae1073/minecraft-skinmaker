@@ -435,3 +435,7 @@ S0 quality/face detection (YuNet) → S1 colour measurement (white-balance + ban
   - Fix: layered(inner_top≠none)에서 inner가 dark/missing이고 top이 40 luma 이상 밝으면 outer 무시; hoodie를 outer 후보에 추가. 단일 재킷(inner none)의 outer 우선은 유지.
   - 검증: teal `(27,26,27)→(73,139,164)`, gray `(37,36,44)→(166,187,192)`, beige `(198,224,250)→(142,122,99)`; **686 passed** (241.29s), QA 50; A/B `out/color_audit/color_audit_ab.png`; 문서 `docs/color-audit-2026-11-02.md`.
   - 남은 색: pink/white top(배경 오염), 흰 바지(bottom), 금발(hair low-confidence/dark). 후드 형상/머리색 테마는 아직.
+
+- 2026-11-02 (hair fallback, `fix/hair-fallback`, notes 5건 중 2건 개선): top background reject 실험은 악화(pink→MISSING, white→brown, teal→red)되어 폐기. `resolve_colors`의 hair fallback을 조정 — low-confidence라도 luma>90인 밝은 샘플은 측정색 유지, 어두운 샘플은 default.
+  - 검증: gold `#ddc19c` → blond; `#8d6648` → brown(개선); **687 passed**, QA 50; A/B `out/color_audit/hair_audit_ab.png`; 문서 갱신.
+  - 남은 색: pink/white top(region), white pants(bottom), dark gold hair(00/02/06); 후드 형상 6건.

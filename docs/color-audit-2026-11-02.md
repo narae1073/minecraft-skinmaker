@@ -39,3 +39,17 @@ pre-fix outputs.
 - white hood → light blue (`hood_down_short_hair_09`, `hood_up_long_hair_08`)
 - white pants → orange (`hood_down_long_hair_03`) — bottom sample
 - gold hair → brown/black (`hood_down_long_hair_01`, `hood_up_long_hair_00/01/02/06`)
+
+
+## Round 2 — hair fallback + rejected top-reject
+
+- **Top background reject experiment (rejected)**: passing `bg` chroma to the top
+  bands made pink → MISSING, white hood → brown, teal → red. The region, not the
+  reject alone, is the problem; reverted.
+- **Hair low-confidence fallback**: if the hair sample is not confident but
+  light (luma > 90), use the measured colour instead of DEFAULT_HAIR. Gold
+  `#ddc19c` (conf=False) now renders blond; `#8d6648` renders brown (closer than
+  default). Dark low-confidence samples keep the default.
+- A/B: `out/color_audit/hair_audit_ab.png` (old dark → new blond/brown).
+- Remaining hair notes: `up_long_00/02/06` — confident dark samples (hat/shadow);
+  needs a better hair region/VLM bbox audit.
