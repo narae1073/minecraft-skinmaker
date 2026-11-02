@@ -12,7 +12,7 @@ from pathlib import Path
 
 from .canvas import shade
 
-HEAD_FACES = ("top", "front", "right", "left", "back")
+HEAD_FACES = ("top", "front", "right", "left", "back", "bottom")
 NEIGHBORS = ((1, 0), (-1, 0), (0, 1), (0, -1))
 MASK_PATH = Path(__file__).resolve().parent.parent / "assets" / "hood_masks.json"
 

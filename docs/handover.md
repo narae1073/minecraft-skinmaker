@@ -397,3 +397,8 @@ S0 quality/face detection (YuNet) → S1 colour measurement (white-balance + ban
   - up: L1 front row0 브림 + L2 장식/심/엣지. down: head L2 nape/sides + **body back 1행 fold**, **body front cowl 0**.
   - 검증: **677 passed** (773.21s, 부하로 느림), production QA **50 ok**, A/B `out/hood_ab_masks/hood_ab_masks.png`. 테스트: down mask-path/up brim/crown 갱신, 레거시 variant/fur는 `load_hood_masks` monkeypatch로 fallback 테스트.
   - 주의: 승인된 72쌍은 **pre-mask v1 기준선**이다. 후드 쌍은 재생성·재승인이 필요하며, 그때까지 게이트는 v1 승인을 유지한다. 에디터 도구(`tools/mask_editor/`)는 로컬 untracked이고, 저장 상태는 `out/mask_editor/mask.json`이다.
+
+- 2026-11-02 (head.bottom 마스크 프로덕션 반영, `feat/hood-bottom-masks`): 사용자가 에디터에서 저장한 최종 마스크에 `head.bottom`이 포함됨 — up L1 16 / L2 6, down L2 16 / L1 0. `assets/hood_masks.json` 갱신, `skinmaker/hood_masks.py`의 HEAD_FACES에 bottom 추가 → 프로덕션 렌더가 bottom L1/L2를 적용.
+  - 에디터: face 탭과 atlas에 `head.bottom`, 3D `ny` 레이캐스트로 직접 편집(로컬 `tools/mask_editor/`, untracked).
+  - 검증: **678 passed** (724.71s), production QA **50 ok**, `test_final_asset_applies_head_bottom_masks`; asset bottom up 16/6, down 16/0.
+  - 주의: 72 approved pairs는 **pre-bottom v1** 기준선이다. 후드 쌍은 재생성·재승인이 필요하며, 그때까지 게이트는 v1 승인을 유지한다.
