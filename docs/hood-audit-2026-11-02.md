@@ -27,3 +27,17 @@ A/B: `out/hood_audit/hood_audit_2.png`
 
 Add `headwear` (`none`/`beanie`/`cap`) + a hat-colour sample, render a brim band
 at the hood opening. Ears need `hood_fit` (`shallow`/`deep`) or a mask-side cut.
+
+
+## Round 7 — headwear
+
+Added `headwear` (`none`/`beanie`/`cap`), a VLM hint and UI labels. Hood-up renders
+a 1px brim at head-front row 1; cap uses a light heuristic, beanie a dark one.
+
+- `hood_up_short_hair_11`: VLM E2E → `headwear=beanie`; brim rendered.
+- `hood_up_short_hair_07`: VLM E2E → `beanie` (source is a white cap; UI can switch
+  to `cap`), forced-cap A/B shows the light brim.
+- A/B: `out/hood_audit/headwear_ab.png`
+
+Still open: `hood_up_short_hair_09` shallow hood/ears. Hat colour is a heuristic
+until a headwear colour sample exists.

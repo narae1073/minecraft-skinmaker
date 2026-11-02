@@ -11,6 +11,7 @@ const KOR = {
   hood: { none: "없음", up: "후드 착용", down: "후드 내림" },
   beard: { none: "없음", stubble: "짧은 수염", full: "수염" },
   inner_top: { none: "없음", shirt: "셔츠", tee: "티셔츠", knit: "니트" },
+  headwear: { none: "없음", beanie: "비니", cap: "캡" },
   neckwear: { none: "없음", tie: "넥타이" },
   closure_type: { none: "없음", zipper: "지퍼", buttons: "단추", open: "열림" },
   collar_type: { none: "없음", crew: "라운드", v_neck: "브이넥", shirt: "셔츠칼라", hood: "후드" },
@@ -27,6 +28,7 @@ const FIELD_KOR = {
   hood: "후드",
   beard: "수염",
   inner_top: "안쪽 옷",
+  headwear: "머리 모자",
   neckwear: "넥타이",
   closure_type: "여밈",
   collar_type: "칼라",
@@ -35,7 +37,7 @@ const FIELD_KOR = {
 };
 const FIELDS = [
   "top_garment", "bottom_garment", "pattern", "sleeve_len", "hair_length",
-  "hair_style", "hood", "beard", "inner_top", "neckwear", "closure_type",
+  "hair_style", "hood", "headwear", "beard", "inner_top", "neckwear", "closure_type",
   "collar_type", "pocket_type", "symmetry",
 ];
 

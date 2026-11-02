@@ -450,3 +450,6 @@ S0 quality/face detection (YuNet) → S1 colour measurement (white-balance + ban
   - 검증: colors 90 passed, full suite/QA; A/B `out/color_audit/pants_ab.png`; hair는 VLM bbox/light percentile로도 dark(region 자체 dark), hood geometry 미착수.
 
 - 2026-11-02 (hood audit, `docs/hood-audit`): 후드 형상 6건을 최종 마스크 기준으로 감사. 03(앞머리)/17(밖 머리)/05(깊은 후드)는 마스크로 해결, 07/11(후드 안 모자)은 headwear 스키마·색 샘플 부재, 09(얕은 후드/귀)는 depth/귀 속성 부재. A/B `out/hood_audit/hood_audit_1.png`, `_2.png`; 문서 `docs/hood-audit-2026-11-02.md`. 코드 변경 없음.
+
+- 2026-11-02 (headwear, `feat/headwear`): `headwear`(none/beanie/cap) 속성 + VLM hint + CategoryPanel 라벨. 후드 up일 때 head front row1에 1px 챙; cap은 light, beanie는 dark heuristic (색 샘플 없음). VLM E2E: `hood_up_short_hair_11` → headwear=beanie; `07`은 beanie로 오분류(원본 white cap, UI에서 cap 수정 가능). A/B `out/hood_audit/headwear_ab.png`.
+  - 검증: full suite/QA; 남은 후드 09(귀/depth), dark gold hair.
