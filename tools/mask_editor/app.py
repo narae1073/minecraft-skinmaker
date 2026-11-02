@@ -29,6 +29,9 @@ MASKABLE = {
     "hood": ("up", "down"),
     "headwear": ("beanie", "cap"),
     "hood_fit": ("shallow",),
+    "hair_style": ("short", "pixie", "bob", "long_straight", "long_wavy", "curly", "ponytail", "bun"),
+    "hair_length": ("short", "medium", "long", "very_long"),
+    "beard": ("stubble", "full"),
 }
 app = FastAPI(title="skinmaker attribute mask editor")
 
@@ -116,7 +119,12 @@ async def save(req: Request):
 
 
 def _attrs_for(key: str, value: str) -> A.Attributes:
-    base = dict(Q._attrs("long", "long_straight", "up").values)
+    # Hair/beard must be visible: no hood. Hood/headwear/hood_fit keep the hood up
+    # so the edited cells are actually shown.
+    hood = "none" if key in ("hair_style", "hair_length", "beard") else "up"
+    if key == "hood":
+        hood = value
+    base = dict(Q._attrs("long", "long_straight", hood).values)
     base.setdefault("headwear", "none")
     base.setdefault("hood_fit", "normal")
     base[key] = value

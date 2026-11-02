@@ -48,3 +48,18 @@ Face keys are `<part>.<face>`; grid dims come from `skinmaker/format.py`; only
 
 Open `http://<tailnet-ip>:10483/`. Save writes the draft; production asset
 approval is a separate human step.
+
+## Phase 1b — hair + beard keys
+
+Added editor keys with a head post-pass:
+
+- `hair_style` (8 values) and `hair_length` (4 values): L1 hair cells outside the
+  combined mask are restored to skin; L1 mask cells are painted with the hair
+  colour; L2 is clipped to the same mask (falls back to the L1 grid when L2 is
+  absent). When both style and length masks exist they intersect.
+- `beard` (`stubble`, `full`): mask cells add hair-shaded beard cells on the
+  head front (there is no procedural beard).
+- Editor preview uses `hood=none` for hair/beard so cells are visible; hood up
+  for hood/headwear/hood_fit.
+- These masks are **empty by default**; the user paints them. A procedural seed
+  exporter and the all-part 3D/atlas remain Phase 2/3.

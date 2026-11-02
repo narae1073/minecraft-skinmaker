@@ -1021,6 +1021,66 @@ def _legacy_head_l2(canvas, put, stencil, hair_length: str, length: str, style: 
 
 
 
+def _combine_mask_grids(a, b):
+    if a is None:
+        return b
+    if b is None:
+        return a
+    h = min(len(a), len(b)); w = min(len(a[0]), len(b[0]))
+    return [[1 if a[v][u] and b[v][u] else 0 for u in range(w)] for v in range(h)]
+
+
+def _hair_mask_grid(masks, attrs: Attributes, face: str, layer: str):
+    style = attrs.get("hair_style") or "short"
+    length = attrs.get("hair_length") or "short"
+    style_grid = AM.get_mask(masks, "hair_style", style, layer, "head", face)
+    length_grid = AM.get_mask(masks, "hair_length", length, layer, "head", face)
+    grid = _combine_mask_grids(style_grid, length_grid)
+    if grid is None and layer == "L2":
+        style_grid = AM.get_mask(masks, "hair_style", style, "L1", "head", face)
+        length_grid = AM.get_mask(masks, "hair_length", length, "L1", "head", face)
+        grid = _combine_mask_grids(style_grid, length_grid)
+    return grid
+
+
+def apply_head_masks(canvas: SkinCanvas, colors: dict[str, Color], attrs: Attributes,
+                     masks: dict, style: str, hair_cells: set) -> None:
+    """Clip/add head hair and beard from the general attribute masks.
+
+    Hair masks are keyed by hair_style.value and/or hair_length.value; when both
+    exist they intersect. L1 cells outside the mask are restored to skin; L2
+    cells outside the mask are cleared. Beard masks add hair-coloured cells on
+    the front face (there is no procedural beard).
+    """
+    hair_c, skin_c = colors["hair"], colors["skin"]
+    for face in canvas.layout.part("head", 0).faces:
+        l1 = _hair_mask_grid(masks, attrs, face, "L1")
+        if l1:
+            for v, row in enumerate(l1):
+                for u, bit in enumerate(row):
+                    if bit:
+                        canvas.put("head", face, u, v, shade(hair_c, FACE_SHADE.get(face, 1.0)), 0)
+                    elif (face, u, v) in hair_cells:
+                        canvas.put("head", face, u, v, shade(skin_c, FACE_SHADE.get(face, 1.0)), 0)
+        l2 = _hair_mask_grid(masks, attrs, face, "L2")
+        if l2:
+            for v, row in enumerate(l2):
+                for u, bit in enumerate(row):
+                    if bit:
+                        canvas.put("head", face, u, v, _l2_color(hair_c, face), 1)
+                    else:
+                        canvas.put("head", face, u, v, (0, 0, 0, 0), 1)
+    beard = attrs.get("beard") or "none"
+    if beard in ("stubble", "full"):
+        grid = AM.get_mask(masks, "beard", beard, "L1", "head", "front")
+        if grid:
+            for v, row in enumerate(grid):
+                for u, bit in enumerate(row):
+                    if bit:
+                        canvas.put("head", "front", u, v,
+                                   shade(hair_c, FACE_SHADE.get("front", 1.0) * 0.82), 0)
+
+
 def render_hair_overlay(canvas: SkinCanvas, colors: dict[str, Color], stencil, hair_length: str = "short",
                         style: str = "short", pack: dict | None = None, seed: str = "",
                         allow_eye_fringe: bool = False, drape: dict | None = None,
@@ -1290,6 +1350,7 @@ def render(
                             hide_back_drape=hide_back_drape,
                             hide_body_back_hair=hide_body_back_hair,
                             allow_eye_fringe=attrs.get("hood") not in ("up", "down"))
+    apply_head_masks(canvas, colors, attrs, masks, style, hair_cells)
     if noise_seed is not None:
         # Reference-shaded hair keeps its strands: block noise would stamp
         # 2-3px squares over them (refs have no such texture on hair).
