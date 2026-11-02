@@ -86,3 +86,16 @@ still fallback when the mask is small.
 - A/B: `out/color_audit/seg_ab.png`
 
 Remaining: white pants (bottom sample), dark gold hair, hood geometry.
+
+## Round 5 — white pants via bright Pants mask cluster
+
+The SCHP Pants mask mode was orange (`#c18a69`, skin/ground), but the bright 60%
+of the mask is white (`#e9e2de`, share 0.48). The bottom is now sampled from
+`_bright_pixels(rgb[Pants/Skirt], light=40)`; a trusted seg bottom also bypasses
+the white-vs-background fallback and sets `bottom_plausible=True`.
+
+- white pants: orange `#c18a69` → white `#e9e2de`
+- A/B: `out/color_audit/pants_ab.png`
+- Hair remains dark despite VLM bbox and light-percentile 30→95 (region itself is
+  dark); needs a source/region audit.
+- Hood geometry not yet re-evaluated.

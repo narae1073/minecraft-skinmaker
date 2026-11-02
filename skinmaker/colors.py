@@ -521,6 +521,21 @@ def _inner_tie_samples(
     return inner, tie
 
 
+def _bright_pixels(px: np.ndarray, light: float = 40.0) -> np.ndarray:
+    """Brightest (100-light)% of a garment mask.
+
+    White pants on a mixed lower-body mask are a bright neutral minority; the
+    mode picks skin/ground (orange). Take the brighter cluster (notes
+    2026-11-02). Falls back to all pixels when the sub-cluster is tiny.
+    """
+    if px.shape[0] < 32:
+        return px
+    lum = px @ np.asarray(LUMA, dtype=np.float32)
+    cutoff = float(np.percentile(lum, light))
+    bright = px[lum >= cutoff]
+    return bright if bright.shape[0] >= 32 else px
+
+
 def extract(
     photo: PhotoInput,
     patterned: bool = False,
@@ -613,13 +628,20 @@ def extract(
         bottom_boxes = bottom_bands(photo.face, photo.image.size)
     top = _from_bands(arr, shirt_boxes, top_pick, (), bins)
     bottom = _from_bands(arr, bottom_boxes, "mode", (), bins)
+    bottom_from_seg = False
     if seg is not None:
         upper_mask = seg == parsing.UPPER_CLOTHES
         if int(upper_mask.sum()) >= 400:
             seg_top = dominant_color(rgb[upper_mask], bins=bins, pick=top_pick)
             if not seg_top.missing and seg_top.share >= 0.05:
                 top = seg_top
-    if pose is None and _bottom_needs_fallback(bottom, top, bg, bg_luma):
+        lower_mask = np.isin(seg, parsing.BOTTOM_CLASSES)
+        if int(lower_mask.sum()) >= 400:
+            seg_bottom = dominant_color(_bright_pixels(rgb[lower_mask], 40.0), bins=bins, pick="mode")
+            if not seg_bottom.missing and seg_bottom.share >= 0.15:
+                bottom = seg_bottom
+                bottom_from_seg = True
+    if pose is None and not bottom_from_seg and _bottom_needs_fallback(bottom, top, bg, bg_luma):
         # cascade: 얼굴 비례 밴드가 옷을 못 잡으면 프레임 하부를 본다.
         # pose 경로는 건드리지 않는다 (mediapipe 격리 중이라 항상 None).
         lower = frame_lower_bands(photo.face, photo.image.size)
@@ -677,7 +699,10 @@ def extract(
                 # 회녹색으로 눌렀다 (fitting 59: mask+WB 0.746 → raw 0.797).
                 # 마스크 자체가 옷을 고르므로 색은 WB 이전 원본으로 쟀고,
                 # plausible 도 같은 원본 공간의 배경과 비교한다.
-                bottom = dominant_color(rgb[cls_mask], bins=bins)
+                seg_bottom = dominant_color(_bright_pixels(rgb[cls_mask], 40.0), bins=bins)
+                if not seg_bottom.missing and seg_bottom.share >= 0.15:
+                    bottom = seg_bottom
+                    bottom_from_seg = True
                 raw_bg = background_chroma(rgb)
                 raw_bg_luma = background_luma(rgb)
                 parsing_bg, parsing_bg_luma = raw_bg, raw_bg_luma
@@ -732,7 +757,7 @@ def extract(
 
     return ObservedColors(
         skin, hair, top, bottom, applied, wb_ok, skin_chroma, top_alt, stripe, cover,
-        bottom_plausible=_bottom_plausible(bottom, parsing_bg, parsing_bg_luma),
+        bottom_plausible=True if bottom_from_seg else _bottom_plausible(bottom, parsing_bg, parsing_bg_luma),
         shoe=shoe,
         lower_body_seen=lower_body_seen,
         lower_body_clothed=lower_body_clothed,
