@@ -1040,3 +1040,22 @@ def test_hood_up_mask_brim_at_row_zero():
     canvas = R.render(observed(), attrs(top_garment="hoodie", hood="up"), ())
     for u in range(8):
         assert canvas.get("head", "front", u, 0, 0)[3] == 255  # L1 brim
+
+
+def test_final_asset_applies_head_bottom_masks():
+    """The committed head.bottom L1/L2 masks must reach the rendered skin."""
+    from skinmaker import hood_masks
+
+    masks = hood_masks.load_hood_masks()
+    assert masks and "head.bottom" in masks["up"]["L1"]
+    for hood in ("up", "down"):
+        canvas = R.render(observed(), attrs(top_garment="hoodie", hood=hood), ())
+        plain = R.render(observed(), attrs(top_garment="hoodie", hood="none"), ())
+        for layer, layer_index in (("L1", 0), ("L2", 1)):
+            grid = masks[hood][layer]["head.bottom"]
+            for v, row in enumerate(grid):
+                for u, bit in enumerate(row):
+                    if bit:
+                        assert canvas.get("head", "bottom", u, v, layer_index) != plain.get(
+                            "head", "bottom", u, v, layer_index
+                        ), (hood, layer, u, v)
