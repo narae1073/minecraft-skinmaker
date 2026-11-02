@@ -38,6 +38,8 @@ function App() {
   const [skinModel, setSkinModel] = useState('classic'); // 체형: classic(4px 팔) | slim(3px 팔)
   const [showSteps, setShowSteps] = useState(false); // 처리 과정 표시 (기본 해제 — 사용자 결정)
   const [hairOverlay, setHairOverlay] = useState('on'); // L2 오버레이 헤어 (기본 켜기 — 사용자 결정 2026-10-21)
+  const [hairColorOn, setHairColorOn] = useState(false); // 수동 hair colour override (source-limited notes)
+  const [hairColor, setHairColor] = useState('#d4af37');
   const [catInfo, setCatInfo] = useState(null); // 분류 카테고리 {attributes, candidates, noiseLevel} (설계 §11)
   const [steps, setSteps] = useState(null); // 처리 과정 시트 {clean, full} (설계 §12)
 
@@ -93,6 +95,7 @@ function App() {
     formData.append('steps', showSteps ? '1' : '0');
     formData.append('hair_overlay', hairOverlay);
     formData.append('skin_model', skinModel);
+    if (hairColorOn) formData.append('hair_color', hairColor);
 
     try {
       const response = await fetch('/api/v1/generate-skin', {
@@ -310,6 +313,25 @@ function App() {
             </select>
           </div>
           <p id="skin-model-help" className="config-help">클래식은 기본 체형, 슬림은 팔이 3px 얇은 체형이에요.</p>
+          <div className="config-row">
+            <label htmlFor="hair-color">
+              <input
+                id="hair-color-on"
+                type="checkbox"
+                checked={hairColorOn}
+                onChange={(e) => setHairColorOn(e.target.checked)}
+              />
+              머리색 직접 지정
+            </label>
+            <input
+              id="hair-color"
+              type="color"
+              value={hairColor}
+              onChange={(e) => setHairColor(e.target.value)}
+              aria-label="머리색"
+            />
+          </div>
+          <p className="config-help">사진에서 금발을 못 읽는 경우(머리가 가려짐) 직접 지정해요.</p>
           <div className="config-row">
             <label htmlFor="show-steps">
               <input

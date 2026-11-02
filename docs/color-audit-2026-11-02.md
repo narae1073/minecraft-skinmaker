@@ -117,3 +117,17 @@ fallback; the three dark notes need a **manual hair-colour override** or a photo
 where the subject's hair is actually visible.
 
 Crops: `out/hair_audit_crops.png`
+
+## Round 10 — manual hair-colour override
+
+The three source-limited hair notes are now user-fixable:
+
+- API: `POST /api/v1/generate-skin` accepts `hair_color=#rrggbb`; invalid values
+  return 400 `bad_hair_color`.
+- UI: main Settings panel has a “머리색 직접 지정” checkbox + colour input.
+- The mask editor still has no colour picker (unchanged).
+- E2E on `hood_up_long_hair_02` with `#d4af37` → gold hair.
+- A/B: `out/hair_override_ab.png`
+
+The automatic audit remains: 2 light notes are fixed by the fallback; 3 need the
+manual override because the source has no gold in the visible subject's hair.
