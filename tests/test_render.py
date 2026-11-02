@@ -1215,3 +1215,14 @@ def test_sleeve_mask_override_clips_arm_rows():
     shirt = canvas.image.getpixel((f.x + 0, f.y + 0))[:3]
     skin = canvas.image.getpixel((f.x + 1, f.y + 0))[:3]
     assert shirt != skin
+
+
+def test_bottom_mask_override_clips_leg_rows():
+    grid = [[0] * 4 for _ in range(12)]
+    grid[0][0] = 1
+    canvas = R.render(observed(), attrs(bottom_garment="pants", hood="none"), (),
+                      mask_override={"bottom_garment.pants": {"L1": {"r_leg.front": grid}}})
+    f = canvas.layout.face("r_leg", "front", 0)
+    pants = canvas.image.getpixel((f.x + 0, f.y + 0))[:3]
+    skin = canvas.image.getpixel((f.x + 1, f.y + 0))[:3]
+    assert pants != skin

@@ -86,3 +86,14 @@ editor-only (draft); production approval is still separate.
     long 384 across both arms); `none` blank.
 - Production asset/approval unchanged (no sleeve masks yet); the editor seed is
   draft-only. Body/legs keys beyond sleeve remain Phase 2b.
+
+## Phase 2b — bottom_garment
+
+- `render_legs` is followed by `apply_bottom_masks`: if a `bottom_garment.<value>`
+  mask exists, leg garment rows 0–8 are clipped (mask → sampled bottom colour,
+  outside → skin). Shoes rows 9–11 stay procedural.
+- Editor seeds `bottom_garment` masks by diffing the procedural render against
+  `bottom=none` (jeans/shorts/skirt/pants 352 cells; none blank). The seed is a
+  starting silhouette; shorts/skirt row boundaries may need painting because the
+  current diff covers the same garment rows.
+- Production asset/approval unchanged; masks are editor drafts.

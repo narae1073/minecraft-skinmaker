@@ -617,6 +617,29 @@ def _render_cuffs(canvas: SkinCanvas, colors: dict[str, Color], attrs: Attribute
                 canvas.put(part, face_name, u, min(row, f.h - 1), shade(colors["inner"], FACE_SHADE[face_name]), 0)
 
 
+def apply_bottom_masks(canvas: SkinCanvas, colors: dict[str, Color], attrs: Attributes, masks: dict) -> None:
+    """Clip the bottom garment on the leg garment rows (0-8) to a mask.
+
+    Shoes (rows 9-11) stay procedural; the mask edits the garment silhouette
+    only. Colour is the sampled bottom colour (patterns are not repainted).
+    """
+    bottom = attrs.get("bottom_garment")
+    if not bottom:
+        return
+    pants = colors["bottom"]
+    for part in ("r_leg", "l_leg"):
+        for face_name in canvas.layout.part(part, 0).faces:
+            grid = AM.get_mask(masks or {}, "bottom_garment", bottom, "L1", part, face_name)
+            if not grid:
+                continue
+            f = canvas.layout.face(part, face_name, 0)
+            for v in range(min(9, f.h)):
+                for u in range(f.w):
+                    bit = v < len(grid) and u < len(grid[v]) and grid[v][u]
+                    c = shade(pants, FACE_SHADE[face_name]) if bit else shade(colors["skin"], FACE_SHADE[face_name])
+                    canvas.put(part, face_name, u, v, c, 0)
+
+
 def render_legs(canvas: SkinCanvas, colors: dict[str, Color], attrs: Attributes, bottom_garment: str | None = None, *, shoe_two_tone: bool = True,
                 skirt_rows: int | None = None, pattern: str | None = None, alt: Color | None = None,
                 texture: FabricTexture | None = None) -> None:
@@ -1353,6 +1376,7 @@ def render(
         skirt_rows=observed.skirt_hem_rows, pattern=pattern, alt=alt,
         texture=observed.bottom_texture,
     )
+    apply_bottom_masks(canvas, colors, attrs, masks)
     if observed.hair_overlay:
         render_hair_overlay(canvas, colors, hair_stencil, attrs.get("hair_length"), style,
                             pack=pack, seed=seed, drape=drape, drape_tones=drape_tones,
