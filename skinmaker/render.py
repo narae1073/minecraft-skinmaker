@@ -293,7 +293,7 @@ def _hair_tone(hair_c: Color, face_name: str, u: int, v: int, tones: dict | None
 
 def render_head(canvas: SkinCanvas, colors: dict[str, Color], attrs: Attributes, stencil=None,
                 style: str = "short", pack: dict | None = None, seed: str = "",
-                masks: dict | None = None) -> set:
+                masks: dict | None = None, return_cells: bool = False) -> set:
     """L1 head. Returns the (face, u, v) hair cells when reference L1 tones were
     applied (they are exempt from the block-noise pass), else an empty set."""
     skin_c, hair_c = colors["skin"], colors["hair"]
@@ -389,7 +389,7 @@ def render_head(canvas: SkinCanvas, colors: dict[str, Color], attrs: Attributes,
                 for u in (0, 7):
                     canvas.put("head", "front", u, 2, hat, 0)
     # HEAD ACC.(layer=1)는 손대지 않는다. 기본 투명 유지.
-    return hair_cells if tones else set()
+    return hair_cells if (tones or return_cells) else set()
 
 
 def _pattern_color(base: Color, alt: Color | None, u: int, v: int, w: int, h: int, pattern: str, face_name: str,

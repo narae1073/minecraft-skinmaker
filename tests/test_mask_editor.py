@@ -21,6 +21,9 @@ def test_defaults_expose_key_value_tree_and_general_masks():
     j = r.json()
     assert set(j["maskable"]) == {"hood", "headwear", "hood_fit", "hair_style", "hair_length", "beard"}
     assert "hood.up" in j["masks"] and "headwear.cap" in j["masks"]
+    hair_cells = sum(sum(row) for grid in j["masks"]["hair_style.bob"]["L1"].values() for row in grid)
+    assert hair_cells > 0
+    assert sum(sum(row) for grid in j["masks"]["beard.full"]["L1"].values() for row in grid) == 0
 
 
 def test_preview_final_and_mask_modes():
