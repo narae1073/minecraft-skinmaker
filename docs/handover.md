@@ -391,3 +391,9 @@ S0 quality/face detection (YuNet) → S1 colour measurement (white-balance + ban
   - **down**: 기존 참조 cowl 위에 나페 border(옆 1px/뒤 2px, head L2 hair 하단 기준) + body back **1행 fold**(중앙 shadow, hair 위에 그림) 추가.
   - 검증: **677 passed** (361.62s), production QA **50 ok**, A/B `out/hood_ab/hood_ab_sheet.png`. 테스트 갱신: `test_hood_up_opens_at_row_two` 추가, crown/down-cowl 테스트를 새 정책에 맞춤.
   - 주의: 승인된 72쌍은 **v1 기준선**이다. 후드 쌍은 재생성·재승인이 필요하며, 그때까지 게이트는 v1 승인을 유지한다. 팩 리뷰 시트(`out/.../pack_review/v3`)도 이 변경 전 렌더라 재생성 대상.
+
+- 2026-11-02 (최종 head-only 후드 마스크, `fix/hood-shape`): 사용자가 마스크 편집기에서 최종 마스크를 완료 → `assets/hood_masks.json`(up L1/L2, down L2 back/sides, **body 0**).
+  - `skinmaker/hood_masks.py`로 공유 렌더러를 만들고, `render_hood_overlay`가 asset이 있으면 마스크 경로를 사용하도록 연결(asset 없으면 레거시 pack fallback).
+  - up: L1 front row0 브림 + L2 장식/심/엣지. down: head L2 nape/sides + **body back 1행 fold**, **body front cowl 0**.
+  - 검증: **677 passed** (773.21s, 부하로 느림), production QA **50 ok**, A/B `out/hood_ab_masks/hood_ab_masks.png`. 테스트: down mask-path/up brim/crown 갱신, 레거시 variant/fur는 `load_hood_masks` monkeypatch로 fallback 테스트.
+  - 주의: 승인된 72쌍은 **pre-mask v1 기준선**이다. 후드 쌍은 재생성·재승인이 필요하며, 그때까지 게이트는 v1 승인을 유지한다. 에디터 도구(`tools/mask_editor/`)는 로컬 untracked이고, 저장 상태는 `out/mask_editor/mask.json`이다.

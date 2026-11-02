@@ -23,6 +23,7 @@ from .colors import MISSING, ObservedColors
 from .texture import COMPLEX_PATTERNS, FabricTexture
 from . import hairstencil as HS
 from . import reference_pack as RP
+from .hood_masks import apply_hood_masks, load_hood_masks
 from .structure import apply_structure
 from .format import HEAD_ACCESSORY_LAYER  # noqa: F401  (규칙 문서화용: ACC.는 손대지 않는다)
 
@@ -698,6 +699,15 @@ def render_hood_overlay(canvas: SkinCanvas, colors: dict[str, Color], hood: str,
     cut the chest locks two rows below the head).
     """
     if hood not in ("up", "down"):
+        return
+    # Final head-only masks (2026-11-02) take precedence over the legacy pack
+    # cowl/procedural shell. They paint head L1/L2 and a hood-down upper-back
+    # fold only; there is no body-front cowl.
+    masks = load_hood_masks()
+    if masks and hood in masks:
+        base = colors.get("top") or colors["hair"]
+        alt = colors.get("top_alt") or shade(base, 0.72)
+        apply_hood_masks(canvas, base, alt, hood, masks[hood])
         return
     pattern = RP.select_hood(pack, hood, seed) if pack else None
     if pattern is None:
