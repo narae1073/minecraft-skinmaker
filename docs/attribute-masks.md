@@ -110,3 +110,15 @@ editor-only (draft); production approval is still separate.
 - Seeds: zipper 11, buttons 16, crew 2, patch 6, tie 2 cells (neckwear uses the
   known tie cells because the synthetic QA tie/inner colours can match).
 - Production asset unchanged; editor drafts.
+
+## Phase 2d — inner_top + approval CLI
+
+- `inner_top` (none/shirt/tee/knit): body-front throat cells and arm sleevecuff
+  cells are clipped to the mask; editor seeds by diffing the procedural render
+  against `inner_top=none` (38 cells for shirt/tee/knit).
+- `scripts/approve_attribute_masks.py` promotes the editor draft to
+  `assets/attribute_masks.json` and writes `attribute_masks_approval.json` with
+  the policy + SHA. It requires an explicit `--yes` (human gate) and validates
+  the schema first.
+  - `python scripts/approve_attribute_masks.py --draft out/mask_editor/attribute_masks.json --yes`
+- The gate reads the promoted asset; the paired baseline stays stale.
