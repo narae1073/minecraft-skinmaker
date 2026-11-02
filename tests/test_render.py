@@ -315,7 +315,13 @@ def test_hood_down_paints_the_reference_cowl(monkeypatch):
            for face in ("front", "back")
            for v in range(12) for u in range(8)
            if canvas.get("body", face, u, v, 1)[3]}
-    assert got == want
+    assert want <= got  # reference cowl cells stay painted
+    # 2026-11-02: the down hood adds a visible one-row fold on the upper back
+    # (over hair) plus a centre shadow, so it reads as fabric behind the neck.
+    for u in range(8):
+        assert canvas.get("body", "back", u, 0, 1)[3] == 255
+    for u in (2, 3, 4, 5):
+        assert canvas.get("body", "back", u, 1, 1)[3] == 255
 
 
 def test_viewer_js_uv_rects_match_layout():
@@ -1035,3 +1041,12 @@ def test_template_l2_never_covers_eye_rows():
         for u in range(1, 7):
             for v in (5, 6):
                 assert canvas.get("head", "front", u, v, 1)[3] == 0, (i, u, v)
+
+
+def test_hood_up_opens_at_row_two():
+    """2026-11-02: the hood was pulled too deep; the opening starts at row 2
+    (brim row 1) so the brow/bangs are visible."""
+    canvas = R.render(observed(), attrs(top_garment="hoodie", hood="up"), ())
+    for u in range(1, 7):
+        assert canvas.get("head", "front", u, 1, 1)[3] == 255  # brim
+        assert canvas.get("head", "front", u, 2, 1)[3] == 0    # opening
