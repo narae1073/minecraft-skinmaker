@@ -7,7 +7,7 @@ S0 quality/face detection (YuNet) → S1 colour measurement (white-balance + ban
 
 ## 2. Current state (verified 2026-11-01)
 
-- Tests: **676 passed** (`tests/fixtures/` committed; ~10 s without the SCHP model, 242.20 s = 4:02 with it, measured 2026-11-02). Tests no longer need the 66 MB SCHP model: the jeans-rule tests stub a zero mask and `test_parsing` uses a dummy model path with a fake session.
+- Tests: **677 passed** (`tests/fixtures/` committed; ~10 s without the SCHP model, 361.62 s = 6:01 with it, measured 2026-11-02). Tests no longer need the 66 MB SCHP model: the jeans-rule tests stub a zero mask and `test_parsing` uses a dummy model path with a fake session.
 - Frontend: `npm run lint` clean, `npm run build` green (Vite 8 / Node 24).
 - Python 3.12.3 venv at `.venv`; do **not** use `python` or `uv`.
 - Parsing model: `out/models/schp-atr-18-int8-static.onnx` (66 MB, gitignored). YuNet: `assets/face_detection_yunet_2023mar.onnx` (228 KB, gitignored). Both fetched by `scripts/fetch_assets.sh`.
@@ -385,3 +385,9 @@ S0 quality/face detection (YuNet) → S1 colour measurement (white-balance + ban
   - D4 활성 팩 리뷰 시트 `out/production_benchmark/pack_review/review_sheet.png`(up 4 / down 2) 작성 — **사람 승인만 남음**.
   - D7 결과: gate v2 `ready=false`; blockers = hood_down n, approved up 0/2, down 0/1. paired **72/30 accepted**. 근거·잔여 리스크는 `docs/production-gate-v2.md`.
   - 검증: **676 passed** (242.20s), `tests/test_production_status.py` 3 (eyes waiver + hood_down p90 gate).
+
+- 2026-11-02 (후드 형상 수정, `fix/hood-shape`): 사용자 피드백 — "모든 hood up이 너무 깊고, 모든 hood down은 목 뒤에 후드가 없다".
+  - **up**: `render_hood_overlay` 개구부를 3/4행 → **2행**으로 올리고 brim을 row 1로 내려 이마/앞머리를 노출. 팩 up 템플릿 4개는 front mask가 rows 0-2 full로 동일하고 **렌더에 쓰이지 않는다**(절차적 풀셸) — 템플릿 승인만으로는 모양이 바뀌지 않는다는 사실을 확인.
+  - **down**: 기존 참조 cowl 위에 나페 border(옆 1px/뒤 2px, head L2 hair 하단 기준) + body back **1행 fold**(중앙 shadow, hair 위에 그림) 추가.
+  - 검증: **677 passed** (361.62s), production QA **50 ok**, A/B `out/hood_ab/hood_ab_sheet.png`. 테스트 갱신: `test_hood_up_opens_at_row_two` 추가, crown/down-cowl 테스트를 새 정책에 맞춤.
+  - 주의: 승인된 72쌍은 **v1 기준선**이다. 후드 쌍은 재생성·재승인이 필요하며, 그때까지 게이트는 v1 승인을 유지한다. 팩 리뷰 시트(`out/.../pack_review/v3`)도 이 변경 전 렌더라 재생성 대상.

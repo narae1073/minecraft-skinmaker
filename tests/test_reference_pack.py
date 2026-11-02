@@ -140,7 +140,7 @@ def test_committed_hood_shells_are_solid():
     assert len(pack["hoods"]["up"]) >= 1
 
 
-def test_hood_up_has_no_hair_through_crown():
+def test_hood_up_crown_covered_with_face_opening():
     from skinmaker import render as R
     from test_render import observed, attrs
 
@@ -148,8 +148,14 @@ def test_hood_up_has_no_hair_through_crown():
     for v in range(8):
         for u in range(8):
             assert canvas.get("head", "top", u, v, 1)[3], (u, v)
-    for v in range(3):
+    # 2026-11-02: brim rows 0-1; the opening starts at row 2 (u1-6).
+    for v in range(2):
         for u in range(8):
+            assert canvas.get("head", "front", u, v, 1)[3], (u, v)
+    for v in range(2, 7):
+        for u in range(1, 7):
+            assert canvas.get("head", "front", u, v, 1)[3] == 0, (u, v)
+        for u in (0, 7):
             assert canvas.get("head", "front", u, v, 1)[3], (u, v)
     for u in (1, 2, 5, 6):
         for v in (4, 5):

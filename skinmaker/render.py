@@ -729,10 +729,35 @@ def render_hood_overlay(canvas: SkinCanvas, colors: dict[str, Color], hood: str,
                     )
                     c = shade(alt, FACE_SHADE[face_name]) if is_top_edge else darker
                     put_cowl(face_name, u, v, c)
+        # Down hood must read as fabric behind the neck, not just a rim.
+        # 1) nape border below the lowest L2 hair cell (1px sides, 2px back).
+        for face_name in ("right", "left", "back"):
+            f = canvas.layout.face("head", face_name, 1)
+            for u in range(f.w):
+                rows = [v for v in range(f.h) if canvas.get("head", face_name, u, v, 1)[3]]
+                if not rows:
+                    continue
+                lowest = max(rows)
+                extra = 2 if face_name == "back" else 1
+                for k in range(1, extra + 1):
+                    v = lowest + k
+                    if v < f.h:
+                        c = shade(shade(base, FACE_SHADE[face_name]), 0.92)
+                        canvas.put("head", face_name, u, v, c, 1)
+        # 2) one-row folded hood on the upper back, with a centre shadow. Draw
+        #    over hair: the fabric sits behind the neck and must stay visible.
+        f = canvas.layout.face("body", "back", 1)
+        fold = shade(base, FACE_SHADE["back"])
+        for u in range(f.w):
+            canvas.put("body", "back", u, 0, fold, 1)
+        for u in (2, 3, 4, 5):
+            canvas.put("body", "back", u, 1, shade(fold, 0.82), 1)
         return
 
     variant = hood_variant(seed) if variant is None else variant % 3
-    opening = 4 if variant == 1 else 3
+    # 2026-11-02: the hood was pulled too deep over the forehead. Open one row
+    # earlier (row 2) so the brow/bangs show; the brim sits at row 1.
+    opening = 2
     for face_name in RP.HEAD_FACES:
         f = canvas.layout.face("head", face_name, 1)
         face_base = shade(base, FACE_SHADE[face_name])
@@ -770,7 +795,7 @@ def render_hood_overlay(canvas: SkinCanvas, colors: dict[str, Color], hood: str,
 
     front_base = shade(base, FACE_SHADE["front"])
     alt_front = shade(alt, FACE_SHADE["front"])
-    brim_v = 3 if variant == 1 else 2
+    brim_v = 1
     canvas.put("head", "front", 0, brim_v, shade(front_base, 0.62), 1)
     for u in range(1, 7):
         canvas.put("head", "front", u, brim_v, shade(front_base, 0.66), 1)
