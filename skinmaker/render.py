@@ -1196,7 +1196,7 @@ def render(
     # Hood-down + long hair: the hood sits behind the neck, so long hair must
     # not be drawn over the body back face (only that face; side locks stay).
     hide_body_back_hair = hide_body_back_hair or (
-        attrs.get("hood") == "down" and attrs.get("hair_length") == "long"
+        attrs.get("hood") == "down" and attrs.get("hair_length") in ("long", "medium")
     )
     body_cells = render_body(canvas, colors, attrs, pattern, alt, hair_stencil, thickness,
                 drape=drape, drape_tones=drape_tones, hide_back_drape=hide_back_drape,

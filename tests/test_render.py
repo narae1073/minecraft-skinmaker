@@ -1063,11 +1063,12 @@ def test_final_asset_applies_head_bottom_masks():
 
 def test_hood_down_long_hair_skips_body_back_hair():
     """Hood-down + long hair must not draw hair over the body back face."""
-    long = R.render(observed(), attrs(top_garment="hoodie", hood="down",
-                                      hair_length="long", hair_style="long_straight"), ())
     short = R.render(observed(), attrs(top_garment="hoodie", hood="down",
                                        hair_length="short", hair_style="short"), ())
-    for layer in (0, 1):
-        for v in range(12):
-            for u in range(8):
-                assert long.get("body", "back", u, v, layer) == short.get("body", "back", u, v, layer), (layer, u, v)
+    for length, style in (("long", "long_straight"), ("medium", "long_wavy")):
+        long = R.render(observed(), attrs(top_garment="hoodie", hood="down",
+                                          hair_length=length, hair_style=style), ())
+        for layer in (0, 1):
+            for v in range(12):
+                for u in range(8):
+                    assert long.get("body", "back", u, v, layer) == short.get("body", "back", u, v, layer), (length, layer, u, v)
