@@ -1291,6 +1291,14 @@ def render(
     # grid of isolated light/dark cells.
     render_hood_overlay(canvas, colors, attrs.get("hood"), pack=pack, seed=seed,
                         body_hair_cells=body_cells)
+    # Shallow hood: the ears remain visible at the side-front edge. Drawn after
+    # the hood so the final mask does not cover them (notes 2026-11-02,
+    # hood_up_short_hair_09).
+    if attrs.get("hood") == "up" and attrs.get("hood_fit") == "shallow":
+        ear = shade(colors["skin"], 0.82)
+        for part, u in (("right", 6), ("left", 1)):
+            for v in (4, 5):
+                canvas.put("head", part, u, v, ear, 0)
     return canvas
 
 

@@ -24,6 +24,7 @@ DEFAULT_SCENARIO: dict[str, Any] = {
     "hair_style": "bob",
     "hood": "none",
     "headwear": "none",
+    "hood_fit": "normal",
     "beard": "none",
     "inner_top": "none",
     "neckwear": "none",

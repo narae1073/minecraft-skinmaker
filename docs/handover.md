@@ -453,3 +453,6 @@ S0 quality/face detection (YuNet) → S1 colour measurement (white-balance + ban
 
 - 2026-11-02 (headwear, `feat/headwear`): `headwear`(none/beanie/cap) 속성 + VLM hint + CategoryPanel 라벨. 후드 up일 때 head front row1에 1px 챙; cap은 light, beanie는 dark heuristic (색 샘플 없음). VLM E2E: `hood_up_short_hair_11` → headwear=beanie; `07`은 beanie로 오분류(원본 white cap, UI에서 cap 수정 가능). A/B `out/hood_audit/headwear_ab.png`.
   - 검증: full suite/QA; 남은 후드 09(귀/depth), dark gold hair.
+
+- 2026-11-02 (hood_fit/ears, `feat/hood-fit`): `hood_fit`(normal/shallow/deep) + UI. 후드 up + shallow이면 hood overlay 뒤 side-front(u6/u1, v4-5)에 skin shade 귀 2px. VLM E2E 09는 `hood_fit=normal`(자동 감지 실패; UI에서 shallow 수정). A/B `out/hood_audit/ears_ab.png`. 후드 6건은 마스크/headwear/hood_fit으로 모두 처리(09는 수동 설정).
+  - 남은 골: dark gold hair 3건.

@@ -29,6 +29,7 @@ GOOD = {
     "hair_style": "long_straight",
     "hood": "none",
     "headwear": "none",
+    "hood_fit": "normal",
     "beard": "full",
     "inner_top": "shirt",
     "neckwear": "none",
