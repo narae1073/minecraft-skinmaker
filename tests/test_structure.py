@@ -111,3 +111,18 @@ def test_zipper_color_is_derived_from_top():
     assert px != (201, 206, 214)  # not the old fixed METAL
     assert _zipper_color((20, 20, 20, 255))[0] > 20      # dark top -> lighter zip
     assert _zipper_color((240, 240, 240, 255))[0] < 240  # light top -> darker zip
+
+
+def test_open_jacket_shows_inner_strip_and_no_zipper():
+    """Notes 2026-11-02 (15x): an open jacket must show the inner layer, not a
+    closed zipper."""
+    canvas = R.render(observed(), attrs(top_garment="jacket", closure_type="open",
+                                        inner_top="tee", collar_type="crew"), (), "classic")
+    f = front(canvas)
+    base = shade(rgba(observed().top.hex), 1.0)[:3]
+    inner3 = canvas.image.getpixel((f.x + 3, f.y + 6))[:3]
+    inner4 = canvas.image.getpixel((f.x + 4, f.y + 6))[:3]
+    assert inner3 != base and inner4 != base
+    assert inner3 != (201, 206, 214) and inner4 != (201, 206, 214)  # no fixed METAL
+    assert canvas.image.getpixel((f.x + 2, f.y + 6))[:3] != base    # jacket edge
+    assert canvas.image.getpixel((f.x + 1, f.y + 6))[:3] == base    # jacket body

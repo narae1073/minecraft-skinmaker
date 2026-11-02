@@ -421,3 +421,7 @@ S0 quality/face detection (YuNet) → S1 colour measurement (white-balance + ban
 - 2026-11-02 (지퍼 색, `feat/zipper-color`, notes 30건): `draw_zipper`의 고정 `METAL`을 상의 색 파생으로 변경. 중간/밝은 상의는 0.78 shade, 아주 어두운 상의는 흰색 45% mix로 대비 유지; 단추는 그대로.
   - 검증: **681 passed** (243.78s), QA 50 ok; `test_zipper_color_is_derived_from_top`; A/B `out/zipper_ab/zipper_ab.png`(before silver → after blue-derived).
   - 주의: notes 30건 중 "지퍼 색이 상의/잠바/후드 색을 닮아야"를 직접 해결. 72 approved pairs는 여전히 pre-mask v1이며 paired baseline은 보류 상태다.
+
+- 2026-11-02 (open jacket/inner layer, `feat/open-jacket`, notes 15건): `closure_type`에 **open** 추가(VLM hint/CategoryPanel 라벨 포함). `draw_open_front`가 가운데 2px를 이너(top: inner_top 색)로 채우고 u2/u5에 겉옷 엣지, 지퍼/단추는 그리지 않음. 칼라는 그 뒤에 덮고 넥타이는 유지.
+  - 검증: **682 passed** (245.38s), QA 50 ok, frontend lint/build ok; `test_open_jacket_shows_inner_strip_and_no_zipper`; A/B `out/open_jacket_ab/open_jacket_ab.png`(closed zipper → open+gray inner).
+  - 주의: VLM이 실제 열린 잠바를 open으로 분류하는지는 실사진 E2E로 확인 필요. 72 approved pairs는 여전히 pre-mask v1/paired baseline 보류.
