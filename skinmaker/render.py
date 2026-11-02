@@ -514,31 +514,52 @@ def render_body(
     return set()
 
 
-def render_arms(canvas: SkinCanvas, colors: dict[str, Color], attrs: Attributes, pattern: str, sleeve: str | None = None) -> None:
+def render_arms(canvas: SkinCanvas, colors: dict[str, Color], attrs: Attributes, pattern: str,
+                sleeve: str | None = None, *, alt: Color | None = None,
+                texture: FabricTexture | None = None, thickness: int = 1) -> None:
     top_garment = attrs.get("top_garment")
     sleeve = sleeve or attrs.get("sleeve_len")
     shirt_end = SLEEVE_ROWS.get(sleeve, 3)
     shirt_base = colors["top"] if top_garment != "none" else None
+    use_texture = texture is not None and pattern in COMPLEX_PATTERNS
+    pattern_on_sleeve = "plain" if pattern == "graphic" else pattern
+
     for part in ("r_arm", "l_arm"):
         for face_name in canvas.layout.part(part, 0).faces:
             f = canvas.layout.face(part, face_name, 0)
+            tile = texture.body.resize((f.w, f.h), Image.NEAREST) if use_texture else None
+
+            def sleeve_color(u: int, v: int) -> Color:
+                if tile is not None:
+                    return shade(tile.getpixel((u, v)) + (255,), FACE_SHADE[face_name])
+                # Patterns continue onto the sleeves (notes 2026-11-02: stripes/
+                # graphic on the torso were plain on both arms). Graphic without
+                # a crop has no local texture and falls back to the flat top.
+                return _pattern_color(shirt_base, alt, u, v, f.w, f.h,
+                                      pattern_on_sleeve, face_name, thickness)
+
             if f.h < 12:
-                # top/bottom 면(4×4): 셔츠 있으면 셔츠, 없으면 피부.
-                _shaded_face(canvas, part, face_name, shirt_base if shirt_base else colors["skin"], 0)
+                # top/bottom 면(4×4): 셔츠 있으면 셔츠(무늬 포함), 없으면 피부.
+                if shirt_base is not None:
+                    for v in range(f.h):
+                        for u in range(f.w):
+                            canvas.put(part, face_name, u, v, sleeve_color(u, v), 0)
+                else:
+                    _shaded_face(canvas, part, face_name, colors["skin"], 0)
                 continue
+            seam_row = shirt_end if shirt_end < f.h - 1 and sleeve not in ("long", "none") else -1
             for v in range(f.h):
                 is_shirt = shirt_base is not None and v <= shirt_end
-                # 무늬는 소매에 넣지 않는다 (4px 폭에 깨진다). 단색 + 구분선.
-                if is_shirt and v == shirt_end and shirt_end < f.h - 1 and sleeve not in ("long", "none"):
-                    c = shade(shirt_base, 0.66)
-                elif is_shirt:
-                    c = shade(shirt_base, FACE_SHADE[face_name])
-                else:
-                    c = shade(colors["skin"], FACE_SHADE[face_name])
                 for u in range(f.w):
+                    if not is_shirt:
+                        c = shade(colors["skin"], FACE_SHADE[face_name])
+                    elif v == seam_row:
+                        # sleeve-end seam stays a single dark line over the pattern
+                        c = shade(shirt_base, 0.66)
+                    else:
+                        c = sleeve_color(u, v)
                     canvas.put(part, face_name, u, v, c, 0)
     _render_cuffs(canvas, colors, attrs, sleeve)
-
 
 def _render_cuffs(canvas: SkinCanvas, colors: dict[str, Color], attrs: Attributes, sleeve: str) -> None:
     """겹쳐 입은 상의: 긴/3-4 소매 끝행에 안쪽 옷(셔츠 커프스)이 보인다 (2026-10-21)."""
@@ -1202,7 +1223,8 @@ def render(
                 drape=drape, drape_tones=drape_tones, hide_back_drape=hide_back_drape,
                 hide_body_back_hair=hide_body_back_hair,
                 texture=observed.top_texture)
-    render_arms(canvas, colors, attrs, pattern, resolve_sleeve(attrs, observed))
+    render_arms(canvas, colors, attrs, pattern, resolve_sleeve(attrs, observed),
+                alt=alt, texture=observed.top_texture, thickness=thickness)
     render_legs(
         canvas, colors, attrs, resolved_bottom, shoe_two_tone=shoe_two_tone,
         skirt_rows=observed.skirt_hem_rows, pattern=pattern, alt=alt,

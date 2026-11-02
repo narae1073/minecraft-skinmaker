@@ -425,3 +425,7 @@ S0 quality/face detection (YuNet) → S1 colour measurement (white-balance + ban
 - 2026-11-02 (open jacket/inner layer, `feat/open-jacket`, notes 15건): `closure_type`에 **open** 추가(VLM hint/CategoryPanel 라벨 포함). `draw_open_front`가 가운데 2px를 이너(top: inner_top 색)로 채우고 u2/u5에 겉옷 엣지, 지퍼/단추는 그리지 않음. 칼라는 그 뒤에 덮고 넥타이는 유지.
   - 검증: **682 passed** (245.38s), QA 50 ok, frontend lint/build ok; `test_open_jacket_shows_inner_strip_and_no_zipper`; A/B `out/open_jacket_ab/open_jacket_ab.png`(closed zipper → open+gray inner).
   - 주의: VLM이 실제 열린 잠바를 open으로 분류하는지는 실사진 E2E로 확인 필요. 72 approved pairs는 여전히 pre-mask v1/paired baseline 보류.
+
+- 2026-11-02 (무늬 연속성, `feat/arm-patterns`, notes 6건): `render_arms`가 “무늬는 소매에 넣지 않는다”고 단색 처리하던 것을 변경. stripe/check/plaid는 `_pattern_color`, graphic은 크롭 texture를 소매에도 적용; 소매 끝 seam은 유지.
+  - 검증: **683 passed** (243.85s), QA 50 ok; `test_arms_use_the_body_pattern`; A/B `out/arms_pattern_ab/arms_pattern_ab.png`(plain arms → striped arms).
+  - 주의: 의상 색 재현(9건)은 색 샘플링/폴백 문제로 분리해 별도 진단이 필요하다. 72 approved pairs는 여전히 pre-mask v1/paired baseline 보류.

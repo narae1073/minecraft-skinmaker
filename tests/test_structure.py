@@ -126,3 +126,18 @@ def test_open_jacket_shows_inner_strip_and_no_zipper():
     assert inner3 != (201, 206, 214) and inner4 != (201, 206, 214)  # no fixed METAL
     assert canvas.image.getpixel((f.x + 2, f.y + 6))[:3] != base    # jacket edge
     assert canvas.image.getpixel((f.x + 1, f.y + 6))[:3] == base    # jacket body
+
+
+def test_arms_use_the_body_pattern():
+    """Notes 2026-11-02 (6x): torso stripes/graphic must continue onto arms."""
+    stripe = R.render(observed(), attrs(top_garment="shirt", pattern="vertical_stripe",
+                                        sleeve_len="long", closure_type="none", collar_type="none"),
+                      (), "classic")
+    plain = R.render(observed(), attrs(top_garment="shirt", pattern="plain",
+                                      sleeve_len="long", closure_type="none", collar_type="none"),
+                     (), "classic")
+    arm = get_layout("classic").face("r_arm", "front", 0)
+    stripe_row = {stripe.image.getpixel((arm.x + u, arm.y + 1)) for u in range(arm.w)}
+    plain_row = {plain.image.getpixel((arm.x + u, arm.y + 1)) for u in range(arm.w)}
+    assert len(stripe_row) > 1, stripe_row
+    assert len(plain_row) == 1, plain_row
