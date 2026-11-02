@@ -1161,3 +1161,24 @@ def test_shallow_hood_shows_ear_pixels():
     hood = normal.image.getpixel((f.x + 6, f.y + 4))[:3]
     assert ear != hood
     assert ear[0] > ear[2]  # skin shade (warm)
+
+
+def test_headwear_mask_override_replaces_the_procedural_brim():
+    grid = [[0] * 8 for _ in range(8)]
+    grid[1][2] = 1
+    canvas = R.render(observed(), attrs(headwear="cap", hood="none"), (),
+                      mask_override={"headwear.cap": {"L1": {"head.front": grid}}})
+    f = canvas.layout.face("head", "front", 0)
+    hat = canvas.image.getpixel((f.x + 2, f.y + 1))[:3]
+    plain = canvas.image.getpixel((f.x + 1, f.y + 1))[:3]
+    assert hat != plain
+
+
+def test_hood_fit_mask_override_places_ears():
+    grid = [[0] * 8 for _ in range(8)]
+    grid[6][7] = 1
+    canvas = R.render(observed(), attrs(hood="up", hood_fit="shallow"), (),
+                      mask_override={"hood_fit.shallow": {"L1": {"head.right": grid}}})
+    f = canvas.layout.face("head", "right", 0)
+    ear = canvas.image.getpixel((f.x + 7, f.y + 6))[:3]
+    assert ear[0] > ear[2]  # skin-shaded ear, not hood fabric

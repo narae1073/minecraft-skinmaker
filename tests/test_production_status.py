@@ -81,4 +81,4 @@ def test_gate_v3_blocks_mask_hash_mismatch(tmp_path):
     _write(approval, {"approved": True, "sha256": "f" * 64, "policy": RENDER_POLICY})
     bench, paired, qa = _reports(tmp_path, baseline_sha=sha)
     s = build_status(bench, paired, qa, mask_asset=asset, mask_approval=approval)
-    assert any("hood mask approval stale" in b for b in s["blockers"])
+    assert any("attribute mask approval stale" in b for b in s["blockers"])

@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>skinmaker 3D attribute mask editor</title>
+<style>
+  :root { color-scheme: light; --ink:#16181d; --muted:#6b7280; --line:#e2e5ea; --bg:#f7f8fa; --cyan:#00bcd4; --blue:#2563eb; }
+  * { box-sizing: border-box; }
+  body { margin: 0; font: 14px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif; color: var(--ink); background: var(--bg); }
+  header { padding: 12px 18px; border-bottom: 1px solid var(--line); background: #fff; display: flex; gap: 14px; align-items: baseline; flex-wrap: wrap; }
+  header h1 { font-size: 16px; margin: 0; }
+  header .hint { color: var(--muted); font-size: 12px; }
+  main { display: grid; grid-template-columns: minmax(0, 1.7fr) minmax(380px, 1fr); gap: 12px; padding: 12px; align-items: start; }
+  .panel { background: #fff; border: 1px solid var(--line); border-radius: 10px; }
+  .editor { position: relative; padding: 8px; }
+  #viewer { width: 100%; height: calc(100vh - 116px); min-height: 560px; border-radius: 7px; overflow: hidden; background: #eef1f4; cursor: crosshair; }
+  #viewer:active { cursor: crosshair; }
+  .viewerHint { position: absolute; left: 18px; bottom: 18px; padding: 5px 9px; border-radius: 7px; background: rgba(255,255,255,.88); border: 1px solid var(--line); color: var(--muted); font-size: 12px; pointer-events: none; }
+  .controls { padding: 12px; max-height: calc(100vh - 116px); overflow: auto; }
+  .row { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-bottom: 8px; }
+  button { font: inherit; padding: 6px 10px; border: 1px solid var(--line); border-radius: 7px; background: #fff; cursor: pointer; }
+  button:hover { background: #f1f3f5; }
+  button.primary { background: var(--blue); border-color: var(--blue); color: #fff; }
+  button.active { background: #e0f2fe; border-color: #7dd3fc; }
+  label, .hint { color: var(--muted); font-size: 12px; }
+  .sectionTitle { font-size: 11px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin: 10px 0 4px; }
+  #atlas { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+  .faceBlock { border: 1px solid var(--line); border-radius: 8px; padding: 6px; background: #fbfcfd; }
+  .faceBlock.active { border-color: #60a5fa; box-shadow: 0 0 0 1px #bfdbfe inset; background: #f5f9ff; }
+  .faceLabel { font-size: 11px; color: var(--muted); margin-bottom: 4px; }
+  .faceGrid { display: grid; grid-template-columns: repeat(8, 20px); gap: 1px; width: max-content; }
+  .cell { width: 20px; height: 20px; border-radius: 2px; background: #eef1f4; border: 1px solid #dde2e8; cursor: crosshair; }
+  .cell.on { background: var(--cyan); border-color: #0097a7; }
+  .cell:hover { outline: 1px solid #94a3b8; }
+  .status { color: var(--muted); font-size: 12px; min-height: 18px; margin-top: 8px; }
+  .meta { display: flex; gap: 12px; align-items: center; margin-top: 8px; }
+  .skin { width: 96px; height: 96px; image-rendering: pixelated; border: 1px solid var(--line); border-radius: 6px; background: #eef1f4; }
+  code { background: #eef1f4; padding: 1px 5px; border-radius: 4px; }
+  @media (max-width: 980px) {
+    main { grid-template-columns: 1fr; }
+    #viewer { height: 58vh; min-height: 380px; }
+    .controls { max-height: none; }
+  }
+</style>
+</head>
+<body>
+<header>
+  <h1>skinmaker 3D attribute mask editor</h1>
+  <span class="hint">attribute value별 head L1/L2 shape stencil · 왼쪽 3D에서 좌클릭/드래그 = 칠하기 · 우클릭 드래그 = 회전 · 저장은 <code>out/mask_editor/attribute_masks.json</code></span>
+</header>
+<main>
+  <section class="panel editor">
+    <div id="viewer"></div>
+    <div class="viewerHint">좌클릭 칠하기 · 우클릭 회전 · 휠 줌</div>
+  </section>
+  <aside class="panel controls">
+    <div class="row" id="kindTabs"></div>
+    <div class="row" id="valueTabs"></div>
+    <div class="row" id="layerTabs"></div>
+    <div class="row" id="faceTabs"></div>
+    <div class="row">
+      <span class="hint">보기</span>
+      <button id="hoodModeBtn" class="active">Final</button>
+      <button id="maskModeBtn">Mask</button>
+    </div>
+    <div class="row">
+      <button id="paintBtn" class="active">칠하기</button>
+      <button id="eraseBtn">지우개</button>
+      <label><input type="checkbox" id="mirror" /> 좌우 미러</label>
+      <button id="undoBtn">Undo</button>
+      <button id="clearBtn">Clear</button>
+      <button id="fillBtn">Fill</button>
+    </div>
+    <div class="row"><button id="saveBtn" class="primary">저장</button></div>
+    <div class="sectionTitle">Head atlas — attribute value shape</div>
+    <div id="atlas"></div>
+    <div class="status" id="status">불러오는 중…</div>
+    <div class="meta"><img id="skin" class="skin" alt="64x64 skin" /><span class="hint">L1은 어두운 원단, L2는 밝은 원단으로 합성된다.</span></div>
+  </aside>
+</main>
+<script type="importmap">
+{"imports":{"three":"/static/vendor/three.module.js","three/addons/":"/static/vendor/"}}
+</script>
+<script type="module" src="/static/app.js?v=7"></script>
+</body>
+</html>

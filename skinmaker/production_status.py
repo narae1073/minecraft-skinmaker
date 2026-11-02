@@ -1,4 +1,4 @@
-"""Aggregate fail-closed production gate (v3, 2026-11-02)."""
+"""Aggregate fail-closed production gate (v4 attribute masks, 2026-11-02)."""
 from __future__ import annotations
 
 import hashlib
@@ -6,9 +6,9 @@ import json
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-MASK_ASSET = ROOT / "assets" / "hood_masks.json"
-MASK_APPROVAL = ROOT / "assets" / "hood_masks_approval.json"
-RENDER_POLICY = "mask-hood-2026-11-02"
+MASK_ASSET = ROOT / "assets" / "attribute_masks.json"
+MASK_APPROVAL = ROOT / "assets" / "attribute_masks_approval.json"
+RENDER_POLICY = "attribute-masks-2026-11-02"
 
 TARGETS = {
     "holdout_min": 50, "holdout_max": 100,
@@ -34,15 +34,15 @@ def _sha256(path: Path) -> str:
 
 def _mask_status(mask_asset: Path, mask_approval: Path, policy: str) -> tuple[bool, str, str]:
     if not Path(mask_asset).is_file():
-        return False, "missing hood mask asset", ""
+        return False, "missing attribute mask asset", ""
     sha = _sha256(mask_asset)
     approval = _load(mask_approval, {}) or {}
     if not approval.get("approved"):
-        return False, "approved hood masks missing", sha
+        return False, "approved attribute masks missing", sha
     if approval.get("sha256") != sha:
-        return False, "hood mask approval stale (hash mismatch)", sha
+        return False, "attribute mask approval stale (hash mismatch)", sha
     if approval.get("policy") != policy:
-        return False, "hood mask approval policy mismatch", sha
+        return False, "attribute mask approval policy mismatch", sha
     return True, "", sha
 
 
@@ -111,12 +111,12 @@ def build_status(bench_root: Path = Path("out/production_benchmark"),
         blockers.append("paired benchmark stale (mask/render policy changed)")
 
     return {
-        "version": 3,
+        "version": 4,
         "ready": not blockers,
         "targets": TARGETS,
         "policy": {
             "eyes": "user-accepted, data-limited; holdout n is reported but not gated",
-            "hood": "mask-driven (assets/hood_masks.json + human approval); pack hood coverage is reported but not gated",
+            "hood": "mask-driven (assets/attribute_masks.json + human approval); pack hood coverage is reported but not gated",
             "paired": "must carry benchmark_baseline.json with the current mask SHA and render policy",
         },
         "blockers": blockers,
@@ -127,5 +127,5 @@ def build_status(bench_root: Path = Path("out/production_benchmark"),
         },
         "coverage": cov,
         "mask_sha": mask_sha,
-        "note": "Gate v3 (2026-11-02) fails closed; a changed mask/render policy invalidates the paired baseline.",
+        "note": "Gate v3 (2026-11-02) fails closed; a changed attribute-mask/render policy invalidates the paired baseline.",
     }

@@ -23,6 +23,7 @@ from .colors import MISSING, ObservedColors
 from .texture import COMPLEX_PATTERNS, FabricTexture
 from . import hairstencil as HS
 from . import reference_pack as RP
+from . import attribute_masks as AM
 from .hood_masks import apply_hood_masks, load_hood_masks
 from .structure import apply_structure
 from .format import HEAD_ACCESSORY_LAYER  # noqa: F401  (규칙 문서화용: ACC.는 손대지 않는다)
@@ -291,7 +292,8 @@ def _hair_tone(hair_c: Color, face_name: str, u: int, v: int, tones: dict | None
 
 
 def render_head(canvas: SkinCanvas, colors: dict[str, Color], attrs: Attributes, stencil=None,
-                style: str = "short", pack: dict | None = None, seed: str = "") -> set:
+                style: str = "short", pack: dict | None = None, seed: str = "",
+                masks: dict | None = None) -> set:
     """L1 head. Returns the (face, u, v) hair cells when reference L1 tones were
     applied (they are exempt from the block-noise pass), else an empty set."""
     skin_c, hair_c = colors["skin"], colors["hair"]
@@ -374,11 +376,18 @@ def render_head(canvas: SkinCanvas, colors: dict[str, Color], attrs: Attributes,
     if headwear in ("cap", "beanie"):
         hat = rgba("#e9eef3") if headwear == "cap" else rgba("#1f1f1f")
         hat = shade(hat, FACE_SHADE["front"])
-        for u in range(1, 7):
-            canvas.put("head", "front", u, 1, hat, 0)
-        if headwear == "cap":
-            for u in (0, 7):
-                canvas.put("head", "front", u, 2, hat, 0)
+        hw_grid = AM.get_mask(masks or {}, "headwear", headwear, "L1", "head", "front")
+        if hw_grid:
+            for v, row in enumerate(hw_grid):
+                for u, bit in enumerate(row):
+                    if bit:
+                        canvas.put("head", "front", u, v, hat, 0)
+        else:
+            for u in range(1, 7):
+                canvas.put("head", "front", u, 1, hat, 0)
+            if headwear == "cap":
+                for u in (0, 7):
+                    canvas.put("head", "front", u, 2, hat, 0)
     # HEAD ACC.(layer=1)는 손대지 않는다. 기본 투명 유지.
     return hair_cells if tones else set()
 
@@ -740,7 +749,8 @@ def hood_variant(seed: str) -> int:
 
 def render_hood_overlay(canvas: SkinCanvas, colors: dict[str, Color], hood: str,
                         pack: dict | None = None, seed: str = "",
-                        variant: int | None = None, body_hair_cells: set | None = None) -> None:
+                        variant: int | None = None, body_hair_cells: set | None = None,
+                        masks: dict | None = None) -> None:
     """Clothing hood from the reference pack, drawn over hair on L2.
 
     Solid shells with a face opening. Three procedural archetypes vary the
@@ -754,11 +764,11 @@ def render_hood_overlay(canvas: SkinCanvas, colors: dict[str, Color], hood: str,
     # Final head-only masks (2026-11-02) take precedence over the legacy pack
     # cowl/procedural shell. They paint head L1/L2 and a hood-down upper-back
     # fold only; there is no body-front cowl.
-    masks = load_hood_masks()
-    if masks and hood in masks:
+    hm = AM.legacy_hood_masks(masks) if masks is not None else load_hood_masks()
+    if hm and hood in hm:
         base = colors.get("top") or colors["hair"]
         alt = colors.get("top_alt") or shade(base, 0.72)
-        apply_hood_masks(canvas, base, alt, hood, masks[hood])
+        apply_hood_masks(canvas, base, alt, hood, hm[hood])
         return
     pattern = RP.select_hood(pack, hood, seed) if pack else None
     if pattern is None:
@@ -1165,6 +1175,7 @@ def render(
     noise_level: float = 1.0,
     shoe_two_tone: bool = True,
     hide_body_back_hair: bool = False,
+    mask_override: dict | None = None,
 ) -> SkinCanvas:
     """S3 진입점. 입력 3개 → 검증 통과하는 캔버스 1개.
 
@@ -1174,6 +1185,7 @@ def render(
     """
     canvas = SkinCanvas(model)
     colors = resolve_colors(observed)
+    masks = mask_override if mask_override is not None else AM.load_masks()
     # 겉옷색 구조: 재킷류/레이어드는 배경 제거 겉옷 표본 우선 (정장의 흰 셔츠 오염 대응).
     # 단, 단일 겉옷(inner_top=none)에서 outer가 거의 검정이면 그림자/바지를 잡은
     # 것이므로 더 밝고 확신 있는 top 색을 유지한다 (notes 2026-11-02: teal/gray
@@ -1247,7 +1259,7 @@ def render(
     hair_stencil = replace(hair_stencil, body_rows=back_rows,
                            front_body_rows=front_rows, back_body_rows=back_rows)
     seed = f"{style}:{attrs.get('hair_length')}:{colors['hair'][:3]}"
-    hair_cells = render_head(canvas, colors, attrs, hair_stencil, style=style, pack=pack, seed=seed)
+    hair_cells = render_head(canvas, colors, attrs, hair_stencil, style=style, pack=pack, seed=seed, masks=masks)
     thickness = observed.stripe_px if pattern in ("vertical_stripe", "horizontal_stripe", "check", "plaid") else 1
     drape_tones = RP.select_body_tones(pack, seed) if drape else None
     # Hood up: the hood covers the back of the head and upper back, so the
@@ -1290,15 +1302,26 @@ def render(
     # deterministic 1-3px block noise after the hood turns the crown into a
     # grid of isolated light/dark cells.
     render_hood_overlay(canvas, colors, attrs.get("hood"), pack=pack, seed=seed,
-                        body_hair_cells=body_cells)
+                        body_hair_cells=body_cells, masks=masks)
     # Shallow hood: the ears remain visible at the side-front edge. Drawn after
     # the hood so the final mask does not cover them (notes 2026-11-02,
     # hood_up_short_hair_09).
     if attrs.get("hood") == "up" and attrs.get("hood_fit") == "shallow":
         ear = shade(colors["skin"], 0.82)
-        for part, u in (("right", 6), ("left", 1)):
-            for v in (4, 5):
-                canvas.put("head", part, u, v, ear, 0)
+        grids = {
+            "right": AM.get_mask(masks, "hood_fit", "shallow", "L1", "head", "right"),
+            "left": AM.get_mask(masks, "hood_fit", "shallow", "L1", "head", "left"),
+        }
+        if grids["right"] or grids["left"]:
+            for part, grid in grids.items():
+                for v, row in enumerate(grid or []):
+                    for u, bit in enumerate(row):
+                        if bit:
+                            canvas.put("head", part, u, v, ear, 0)
+        else:
+            for part, u in (("right", 6), ("left", 1)):
+                for v in (4, 5):
+                    canvas.put("head", part, u, v, ear, 0)
     return canvas
 
 

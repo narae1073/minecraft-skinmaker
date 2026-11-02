@@ -461,3 +461,6 @@ S0 quality/face detection (YuNet) → S1 colour measurement (white-balance + ban
 
 - 2026-11-02 (manual hair colour override, `feat/hair-override`): API `hair_color`(#rrggbb) + 메인 설정 패널 color input/checkbox. source-limited 3건(00/02/06)을 사용자가 gold로 지정 가능. API E2E `#d4af37` → gold hair; A/B `out/hair_override_ab.png`.
   - 검증: backend 35, full suite/QA; invalid color 400 `bad_hair_color`; mask editor는 색 피커 없음 유지(메인 패널만).
+
+- 2026-11-02 (attribute masks Phase 1a, `feat/attribute-masks`): 일반 `assets/attribute_masks.json`(+approval) 도입, hood.up/down 마이그레이션, headwear.cap/beanie + hood_fit.shallow seed. `render()` `mask_override`; production은 approved asset, 없으면 procedural. 에디터 key/value tree(hood/headwear/hood_fit) + general `/api/defaults|preview|save`; gate가 general asset SHA를 읽음.
+  - 남은 Phase 1b+: hair/beard/body/arms/legs, 3D all-part pick/atlas, seed exporter, approval CLI, docs.
