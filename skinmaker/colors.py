@@ -22,7 +22,7 @@ from .texture import FabricTexture, crop_fabric
 LUMA = (0.2126, 0.7152, 0.0722)
 
 SKIN_REF = (0.80, 0.63, 0.55)
-WB_CLIP = 1.25
+WB_CLIP = 1.10  # 2026-11-02: >10% gains are usually a colour cast; leave identity
 WB_MAX_CHROMA_DRIFT = 0.20
 BACKGROUND_FRAME = 4
 CLUSTER_BINS = 6

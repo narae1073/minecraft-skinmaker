@@ -53,3 +53,19 @@ pre-fix outputs.
 - A/B: `out/color_audit/hair_audit_ab.png` (old dark → new blond/brown).
 - Remaining hair notes: `up_long_00/02/06` — confident dark samples (hat/shadow);
   needs a better hair region/VLM bbox audit.
+
+## Round 3 — white/beige colour cast (WB cap)
+
+Strong skin-anchored white-balance gains (R≈0.80–0.87, B≈1.14–1.15) turned
+white/beige garments light blue (`#c7e1ff`, `#a6cbe1`, `#afc7e2`). With
+`WB_CLIP = 1.10`, gains above 10% are treated as uncertain and not applied
+(identity), so the raw near-white/beige survives.
+
+- white hood 1: light blue → near-white
+- white hood 2: light blue → near-white
+- beige hoodie: light blue → beige (outer still supplies the beige)
+- A/B: `out/color_audit/wb_ab.png`
+- teal/gray stay correct via the earlier outer guard.
+
+Remaining: pink jacket (region still white), white pants (bottom remains
+orange), dark gold hair, hood geometry.
