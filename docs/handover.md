@@ -458,3 +458,6 @@ S0 quality/face detection (YuNet) → S1 colour measurement (white-balance + ban
   - 남은 골: dark gold hair 3건.
 
 - 2026-11-02 (hair audit, `docs/hair-audit`): dark hair 3건(00/02/06)은 source-limited. SCHP mask dark(#3e1a0c/#191615/#1f1c1a), VLM bbox-only도 dark/empty, bright clustering에도 gold 없음. 02 blonde는 뒤에 있는 다른 사람; 00/06은 auburn/brown. 수동 hair color override 또는 머리가 보이는 사진이 필요. 크롭 `out/hair_audit_crops.png`; 문서 `docs/color-audit-2026-11-02.md`.
+
+- 2026-11-02 (manual hair colour override, `feat/hair-override`): API `hair_color`(#rrggbb) + 메인 설정 패널 color input/checkbox. source-limited 3건(00/02/06)을 사용자가 gold로 지정 가능. API E2E `#d4af37` → gold hair; A/B `out/hair_override_ab.png`.
+  - 검증: backend 35, full suite/QA; invalid color 400 `bad_hair_color`; mask editor는 색 피커 없음 유지(메인 패널만).

@@ -24,7 +24,7 @@ from skinmaker.attributes import summarize
 from skinmaker.candidates import build
 from skinmaker.classify import classify
 from skinmaker.render import resolve_bottom_ex
-from skinmaker.colors import extract
+from skinmaker.colors import ColorSample, extract
 from skinmaker.quality import inspect
 from skinmaker.vlm import get_transport
 
@@ -111,7 +111,7 @@ def health():
 
 @app.post("/api/v1/generate-skin")
 async def generate_skin(request: Request, file: UploadFile = File(...), noise_level: str = Form(None), steps: str = Form(None),
-                        hair_overlay: str = Form(None), skin_model: str = Form(None)):
+                        hair_overlay: str = Form(None), skin_model: str = Form(None), hair_color: str = Form(None)):
     # 공개 배포 가드 (로그인 없음): IP당 분당 요청 제한.
     if not _rate_limiter.allow(client_ip(request)):
         fail(429, "rate_limited", "요청이 너무 잦아요. 잠시 후 다시 시도해주세요.")
@@ -174,6 +174,17 @@ async def generate_skin(request: Request, file: UploadFile = File(...), noise_le
     seg = _parsing.bottom_mask(photo.image) if _parsing.parsing_on() else None
     observed = extract(photo, hair_bbox=result.hair_bbox_px, seg=seg,
                        hair_overlay=hair_overlay == "on")
+    # Manual hair-colour override (2026-11-02): the user's notes 00/02/06 are
+    # source-limited (no gold in the visible hair); the UI can set the colour.
+    if hair_color:
+        import re as _re
+        hc = str(hair_color).strip().lower()
+        if not _re.fullmatch(r"#[0-9a-f]{6}", hc):
+            fail(400, "bad_hair_color", f"hair_color는 #rrggbb 형식이어야 해요: {hair_color!r}")
+        rgb = (int(hc[1:3], 16), int(hc[3:5], 16), int(hc[5:7], 16))
+        observed = dataclasses.replace(
+            observed, hair=ColorSample(hc, 1.0, True, rgb, 1000)
+        )
     # 하체 미관측 jeans 기본 (설계 §10): 요약이 텍스처와 어긋나지 않게 같은
     # resolve_bottom_ex 결정을 요약에도 반영한다 (derived 표기).
     resolved_bottom, bottom_is_default = resolve_bottom_ex(result.attributes, observed)

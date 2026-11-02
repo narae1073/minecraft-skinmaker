@@ -612,3 +612,27 @@ def test_generate_rate_limited(monkeypatch):
         second = client().post("/api/v1/generate-skin", files={"file": ("m.jpg", f, "image/jpeg")})
     assert second.status_code == 429, second.text
     assert second.json()["detail"]["code"] == "rate_limited"
+
+
+def test_generate_accepts_hair_color_override():
+    with PHOTO.open("rb") as f:
+        r = client().post(
+            "/api/v1/generate-skin",
+            data={"hair_color": "#d4af37"},
+            files={"file": ("m.jpg", f, "image/jpeg")},
+        )
+    assert r.status_code == 200, r.text
+    assert r.json()["status"] == "success"
+
+
+def test_generate_rejects_bad_hair_color():
+    with PHOTO.open("rb") as f:
+        r = client().post(
+            "/api/v1/generate-skin",
+            data={"hair_color": "gold"},
+            files={"file": ("m.jpg", f, "image/jpeg")},
+        )
+    assert r.status_code == 400
+    body = r.json()["detail"]
+    assert body["code"] == "bad_hair_color"
+    assert "hair_color" in body["message"]
