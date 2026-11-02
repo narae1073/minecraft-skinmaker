@@ -417,6 +417,7 @@ def render_body(
     drape: dict | None = None,
     drape_tones: dict | None = None,
     hide_back_drape: bool = False,
+    hide_body_back_hair: bool = False,
 ) -> set:
     """L1 body. Returns reference-drape hair cells (face, u, v); empty otherwise."""
     top_garment = attrs.get("top_garment")
@@ -481,6 +482,8 @@ def render_body(
         cells = set()
         hair_c = colors["hair"]
         for face_name, depth in drape.get("l1_depth", {}).items():
+            if hide_body_back_hair and face_name == "back":
+                continue
             f = canvas.layout.face("body", face_name, 0)
             for u, rows in enumerate(depth[:f.w]):
                 if not _drape_column_visible(face_name, u, f.w, hide_back_drape):
@@ -494,7 +497,10 @@ def render_body(
     front_rows = min(12, max(0, getattr(hair_stencil, "front_body_rows", 0)))
     if back_rows or front_rows:
         hair_c = colors["hair"]
-        for face_name in (() if hide_back_drape else ("back", "right", "left")):
+        legacy_faces = () if hide_back_drape else (
+            ("right", "left") if hide_body_back_hair else ("back", "right", "left")
+        )
+        for face_name in legacy_faces:
             f = canvas.layout.face("body", face_name, 0)
             for v in range(min(back_rows, f.h)):
                 for u in range(f.w):
@@ -963,7 +969,8 @@ def _legacy_head_l2(canvas, put, stencil, hair_length: str, length: str, style: 
 def render_hair_overlay(canvas: SkinCanvas, colors: dict[str, Color], stencil, hair_length: str = "short",
                         style: str = "short", pack: dict | None = None, seed: str = "",
                         allow_eye_fringe: bool = False, drape: dict | None = None,
-                        drape_tones: dict | None = None, hide_back_drape: bool = False) -> None:
+                        drape_tones: dict | None = None, hide_back_drape: bool = False,
+                        hide_body_back_hair: bool = False) -> None:
     """L2(오버레이) 헤어 (2026-10-29 개정: solid shell, no alpha holes).
 
     L1 실루엣과 같은 셀을 모두 채운다. 틈(1px hole)을 두지 않고 균일한 5%
@@ -1030,6 +1037,8 @@ def render_hair_overlay(canvas: SkinCanvas, colors: dict[str, Color], stencil, h
     if drape:
         depth = drape.get("l1_depth", {})
         for face_name, mask in drape.get("l2_mask", {}).items():
+            if hide_body_back_hair and face_name == "back":
+                continue
             cols = depth.get(face_name, [])
             for v, row in enumerate(mask):
                 for u, bit in enumerate(row):
@@ -1042,7 +1051,8 @@ def render_hair_overlay(canvas: SkinCanvas, colors: dict[str, Color], stencil, h
     body_rows = 0 if (drape or hide_back_drape) else min(12, max(0, getattr(stencil, "back_body_rows", 0)))
     front_rows = 0 if drape else min(12, max(0, getattr(stencil, "front_body_rows", 0)))
     if body_rows:
-        for face_name in ("back", "right", "left"):
+        legacy_faces = ("right", "left") if hide_body_back_hair else ("back", "right", "left")
+        for face_name in legacy_faces:
             f = canvas.layout.face("body", face_name, 1)
             for v in range(min(body_rows, f.h)):
                 for u in range(f.w):
@@ -1055,7 +1065,7 @@ def render_hair_overlay(canvas: SkinCanvas, colors: dict[str, Color], stencil, h
                     put("body", "front", u, v)
 
     # 롱 웨이브 (legacy only): 몸통 끝단을 열마다 1행씩 더 내려 물결 실루엣.
-    if style == "long_wavy" and not drape and not hide_back_drape:
+    if style == "long_wavy" and not drape and not hide_back_drape and not hide_body_back_hair:
         back = canvas.layout.face("body", "back", 1)
         extra = min(6, body_rows + 1)
         for u in range(back.w):
@@ -1064,7 +1074,7 @@ def render_hair_overlay(canvas: SkinCanvas, colors: dict[str, Color], stencil, h
                     put("body", "back", u, v)
 
     # 포니테일: 몸통 뒤 중앙 2열에 꼬리 strip. L1 드레이프는 0.
-    if style == "ponytail" and not hide_back_drape:
+    if style == "ponytail" and not hide_back_drape and not hide_body_back_hair:
         back = canvas.layout.face("body", "back", 1)
         for v in range(min(5, back.h)):
             for u in (3, 4):
@@ -1081,7 +1091,7 @@ def render_hair_overlay(canvas: SkinCanvas, colors: dict[str, Color], stencil, h
     # Connected 1px edge darkening on L2 hair adjacent to the face opening or
     # silhouette. This is colour-only (no alpha holes) and makes the shell read
     # as a layered hairstyle rather than a flat solid block.
-    body_edges = () if drape else (("body", ("front", "back")),)
+    body_edges = () if drape else (("body", ("front",) if hide_body_back_hair else ("front", "back")),)
     edge_parts = body_edges if tmpl else (("head", RP.HEAD_FACES),) + body_edges
     for part, faces in edge_parts:
         for face_name in faces:
@@ -1109,6 +1119,7 @@ def render(
     noise_seed: int | None = None,
     noise_level: float = 1.0,
     shoe_two_tone: bool = True,
+    hide_body_back_hair: bool = False,
 ) -> SkinCanvas:
     """S3 진입점. 입력 3개 → 검증 통과하는 캔버스 1개.
 
@@ -1182,8 +1193,14 @@ def render(
     # cover it (no pack, or a pack without hood templates).
     hide_back_drape = (attrs.get("hood") == "up" and bool(pack)
                        and RP.select_hood(pack, "up", seed) is not None)
+    # Hood-down + long hair: the hood sits behind the neck, so long hair must
+    # not be drawn over the body back face (only that face; side locks stay).
+    hide_body_back_hair = hide_body_back_hair or (
+        attrs.get("hood") == "down" and attrs.get("hair_length") == "long"
+    )
     body_cells = render_body(canvas, colors, attrs, pattern, alt, hair_stencil, thickness,
                 drape=drape, drape_tones=drape_tones, hide_back_drape=hide_back_drape,
+                hide_body_back_hair=hide_body_back_hair,
                 texture=observed.top_texture)
     render_arms(canvas, colors, attrs, pattern, resolve_sleeve(attrs, observed))
     render_legs(
@@ -1195,6 +1212,7 @@ def render(
         render_hair_overlay(canvas, colors, hair_stencil, attrs.get("hair_length"), style,
                             pack=pack, seed=seed, drape=drape, drape_tones=drape_tones,
                             hide_back_drape=hide_back_drape,
+                            hide_body_back_hair=hide_body_back_hair,
                             allow_eye_fringe=attrs.get("hood") not in ("up", "down"))
     if noise_seed is not None:
         # Reference-shaded hair keeps its strands: block noise would stamp

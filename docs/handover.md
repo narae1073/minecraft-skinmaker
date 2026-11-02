@@ -402,3 +402,9 @@ S0 quality/face detection (YuNet) → S1 colour measurement (white-balance + ban
   - 에디터: face 탭과 atlas에 `head.bottom`, 3D `ny` 레이캐스트로 직접 편집(로컬 `tools/mask_editor/`, untracked).
   - 검증: **678 passed** (724.71s), production QA **50 ok**, `test_final_asset_applies_head_bottom_masks`; asset bottom up 16/6, down 16/0.
   - 주의: 72 approved pairs는 **pre-bottom v1** 기준선이다. 후드 쌍은 재생성·재승인이 필요하며, 그때까지 게이트는 v1 승인을 유지한다.
+
+- 2026-11-02 (hood-down long_hair body-back hair 제거, `fix/hood-down-back-hair`): 사용자 요청 — hood_down + long hair에서 몸통 뒷면에 머리카락을 그리지 않는다.
+  - `render_body`/`render_hair_overlay`에 `hide_body_back_hair` 추가; `render()`가 `hood == "down" and hair_length == "long"`에서 자동 설정.
+  - body **back face만** hair skip (side locks는 유지); long_wavy/ponytail의 body back tail도 skip. editor preview도 같은 플래그 사용.
+  - 검증: **679 passed** (729.00s), production QA **50 ok**, hood-down long vs short body back L1/L2 diff **0**; body back L2 = 12 fold, body front L2 = 20 base hair.
+  - 주의: 72 approved pairs는 pre-mask v1 기준선이다. 후드 쌍은 재생성·재승인이 필요하다.
