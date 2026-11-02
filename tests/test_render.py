@@ -299,29 +299,20 @@ def test_hood_up_keeps_only_chest_facing_side_lock():
     assert _hairish(up.get("body", "left", 0, 6), base.hair.hex, "left")
 
 
-def test_hood_down_paints_the_reference_cowl(monkeypatch):
-    """Hood down must use the reference cowl mask (front rim + back fold),
-    not a solid 8x3 band over the chest."""
-    pack = R.RP.load_pack()
-    tmpl = pack["hoods"]["down"][0]
-    monkeypatch.setattr(R.RP, "select_hood",
-                        lambda pack, kind, seed="": tmpl if kind == "down" else None)
+def test_hood_down_uses_head_mask_without_body_front_cowl():
+    """Final head-only masks replace the pack cowl: hood down paints head L2
+    nape/sides and a one-row upper-back fold, with no body-front cowl."""
     canvas = R.render(observed(), attrs(top_garment="hoodie", hood="down"), ())
-    want = {(face, u, v)
-            for face, rows in tmpl["faces"].items()
-            for v, row in enumerate(rows)
-            for u, bit in enumerate(row) if bit}
-    got = {(face, u, v)
-           for face in ("front", "back")
-           for v in range(12) for u in range(8)
-           if canvas.get("body", face, u, v, 1)[3]}
-    assert want <= got  # reference cowl cells stay painted
-    # 2026-11-02: the down hood adds a visible one-row fold on the upper back
-    # (over hair) plus a centre shadow, so it reads as fabric behind the neck.
+    no_hood = R.render(observed(), attrs(top_garment="hoodie", hood="none"), ())
+    for v in range(12):
+        for u in range(8):
+            assert canvas.get("body", "front", u, v, 1) == no_hood.get("body", "front", u, v, 1), (u, v)
     for u in range(8):
         assert canvas.get("body", "back", u, 0, 1)[3] == 255
     for u in (2, 3, 4, 5):
         assert canvas.get("body", "back", u, 1, 1)[3] == 255
+    for u in range(8):
+        assert canvas.get("head", "back", u, 7, 1)[3] == 255
 
 
 def test_viewer_js_uv_rects_match_layout():
@@ -1043,10 +1034,9 @@ def test_template_l2_never_covers_eye_rows():
                 assert canvas.get("head", "front", u, v, 1)[3] == 0, (i, u, v)
 
 
-def test_hood_up_opens_at_row_two():
-    """2026-11-02: the hood was pulled too deep; the opening starts at row 2
-    (brim row 1) so the brow/bangs are visible."""
+def test_hood_up_mask_brim_at_row_zero():
+    """Final mask: L1 front row 0 is the brim; L2 front is empty and the L1
+    rows below are the face opening (base hair/skin)."""
     canvas = R.render(observed(), attrs(top_garment="hoodie", hood="up"), ())
-    for u in range(1, 7):
-        assert canvas.get("head", "front", u, 1, 1)[3] == 255  # brim
-        assert canvas.get("head", "front", u, 2, 1)[3] == 0    # opening
+    for u in range(8):
+        assert canvas.get("head", "front", u, 0, 0)[3] == 255  # L1 brim

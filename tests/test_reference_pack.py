@@ -145,21 +145,13 @@ def test_hood_up_crown_covered_with_face_opening():
     from test_render import observed, attrs
 
     canvas = R.render(observed(hair="#3a2a1c"), attrs(top_garment="hoodie", hood="up"), ())
+    # Final mask: L1 covers the whole crown; L1 front row 0 is the brim.
     for v in range(8):
         for u in range(8):
-            assert canvas.get("head", "top", u, v, 1)[3], (u, v)
-    # 2026-11-02: brim rows 0-1; the opening starts at row 2 (u1-6).
-    for v in range(2):
-        for u in range(8):
-            assert canvas.get("head", "front", u, v, 1)[3], (u, v)
-    for v in range(2, 7):
-        for u in range(1, 7):
-            assert canvas.get("head", "front", u, v, 1)[3] == 0, (u, v)
-        for u in (0, 7):
-            assert canvas.get("head", "front", u, v, 1)[3], (u, v)
-    for u in (1, 2, 5, 6):
-        for v in (4, 5):
-            assert canvas.get("head", "front", u, v, 1)[3] == 0
+            assert canvas.get("head", "top", u, v, 0)[3], (u, v)
+    for u in range(8):
+        assert canvas.get("head", "front", u, 0, 0)[3], u
+    # L1 rows below the brim stay base hair/skin (the L2 front is unused).
 
 
 def test_hood_variants_use_alt_trim_and_keep_eyes(monkeypatch):
@@ -173,6 +165,7 @@ def test_hood_variants_use_alt_trim_and_keep_eyes(monkeypatch):
     )
     alt = (219, 234, 254)
     monkeypatch.setattr(R, "hood_variant", lambda seed: 2)
+    monkeypatch.setattr(R, "load_hood_masks", lambda: None)
     canvas = R.render(base, attrs(top_garment="hoodie", hood="up"), ())
     colors = {
         canvas.get("head", "front", u, 1, 1)[:3]
@@ -197,6 +190,7 @@ def test_fur_hood_has_no_accent_pixels_in_band(monkeypatch):
         base, top_alt=ColorSample("#dbeafe", 0.5, True, (219, 234, 254), 10)
     )
     monkeypatch.setattr(R, "hood_variant", lambda seed: 2)
+    monkeypatch.setattr(R, "load_hood_masks", lambda: None)
     canvas = R.render(base, attrs(top_garment="hoodie", hood="up"), ())
     grid = [[canvas.get("head", "top", u, v, 1)[:3] for u in range(8)] for v in range(8)]
     assert len({grid[0][u] for u in range(8)}) == 1, "highlight above fur band"
@@ -216,6 +210,7 @@ def test_fur_hood_uses_front_brim_not_crown_ring(monkeypatch):
         base, top_alt=ColorSample("#dbeafe", 0.5, True, (219, 234, 254), 10)
     )
     monkeypatch.setattr(R, "hood_variant", lambda seed: 2)
+    monkeypatch.setattr(R, "load_hood_masks", lambda: None)
     canvas = R.render(base, attrs(top_garment="hoodie", hood="up"), ())
     top = {canvas.get("head", "top", u, v, 1)[:3] for v in range(8) for u in range(8)}
     assert len(top) == 1, top  # no crown fur that creates edge slivers
@@ -233,6 +228,7 @@ def test_fur_hood_has_no_body_light_trim(monkeypatch):
         base, top_alt=ColorSample("#dbeafe", 0.5, True, (219, 234, 254), 10)
     )
     monkeypatch.setattr(R, "hood_variant", lambda seed: 2)
+    monkeypatch.setattr(R, "load_hood_masks", lambda: None)
     canvas = R.render(base, attrs(top_garment="hoodie", hood="up"), ())
     alt = (219, 234, 254)
     for face in ("front", "back"):
@@ -253,6 +249,7 @@ def test_noise_cannot_scatter_fur_hood_crown(monkeypatch):
         base, top_alt=ColorSample("#dbeafe", 0.5, True, (219, 234, 254), 10)
     )
     monkeypatch.setattr(R, "hood_variant", lambda seed: 2)
+    monkeypatch.setattr(R, "load_hood_masks", lambda: None)
     canvas = R.render(base, attrs(top_garment="hoodie", hood="up"), (),
                       noise_seed=12345, noise_level=0.5)
     top = {canvas.get("head", "top", u, v, 1) for v in range(8) for u in range(8)}
