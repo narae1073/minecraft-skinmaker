@@ -1204,3 +1204,14 @@ def test_beard_mask_override_adds_beard_cells():
     beard_px = canvas.image.getpixel((f.x + 3, f.y + 6))[:3]
     skin_px = canvas.image.getpixel((f.x + 2, f.y + 6))[:3]
     assert beard_px != skin_px
+
+
+def test_sleeve_mask_override_clips_arm_rows():
+    grid = [[0] * 4 for _ in range(12)]
+    grid[0][0] = 1
+    canvas = R.render(observed(), attrs(sleeve_len="short", hood="none"), (),
+                      mask_override={"sleeve_len.short": {"L1": {"r_arm.front": grid}}})
+    f = canvas.layout.face("r_arm", "front", 0)
+    shirt = canvas.image.getpixel((f.x + 0, f.y + 0))[:3]
+    skin = canvas.image.getpixel((f.x + 1, f.y + 0))[:3]
+    assert shirt != skin

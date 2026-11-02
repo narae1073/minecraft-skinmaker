@@ -71,3 +71,18 @@ procedural `render_head` hair cells (L1); L2 falls back to L1 in the renderer.
 `beard.*` stays blank because there is no procedural beard. This gives the
 editor a real starting silhouette instead of an empty grid. The seed is
 editor-only (draft); production approval is still separate.
+
+## Phase 2a — all-part editor + sleeve_len
+
+- Editor data model is now all 6 parts (head, body, both arms, both legs) and
+  all 36 part.faces with their real dimensions from `skinmaker/format.py`.
+- 3D picking is generalized (`viewer.pick(part, layer, x, y)`) to the body, arm
+  and leg meshes (the UVs already existed); L2 mesh visibility is coordinated
+  across all parts.
+- First body key: `sleeve_len` (`none`/`short`/`three_quarter`/`long`).
+  - `render_arms` accepts the sleeve mask and clips each arm cell to it
+    (mask cell → sleeve/pattern colour; outside → skin).
+  - Editor seeds sleeve masks from the procedural row ranges (short 192 cells,
+    long 384 across both arms); `none` blank.
+- Production asset/approval unchanged (no sleeve masks yet); the editor seed is
+  draft-only. Body/legs keys beyond sleeve remain Phase 2b.

@@ -549,17 +549,20 @@ def render_body(
 
 def render_arms(canvas: SkinCanvas, colors: dict[str, Color], attrs: Attributes, pattern: str,
                 sleeve: str | None = None, *, alt: Color | None = None,
-                texture: FabricTexture | None = None, thickness: int = 1) -> None:
+                texture: FabricTexture | None = None, thickness: int = 1,
+                masks: dict | None = None) -> None:
     top_garment = attrs.get("top_garment")
     sleeve = sleeve or attrs.get("sleeve_len")
     shirt_end = SLEEVE_ROWS.get(sleeve, 3)
     shirt_base = colors["top"] if top_garment != "none" else None
     use_texture = texture is not None and pattern in COMPLEX_PATTERNS
     pattern_on_sleeve = "plain" if pattern == "graphic" else pattern
+    sleeve_value = attrs.get("sleeve_len") or sleeve
 
     for part in ("r_arm", "l_arm"):
         for face_name in canvas.layout.part(part, 0).faces:
             f = canvas.layout.face(part, face_name, 0)
+            grid = AM.get_mask(masks or {}, "sleeve_len", sleeve_value, "L1", part, face_name)
             tile = texture.body.resize((f.w, f.h), Image.NEAREST) if use_texture else None
 
             def sleeve_color(u: int, v: int) -> Color:
@@ -573,24 +576,30 @@ def render_arms(canvas: SkinCanvas, colors: dict[str, Color], attrs: Attributes,
 
             if f.h < 12:
                 # top/bottom 면(4×4): 셔츠 있으면 셔츠(무늬 포함), 없으면 피부.
-                if shirt_base is not None:
-                    for v in range(f.h):
-                        for u in range(f.w):
-                            canvas.put(part, face_name, u, v, sleeve_color(u, v), 0)
-                else:
-                    _shaded_face(canvas, part, face_name, colors["skin"], 0)
+                for v in range(f.h):
+                    for u in range(f.w):
+                        bit = (v < len(grid) and u < len(grid[v]) and grid[v][u]) if grid else shirt_base is not None
+                        c = sleeve_color(u, v) if (bit and shirt_base is not None) else shade(colors["skin"], FACE_SHADE[face_name])
+                        canvas.put(part, face_name, u, v, c, 0)
                 continue
             seam_row = shirt_end if shirt_end < f.h - 1 and sleeve not in ("long", "none") else -1
             for v in range(f.h):
-                is_shirt = shirt_base is not None and v <= shirt_end
                 for u in range(f.w):
-                    if not is_shirt:
-                        c = shade(colors["skin"], FACE_SHADE[face_name])
-                    elif v == seam_row:
-                        # sleeve-end seam stays a single dark line over the pattern
-                        c = shade(shirt_base, 0.66)
+                    if grid:
+                        bit = v < len(grid) and u < len(grid[v]) and grid[v][u]
+                        if bit and shirt_base is not None:
+                            c = shade(shirt_base, 0.66) if v == seam_row else sleeve_color(u, v)
+                        else:
+                            c = shade(colors["skin"], FACE_SHADE[face_name])
                     else:
-                        c = sleeve_color(u, v)
+                        is_shirt = shirt_base is not None and v <= shirt_end
+                        if not is_shirt:
+                            c = shade(colors["skin"], FACE_SHADE[face_name])
+                        elif v == seam_row:
+                            # sleeve-end seam stays a single dark line over the pattern
+                            c = shade(shirt_base, 0.66)
+                        else:
+                            c = sleeve_color(u, v)
                     canvas.put(part, face_name, u, v, c, 0)
     _render_cuffs(canvas, colors, attrs, sleeve)
 
@@ -1338,7 +1347,7 @@ def render(
                 hide_body_back_hair=hide_body_back_hair,
                 texture=observed.top_texture)
     render_arms(canvas, colors, attrs, pattern, resolve_sleeve(attrs, observed),
-                alt=alt, texture=observed.top_texture, thickness=thickness)
+                alt=alt, texture=observed.top_texture, thickness=thickness, masks=masks)
     render_legs(
         canvas, colors, attrs, resolved_bottom, shoe_two_tone=shoe_two_tone,
         skirt_rows=observed.skirt_hem_rows, pattern=pattern, alt=alt,
