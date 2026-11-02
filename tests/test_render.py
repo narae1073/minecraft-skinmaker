@@ -1139,3 +1139,15 @@ def test_low_confidence_light_hair_keeps_gold():
         observed(), hair=ColorSample("#3e1a0c", 0.4, False, (62, 26, 12), 80)
     )
     assert R.resolve_colors(dark)["hair"] == rgba(R.DEFAULT_HAIR)
+
+
+def test_headwear_cap_draws_a_light_brim_under_the_hood():
+    cap = R.render(observed(), attrs(headwear="cap", hood="up"), ())
+    beanie = R.render(observed(), attrs(headwear="beanie", hood="up"), ())
+    plain = R.render(observed(), attrs(headwear="none", hood="up"), ())
+    f = cap.layout.face("head", "front", 0)
+    cap_px = cap.image.getpixel((f.x + 3, f.y + 1))[:3]
+    beanie_px = beanie.image.getpixel((f.x + 3, f.y + 1))[:3]
+    plain_px = plain.image.getpixel((f.x + 3, f.y + 1))[:3]
+    assert cap_px != plain_px and sum(cap_px) > sum(plain_px)
+    assert beanie_px != plain_px and sum(beanie_px) < sum(plain_px)

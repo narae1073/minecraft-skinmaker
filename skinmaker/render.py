@@ -368,6 +368,17 @@ def render_head(canvas: SkinCanvas, colors: dict[str, Color], attrs: Attributes,
             canvas.put("head", "front", base_u + 1, 6, iris_c, 0)
     # Eyes overwrite hair cells (eye-fringe styles); those are not hair.
     hair_cells -= {("front", u, v) for u in range(8) for v in (5, 6)}
+    # Headwear under the hood (notes 2026-11-02: white cap / black beanie).
+    # No colour sample exists, so use a conservative light/dark heuristic.
+    headwear = attrs.get("headwear")
+    if headwear in ("cap", "beanie"):
+        hat = rgba("#e9eef3") if headwear == "cap" else rgba("#1f1f1f")
+        hat = shade(hat, FACE_SHADE["front"])
+        for u in range(1, 7):
+            canvas.put("head", "front", u, 1, hat, 0)
+        if headwear == "cap":
+            for u in (0, 7):
+                canvas.put("head", "front", u, 2, hat, 0)
     # HEAD ACC.(layer=1)는 손대지 않는다. 기본 투명 유지.
     return hair_cells if tones else set()
 

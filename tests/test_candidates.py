@@ -22,6 +22,7 @@ BASE = {
     "hair_length": "short",
     "hair_style": "short",
     "hood": "none",
+    "headwear": "none",
     "beard": "none",
     "inner_top": "none",
     "neckwear": "none",
