@@ -18,6 +18,7 @@ ROOT = Path(__file__).resolve().parent
 REPO = ROOT.parents[1]
 sys.path.insert(0, str(REPO))
 from skinmaker import attribute_masks as AM  # noqa: E402
+from skinmaker.canvas import SkinCanvas  # noqa: E402
 from skinmaker import attributes as A  # noqa: E402
 from skinmaker import production_qa as Q, render as R  # noqa: E402
 
@@ -73,6 +74,29 @@ def _normalize_key(src) -> dict:
     return out
 
 
+def _seed_hair(key: str, value: str) -> dict:
+    """Seed a hair mask from the current procedural head hair cells.
+
+    L1 is the current silhouette; L2 stays blank and falls back to L1 in the
+    renderer. This gives the editor the real starting shape instead of an empty
+    grid. Beard has no procedural renderer and stays blank.
+    """
+    if key not in ("hair_style", "hair_length"):
+        return {}
+    length = value if key == "hair_length" else "long"
+    style = value if key == "hair_style" else "long_straight"
+    attrs = Q._attrs(length, style, "none")
+    canvas = SkinCanvas("classic")
+    cells = R.render_head(canvas, R.resolve_colors(Q._observed()), attrs, None,
+                          style=style, pack=None, seed="", masks=None, return_cells=True)
+    grids = {}
+    for face in FACES:
+        short = face.split(".", 1)[1]
+        f = canvas.layout.face("head", short, 0)
+        grids[face] = [[1 if (short, u, v) in cells else 0 for u in range(f.w)] for v in range(f.h)]
+    return {"L1": grids, "L2": {}}
+
+
 def _defaults() -> dict:
     approved = AM.load_masks()
     saved = {}
@@ -85,7 +109,9 @@ def _defaults() -> dict:
     for key, values in MASKABLE.items():
         for value in values:
             name = f"{key}.{value}"
-            src = (saved.get(name) if isinstance(saved, dict) else None) or approved.get(name) or {}
+            src = (saved.get(name) if isinstance(saved, dict) else None) or approved.get(name)
+            if src is None:
+                src = _seed_hair(key, value)
             masks[name] = _normalize_key(src)
     return masks
 

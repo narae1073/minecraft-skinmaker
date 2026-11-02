@@ -467,3 +467,6 @@ S0 quality/face detection (YuNet) → S1 colour measurement (white-balance + ban
 
 - 2026-11-02 (head masks Phase 1b, `feat/head-masks`): editor keys hair_style/hair_length/beard + `apply_head_masks` post-pass. Hair L1 clip/add + L2 clip; style/length intersect; beard adds hair-shaded front cells; preview uses hood=none for hair/beard. Blank masks by default; seed/all-part 3D remain.
   - 검증: 702 passed; QA 50; custom hair/beard mask tests; editor defaults expanded; assets/approval unchanged.
+
+- 2026-11-02 (hair seed, `feat/head-mask-seed`): editor `/api/defaults`가 hair_style/hair_length 마스크를 procedural head hair cells로 seed(L1; L2는 L1 fallback). `render_head(return_cells=True)` 추가. bob/long = 272 cells, short = 156; beard는 procedural 부재로 blank.
+  - 검증: editor defaults test hair cells>0, beard=0; full suite/QA.

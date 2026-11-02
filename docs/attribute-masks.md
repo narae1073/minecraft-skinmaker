@@ -63,3 +63,11 @@ Added editor keys with a head post-pass:
   for hood/headwear/hood_fit.
 - These masks are **empty by default**; the user paints them. A procedural seed
   exporter and the all-part 3D/atlas remain Phase 2/3.
+
+### Hair seed (2026-11-02)
+
+`/api/defaults` now seeds `hair_style.*`/`hair_length.*` from the current
+procedural `render_head` hair cells (L1); L2 falls back to L1 in the renderer.
+`beard.*` stays blank because there is no procedural beard. This gives the
+editor a real starting silhouette instead of an empty grid. The seed is
+editor-only (draft); production approval is still separate.
