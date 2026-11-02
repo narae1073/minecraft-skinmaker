@@ -1,8 +1,8 @@
 """General attribute-mask editor: paint shape stencils for attribute values.
 
-The editor is intentionally shape-only (no colour picker): it edits binary
-occupancy for a selected (attribute, value) on the head L1/L2 faces. The
-production renderer uses the same asset; colours/patterns stay in the pipeline.
+Shape-only (no colour picker). Parts: head, body, both arms, both legs.
+Each mask is ``{attribute.value: {L1/L2: {part.face: grid}}}``; the production
+renderer reads the same asset; colours/patterns stay in the pipeline.
 """
 from __future__ import annotations
 
@@ -18,13 +18,18 @@ ROOT = Path(__file__).resolve().parent
 REPO = ROOT.parents[1]
 sys.path.insert(0, str(REPO))
 from skinmaker import attribute_masks as AM  # noqa: E402
-from skinmaker.canvas import SkinCanvas  # noqa: E402
 from skinmaker import attributes as A  # noqa: E402
 from skinmaker import production_qa as Q, render as R  # noqa: E402
+from skinmaker.canvas import SkinCanvas  # noqa: E402
+from skinmaker.format import get_layout  # noqa: E402
 
 OUT = REPO / "out" / "mask_editor"
 OUT.mkdir(parents=True, exist_ok=True)
-FACES = [f"head.{f}" for f in ("top", "front", "right", "left", "back", "bottom")]
+LAYOUT = get_layout("classic")
+PARTS = ("head", "body", "r_arm", "l_arm", "r_leg", "l_leg")
+PART_FACES = {part: tuple(LAYOUT.part(part, 0).faces) for part in PARTS}
+FACES = [f"{part}.{face}" for part in PARTS for face in PART_FACES[part]]
+DIMS = {f"{part}.{face}": (f.w, f.h) for part in PARTS for face, f in LAYOUT.part(part, 0).faces.items()}
 LAYERS = ["L1", "L2"]
 MASKABLE = {
     "hood": ("up", "down"),
@@ -33,6 +38,7 @@ MASKABLE = {
     "hair_style": ("short", "pixie", "bob", "long_straight", "long_wavy", "curly", "ponytail", "bun"),
     "hair_length": ("short", "medium", "long", "very_long"),
     "beard": ("stubble", "full"),
+    "sleeve_len": ("none", "short", "three_quarter", "long"),
 }
 app = FastAPI(title="skinmaker attribute mask editor")
 
@@ -49,12 +55,12 @@ app.mount("/static", StaticFiles(directory=ROOT), name="static")
 app.mount("/out", StaticFiles(directory=OUT), name="out")
 
 
-def _blank() -> list[list[int]]:
-    return [[0] * 8 for _ in range(8)]
+def _blank(face: str) -> list[list[int]]:
+    w, h = DIMS.get(face, (8, 8))
+    return [[0] * w for _ in range(h)]
 
 
 def _normalize_key(src) -> dict:
-    """Accept a {L1,L2} entry; fill missing head faces with blanks."""
     out = {"L1": {}, "L2": {}}
     if not isinstance(src, dict):
         return out
@@ -63,24 +69,19 @@ def _normalize_key(src) -> dict:
         if not isinstance(face_map, dict):
             continue
         for face in FACES:
+            w, h = DIMS[face]
             grid = face_map.get(face)
             if isinstance(grid, list):
                 out[layer][face] = [
-                    [int(bool(grid[v][u])) if v < len(grid) and u < len(grid[v]) else 0 for u in range(8)]
-                    for v in range(8)
+                    [int(bool(grid[v][u])) if v < len(grid) and u < len(grid[v]) else 0 for u in range(w)]
+                    for v in range(h)
                 ]
             else:
-                out[layer][face] = _blank()
+                out[layer][face] = _blank(face)
     return out
 
 
 def _seed_hair(key: str, value: str) -> dict:
-    """Seed a hair mask from the current procedural head hair cells.
-
-    L1 is the current silhouette; L2 stays blank and falls back to L1 in the
-    renderer. This gives the editor the real starting shape instead of an empty
-    grid. Beard has no procedural renderer and stays blank.
-    """
     if key not in ("hair_style", "hair_length"):
         return {}
     length = value if key == "hair_length" else "long"
@@ -90,10 +91,24 @@ def _seed_hair(key: str, value: str) -> dict:
     cells = R.render_head(canvas, R.resolve_colors(Q._observed()), attrs, None,
                           style=style, pack=None, seed="", masks=None, return_cells=True)
     grids = {}
-    for face in FACES:
-        short = face.split(".", 1)[1]
-        f = canvas.layout.face("head", short, 0)
-        grids[face] = [[1 if (short, u, v) in cells else 0 for u in range(f.w)] for v in range(f.h)]
+    for face in ("top", "front", "right", "left", "back", "bottom"):
+        f = LAYOUT.face("head", face, 0)
+        grids[f"head.{face}"] = [[1 if (face, u, v) in cells else 0 for u in range(f.w)] for v in range(f.h)]
+    return {"L1": grids, "L2": {}}
+
+
+def _seed_sleeve(key: str, value: str) -> dict:
+    if key != "sleeve_len" or value == "none":
+        return {}
+    end = R.SLEEVE_ROWS.get(value, 3)
+    grids = {}
+    for part in ("r_arm", "l_arm"):
+        for face in PART_FACES[part]:
+            f = LAYOUT.face(part, face, 0)
+            if f.h < 12:
+                grids[f"{part}.{face}"] = [[1] * f.w for _ in range(f.h)]
+            else:
+                grids[f"{part}.{face}"] = [[1 if v <= end else 0 for _ in range(f.w)] for v in range(f.h)]
     return {"L1": grids, "L2": {}}
 
 
@@ -111,7 +126,7 @@ def _defaults() -> dict:
             name = f"{key}.{value}"
             src = (saved.get(name) if isinstance(saved, dict) else None) or approved.get(name)
             if src is None:
-                src = _seed_hair(key, value)
+                src = _seed_hair(key, value) or _seed_sleeve(key, value)
             masks[name] = _normalize_key(src)
     return masks
 
@@ -124,7 +139,8 @@ def index():
 @app.get("/api/defaults")
 def defaults():
     return JSONResponse(
-        {"faces": FACES, "layers": LAYERS, "maskable": MASKABLE, "masks": _defaults()},
+        {"parts": PARTS, "part_faces": PART_FACES, "faces": FACES, "dims": DIMS,
+         "layers": LAYERS, "maskable": MASKABLE, "masks": _defaults()},
         headers={"Cache-Control": "no-store"},
     )
 
@@ -132,22 +148,15 @@ def defaults():
 @app.post("/api/save")
 async def save(req: Request):
     body = await req.json()
-    payload = {
-        "version": 1,
-        "source": "mask_editor",
-        "policy": AM.POLICY,
-        "masks": body.get("masks", {}),
-    }
+    payload = {"version": 1, "source": "mask_editor", "policy": AM.POLICY,
+               "masks": body.get("masks", {})}
     (OUT / "attribute_masks.json").write_text(
-        json.dumps(payload, ensure_ascii=False, indent=1), encoding="utf-8"
-    )
+        json.dumps(payload, ensure_ascii=False, indent=1), encoding="utf-8")
     return {"ok": True, "path": str(OUT / "attribute_masks.json")}
 
 
 def _attrs_for(key: str, value: str) -> A.Attributes:
-    # Hair/beard must be visible: no hood. Hood/headwear/hood_fit keep the hood up
-    # so the edited cells are actually shown.
-    hood = "none" if key in ("hair_style", "hair_length", "beard") else "up"
+    hood = "none" if key in ("hair_style", "hair_length", "beard", "sleeve_len") else "up"
     if key == "hood":
         hood = value
     base = dict(Q._attrs("long", "long_straight", hood).values)
@@ -174,14 +183,15 @@ async def preview(req: Request):
         canvas = R.render(observed, attrs, (), mask_override={})
         for layer, layer_index in (("L1", 0), ("L2", 1)):
             for face in FACES:
-                grid = AM.get_mask(masks, key, value, layer, "head", face.split(".", 1)[1])
+                part, short = face.split(".", 1)
+                grid = AM.get_mask(masks, key, value, layer, part, short)
                 if not grid:
                     continue
                 color = (0, 150, 190, 255) if layer == "L1" else (0, 220, 240, 255)
-                for v, row in enumerate(grid[:8]):
-                    for u, bit in enumerate(row[:8]):
+                for v, row in enumerate(grid[:DIMS[face][1]]):
+                    for u, bit in enumerate(row[:DIMS[face][0]]):
                         if bit:
-                            canvas.put("head", face.split(".", 1)[1], u, v, color, layer_index)
+                            canvas.put(part, short, u, v, color, layer_index)
     else:
         canvas = R.render(observed, attrs, (), mask_override=masks)
     canvas.image.save(OUT / "preview.png")

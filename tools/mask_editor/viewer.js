@@ -31,6 +31,9 @@ const ARM = { px: [48, 20, 4, 12], nx: [40, 20, 4, 12], py: [44, 16, 4, 4], ny: 
 const LEG = { px: [8, 20, 4, 12], nx: [0, 20, 4, 12], py: [4, 16, 4, 4], ny: [8, 16, 4, 4], pz: [4, 20, 4, 12], nz: [12, 20, 4, 12] };
 const LARM = { px: [40, 52, 4, 12], nx: [32, 52, 4, 12], py: [36, 48, 4, 4], ny: [40, 48, 4, 4], pz: [36, 52, 4, 12], nz: [44, 52, 4, 12] };
 const LLEG = { px: [24, 52, 4, 12], nx: [16, 52, 4, 12], py: [20, 48, 4, 4], ny: [24, 48, 4, 4], pz: [20, 52, 4, 12], nz: [28, 52, 4, 12] };
+export const PART_UV = { head: HEAD, body: BODY, r_arm: ARM, l_arm: LARM, r_leg: LEG, l_leg: LLEG };
+export const PART_UV2 = { head: HEAD2, body: BODY2, r_arm: ARM2, l_arm: LARM2, r_leg: LEG2, l_leg: LLEG2 };
+const FACE_NAME = { px: 'right', nx: 'left', py: 'top', ny: 'bottom', pz: 'front', nz: 'back' };
 const HEAD2 = shiftFaces(HEAD, 32, 0);
 const BODY2 = shiftFaces(BODY, 0, 16);
 const ARM2 = shiftFaces(ARM, 0, 16);
@@ -139,12 +142,22 @@ export function initViewer(container) {
     pz: 'head.front', nz: 'head.back', ny: 'head.bottom',
   };
 
-  function pickHead(clientX, clientY, layer) {
+  const PART_MESH = {
+    head: ['head', 'head2'], body: ['body', 'body2'],
+    r_arm: ['arm', 'arm2'], l_arm: ['larm', 'larm2'],
+    r_leg: ['leg', 'leg2'], l_leg: ['lleg', 'lleg2'],
+  };
+
+  function pick(part, layer, clientX, clientY) {
     const rect = renderer.domElement.getBoundingClientRect();
     if (clientX < rect.left || clientX > rect.right || clientY < rect.top || clientY > rect.bottom) return null;
     pointer.set(((clientX - rect.left) / rect.width) * 2 - 1, -((clientY - rect.top) / rect.height) * 2 + 1);
     raycaster.setFromCamera(pointer, camera);
-    const mesh = layer === 'L1' ? meshes.head : meshes.head2;
+    const names = PART_MESH[part];
+    if (!names) return null;
+    const meshName = layer === 'L1' ? names[0] : names[1];
+    const mesh = meshes[meshName];
+    if (!mesh) return null;
     const hits = raycaster.intersectObject(mesh, false);
     if (!hits.length) return null;
     const hit = hits[0];
@@ -152,17 +165,23 @@ export function initViewer(container) {
     const ax = Math.abs(n.x), ay = Math.abs(n.y), az = Math.abs(n.z);
     const key = ax >= ay && ax >= az ? (n.x > 0 ? 'px' : 'nx')
       : ay >= az ? (n.y > 0 ? 'py' : 'ny') : (n.z > 0 ? 'pz' : 'nz');
-    const face = MASK_FACE[key];
-    const faceRect = (layer === 'L1' ? HEAD : HEAD2)[key];
+    const faceName = FACE_NAME[key];
+    const faceRect = (layer === 'L1' ? PART_UV : PART_UV2)[part][key];
     const px = Math.floor(hit.uv.x * S);
     const py = Math.floor((1 - hit.uv.y) * S);
     const u = px - faceRect[0], v = py - faceRect[1];
-    if (u < 0 || u > 7 || v < 0 || v > 7) return null;
-    return { face, u, v };
+    if (u < 0 || u >= faceRect[2] || v < 0 || v >= faceRect[3]) return null;
+    return { part, face: `${part}.${faceName}`, u, v };
+  }
+
+  function pickHead(clientX, clientY, layer) {
+    return pick('head', layer, clientX, clientY);
   }
 
   function setEditableLayer(layer) {
-    meshes.head2.visible = layer === 'L2';
+    for (const name of ['head2', 'body2', 'arm2', 'larm2', 'leg2', 'lleg2']) {
+      if (meshes[name]) meshes[name].visible = layer === 'L2';
+    }
   }
 
   function projectPoint(x, y, z) {
@@ -174,5 +193,5 @@ export function initViewer(container) {
   function projectHead() { return projectPoint(0, 1.5, 0); }
 
   animate();
-  return { setSkin, controls, camera, resize, pickHead, setEditableLayer, projectHead, projectPoint, meshes };
+  return { setSkin, controls, camera, resize, pick, pickHead, setEditableLayer, projectHead, projectPoint, meshes };
 }

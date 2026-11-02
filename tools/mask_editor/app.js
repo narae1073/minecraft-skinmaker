@@ -2,8 +2,8 @@ import { initViewer } from './viewer.js';
 
 const $ = (s) => document.querySelector(s);
 const state = {
-  faces: null, layers: null, maskable: null, masks: null,
-  key: null, value: null, layer: 'L1', face: null,
+  parts: null, part_faces: null, faces: null, dims: null, layers: null, maskable: null, masks: null,
+  key: null, value: null, part: 'head', layer: 'L1', face: null,
   mode: 'paint', viewMode: 'final', mirror: false,
   painting3d: false, painting2d: false, stroke: 0, history: [],
 };
@@ -13,9 +13,10 @@ let previewSeq = 0;
 
 const maskName = () => `${state.key}.${state.value}`;
 const curMask = () => ensureMask();
+const dimsFor = (face) => state.dims[face] || [8, 8];
 const gridFor = (face) => curMask()[state.layer][face];
 
-function blank() { return Array.from({ length: 8 }, () => Array(8).fill(0)); }
+function blank(face) { const [w, h] = dimsFor(face); return Array.from({ length: h }, () => Array(w).fill(0)); }
 
 function ensureMask() {
   if (!state.masks[state.key + '.' + state.value]) {
@@ -25,7 +26,7 @@ function ensureMask() {
   for (const layer of state.layers) {
     if (!m[layer]) m[layer] = {};
     for (const face of state.faces) {
-      if (!m[layer][face]) m[layer][face] = blank();
+      if (!m[layer][face]) m[layer][face] = blank(face);
     }
   }
   return m;
@@ -34,10 +35,12 @@ function ensureMask() {
 async function boot() {
   const r = await fetch('/api/defaults?t=' + Date.now(), { cache: 'no-store' });
   const j = await r.json();
-  state.faces = j.faces; state.layers = j.layers; state.maskable = j.maskable; state.masks = j.masks;
+  state.parts = j.parts; state.part_faces = j.part_faces; state.faces = j.faces;
+  state.dims = j.dims; state.layers = j.layers; state.maskable = j.maskable; state.masks = j.masks;
   state.key = Object.keys(state.maskable)[0];
   state.value = state.maskable[state.key][0];
-  state.face = state.faces[1] || state.faces[0];
+  state.part = 'head';
+  state.face = state.part_faces[state.part][1] || state.part_faces[state.part][0];
   renderTabs(); renderAtlas();
   try {
     viewer = initViewer($('#viewer'));
@@ -66,6 +69,13 @@ function renderTabs() {
     b.onclick = () => setValue(value);
     vt.appendChild(b);
   }
+  const pt = $('#partTabs'); pt.innerHTML = '';
+  for (const part of state.parts) {
+    const b = document.createElement('button');
+    b.textContent = part; b.dataset.part = part;
+    b.onclick = () => setPart(part);
+    pt.appendChild(b);
+  }
   const lt = $('#layerTabs'); lt.innerHTML = '';
   for (const l of state.layers) {
     const b = document.createElement('button');
@@ -74,10 +84,11 @@ function renderTabs() {
     lt.appendChild(b);
   }
   const ft = $('#faceTabs'); ft.innerHTML = '';
-  for (const f of state.faces) {
+  for (const f of state.part_faces[state.part]) {
+    const face = `${state.part}.${f}`;
     const b = document.createElement('button');
-    b.textContent = f.replace('head.', ''); b.dataset.face = f;
-    b.onclick = () => setFace(f);
+    b.textContent = f; b.dataset.face = face;
+    b.onclick = () => setFace(face);
     ft.appendChild(b);
   }
   syncTabs();
@@ -86,6 +97,7 @@ function renderTabs() {
 function syncTabs() {
   for (const b of document.querySelectorAll('#kindTabs button')) b.classList.toggle('active', b.dataset.key === state.key);
   for (const b of document.querySelectorAll('#valueTabs button')) b.classList.toggle('active', b.dataset.value === state.value);
+  for (const b of document.querySelectorAll('#partTabs button')) b.classList.toggle('active', b.dataset.part === state.part);
   for (const b of document.querySelectorAll('#layerTabs button')) b.classList.toggle('active', b.dataset.layer === state.layer);
   for (const b of document.querySelectorAll('#faceTabs button')) b.classList.toggle('active', b.dataset.face === state.face);
   for (const b of document.querySelectorAll('#atlas .faceBlock')) b.classList.toggle('active', b.dataset.face === state.face);
@@ -108,6 +120,16 @@ function setValue(v) {
   schedulePreview(); status();
 }
 
+function setPart(p) {
+  if (state.part === p) return;
+  state.part = p;
+  if (!state.part_faces[p].includes(state.face.split('.', 2)[1])) {
+    state.face = `${p}.${state.part_faces[p][0]}`;
+  }
+  renderTabs(); renderAtlas();
+  status();
+}
+
 function setLayer(l) {
   if (state.layer === l) return;
   state.layer = l;
@@ -118,28 +140,32 @@ function setLayer(l) {
 
 function setFace(f) {
   state.face = f;
+  state.part = f.split('.', 2)[0];
+  renderTabs();
   syncTabs(); status();
 }
 
 function status() {
   const cell = $('#status');
-  if (cell) cell.textContent = `${maskName()} / ${state.layer} / ${state.face} — ${state.mode === 'paint' ? '칠하기' : '지우개'}`;
+  if (cell) cell.textContent = `${state.part} / ${maskName()} / ${state.layer} / ${state.face} — ${state.mode === 'paint' ? '칠하기' : '지우개'}`;
 }
 
 function renderAtlas() {
   const el = $('#atlas'); el.innerHTML = '';
   for (const face of state.faces) {
+    const [w, h] = dimsFor(face);
     const block = document.createElement('div');
     block.className = 'faceBlock' + (face === state.face ? ' active' : '');
     block.dataset.face = face;
     const label = document.createElement('div');
     label.className = 'faceLabel';
-    label.textContent = face.replace('head.', '');
+    label.textContent = face.replace('.', ' · ');
     block.appendChild(label);
     const gridEl = document.createElement('div');
     gridEl.className = 'faceGrid';
+    gridEl.style.gridTemplateColumns = `repeat(${w}, 20px)`;
     const g = gridFor(face);
-    for (let v = 0; v < 8; v++) for (let u = 0; u < 8; u++) {
+    for (let v = 0; v < h; v++) for (let u = 0; u < w; u++) {
       const c = document.createElement('div');
       c.className = 'cell' + (g[v][u] ? ' on' : '');
       c.dataset.face = face; c.dataset.u = u; c.dataset.v = v;
@@ -156,15 +182,16 @@ function cellEl(face, u, v) {
 }
 
 function paintAt(face, u, v, value) {
+  const [w, h] = dimsFor(face);
   const g = gridFor(face);
-  if (!g || v < 0 || v > 7 || u < 0 || u > 7) return;
+  if (!g || v < 0 || v >= h || u < 0 || u >= w) return;
   let changed = false;
   if (g[v][u] !== value) { g[v][u] = value; cellEl(face, u, v)?.classList.toggle('on', !!value); changed = true; }
   if (state.mirror) {
-    const mu = 7 - u;
+    const mu = w - 1 - u;
     if (g[v][mu] !== value) { g[v][mu] = value; cellEl(face, mu, v)?.classList.toggle('on', !!value); changed = true; }
   }
-  if (changed && state.face !== face) { state.face = face; syncTabs(); }
+  if (changed && state.face !== face) { state.face = face; state.part = face.split('.', 2)[0]; renderTabs(); }
   if (changed) status();
 }
 
@@ -178,18 +205,19 @@ function bind3d(v) {
   if (!canvas) return;
   canvas.addEventListener('pointerdown', (e) => {
     if (e.button !== 0) return;
-    const hit = v.pickHead(e.clientX, e.clientY, state.layer);
+    const hit = v.pick(state.part, state.layer, e.clientX, e.clientY);
     if (!hit) return;
     state.painting3d = true;
     state.stroke = state.mode === 'erase' ? 0 : 1;
     pushHistory();
+    if (hit.part !== state.part) { state.part = hit.part; renderTabs(); }
     paintAt(hit.face, hit.u, hit.v, state.stroke);
     try { canvas.setPointerCapture(e.pointerId); } catch {}
     e.preventDefault();
   });
   canvas.addEventListener('pointermove', (e) => {
     if (!state.painting3d) return;
-    const hit = v.pickHead(e.clientX, e.clientY, state.layer);
+    const hit = v.pick(state.part, state.layer, e.clientX, e.clientY);
     if (hit) paintAt(hit.face, hit.u, hit.v, state.stroke);
   });
 }
@@ -253,7 +281,9 @@ $('#atlas').addEventListener('mousedown', (e) => {
   state.painting2d = true;
   state.stroke = state.mode === 'erase' ? 0 : 1;
   pushHistory();
-  paintAt(c.dataset.face, +c.dataset.u, +c.dataset.v, state.stroke);
+  const face = c.dataset.face;
+  if (state.face !== face) { state.face = face; state.part = face.split('.', 2)[0]; renderTabs(); }
+  paintAt(face, +c.dataset.u, +c.dataset.v, state.stroke);
 });
 $('#atlas').addEventListener('mousemove', (e) => {
   if (!state.painting2d) return;
@@ -273,12 +303,13 @@ $('#undoBtn').onclick = () => {
 };
 $('#clearBtn').onclick = () => {
   pushHistory();
-  curMask()[state.layer][state.face] = blank();
+  curMask()[state.layer][state.face] = blank(state.face);
   renderAtlas(); schedulePreview();
 };
 $('#fillBtn').onclick = () => {
   pushHistory();
-  curMask()[state.layer][state.face] = blank().map((r) => r.map(() => 1));
+  const [w, h] = dimsFor(state.face);
+  curMask()[state.layer][state.face] = Array.from({ length: h }, () => Array(w).fill(1));
   renderAtlas(); schedulePreview();
 };
 $('#saveBtn').onclick = save;

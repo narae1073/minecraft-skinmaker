@@ -470,3 +470,5 @@ S0 quality/face detection (YuNet) → S1 colour measurement (white-balance + ban
 
 - 2026-11-02 (hair seed, `feat/head-mask-seed`): editor `/api/defaults`가 hair_style/hair_length 마스크를 procedural head hair cells로 seed(L1; L2는 L1 fallback). `render_head(return_cells=True)` 추가. bob/long = 272 cells, short = 156; beard는 procedural 부재로 blank.
   - 검증: editor defaults test hair cells>0, beard=0; full suite/QA.
+
+- 2026-11-02 (all-part editor + sleeve, `feat/all-part-sleeve`): editor PARTS 6 / FACES 36 / real dims; viewer `pick(part,layer)` for body/arms/legs; part tabs + dynamic atlas grid; `sleeve_len` masks seed + `render_arms` clip. Tests 703; QA 50; asset/approval unchanged.
