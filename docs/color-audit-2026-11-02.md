@@ -99,3 +99,21 @@ the white-vs-background fallback and sets `bottom_plausible=True`.
 - Hair remains dark despite VLM bbox and light-percentile 30→95 (region itself is
   dark); needs a source/region audit.
 - Hood geometry not yet re-evaluated.
+
+## Round 9 — dark hair notes are source-limited
+
+The three remaining dark hair notes cannot be recovered from the visible hair
+region:
+
+| pair | SCHP hair mask | VLM bbox-only | source crop |
+|---|---|---|---|
+| up_long_00 | `#3e1a0c` | bbox empty | auburn/red hood; no gold visible |
+| up_long_02 | `#191615` | `#36231d` | blonde belongs to a second woman behind; hooded subject's hair is dark |
+| up_long_06 | `#1f1c1a` | `#4d5158` | brown/auburn waves, no gold |
+
+Bright hair clusters (light 20–60) do not contain gold either. The two light
+hair notes (`#ddc19c`, `#8d6648`) are already fixed by the low-confidence
+fallback; the three dark notes need a **manual hair-colour override** or a photo
+where the subject's hair is actually visible.
+
+Crops: `out/hair_audit_crops.png`
