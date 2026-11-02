@@ -442,3 +442,6 @@ S0 quality/face detection (YuNet) → S1 colour measurement (white-balance + ban
 
 - 2026-11-02 (WB cap, `fix/wb-cap`): 공격적 skin-anchored WB gain(R 0.80~0.87/B 1.14~1.15)이 white/beige를 light blue로 만드는 것을 확인. `WB_CLIP` 1.25→**1.10**, 10% 초과 gain은 미적용(identity). white hood 2건 + beige 개선; teal/gray는 outer guard 유지.
   - 검증: **687 passed**, QA 50; A/B `out/color_audit/wb_ab.png`; 남은 pink/pants/dark hair/hood geometry.
+
+- 2026-11-02 (SCHP upper-clothes top, `fix/seg-top-color`): WB_CLIP 1.10 유지(1.05는 lipstick WB confidence 테스트를 깨서 폐기). `extract`가 SCHP Upper-clothes(4) 마스크에서 **raw RGB** top 색을 뽑도록 override; bands는 small mask fallback. pink `#e4cbc7`, white hood near-white, beige 개선.
+  - 검증: **687 passed** (240.34s), QA 50; A/B `out/color_audit/seg_ab.png`; 남은 white pants(bottom)/dark hair/hood geometry.

@@ -569,6 +569,8 @@ def extract(
         hair_reject.append(skin_chroma)
     bg = background_chroma(arr)
     bg_luma = background_luma(arr)
+    if seg is None and parsing.parsing_on():
+        seg = parsing.bottom_mask(photo.image)
     outer = _outer_sample(arr, photo.face, skin, bg)
     inner, tie = _inner_tie_samples(arr, photo.face, skin_chroma, outer)
     if bg is not None:
@@ -611,6 +613,12 @@ def extract(
         bottom_boxes = bottom_bands(photo.face, photo.image.size)
     top = _from_bands(arr, shirt_boxes, top_pick, (), bins)
     bottom = _from_bands(arr, bottom_boxes, "mode", (), bins)
+    if seg is not None:
+        upper_mask = seg == parsing.UPPER_CLOTHES
+        if int(upper_mask.sum()) >= 400:
+            seg_top = dominant_color(rgb[upper_mask], bins=bins, pick=top_pick)
+            if not seg_top.missing and seg_top.share >= 0.05:
+                top = seg_top
     if pose is None and _bottom_needs_fallback(bottom, top, bg, bg_luma):
         # cascade: 얼굴 비례 밴드가 옷을 못 잡으면 프레임 하부를 본다.
         # pose 경로는 건드리지 않는다 (mediapipe 격리 중이라 항상 None).
