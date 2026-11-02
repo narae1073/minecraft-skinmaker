@@ -464,3 +464,6 @@ S0 quality/face detection (YuNet) → S1 colour measurement (white-balance + ban
 
 - 2026-11-02 (attribute masks Phase 1a, `feat/attribute-masks`): 일반 `assets/attribute_masks.json`(+approval) 도입, hood.up/down 마이그레이션, headwear.cap/beanie + hood_fit.shallow seed. `render()` `mask_override`; production은 approved asset, 없으면 procedural. 에디터 key/value tree(hood/headwear/hood_fit) + general `/api/defaults|preview|save`; gate가 general asset SHA를 읽음.
   - 남은 Phase 1b+: hair/beard/body/arms/legs, 3D all-part pick/atlas, seed exporter, approval CLI, docs.
+
+- 2026-11-02 (head masks Phase 1b, `feat/head-masks`): editor keys hair_style/hair_length/beard + `apply_head_masks` post-pass. Hair L1 clip/add + L2 clip; style/length intersect; beard adds hair-shaded front cells; preview uses hood=none for hair/beard. Blank masks by default; seed/all-part 3D remain.
+  - 검증: 702 passed; QA 50; custom hair/beard mask tests; editor defaults expanded; assets/approval unchanged.

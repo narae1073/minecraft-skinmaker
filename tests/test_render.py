@@ -1182,3 +1182,25 @@ def test_hood_fit_mask_override_places_ears():
     f = canvas.layout.face("head", "right", 0)
     ear = canvas.image.getpixel((f.x + 7, f.y + 6))[:3]
     assert ear[0] > ear[2]  # skin-shaded ear, not hood fabric
+
+
+def test_hair_mask_override_clips_head_hair():
+    grid = [[0] * 8 for _ in range(8)]
+    grid[1][0] = 1
+    canvas = R.render(observed(), attrs(hair_style="bob", hood="none"), (),
+                      mask_override={"hair_style.bob": {"L1": {"head.front": grid}}})
+    f = canvas.layout.face("head", "front", 0)
+    hair_px = canvas.image.getpixel((f.x + 0, f.y + 1))[:3]
+    skin_px = canvas.image.getpixel((f.x + 1, f.y + 1))[:3]
+    assert hair_px != skin_px
+
+
+def test_beard_mask_override_adds_beard_cells():
+    grid = [[0] * 8 for _ in range(8)]
+    grid[6][3] = 1
+    canvas = R.render(observed(), attrs(beard="full", hood="none"), (),
+                      mask_override={"beard.full": {"L1": {"head.front": grid}}})
+    f = canvas.layout.face("head", "front", 0)
+    beard_px = canvas.image.getpixel((f.x + 3, f.y + 6))[:3]
+    skin_px = canvas.image.getpixel((f.x + 2, f.y + 6))[:3]
+    assert beard_px != skin_px
