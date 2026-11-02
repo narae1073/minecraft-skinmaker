@@ -439,3 +439,6 @@ S0 quality/face detection (YuNet) → S1 colour measurement (white-balance + ban
 - 2026-11-02 (hair fallback, `fix/hair-fallback`, notes 5건 중 2건 개선): top background reject 실험은 악화(pink→MISSING, white→brown, teal→red)되어 폐기. `resolve_colors`의 hair fallback을 조정 — low-confidence라도 luma>90인 밝은 샘플은 측정색 유지, 어두운 샘플은 default.
   - 검증: gold `#ddc19c` → blond; `#8d6648` → brown(개선); **687 passed**, QA 50; A/B `out/color_audit/hair_audit_ab.png`; 문서 갱신.
   - 남은 색: pink/white top(region), white pants(bottom), dark gold hair(00/02/06); 후드 형상 6건.
+
+- 2026-11-02 (WB cap, `fix/wb-cap`): 공격적 skin-anchored WB gain(R 0.80~0.87/B 1.14~1.15)이 white/beige를 light blue로 만드는 것을 확인. `WB_CLIP` 1.25→**1.10**, 10% 초과 gain은 미적용(identity). white hood 2건 + beige 개선; teal/gray는 outer guard 유지.
+  - 검증: **687 passed**, QA 50; A/B `out/color_audit/wb_ab.png`; 남은 pink/pants/dark hair/hood geometry.
