@@ -408,3 +408,6 @@ S0 quality/face detection (YuNet) → S1 colour measurement (white-balance + ban
   - body **back face만** hair skip (side locks는 유지); long_wavy/ponytail의 body back tail도 skip. editor preview도 같은 플래그 사용.
   - 검증: **679 passed** (729.00s), production QA **50 ok**, hood-down long vs short body back L1/L2 diff **0**; body back L2 = 12 fold, body front L2 = 20 base hair.
   - 주의: 72 approved pairs는 pre-mask v1 기준선이다. 후드 쌍은 재생성·재승인이 필요하다.
+
+- 2026-11-02 (medium hair body-back skip 확장, `fix/body-back-hair-medium`): 프로덕션 E2E에서 VLM이 long-hair 사진을 `hair_length=medium`으로 분류해 body back L2 hair 40셀이 남는 것을 확인. `hide_body_back_hair` 조건을 `long` → `long|medium`으로 확장(short는 원래 없음). 테스트에 medium long_wavy 추가.
+  - 검증: **679 passed** (710.36s), QA 50 ok; medium/long/short 모두 body back L2 12(fold), hair 0. 배포 후 프로덕션 E2E 재확인 예정.
