@@ -411,3 +411,9 @@ S0 quality/face detection (YuNet) → S1 colour measurement (white-balance + ban
 
 - 2026-11-02 (medium hair body-back skip 확장, `fix/body-back-hair-medium`): 프로덕션 E2E에서 VLM이 long-hair 사진을 `hair_length=medium`으로 분류해 body back L2 hair 40셀이 남는 것을 확인. `hide_body_back_hair` 조건을 `long` → `long|medium`으로 확장(short는 원래 없음). 테스트에 medium long_wavy 추가.
   - 검증: **679 passed** (710.36s), QA 50 ok; medium/long/short 모두 body back L2 12(fold), hair 0. 배포 후 프로덕션 E2E 재확인 예정.
+
+- 2026-11-02 (Gate v3, `feat/gate-v3`): 후드가 `assets/hood_masks.json` 마스크 기반으로 바뀐 것에 맞춰 게이트를 재정의.
+  - 팩 hood 템플릿 승인(2/1)과 hood holdout coverage blocker 제거(보고만); `assets/hood_masks_approval.json`(SHA+policy)로 마스크 승인.
+  - `benchmark_baseline.json`(mask_sha+policy) 없거나 불일치하면 **paired benchmark stale** blocker. 현재 72쌍은 pre-mask v1이라 baseline missing으로 `ready=false`.
+  - 현재 blocker는 **1개**: `paired benchmark baseline missing (regenerate/re-approve)`; 나머지(hair/QA/eyes/mask approval/pairs count)는 통과.
+  - 문서: `docs/production-gate-v3.md`, `docs/production-status.md`. 테스트 4개.
