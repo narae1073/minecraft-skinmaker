@@ -429,3 +429,9 @@ S0 quality/face detection (YuNet) → S1 colour measurement (white-balance + ban
 - 2026-11-02 (무늬 연속성, `feat/arm-patterns`, notes 6건): `render_arms`가 “무늬는 소매에 넣지 않는다”고 단색 처리하던 것을 변경. stripe/check/plaid는 `_pattern_color`, graphic은 크롭 texture를 소매에도 적용; 소매 끝 seam은 유지.
   - 검증: **683 passed** (243.85s), QA 50 ok; `test_arms_use_the_body_pattern`; A/B `out/arms_pattern_ab/arms_pattern_ab.png`(plain arms → striped arms).
   - 주의: 의상 색 재현(9건)은 색 샘플링/폴백 문제로 분리해 별도 진단이 필요하다. 72 approved pairs는 여전히 pre-mask v1/paired baseline 보류.
+
+- 2026-11-02 (color audit + outer guard, `fix/color-outer-guard`): 수기 notes 의상 색 9건 audit. pair 사진에서 `quality.inspect`→`colors.extract`로 observed top/outer/inner를 실측.
+  - Root cause: 어두운 outer 표본(그림자/바지)이 확신 있는 top을 덮어씀(teal/gray→black); hoodie는 outer 후보에서 빠져 배경 오염 top(beige→light blue) 사용.
+  - Fix: layered(inner_top≠none)에서 inner가 dark/missing이고 top이 40 luma 이상 밝으면 outer 무시; hoodie를 outer 후보에 추가. 단일 재킷(inner none)의 outer 우선은 유지.
+  - 검증: teal `(27,26,27)→(73,139,164)`, gray `(37,36,44)→(166,187,192)`, beige `(198,224,250)→(142,122,99)`; **686 passed** (241.29s), QA 50; A/B `out/color_audit/color_audit_ab.png`; 문서 `docs/color-audit-2026-11-02.md`.
+  - 남은 색: pink/white top(배경 오염), 흰 바지(bottom), 금발(hair low-confidence/dark). 후드 형상/머리색 테마는 아직.

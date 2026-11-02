@@ -1,0 +1,41 @@
+# Color sampling audit — 2026-11-02
+
+Method: `quality.inspect(pair_photo)` → `colors.extract(photo)` → render with the
+pair's validated attributes. No VLM re-run. The skin pair snapshots are the
+pre-fix outputs.
+
+## Root causes found
+
+| Pair | Note | observed top | observed outer | observed inner | Pre-fix output |
+|---|---|---|---|---|---|
+| up_long_04 | teal jacket → black | `#498ba4` (correct) | `#111011` (shadow) | `#400e0a` (dark) | black |
+| up_long_09 | gray hood → black | `#a6bbc0` (correct) | `#27252e` (shadow) | missing | black |
+| down_long_08 | beige hoodie → light blue | `#cae5ff` (background) | `#8e7a63` (beige) | `#302018` | light blue |
+
+1. **Dark outer sample override**: the jacket/outer override trusted a near-black
+   sample (shadow/pants) over a confident, brighter top. Fixed: for layered
+   jackets (`inner_top != none`) only, if the inner sample is dark/missing and
+   the top is >40 luma brighter, keep the top.
+2. **Hoodie outer ignored**: `hoodie` was not in the outer-override candidates,
+   so a background-contaminated top (`#cae5ff`) was used instead of the beige
+   outer (`#8e7a63`). Fixed: hoodie joins the outer candidates.
+3. **Background/inner contamination remains** for pink/white: top samples pick
+   `#ddd9d8` / `#a6cbe2` / `#acc5e3`; outer is missing. Needs a region/reject
+   change (separate).
+4. **Hair low confidence/dark samples**: gold hair was sampled as
+   `#ddc19c` (conf=False), `#8d6648` (conf=False), or near-black; the renderer
+   falls back to default brown. Needs a hair-region/VLM-bbox audit.
+
+## Fixed in this pass
+
+- teal jacket: `(27,26,27)` → `(73,139,164)`
+- gray hood: `(37,36,44)` → `(166,187,192)`
+- beige hoodie: `(198,224,250)` → `(142,122,99)`
+- A/B: `out/color_audit/color_audit_ab.png`
+
+## Still open
+
+- pink jacket → white (`hood_down_long_hair_00`)
+- white hood → light blue (`hood_down_short_hair_09`, `hood_up_long_hair_08`)
+- white pants → orange (`hood_down_long_hair_03`) — bottom sample
+- gold hair → brown/black (`hood_down_long_hair_01`, `hood_up_long_hair_00/01/02/06`)
