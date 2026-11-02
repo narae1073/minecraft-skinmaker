@@ -41,3 +41,16 @@ a 1px brim at head-front row 1; cap uses a light heuristic, beanie a dark one.
 
 Still open: `hood_up_short_hair_09` shallow hood/ears. Hat colour is a heuristic
 until a headwear colour sample exists.
+
+
+## Round 8 — hood_fit / ears
+
+Added `hood_fit` (`normal`/`shallow`/`deep`) and a UI label. With hood up and
+`hood_fit=shallow`, a 2px skin-shaded ear patch is drawn after the hood overlay
+at the side-front (right u6 / left u1, v4–5), so the final mask does not cover it.
+
+- VLM E2E on `hood_up_short_hair_09` still returns `hood_fit=normal`; the UI can
+  switch to `shallow`. A/B: `out/hood_audit/ears_ab.png` (old vs shallow ears).
+
+All six hood notes now have a path: 03/17/05 via the final masks, 07/11 via
+`headwear`, 09 via `hood_fit=shallow` (manual when the VLM misses it).

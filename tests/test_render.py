@@ -1151,3 +1151,13 @@ def test_headwear_cap_draws_a_light_brim_under_the_hood():
     plain_px = plain.image.getpixel((f.x + 3, f.y + 1))[:3]
     assert cap_px != plain_px and sum(cap_px) > sum(plain_px)
     assert beanie_px != plain_px and sum(beanie_px) < sum(plain_px)
+
+
+def test_shallow_hood_shows_ear_pixels():
+    shallow = R.render(observed(), attrs(hood="up", hood_fit="shallow"), ())
+    normal = R.render(observed(), attrs(hood="up", hood_fit="normal"), ())
+    f = shallow.layout.face("head", "right", 0)
+    ear = shallow.image.getpixel((f.x + 6, f.y + 4))[:3]
+    hood = normal.image.getpixel((f.x + 6, f.y + 4))[:3]
+    assert ear != hood
+    assert ear[0] > ear[2]  # skin shade (warm)
