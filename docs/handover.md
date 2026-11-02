@@ -445,3 +445,6 @@ S0 quality/face detection (YuNet) → S1 colour measurement (white-balance + ban
 
 - 2026-11-02 (SCHP upper-clothes top, `fix/seg-top-color`): WB_CLIP 1.10 유지(1.05는 lipstick WB confidence 테스트를 깨서 폐기). `extract`가 SCHP Upper-clothes(4) 마스크에서 **raw RGB** top 색을 뽑도록 override; bands는 small mask fallback. pink `#e4cbc7`, white hood near-white, beige 개선.
   - 검증: **687 passed** (240.34s), QA 50; A/B `out/color_audit/seg_ab.png`; 남은 white pants(bottom)/dark hair/hood geometry.
+
+- 2026-11-02 (white pants bright mask, `fix/seg-bottom`): SCHP Pants/Skirt 마스크 bright 60%에서 bottom 샘플. white pants `#c18a69`→`#e9e2de`; trusted seg bottom은 white-as-background fallback을 우회하고 `bottom_plausible=True`.
+  - 검증: colors 90 passed, full suite/QA; A/B `out/color_audit/pants_ab.png`; hair는 VLM bbox/light percentile로도 dark(region 자체 dark), hood geometry 미착수.

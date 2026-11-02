@@ -901,3 +901,11 @@ def test_skin_prefers_warm_cheek_over_bright_grey_highlight():
     arr[ch_r.y:ch_r.bottom, ch_r.x:ch_r.right] = np.array([0.78, 0.74, 0.72])
     got = C.measure_skin(arr, face)
     assert got.rgb[0] - got.rgb[2] > 25, got
+
+
+def test_bright_pants_pixels_prefer_white_over_skin():
+    """Notes 2026-11-02: white pants are the bright neutral cluster in a mixed
+    Pants mask; the mode alone picks skin/ground."""
+    px = np.array([[0.76, 0.54, 0.41]] * 100 + [[0.91, 0.89, 0.87]] * 100, dtype=np.float32)
+    s = C.dominant_color(C._bright_pixels(px, 40.0), bins=C.CLUSTER_BINS, pick="mode")
+    assert s.rgb[0] > 200 and s.rgb[1] > 200 and s.rgb[2] > 200, s.hex
