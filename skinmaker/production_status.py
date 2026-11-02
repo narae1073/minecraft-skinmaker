@@ -1,18 +1,20 @@
-"""Aggregate fail-closed production gate from benchmark/approval reports."""
+"""Aggregate fail-closed production gate (v3, 2026-11-02)."""
 from __future__ import annotations
 
+import hashlib
 import json
 from pathlib import Path
+
+ROOT = Path(__file__).resolve().parent.parent
+MASK_ASSET = ROOT / "assets" / "hood_masks.json"
+MASK_APPROVAL = ROOT / "assets" / "hood_masks_approval.json"
+RENDER_POLICY = "mask-hood-2026-11-02"
 
 TARGETS = {
     "holdout_min": 50, "holdout_max": 100,
     "hair_n_min": 50, "hair_p90_max": 0.10,
-    # v2 (2026-11-02): eyes are user-accepted / data-limited (no n gate);
-    # hood_up target follows the corpus ceiling (3 full-crown holdout);
-    # hood_down keeps n>=5 and adds a coverage-distance gate.
-    "hood_up_n_min": 3, "hood_down_n_min": 5, "hood_down_p90_max": 0.25,
     "approved_pairs_target": 30, "approved_pairs_min": 1,
-    "approved_eyes_min": 3, "approved_hood_up_min": 2, "approved_hood_down_min": 1,
+    "approved_eyes_min": 3,
 }
 
 
@@ -23,13 +25,38 @@ def _load(path: Path, default=None):
         return default
 
 
+def _sha256(path: Path) -> str:
+    try:
+        return hashlib.sha256(Path(path).read_bytes()).hexdigest()
+    except OSError:
+        return ""
+
+
+def _mask_status(mask_asset: Path, mask_approval: Path, policy: str) -> tuple[bool, str, str]:
+    if not Path(mask_asset).is_file():
+        return False, "missing hood mask asset", ""
+    sha = _sha256(mask_asset)
+    approval = _load(mask_approval, {}) or {}
+    if not approval.get("approved"):
+        return False, "approved hood masks missing", sha
+    if approval.get("sha256") != sha:
+        return False, "hood mask approval stale (hash mismatch)", sha
+    if approval.get("policy") != policy:
+        return False, "hood mask approval policy mismatch", sha
+    return True, "", sha
+
+
 def build_status(bench_root: Path = Path("out/production_benchmark"),
                  paired_root: Path = Path("out/paired_benchmark"),
-                 qa_path: Path = Path("out/production_qa/report.json")) -> dict:
+                 qa_path: Path = Path("out/production_qa/report.json"),
+                 mask_asset: Path = MASK_ASSET,
+                 mask_approval: Path = MASK_APPROVAL,
+                 policy: str = RENDER_POLICY) -> dict:
     split = _load(bench_root / "split.json", {})
     report = _load(bench_root / "report.json", {})
     approvals = _load(bench_root / "template_approvals.json", {})
     paired = _load(paired_root / "report.json", {})
+    baseline = _load(paired_root / "benchmark_baseline.json", {})
     qa = _load(qa_path, {})
     cov = report.get("coverage", {}) if report else {}
 
@@ -55,23 +82,19 @@ def build_status(bench_root: Path = Path("out/production_benchmark"),
         hair = cov.get("hair", {})
         if hair.get("n", 0) < TARGETS["hair_n_min"] or (hair.get("p90_distance") or 1) > TARGETS["hair_p90_max"]:
             blockers.append("hair holdout coverage below target")
-        up = cov.get("hood_up", {})
-        if up.get("n", 0) < TARGETS["hood_up_n_min"]:
-            blockers.append(f"hood_up holdout n below {TARGETS['hood_up_n_min']}")
-        down = cov.get("hood_down", {})
-        if down.get("n", 0) < TARGETS["hood_down_n_min"]:
-            blockers.append(f"hood_down holdout n below {TARGETS['hood_down_n_min']}")
-        elif down.get("p90_distance") is None or down["p90_distance"] > TARGETS["hood_down_p90_max"]:
-            blockers.append(
-                f"hood_down coverage p90 {down.get('p90_distance')} > {TARGETS['hood_down_p90_max']}"
-            )
+        # v3: hood holdout coverage is reported but not gated — the hood is
+        # driven by assets/hood_masks.json, not by pack hood templates.
     if not qa or not qa.get("ok"):
         blockers.append("deterministic production QA matrix failed/missing")
-    for kind, key in (("eyes", "approved_eyes_min"), ("hood_up", "approved_hood_up_min"),
-                      ("hood_down", "approved_hood_down_min")):
-        n = approved(kind)
-        if n < TARGETS[key]:
-            blockers.append(f"approved {kind} templates {n} < {TARGETS[key]}")
+
+    mask_ok, mask_msg, mask_sha = _mask_status(mask_asset, mask_approval, policy)
+    if not mask_ok:
+        blockers.append(mask_msg)
+
+    n = approved("eyes")
+    if n < TARGETS["approved_eyes_min"]:
+        blockers.append(f"approved eyes templates {n} < {TARGETS['approved_eyes_min']}")
+
     if not paired:
         blockers.append("missing paired benchmark report")
     else:
@@ -82,21 +105,27 @@ def build_status(bench_root: Path = Path("out/production_benchmark"),
             blockers.append("approved paired benchmark has structural problems")
         if a < TARGETS["approved_pairs_target"]:
             blockers.append(f"approved pairs {a}/{TARGETS['approved_pairs_target']}")
+    if not baseline:
+        blockers.append("paired benchmark baseline missing (regenerate/re-approve)")
+    elif baseline.get("mask_sha") != mask_sha or baseline.get("policy") != policy:
+        blockers.append("paired benchmark stale (mask/render policy changed)")
+
     return {
-        "version": 2,
+        "version": 3,
         "ready": not blockers,
         "targets": TARGETS,
         "policy": {
             "eyes": "user-accepted, data-limited; holdout n is reported but not gated",
-            "hood_up": "n>=3 (corpus ceiling: 3 full-crown holdout)",
-            "hood_down": "n>=5 and p90<=0.25",
+            "hood": "mask-driven (assets/hood_masks.json + human approval); pack hood coverage is reported but not gated",
+            "paired": "must carry benchmark_baseline.json with the current mask SHA and render policy",
         },
         "blockers": blockers,
         "approved": {
             "pairs": paired.get("approved_count", 0) if paired else 0,
-            "eyes": approved("eyes"), "hood_up": approved("hood_up"),
-            "hood_down": approved("hood_down"),
+            "eyes": approved("eyes"),
+            "hood_masks": mask_ok,
         },
         "coverage": cov,
-        "note": "Gate v2 (2026-11-02) fails closed; style coverage alone is not production approval.",
+        "mask_sha": mask_sha,
+        "note": "Gate v3 (2026-11-02) fails closed; a changed mask/render policy invalidates the paired baseline.",
     }

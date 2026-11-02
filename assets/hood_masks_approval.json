@@ -1,0 +1,9 @@
+{
+  "approved": true,
+  "approved_by": "user",
+  "approved_at": "2026-11-02",
+  "policy": "mask-hood-2026-11-02",
+  "sha256": "7f707a95745e80e77c6db43fc9b858353f9d61fae86e4926fd2f24814db762c6",
+  "artifact": "assets/hood_masks.json",
+  "note": "User-designed final head L1/L2 masks (up/down, incl. bottom); body masks absent."
+}
