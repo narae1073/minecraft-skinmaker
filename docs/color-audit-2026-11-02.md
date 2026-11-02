@@ -69,3 +69,20 @@ white/beige garments light blue (`#c7e1ff`, `#a6cbe1`, `#afc7e2`). With
 
 Remaining: pink jacket (region still white), white pants (bottom remains
 orange), dark gold hair, hood geometry.
+
+## Round 4 — SCHP upper-clothes top (raw RGB)
+
+The WB cap alone left pink `#e4cbc7` desaturated to `#cbc5c4` (a 0.91 gain is
+within the 10% cap). A tighter cap (1.05) fixed pink but broke the lipstick WB
+confidence contract, so it was rejected.
+
+Instead, the SCHP upper-clothes mask (class 4) now provides the top colour from
+the **raw RGB**, bypassing the skin-anchored WB for the garment sample. Bands
+still fallback when the mask is small.
+
+- pink jacket: white/gray → `#e4cbc7` pink
+- white hood: light blue → near-white
+- beige hoodie: light blue → beige (outer supplies beige)
+- A/B: `out/color_audit/seg_ab.png`
+
+Remaining: white pants (bottom sample), dark gold hair, hood geometry.

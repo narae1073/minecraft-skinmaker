@@ -26,6 +26,7 @@ PARSING_ENV = "SKINMAKER_PARSING"
 PARSER_ENV = "SKINMAKER_PARSER"
 DEFAULT_MODEL = Path(__file__).resolve().parent.parent / "out" / "models" / "schp-atr-18-int8-static.onnx"
 
+UPPER_CLOTHES = 4
 PANTS, SKIRT = 6, 5
 BOTTOM_CLASSES = (PANTS, SKIRT)
 DRESS = 7  # ATR dress class — 하체 덮음 증거 + 밑단 측정 보조 (2026-10-28 실사진 프로브)
