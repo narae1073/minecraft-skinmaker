@@ -1,3 +1,8 @@
+> **2026-11-02 update (gate v4 / attribute masks):** the gate now reads
+> `assets/attribute_masks.json` + `assets/attribute_masks_approval.json`
+> (policy `attribute-masks-2026-11-02`). `hood.up/down` were migrated 1:1 from
+> the old hood asset. The paired baseline is stale until re-approved.
+
 # Production gate v3 — 2026-11-02 (mask-driven hood)
 
 Gate v2 still required pack hood template approvals and pack hood holdout

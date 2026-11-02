@@ -166,6 +166,7 @@ def test_hood_variants_use_alt_trim_and_keep_eyes(monkeypatch):
     alt = (219, 234, 254)
     monkeypatch.setattr(R, "hood_variant", lambda seed: 2)
     monkeypatch.setattr(R, "load_hood_masks", lambda: None)
+    monkeypatch.setattr(R.AM, "load_masks", lambda: {})
     canvas = R.render(base, attrs(top_garment="hoodie", hood="up"), ())
     colors = {
         canvas.get("head", "front", u, 1, 1)[:3]
@@ -191,6 +192,7 @@ def test_fur_hood_has_no_accent_pixels_in_band(monkeypatch):
     )
     monkeypatch.setattr(R, "hood_variant", lambda seed: 2)
     monkeypatch.setattr(R, "load_hood_masks", lambda: None)
+    monkeypatch.setattr(R.AM, "load_masks", lambda: {})
     canvas = R.render(base, attrs(top_garment="hoodie", hood="up"), ())
     grid = [[canvas.get("head", "top", u, v, 1)[:3] for u in range(8)] for v in range(8)]
     assert len({grid[0][u] for u in range(8)}) == 1, "highlight above fur band"
@@ -211,6 +213,7 @@ def test_fur_hood_uses_front_brim_not_crown_ring(monkeypatch):
     )
     monkeypatch.setattr(R, "hood_variant", lambda seed: 2)
     monkeypatch.setattr(R, "load_hood_masks", lambda: None)
+    monkeypatch.setattr(R.AM, "load_masks", lambda: {})
     canvas = R.render(base, attrs(top_garment="hoodie", hood="up"), ())
     top = {canvas.get("head", "top", u, v, 1)[:3] for v in range(8) for u in range(8)}
     assert len(top) == 1, top  # no crown fur that creates edge slivers
@@ -229,6 +232,7 @@ def test_fur_hood_has_no_body_light_trim(monkeypatch):
     )
     monkeypatch.setattr(R, "hood_variant", lambda seed: 2)
     monkeypatch.setattr(R, "load_hood_masks", lambda: None)
+    monkeypatch.setattr(R.AM, "load_masks", lambda: {})
     canvas = R.render(base, attrs(top_garment="hoodie", hood="up"), ())
     alt = (219, 234, 254)
     for face in ("front", "back"):
@@ -250,6 +254,7 @@ def test_noise_cannot_scatter_fur_hood_crown(monkeypatch):
     )
     monkeypatch.setattr(R, "hood_variant", lambda seed: 2)
     monkeypatch.setattr(R, "load_hood_masks", lambda: None)
+    monkeypatch.setattr(R.AM, "load_masks", lambda: {})
     canvas = R.render(base, attrs(top_garment="hoodie", hood="up"), (),
                       noise_seed=12345, noise_level=0.5)
     top = {canvas.get("head", "top", u, v, 1) for v in range(8) for u in range(8)}

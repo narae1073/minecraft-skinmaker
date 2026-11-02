@@ -11,10 +11,11 @@ from functools import lru_cache
 from pathlib import Path
 
 from .canvas import shade
+from . import attribute_masks as AM
 
 HEAD_FACES = ("top", "front", "right", "left", "back", "bottom")
 NEIGHBORS = ((1, 0), (-1, 0), (0, 1), (0, -1))
-MASK_PATH = Path(__file__).resolve().parent.parent / "assets" / "hood_masks.json"
+MASK_PATH = AM.ASSET_PATH
 
 
 def _bit(grid, u, v):
@@ -32,12 +33,9 @@ def _four(color):
 
 @lru_cache(maxsize=1)
 def load_hood_masks(path: str | None = None) -> dict | None:
-    try:
-        data = json.loads(Path(path or MASK_PATH).read_text(encoding="utf-8"))
-    except (OSError, ValueError):
-        return None
-    masks = data.get("masks", data) if isinstance(data, dict) else None
-    return masks if isinstance(masks, dict) else None
+    """Load hood.up/down from the general attribute-mask asset."""
+    masks = AM.load_masks(path or MASK_PATH)
+    return AM.legacy_hood_masks(masks)
 
 
 def apply_hood_masks(canvas, base, alt, kind: str, masks: dict, mode: str = "hood") -> None:

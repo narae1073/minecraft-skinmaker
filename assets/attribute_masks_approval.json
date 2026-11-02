@@ -1,0 +1,13 @@
+{
+ "approved": true,
+ "approved_by": "user",
+ "approved_at": "2026-11-02",
+ "policy": "attribute-masks-2026-11-02",
+ "sha256": "c4bae04228d12df02162ca16b5fcec3582590a433b25b80f2b70886112ff8461",
+ "artifact": "assets/attribute_masks.json",
+ "migrated_from": {
+  "artifact": "assets/hood_masks.json",
+  "sha256": "7f707a95745e80e77c6db43fc9b858353f9d61fae86e4926fd2f24814db762c6"
+ },
+ "note": "hood.up/down migrated 1:1; headwear.cap/beanie and hood_fit.shallow seeded from the procedural renderer. hair/beard/body masks pending editor expansion."
+}
