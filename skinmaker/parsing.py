@@ -16,6 +16,8 @@ SKINMAKER_PARSING=0/false/off/no 로 명시적으로 끌 수 있다.
 """
 from __future__ import annotations
 
+import hashlib
+
 import os
 from pathlib import Path
 
@@ -96,8 +98,21 @@ def _preproc(image: Image.Image) -> np.ndarray:
     return x.transpose(2, 0, 1)[None].astype(np.float32)
 
 
+_MASK_CACHE: dict[tuple, np.ndarray | None] = {}
+_MASK_CACHE_MAX = 8
+
+
 def bottom_mask(image: Image.Image) -> np.ndarray | None:
-    """원본 크기 class map (uint8). 불가/실패 → None (호출부 폴백)."""
+    """원본 크기 class map (uint8). 불가/실패 → None (호출부 폴백).
+
+    SCHP 추론은 같은 사진에서 ~2.8s 걸리므로, 동일 이미지(픽셀 해시) 결과를
+    작은 LRU로 재사용한다. 요청 간 캐시는 메모리만 쓰고 디스크에 남기지 않는다.
+    """
+    rgb = image.convert("RGB")
+    digest = hashlib.sha1(rgb.tobytes()).hexdigest()
+    key = (image.size, digest)
+    if key in _MASK_CACHE:
+        return _MASK_CACHE[key]
     ok, _ = available()
     if not ok:
         return None
@@ -105,12 +120,16 @@ def bottom_mask(image: Image.Image) -> np.ndarray | None:
         sess = _session()
         if sess is None:
             return None
-        logits = sess.run(["logits"], {"pixel_values": _preproc(image)})[0]
+        logits = sess.run(["logits"], {"pixel_values": _preproc(rgb)})[0]
         seg512 = logits[0].argmax(axis=0).astype(np.uint8)
         w, h = image.size
-        return np.asarray(Image.fromarray(seg512).resize((w, h), Image.NEAREST))
+        result = np.asarray(Image.fromarray(seg512).resize((w, h), Image.NEAREST))
     except Exception:
-        return None
+        result = None
+    if len(_MASK_CACHE) >= _MASK_CACHE_MAX:
+        _MASK_CACHE.pop(next(iter(_MASK_CACHE)))
+    _MASK_CACHE[key] = result
+    return result
 
 
 def skirt_hem_rows(seg: np.ndarray | None, face, min_pixels: int = 40) -> int | None:

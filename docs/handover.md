@@ -514,3 +514,5 @@ S0 quality/face detection (YuNet) → S1 colour measurement (white-balance + ban
 - 2026-11-03 (SSE progress + timings, `feat/sse-progress`): `POST /api/v1/generate-skin` with `Accept: text/event-stream` returns SSE progress (`inspect`/`classify`/`segment`/`extract`/`render`/`steps`/`done`) then a `result` event with `data.timings`; JSON clients unchanged. Frontend parses SSE and drives the loading bar + stage text. Tests 726.
 
 - 2026-11-03 (parallel VLM, `perf/parallel-vlm`): `classify()` now runs the natural-order and reversed-order Gemini calls concurrently (`ThreadPoolExecutor(max_workers=2)`) instead of sequentially, halving the worst-case 2x30s latency; merge/agreement semantics unchanged. Tests 726.
+
+- 2026-11-03 (segment cache, `perf/segment-cache`): `parsing.bottom_mask` caches the SCHP result by RGB pixel SHA-1 in a small 8-entry in-memory LRU (no disk persistence). Same image: ~3.1s → ~0.03s. Tests 726 (118.78s).
