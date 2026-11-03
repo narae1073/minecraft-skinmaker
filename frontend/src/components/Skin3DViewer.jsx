@@ -41,11 +41,14 @@ function MinecraftCharacter({ skinUrl, model = 'classic' }) {
   );
 }
 
-export default function Skin3DViewer({ skinUrl, model = 'classic', width = 200, height = 300 }) {
-  if (!skinUrl) return <div style={{ width, height, background: '#e2e8f0' }} />;
+export default function Skin3DViewer({ skinUrl, model = 'classic', width = 200, height = 300, className }) {
+  const classes = ['skin-viewer', className].filter(Boolean).join(' ');
+  const size = className ? undefined : { width: `${width}px`, height: `${height}px` };
+
+  if (!skinUrl) return <div className={classes} style={size} />;
 
   return (
-    <div style={{ width: `${width}px`, height: `${height}px`, background: '#e2e8f0', borderRadius: '8px' }}>
+    <div className={classes} style={size}>
       <Canvas camera={{ position: [0, 2, 5], fov: 50 }}>
         {/* 고정 조명: 자동 회전 없이 가장 밝은 상태를 유지한다 (조명 애니메이션 없음). */}
         <ambientLight intensity={1.1} />
