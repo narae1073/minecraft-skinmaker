@@ -86,3 +86,57 @@ def test_seed_endpoint_returns_current_seed():
 def test_hair_style_preview_uses_very_long_base_for_full_style():
     assert mod._attrs_for("hair_style", "long_wavy").get("hair_length") == "very_long"
     assert mod._attrs_for("hair_length", "short").get("hair_style") == "short"
+
+
+def test_defaults_exposes_16_key_combo_schema():
+    c = TestClient(mod.app)
+    j = c.get("/api/defaults").json()
+    assert len(j["enums"]) == 16
+    assert "pattern" in j["enums"] and "symmetry" in j["enums"]
+    assert len(j["defaults"]) == 16
+    assert j["models"] == ["classic", "slim"]
+    assert set(j["combo"]) == set(j["enums"])
+    assert "pattern" not in j["maskable"] and "symmetry" not in j["maskable"]
+
+
+def test_preview_full_16_key_combo_and_slim():
+    c = TestClient(mod.app)
+    j = c.get("/api/defaults").json()
+    combo = dict(j["combo"])
+    combo.update({"top_garment": "shirt", "bottom_garment": "shorts", "pattern": "vertical_stripe",
+                  "sleeve_len": "long", "hair_style": "long_wavy", "hair_length": "long",
+                  "hood": "down", "closure_type": "buttons", "collar_type": "shirt"})
+    r = c.post("/api/preview", json={"combo": combo, "model": "slim", "masks": j["masks"],
+                                     "mode": "final", "key": "hair_style", "value": "long_wavy"})
+    assert r.status_code == 200, r.text
+    body = r.json()
+    assert body["model"] == "slim"
+    assert body["skin"].startswith("/out/")
+    assert body["effective"]["hair_style"] == "long_wavy"
+    assert body["effective"]["pattern"] == "vertical_stripe"
+
+
+def test_preview_combo_cross_rule_is_reported():
+    c = TestClient(mod.app)
+    j = c.get("/api/defaults").json()
+    combo = dict(j["combo"])
+    combo.update({"top_garment": "none", "sleeve_len": "long", "pattern": "floral"})
+    r = c.post("/api/preview", json={"combo": combo, "masks": j["masks"], "mode": "final",
+                                     "key": "hood", "value": "up"})
+    assert r.status_code == 200, r.text
+    body = r.json()
+    assert body["effective"]["top_garment"] == "none"
+    assert body["effective"]["sleeve_len"] == "none"
+    assert body["effective"]["pattern"] == "plain"
+    assert any("sleeve_len" in w for w in body["warnings"])
+
+
+def test_preview_rejects_bad_combo_and_model():
+    c = TestClient(mod.app)
+    j = c.get("/api/defaults").json()
+    combo = dict(j["combo"])
+    combo["top_garment"] = "bogus"
+    r = c.post("/api/preview", json={"combo": combo, "masks": j["masks"], "mode": "final"})
+    assert r.status_code == 400
+    r = c.post("/api/preview", json={"combo": j["combo"], "model": "bogus", "masks": j["masks"]})
+    assert r.status_code == 400

@@ -206,3 +206,18 @@ Reload the editor to pick up the migration.
    intersection no longer cuts the longest length.
 3. The editor process was running stale code for the saved-draft migration;
    restart the editor after pulling.
+
+## Combo preview (P0, 2026-11-03)
+
+The editor now previews a **16-key combination** (14 shape keys + pattern + symmetry)
+without a photo:
+
+- `/api/defaults` exposes `enums` (16), `defaults`, `models` (classic/slim), `combo`.
+- `/api/preview` accepts `{combo, model, masks, mode, key, value}`; `A.validate`
+  applies cross rules (`top_garment=none` → sleeve/pattern/closure/collar/pocket
+  none) and returns `effective` + `warnings`.
+- Mask key/value tabs auto-sync the matching combo value (14 maskable keys);
+  pattern/symmetry are combo-only. `symmetry` is metadata (no visual effect yet).
+- Combo/model persist in the URL hash and localStorage.
+- P0 renders classic/slim **2D**; 3D is classic front. Slim 3D, presets, 3D back/
+  overlay are P1.
