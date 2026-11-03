@@ -9,6 +9,7 @@
 """
 from __future__ import annotations
 
+import asyncio
 import dataclasses
 import json
 import os
@@ -80,6 +81,18 @@ def fail(status_code: int, code: str, message: str, extra: dict | None = None):
     if extra:
         payload.update(extra)
     raise HTTPException(status_code, payload)
+
+
+async def _await_or_cancel(request: Request, func, *args, **kwargs):
+    """Run a blocking pipeline stage off the event loop; stop if the client is gone."""
+    if await request.is_disconnected():
+        raise HTTPException(499, {"status": "error", "code": "client_closed",
+                                  "message": "요청이 취소되었어요."})
+    result = await asyncio.to_thread(func, *args, **kwargs)
+    if await request.is_disconnected():
+        raise HTTPException(499, {"status": "error", "code": "client_closed",
+                                  "message": "요청이 취소되었어요."})
+    return result
 
 
 def classify_error_status(message: str) -> tuple[int, str, str]:
@@ -170,7 +183,7 @@ async def generate_skin(request: Request, file: UploadFile = File(...), noise_le
         with os.fdopen(fd, "wb") as tmp:
             tmp.write(raw)
         try:
-            photo = inspect(tmp_name, crop=crop_box)
+            photo = await _await_or_cancel(request, inspect, tmp_name, crop=crop_box)
         except Exception as exc:
             fail(400, "unreadable", f"이미지를 읽지 못했어요: {type(exc).__name__}")
     finally:
@@ -182,7 +195,7 @@ async def generate_skin(request: Request, file: UploadFile = File(...), noise_le
         fail(422, "no_face", "사진에서 얼굴을 찾지 못했어요. 정면 실사 얼굴 사진으로 다시 시도해주세요.",
              extra={"can_crop": True, "image_size": list(photo.image.size), "source": photo.source})
     transport = make_transport()
-    result = classify(photo, transport)
+    result = await _await_or_cancel(request, classify, photo, transport)
     if not result.ok:
         # 자격증명/설정 누락은 재시도로 풀리지 않는다 — 502 분류 실패와 구분한다.
         if result.error_kind == "transport":
@@ -192,9 +205,10 @@ async def generate_skin(request: Request, file: UploadFile = File(...), noise_le
     from skinmaker import parsing as _parsing
     from skinmaker.debugview import steps_sheets
 
-    seg = _parsing.bottom_mask(photo.image) if _parsing.parsing_on() else None
-    observed = extract(photo, hair_bbox=result.hair_bbox_px, seg=seg,
-                       hair_overlay=hair_overlay == "on")
+    seg = (await _await_or_cancel(request, _parsing.bottom_mask, photo.image)) if _parsing.parsing_on() else None
+    observed = await _await_or_cancel(
+        request, extract, photo, hair_bbox=result.hair_bbox_px, seg=seg,
+        hair_overlay=hair_overlay == "on")
     # Manual hair-colour override (2026-11-02): the user's notes 00/02/06 are
     # source-limited (no gold in the visible hair); the UI can set the colour.
     if hair_color:
@@ -217,7 +231,7 @@ async def generate_skin(request: Request, file: UploadFile = File(...), noise_le
             result.attributes, values=values,
             derived=(*result.attributes.derived, "bottom_garment=jeans (하체 미관측 기본)"),
         )
-    candidates = build(observed, result, photo.degrade, model=skin_model, noise_level=level)
+    candidates = await _await_or_cancel(request, build, observed, result, photo.degrade, model=skin_model, noise_level=level)
     if not candidates or not all(c.ok for c in candidates):
         fail(500, "render_failed", "렌더 검증 실패. 같은 사진으로 다시 시도해주세요.")
     token = uuid.uuid4().hex[:12]
@@ -228,7 +242,8 @@ async def generate_skin(request: Request, file: UploadFile = File(...), noise_le
     if want_steps:
         STEPS_DIR = ROOT / "static" / "steps"  # /static 마운트 위치와 일치 (실앱 404 수정 2026-10-13)
         STEPS_DIR.mkdir(exist_ok=True)
-        clean_sheet, full_sheet = steps_sheets(
+        clean_sheet, full_sheet = await _await_or_cancel(
+            request, steps_sheets,
             photo, candidates[0].image, skin_model, observed, seg,
             # 스탬프는 요청이 아니라 실제 사용 모드 — 마스크 근거 실패면 rule로 기록 (진실 규칙)
             note="hair=" + ("mask+symmetrized" if observed.hair_stencil else "rule") + " overlay=" + hair_overlay,
