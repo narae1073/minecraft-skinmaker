@@ -549,6 +549,7 @@ def render_body(
     front_rows = min(12, max(0, getattr(hair_stencil, "front_body_rows", 0)))
     if back_rows or front_rows:
         hair_c = colors["hair"]
+        cells = set()
         legacy_faces = () if hide_back_drape else (
             ("right", "left") if hide_body_back_hair else ("back", "right", "left")
         )
@@ -557,12 +558,15 @@ def render_body(
             for v in range(min(back_rows, f.h)):
                 for u in range(f.w):
                     canvas.put("body", face_name, u, v, shade(hair_c, FACE_SHADE[face_name]), 0)
+                    cells.add((face_name, u, v))
 
         front = canvas.layout.face("body", "front", 0)
         for v, cols in enumerate(HS.front_lock_profile(front_rows)):
             for u in cols:
                 if v < front.h:
                     canvas.put("body", "front", u, v, shade(hair_c, FACE_SHADE["front"]), 0)
+                    cells.add(("front", u, v))
+        return cells
     return set()
 
 
@@ -1108,15 +1112,15 @@ def _combine_mask_grids(a, b):
     return [[1 if a[v][u] and b[v][u] else 0 for u in range(w)] for v in range(h)]
 
 
-def _hair_mask_grid(masks, attrs: Attributes, face: str, layer: str):
+def _hair_mask_grid(masks, attrs: Attributes, face: str, layer: str, part: str = "head"):
     style = attrs.get("hair_style") or "short"
     length = attrs.get("hair_length") or "short"
-    style_grid = AM.get_mask(masks, "hair_style", style, layer, "head", face)
-    length_grid = AM.get_mask(masks, "hair_length", length, layer, "head", face)
+    style_grid = AM.get_mask(masks, "hair_style", style, layer, part, face)
+    length_grid = AM.get_mask(masks, "hair_length", length, layer, part, face)
     grid = _combine_mask_grids(style_grid, length_grid)
     if grid is None and layer == "L2":
-        style_grid = AM.get_mask(masks, "hair_style", style, "L1", "head", face)
-        length_grid = AM.get_mask(masks, "hair_length", length, "L1", "head", face)
+        style_grid = AM.get_mask(masks, "hair_style", style, "L1", part, face)
+        length_grid = AM.get_mask(masks, "hair_length", length, "L1", part, face)
         grid = _combine_mask_grids(style_grid, length_grid)
     return grid
 
@@ -1157,6 +1161,38 @@ def apply_head_masks(canvas: SkinCanvas, colors: dict[str, Color], attrs: Attrib
                     if bit:
                         canvas.put("head", "front", u, v,
                                    shade(hair_c, FACE_SHADE.get("front", 1.0) * 0.82), 0)
+
+
+def apply_body_hair_masks(canvas: SkinCanvas, colors: dict[str, Color], attrs: Attributes,
+                          masks: dict, body_cells: set, hide_back: bool = False) -> None:
+    """Clip/add the body hair drape from hair_style/hair_length masks.
+
+    L1 hair cells outside the mask are restored to the top colour; mask cells are
+    painted hair. L2 body hair is clipped to the same mask (body L2 is hair-only;
+    the hood-down fold is added later). The hood-down body-back policy wins.
+    """
+    hair_c, top_c = colors["hair"], colors["top"]
+    for face in ("front", "back", "right", "left"):
+        if face == "back" and hide_back:
+            continue
+        l1 = _hair_mask_grid(masks, attrs, face, "L1", "body")
+        if l1:
+            f = canvas.layout.face("body", face, 0)
+            for v in range(min(len(l1), f.h)):
+                for u in range(min(len(l1[v]), f.w)):
+                    if l1[v][u]:
+                        canvas.put("body", face, u, v, shade(hair_c, FACE_SHADE.get(face, 1.0)), 0)
+                    elif (face, u, v) in body_cells:
+                        canvas.put("body", face, u, v, shade(top_c, FACE_SHADE.get(face, 1.0)), 0)
+        l2 = _hair_mask_grid(masks, attrs, face, "L2", "body")
+        if l2:
+            f = canvas.layout.face("body", face, 1)
+            for v in range(min(len(l2), f.h)):
+                for u in range(min(len(l2[v]), f.w)):
+                    if l2[v][u]:
+                        canvas.put("body", face, u, v, _l2_color(hair_c, face), 1)
+                    else:
+                        canvas.put("body", face, u, v, (0, 0, 0, 0), 1)
 
 
 def render_hair_overlay(canvas: SkinCanvas, colors: dict[str, Color], stencil, hair_length: str = "short",
@@ -1431,6 +1467,7 @@ def render(
                             hide_body_back_hair=hide_body_back_hair,
                             allow_eye_fringe=attrs.get("hood") not in ("up", "down"))
     apply_head_masks(canvas, colors, attrs, masks, style, hair_cells)
+    apply_body_hair_masks(canvas, colors, attrs, masks, body_cells, hide_body_back_hair)
     if noise_seed is not None:
         # Reference-shaded hair keeps its strands: block noise would stamp
         # 2-3px squares over them (refs have no such texture on hair).

@@ -97,11 +97,30 @@ def _seed_hair(key: str, value: str) -> dict:
     canvas = SkinCanvas("classic")
     cells = R.render_head(canvas, R.resolve_colors(Q._observed()), attrs, None,
                           style=style, pack=None, seed="", masks=None, return_cells=True)
-    grids = {}
+    l1 = {}
     for face in ("top", "front", "right", "left", "back", "bottom"):
         f = LAYOUT.face("head", face, 0)
-        grids[f"head.{face}"] = [[1 if (face, u, v) in cells else 0 for u in range(f.w)] for v in range(f.h)]
-    return {"L1": grids, "L2": {}}
+        l1[f"head.{face}"] = [[1 if (face, u, v) in cells else 0 for u in range(f.w)] for v in range(f.h)]
+    # Body hair drape (medium/long/very_long): seed L1 and L2 from the
+    # procedural target vs a short-hair baseline. This is the body hair the
+    # editor/mask view previously missed.
+    target = R.render(Q._observed(), attrs, (), mask_override={})
+    base = dict(attrs.values)
+    base["hair_style"] = "short"
+    base["hair_length"] = "short"
+    baseline = R.render(Q._observed(), A.validate(base), (), mask_override={})
+    l2 = {}
+    for face in ("front", "back", "right", "left"):
+        f = LAYOUT.face("body", face, 0)
+        grid1 = [[1 if target.get("body", face, u, v, 0)[:3] != baseline.get("body", face, u, v, 0)[:3] else 0
+                  for u in range(f.w)] for v in range(f.h)]
+        grid2 = [[1 if target.get("body", face, u, v, 1)[:3] != baseline.get("body", face, u, v, 1)[:3] else 0
+                  for u in range(f.w)] for v in range(f.h)]
+        if any(any(r) for r in grid1):
+            l1[f"body.{face}"] = grid1
+        if any(any(r) for r in grid2):
+            l2[f"body.{face}"] = grid2
+    return {"L1": l1, "L2": l2}
 
 
 def _seed_sleeve(key: str, value: str) -> dict:

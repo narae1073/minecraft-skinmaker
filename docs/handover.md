@@ -482,3 +482,5 @@ S0 quality/face detection (YuNet) → S1 colour measurement (white-balance + ban
 - 2026-11-02 (top_garment, `feat/top-garment`): body/arm/leg(0-8) mask, seed tee/vest 550, dress 582; editor 14 keys/56 entries. Tests 709; QA 50. All 14 shape keys done; approval CLI promotes drafts; paired deferred.
 
 - 2026-11-03 (editor boot fix, `fix/editor-boot`): viewer.js `PART_UV2`가 `HEAD2` 정의 전에 평가돼 TDZ ReferenceError → 모듈이 부팅 전에 죽고 `/api/defaults` 요청 없음/“불러오는 중” 고정. 정의 후로 이동; index에 error/unhandledrejection status handler; app.js v10; 초기 face `front`. Headless Chrome에서 defaults 200 → preview 200 → status `head / hood.up / L1 / head.front` 확인.
+
+- 2026-11-03 (body hair masks, `fix/body-hair-masks`): hair mask seed에 body L1/L2 drape 포함(long_wavy 예: L1 186, L2 50); `apply_body_hair_masks`가 L1/L2 body hair를 mask로 clip/add; hood-down back policy 유지. 3D Mask view/body atlas에 body hair 표시. Tests 710; QA 50.

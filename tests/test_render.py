@@ -1267,3 +1267,18 @@ def test_top_garment_mask_overrides_body_and_arm():
     arm_top = canvas.image.getpixel((a.x + 0, a.y + 0))[:3]
     arm_skin = canvas.image.getpixel((a.x + 1, a.y + 0))[:3]
     assert arm_top != arm_skin
+
+
+def test_body_hair_mask_clips_l1_and_l2():
+    l1 = [[0] * 8 for _ in range(12)]
+    l1[0][1] = 1
+    l2 = [[0] * 8 for _ in range(12)]
+    l2[0][1] = 1
+    canvas = R.render(observed(), attrs(hair_style="long_wavy", hair_length="long", hood="none"), (),
+                      mask_override={"hair_style.long_wavy": {"L1": {"body.front": l1},
+                                                               "L2": {"body.front": l2}}})
+    f = canvas.layout.face("body", "front", 0)
+    hair = canvas.image.getpixel((f.x + 1, f.y + 0))[:3]
+    top = shade(rgba(observed().top.hex), R.FACE_SHADE["front"])[:3]
+    assert hair != top
+    assert canvas.image.getpixel((f.x + 1, f.y + 0))[3] == 255
