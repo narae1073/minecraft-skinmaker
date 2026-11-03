@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<title>skinmaker QA — 3D</title>
+<style>
+  body { margin: 0; background: #171a1f; color: #e6e6ea; font: 12px/1.3 system-ui, sans-serif; }
+  header { padding: 14px 18px 6px; }
+  h1 { font-size: 18px; margin: 0 0 4px; }
+  #stats { color: #9fd0a8; }
+  #grid { display: grid; grid-template-columns: repeat(6, 280px); gap: 10px; padding: 12px 18px 22px; }
+  .cell { background: #20242b; border-radius: 6px; padding: 6px; }
+  .cell.pass { outline: 2px solid #58c878; }
+  .cell.fail { outline: 2px solid #eb5a50; }
+  .view { width: 268px; height: 268px; border-radius: 4px; overflow: hidden; background: #262b33; }
+  .label { margin-top: 4px; font-size: 11px; color: #d7d7dd; min-height: 26px; }
+  .failtxt { color: #f08a80; font-size: 10px; }
+</style>
+<script type="importmap">
+{"imports": {"three": "/static/vendor/three.module.js", "three/addons/": "/static/vendor/"}}
+</script>
+</head>
+<body>
+<header><h1 id="title">skinmaker QA — 3D</h1><div id="stats">loading…</div></header>
+<div id="grid"></div>
+<script type="module" src="/static/qa3d.js"></script>
+</body>
+</html>

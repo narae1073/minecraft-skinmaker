@@ -41,6 +41,15 @@ const LEG2 = shiftFaces(LEG, 0, 16);
 const LLEG2 = shiftFaces(LLEG, -16, 0);
 export const PART_UV2 = { head: HEAD2, body: BODY2, r_arm: ARM2, l_arm: LARM2, r_leg: LEG2, l_leg: LLEG2 };
 
+// Slim model: head/body/legs share the classic rects; arm width is 3px
+// (right/left faces stay 4px). Mirrors skinmaker/format.py get_layout("slim").
+const SLIM_ARM = { px: [47, 20, 4, 12], nx: [40, 20, 4, 12], py: [44, 16, 3, 4], ny: [47, 16, 3, 4], pz: [44, 20, 3, 12], nz: [51, 20, 3, 12] };
+const SLIM_LARM = { px: [39, 52, 4, 12], nx: [32, 52, 4, 12], py: [36, 48, 3, 4], ny: [39, 48, 3, 4], pz: [36, 52, 3, 12], nz: [43, 52, 3, 12] };
+export const PART_UV_SLIM = { head: HEAD, body: BODY, r_arm: SLIM_ARM, l_arm: SLIM_LARM, r_leg: LEG, l_leg: LLEG };
+const SLIM_ARM2 = shiftFaces(SLIM_ARM, 0, 16);
+const SLIM_LARM2 = shiftFaces(SLIM_LARM, 16, 0);
+export const PART_UV2_SLIM = { head: HEAD2, body: BODY2, r_arm: SLIM_ARM2, l_arm: SLIM_LARM2, r_leg: LEG2, l_leg: LLEG2 };
+
 export function initViewer(container) {
   const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
   renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
@@ -81,6 +90,10 @@ export function initViewer(container) {
     arm2: boxWithUV(0.5625, 1.5625, 0.5625, ARM2),
     larm: boxWithUV(0.5, 1.5, 0.5, LARM),
     larm2: boxWithUV(0.5625, 1.5625, 0.5625, LARM2),
+    slimArm: boxWithUV(0.375, 1.5, 0.5, SLIM_ARM),
+    slimArm2: boxWithUV(0.4375, 1.5625, 0.5625, SLIM_ARM2),
+    slimLarm: boxWithUV(0.375, 1.5, 0.5, SLIM_LARM),
+    slimLarm2: boxWithUV(0.4375, 1.5625, 0.5625, SLIM_LARM2),
     leg: boxWithUV(0.5, 1.5, 0.5, LEG),
     leg2: boxWithUV(0.5625, 1.5625, 0.5625, LEG2),
     lleg: boxWithUV(0.5, 1.5, 0.5, LLEG),
@@ -147,6 +160,20 @@ export function initViewer(container) {
     r_arm: ['arm', 'arm2'], l_arm: ['larm', 'larm2'],
     r_leg: ['leg', 'leg2'], l_leg: ['lleg', 'lleg2'],
   };
+  let activeUV = PART_UV;
+  let activeUV2 = PART_UV2;
+
+  function setModel(model) {
+    const slim = model === 'slim';
+    meshes.arm.geometry = slim ? geos.slimArm : geos.arm;
+    meshes.arm2.geometry = slim ? geos.slimArm2 : geos.arm2;
+    meshes.larm.geometry = slim ? geos.slimLarm : geos.larm;
+    meshes.larm2.geometry = slim ? geos.slimLarm2 : geos.larm2;
+    meshes.arm.position.x = slim ? 0.6875 : 0.75;
+    meshes.larm.position.x = slim ? -0.6875 : -0.75;
+    activeUV = slim ? PART_UV_SLIM : PART_UV;
+    activeUV2 = slim ? PART_UV2_SLIM : PART_UV2;
+  }
 
   function pick(part, layer, clientX, clientY) {
     const rect = renderer.domElement.getBoundingClientRect();
@@ -166,7 +193,7 @@ export function initViewer(container) {
     const key = ax >= ay && ax >= az ? (n.x > 0 ? 'px' : 'nx')
       : ay >= az ? (n.y > 0 ? 'py' : 'ny') : (n.z > 0 ? 'pz' : 'nz');
     const faceName = FACE_NAME[key];
-    const faceRect = (layer === 'L1' ? PART_UV : PART_UV2)[part][key];
+    const faceRect = (layer === 'L1' ? activeUV : activeUV2)[part][key];
     const px = Math.floor(hit.uv.x * S);
     const py = Math.floor((1 - hit.uv.y) * S);
     const u = px - faceRect[0], v = py - faceRect[1];
@@ -193,5 +220,6 @@ export function initViewer(container) {
   function projectHead() { return projectPoint(0, 1.5, 0); }
 
   animate();
-  return { setSkin, controls, camera, resize, pick, pickHead, setEditableLayer, projectHead, projectPoint, meshes };
+  setModel('classic');
+  return { setSkin, setModel, controls, camera, resize, pick, pickHead, setEditableLayer, projectHead, projectPoint, meshes };
 }

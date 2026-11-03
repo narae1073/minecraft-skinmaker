@@ -13,6 +13,17 @@ let viewer = null;
 let previewTimer = null;
 let previewSeq = 0;
 const COMBO_STORAGE = 'skinmaker.combo.v1';
+const COMBO_PRESETS = [
+  { label: 'hoodie · long', combo: { top_garment: 'hoodie', sleeve_len: 'long', hood: 'down',
+    hair_style: 'long_wavy', hair_length: 'long', bottom_garment: 'jeans' } },
+  { label: 'jacket · short', combo: { top_garment: 'jacket', inner_top: 'shirt', closure_type: 'open',
+    collar_type: 'shirt', sleeve_len: 'long', hair_style: 'short', hair_length: 'short',
+    bottom_garment: 'pants' } },
+  { label: 'dress · very long', combo: { top_garment: 'dress', sleeve_len: 'none', bottom_garment: 'none',
+    hair_style: 'long_straight', hair_length: 'very_long' } },
+  { label: 'tee · bob', combo: { top_garment: 'tee', sleeve_len: 'short', bottom_garment: 'jeans',
+    hair_style: 'bob', hair_length: 'medium' } },
+];
 
 const maskName = () => `${state.key}.${state.value}`;
 const curMask = () => ensureMask();
@@ -86,7 +97,7 @@ function syncComboUI() {
   const model = document.querySelector('#comboModel');
   if (model) model.value = state.model;
   const status = document.querySelector('#comboStatus');
-  if (status) status.textContent = `3D: classic (${state.model})` +
+  if (status) status.textContent = `3D: ${state.model}` +
     (state.combo && state.combo.symmetry === 'asymmetric' ? ' · symmetry: metadata (no visual)' : '');
 }
 
@@ -126,8 +137,22 @@ function renderCombo() {
     }
     model.onchange = () => {
       state.model = model.value;
+      if (viewer) viewer.setModel(state.model);
       saveCombo(); syncComboUI(); schedulePreview();
     };
+  }
+  const presets = document.querySelector('#comboPresets');
+  if (presets) {
+    presets.innerHTML = '';
+    for (const preset of COMBO_PRESETS) {
+      const button = document.createElement('button');
+      button.textContent = preset.label;
+      button.onclick = () => {
+        state.combo = { ...defaultCombo(), ...preset.combo };
+        saveCombo(); syncComboUI(); schedulePreview();
+      };
+      presets.append(button);
+    }
   }
   const reset = document.querySelector('#comboReset');
   if (reset) reset.onclick = () => {
@@ -157,6 +182,7 @@ async function boot() {
   try {
     viewer = initViewer($('#viewer'));
     window.maskEditor.viewer = viewer;
+    viewer.setModel(state.model);
     viewer.setEditableLayer(state.layer);
     bind3d(viewer);
   } catch (e) {

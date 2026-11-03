@@ -496,3 +496,5 @@ S0 quality/face detection (YuNet) → S1 colour measurement (white-balance + ban
 - 2026-11-03 (QA contact sheets, `feat/qa-contact-sheet`): `run_production_qa.py` now writes a labelled contact sheet (`--image`, default `out/production_qa/contact_sheet.png`; `--asset` to QA a draft). Production asset c4bae: 50/50 PASS. Promoted draft b387: 17 FAIL, all hood-up + long hair body-back; stay undeployed. Tests 715.
 
 - 2026-11-03 (combo preview P0, `feat/combo-preview`): `/api/defaults` 16-key enums/defaults/models/combo; `/api/preview` combo/model/effective/warnings; editor 16-select combo panel, mask key/value auto-sync, URL+localStorage; classic/slim 2D; 3D classic front; symmetry metadata note. Tests 719; QA 50. P1: slim 3D, presets, 3D back/overlay; production site out.
+
+- 2026-11-03 (P1 slim 3D + presets + 3D capture): viewer.js slim arm 3px UV/geometry + `setModel`; editor model select drives 3D (classic/slim); combo presets (hoodie/jacket/dress/tee); 3D headless capture fixed with `--use-gl=angle --use-angle=swiftshader --enable-unsafe-swiftshader`; QA 3D page renders 16 of 17 contexts (WebGL limit). Tests 719; P2 production site out.
