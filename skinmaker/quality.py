@@ -12,7 +12,7 @@ from typing import Any
 
 import cv2
 import numpy as np
-from PIL import Image
+from PIL import Image, ImageOps
 
 try:
     import pillow_avif  # noqa: F401  (AVIF 읽기 등록. 없으면 해당 형식만 건너뜀)
@@ -76,6 +76,8 @@ class PhotoInput:
     quality: Quality | None
     degrade: tuple[str, ...]
     pose: Any = None
+    crop_box: FaceBox | None = None
+    source: str = "original"
 
     @property
     def rejected(self) -> bool:
@@ -199,7 +201,68 @@ def plan_degradation(q: Quality) -> tuple[str, ...]:
     return tuple(flags)
 
 
-def inspect(path: str | Path, score_min: float = DETECT_SCORE_MIN) -> PhotoInput:
+def _multiscale_face(image: Image.Image, score_min: float) -> tuple[FaceBox | None, str]:
+    """Face detection on the full frame, then center/upper-body crops.
+
+    Full-body phone photos often put the face at <6% of the frame; the crop
+    raises the effective face size without adding a person detector.
+    """
+    face = detect_face(image, score_min)
+    if face is not None:
+        return face, "original"
+    w, h = image.size
+    variants = (
+        ("center", (int(w * 0.10), int(h * 0.03), int(w * 0.90), int(h * 0.97))),
+        ("upper_body", (int(w * 0.10), int(h * 0.01), int(w * 0.90), int(h * 0.62))),
+    )
+    for name, (x0, y0, x1, y1) in variants:
+        if x1 - x0 < 2 or y1 - y0 < 2:
+            continue
+        crop = image.crop((x0, y0, x1, y1))
+        found = detect_face(crop, score_min)
+        if found is not None:
+            return FaceBox(found.x + x0, found.y + y0, found.w, found.h), name
+    return None, "original"
+
+
+def inspect(path: str | Path, score_min: float = DETECT_SCORE_MIN,
+            crop: FaceBox | None = None) -> PhotoInput:
+    p = Path(path)
+    with Image.open(p) as im:
+        image = ImageOps.exif_transpose(im).convert("RGB")
+        source = "original"
+        crop_box = None
+        if crop is not None:
+            box = clip_to(crop, image.size)
+            if box is not None:
+                image = image.crop((box.x, box.y, box.right, box.bottom))
+                crop_box = box
+                source = "manual"
+        if source == "original":
+            try:
+                from .person import detect_person
+                person = detect_person(image)
+            except Exception:
+                person = None
+            if person is not None:
+                pb = FaceBox(*person)
+                image = image.crop((pb.x, pb.y, pb.right, pb.bottom))
+                crop_box = pb
+                source = "person"
+        face, found_source = _multiscale_face(image, score_min)
+        if source == "original":
+            source = found_source
+        if face is None:
+            return PhotoInput(str(p), image, None, None, (), None, crop_box, source)
+        quality = measure_quality(image, face)
+    degrade = plan_degradation(quality)
+    try:
+        from .pose import detect_pose
+
+        pose = detect_pose(image)
+    except Exception:
+        pose = None
+    return PhotoInput(str(p), image, face, quality, degrade, pose, crop_box, source)
     p = Path(path)
     with Image.open(p) as im:
         image = im.convert("RGB")

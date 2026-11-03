@@ -10,6 +10,7 @@
 from __future__ import annotations
 
 import dataclasses
+import json
 import os
 import sys
 import tempfile
@@ -25,7 +26,7 @@ from skinmaker.candidates import build
 from skinmaker.classify import classify
 from skinmaker.render import resolve_bottom_ex
 from skinmaker.colors import ColorSample, extract
-from skinmaker.quality import inspect
+from skinmaker.quality import FaceBox, inspect
 from skinmaker.vlm import get_transport
 
 ROOT = Path(__file__).resolve().parent
@@ -73,9 +74,12 @@ def make_transport():
     return get_transport(name, model=os.environ.get(MODEL_ENV))
 
 
-def fail(status_code: int, code: str, message: str):
+def fail(status_code: int, code: str, message: str, extra: dict | None = None):
     """프론트 에러 박스에 그대로 보여줄 구조화 본문."""
-    raise HTTPException(status_code, {"status": "error", "code": code, "message": message})
+    payload = {"status": "error", "code": code, "message": message}
+    if extra:
+        payload.update(extra)
+    raise HTTPException(status_code, payload)
 
 
 def classify_error_status(message: str) -> tuple[int, str, str]:
@@ -111,7 +115,8 @@ def health():
 
 @app.post("/api/v1/generate-skin")
 async def generate_skin(request: Request, file: UploadFile = File(...), noise_level: str = Form(None), steps: str = Form(None),
-                        hair_overlay: str = Form(None), skin_model: str = Form(None), hair_color: str = Form(None)):
+                        hair_overlay: str = Form(None), skin_model: str = Form(None), hair_color: str = Form(None),
+                        crop: str = Form(None)):
     # 공개 배포 가드 (로그인 없음): IP당 분당 요청 제한.
     if not _rate_limiter.allow(client_ip(request)):
         fail(429, "rate_limited", "요청이 너무 잦아요. 잠시 후 다시 시도해주세요.")
@@ -136,6 +141,21 @@ async def generate_skin(request: Request, file: UploadFile = File(...), noise_le
 
     hair_overlay = _hair_option(hair_overlay, ("on", "off"), "on", "hair_overlay")
     skin_model = resolve_skin_model(skin_model)
+    crop_box = None
+    if crop:
+        try:
+            data = json.loads(crop)
+            if isinstance(data, dict):
+                x, y, w, h = (int(round(float(data[k]))) for k in ("x", "y", "w", "h"))
+            elif isinstance(data, (list, tuple)) and len(data) == 4:
+                x, y, w, h = (int(round(float(v))) for v in data)
+            else:
+                raise ValueError("bad crop shape")
+            if w <= 0 or h <= 0:
+                raise ValueError("empty crop")
+            crop_box = FaceBox(x, y, w, h)
+        except (ValueError, TypeError, KeyError, json.JSONDecodeError):
+            fail(400, "bad_crop", "crop은 {x,y,w,h} 픽셀 좌표여야 해요.")
     # 처리 과정 시트 (설계 §12): 진위 규칙은 parsing_on 관례. 부재=생성 (기존 동작),
     # "0/false/off/no/빈값"=스킵 (설정 체크박스 기본 해제 → 웹이 명시 전송).
     want_steps = (steps is None) or (str(steps).strip().lower() not in ("0", "false", "off", "no", ""))
@@ -150,7 +170,7 @@ async def generate_skin(request: Request, file: UploadFile = File(...), noise_le
         with os.fdopen(fd, "wb") as tmp:
             tmp.write(raw)
         try:
-            photo = inspect(tmp_name)
+            photo = inspect(tmp_name, crop=crop_box)
         except Exception as exc:
             fail(400, "unreadable", f"이미지를 읽지 못했어요: {type(exc).__name__}")
     finally:
@@ -159,7 +179,8 @@ async def generate_skin(request: Request, file: UploadFile = File(...), noise_le
         except OSError:
             pass
     if photo.rejected:
-        fail(422, "no_face", "사진에서 얼굴을 찾지 못했어요. 정면 실사 얼굴 사진으로 다시 시도해주세요.")
+        fail(422, "no_face", "사진에서 얼굴을 찾지 못했어요. 정면 실사 얼굴 사진으로 다시 시도해주세요.",
+             extra={"can_crop": True, "image_size": list(photo.image.size), "source": photo.source})
     transport = make_transport()
     result = classify(photo, transport)
     if not result.ok:

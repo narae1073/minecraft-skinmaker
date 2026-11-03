@@ -283,3 +283,38 @@ def test_select_face_single_detection_unchanged():
 
 def test_select_face_none_when_empty():
     assert Q.select_face([], (100, 100)) is None
+
+
+# --- full-body / person auto-crop (2026-11-03) ---
+from skinmaker.quality import FaceBox, inspect as _inspect  # noqa: E402
+
+_FIXTURE = Path(__file__).resolve().parent / "fixtures" / "fullbody_snow.jpg"
+
+
+def test_fullbody_snow_detects_face():
+    photo = _inspect(_FIXTURE)
+    assert photo.face is not None
+    assert photo.source in ("original", "center", "upper_body", "person")
+
+
+def test_manual_crop_uses_cropped_image_and_detects_face():
+    photo = _inspect(_FIXTURE, crop=FaceBox(600, 300, 1200, 1900))
+    assert photo.face is not None
+    assert photo.source == "manual"
+    assert photo.crop_box is not None
+    assert photo.image.size == (1173, 1900)
+
+
+def test_empty_crop_uses_person_auto_crop():
+    photo = _inspect(_FIXTURE, crop=FaceBox(-10, -10, 5, 5))
+    assert photo.face is not None
+    assert photo.source == "person"
+    assert photo.crop_box is not None
+
+
+def test_person_auto_crop_detects_face():
+    photo = _inspect(_FIXTURE)
+    assert photo.source == "person"
+    assert photo.crop_box is not None
+    assert photo.face is not None
+    assert photo.image.size == (photo.crop_box.w, photo.crop_box.h)

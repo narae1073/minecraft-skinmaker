@@ -6,6 +6,7 @@ import CategoryPanel from './components/CategoryPanel';
 import StepsPanel from './components/StepsPanel';
 import CameraCapture from './components/CameraCapture';
 import SelectedPhoto from './components/SelectedPhoto';
+import CropModal from './components/CropModal';
 import './App.css';
 
 function App() {
@@ -42,6 +43,8 @@ function App() {
   const [hairColor, setHairColor] = useState('#d4af37');
   const [catInfo, setCatInfo] = useState(null); // 분류 카테고리 {attributes, candidates, noiseLevel} (설계 §11)
   const [steps, setSteps] = useState(null); // 처리 과정 시트 {clean, full} (설계 §12)
+  const [cropOpen, setCropOpen] = useState(false);
+  const [cropSize, setCropSize] = useState(null); // no_face 응답의 image_size
 
   // 결과 섹션은 설정 아래에 있다. 모바일에서 변환 후 결과가 화면 밖이면
   // (미리보기 모달 제거 이후) 결과가 보이도록 스크롤한다.
@@ -76,7 +79,7 @@ function App() {
     }
   };
 
-  const handleGenerate = async () => {
+  const handleGenerate = async (cropBox = null) => {
     if (!file) {
       alert('사진을 선택해주세요!');
       return;
@@ -96,6 +99,7 @@ function App() {
     formData.append('hair_overlay', hairOverlay);
     formData.append('skin_model', skinModel);
     if (hairColorOn) formData.append('hair_color', hairColor);
+    if (cropBox) formData.append('crop', JSON.stringify(cropBox));
 
     try {
       const response = await fetch('/api/v1/generate-skin', {
@@ -105,8 +109,13 @@ function App() {
 
       const data = await response.json().catch(() => null);
       if (!response.ok) {
-        const msg = data?.detail?.message || data?.message || `서버 오류 (${response.status})`;
+        const detail = data?.detail || {};
+        const msg = detail.message || data?.message || `서버 오류 (${response.status})`;
         setServerError(msg);
+        if (detail.can_crop && detail.image_size) {
+          setCropSize(detail.image_size);
+          setCropOpen(true);
+        }
         return;
       }
       if (data.status === 'success') {
@@ -406,6 +415,15 @@ function App() {
 
         {editorItem && (
           <SkinEditor skin={editorItem} steps={editorItem.steps} onClose={() => setEditorItem(null)} />
+        )}
+
+        {cropOpen && cropSize && file && (
+          <CropModal
+            file={file}
+            imageSize={cropSize}
+            onApply={(box) => { setCropOpen(false); handleGenerate(box); }}
+            onClose={() => setCropOpen(false)}
+          />
         )}
 
         <footer className="footer">
