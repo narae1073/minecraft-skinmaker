@@ -298,7 +298,8 @@ h1 {
 }
 .input-card .card-actions {
   width: 100%;
-  margin-top: 12px;
+  margin-top: auto;
+  padding-top: 12px;
 }
 .input-card .download-btn {
   margin-top: 0;
@@ -331,7 +332,7 @@ h1 {
   border-radius: 8px;
 }
 
-/* 후보 카드는 원본 사진보다 크게 — 260×360 뷰어(13:18)를 담는 300px 카드. */
+/* 후보 카드는 원본 사진보다 크게 — 300px 카드 안에 13:18 뷰어(약 258×357). */
 .compare-grid .candidate-card {
   width: min(300px, 100%);
 }
