@@ -512,3 +512,5 @@ S0 quality/face detection (YuNet) → S1 colour measurement (white-balance + ban
 - 2026-11-03 (loading progress, `feat/loading-progress`): loading overlay now shows a progress bar plus a short current-operation line (사진 읽기 → 인물 찾기 → 전신 크롭 → 얼굴 → 의상 분석 → 색 추출 → 스킨 그리기 → 마무리), elapsed-time estimate capped at 92%. Frontend-only; real server progress is a follow-up.
 
 - 2026-11-03 (SSE progress + timings, `feat/sse-progress`): `POST /api/v1/generate-skin` with `Accept: text/event-stream` returns SSE progress (`inspect`/`classify`/`segment`/`extract`/`render`/`steps`/`done`) then a `result` event with `data.timings`; JSON clients unchanged. Frontend parses SSE and drives the loading bar + stage text. Tests 726.
+
+- 2026-11-03 (parallel VLM, `perf/parallel-vlm`): `classify()` now runs the natural-order and reversed-order Gemini calls concurrently (`ThreadPoolExecutor(max_workers=2)`) instead of sequentially, halving the worst-case 2x30s latency; merge/agreement semantics unchanged. Tests 726.
