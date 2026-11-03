@@ -285,6 +285,24 @@ def _defaults() -> dict:
                     for face in FACES:
                         if face.startswith("body."):
                             src[layer][face] = seed[layer].get(face) or _blank(face)
+            if key == "top_garment" and value != "none" and isinstance(src, dict):
+                # A saved top mask can have a partial body (e.g. back=2 cells),
+                # which render_body treats as "not top" -> skin. Refill body
+                # faces from the current seed; keep the user's arm/leg edits.
+                src = {layer: dict(src.get(layer, {}) or {}) for layer in LAYERS}
+                for layer in LAYERS:
+                    for face in FACES:
+                        if face.startswith("body."):
+                            w, h = DIMS[face]
+                            src[layer][face] = [[1] * w for _ in range(h)]
+            if key in ("hair_style", "hair_length") and isinstance(src, dict):
+                # Hood up/down hides body-back hair. Zero the body.back cells in
+                # every hair mask so a saved mask cannot paint through the hood.
+                src = {layer: dict(src.get(layer, {}) or {}) for layer in LAYERS}
+                for layer in LAYERS:
+                    for face in FACES:
+                        if face.startswith("body.back"):
+                            src[layer][face] = _blank(face)
             masks[name] = _normalize_key(src)
     return masks
 
