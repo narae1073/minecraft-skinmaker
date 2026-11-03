@@ -167,3 +167,16 @@ overlay-on target against an `hair_overlay=False` baseline:
 - head L2 seed: 72 cells for long_wavy/long; body L2 remains the body drape.
 - `apply_head_masks` clips L2 head hair to the same mask.
 - 3D Mask view + head L2 atlas now expose these cells for editing.
+
+## hair_length preview base style (2026-11-03)
+
+The length preview previously always used `hair_style=long_straight`, so
+`hair_length=short` showed a long_straight head (only the body drape became 0).
+This was a preview base-state bug, not a mask-data bug.
+
+`hair_length` now maps to a matching base style:
+`short → short`, `medium → bob`, `long/very_long → long_straight`.
+
+Head L1 seed counts: short 146, medium 212, long 272, very_long 328;
+body L1: 0/0/186/186. There is no `hair_length=normal` value (hood_fit normal is
+unrelated).
