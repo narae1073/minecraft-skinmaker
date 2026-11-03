@@ -326,7 +326,6 @@ function App() {
               <div className="loading-bar-fill" style={{ width: `${loadingPct}%` }} />
             </div>
             <p className="loading-stage">{loadingStage || '준비 중이에요'}</p>
-            <p className="loading-hint">보통 20~40초 걸려요. 창을 닫지 말아 주세요.</p>
           </div>
         </div>
       )}
@@ -487,9 +486,6 @@ function App() {
                   )}
                   <Skin3DViewer skinUrl={skin.url} model={skin.model} />
                   <div className="card-actions">
-                    <button className="edit-btn" onClick={() => setEditorItem(skin)}>
-                      스킨 편집 ✏️
-                    </button>
                     <a href={skin.url} download={`skin_option_${index + 1}.png`} className="download-btn">
                       스킨 다운로드
                     </a>
