@@ -55,6 +55,8 @@ function App() {
   const [isLoading, setIsLoading] = useState(false);
   const [fileError, setFileError] = useState(false);
   const [serverError, setServerError] = useState('');
+  const [uploadNotice, setUploadNotice] = useState(''); // 업로드 영역 인라인 안내
+  const [historyNotice, setHistoryNotice] = useState(''); // 사이드바 인라인 안내
   const [skins, setSkins] = useState([]); // 현재 결과: {url, flatUrl} 쌍 배열
   const [editorItem, setEditorItem] = useState(null); // SkinEditor 모달 대상 ({url, flatUrl, steps, model})
   const [noiseLevel, setNoiseLevel] = useState(50); // 노이즈 세기 % (기본 50 — 사용자 결정 2026-10-13)
@@ -66,9 +68,7 @@ function App() {
   const [catInfo, setCatInfo] = useState(null); // 분류 카테고리 {attributes, candidates, noiseLevel} (설계 §11)
   const [steps, setSteps] = useState(null); // 처리 과정 시트 {clean, full} (설계 §12)
   const abortRef = useRef(null);
-  const fileErrorRef = useRef(null);
   const serverErrorRef = useRef(null);
-  useDialog(fileErrorRef, fileError, () => setFileError(false));
   useDialog(serverErrorRef, Boolean(serverError), () => setServerError(''));
   const [cropOpen, setCropOpen] = useState(false);
   const [loadingPct, setLoadingPct] = useState(0);
@@ -107,7 +107,7 @@ function App() {
         setFileError(true);
         setFile(null);
         e.target.value = '';
-        
+
         setTimeout(() => {
           setFileError(false);
         }, 2500);
@@ -119,9 +119,11 @@ function App() {
 
   const handleGenerate = async (cropBox = null) => {
     if (!file) {
-      alert('사진을 선택해주세요!');
+      setUploadNotice('사진을 먼저 선택해주세요.');
+      setTimeout(() => setUploadNotice(''), 3000);
       return;
     }
+    setUploadNotice('');
 
     abortRef.current?.abort();
     const controller = new AbortController();
@@ -244,7 +246,8 @@ function App() {
   // 선택된 스킨 삭제 기능
   const handleDeleteSelected = () => {
     if (selectedSkins.length === 0) {
-      alert('삭제할 스킨을 먼저 선택해주세요.');
+      setHistoryNotice('삭제할 스킨을 먼저 선택해주세요.');
+      setTimeout(() => setHistoryNotice(''), 3000);
       return;
     }
     // 선택되지 않은 인덱스의 스킨들만 남김
@@ -268,6 +271,7 @@ function App() {
         
         <div className="sidebar-actions">
           <button className="delete-btn" onClick={handleDeleteSelected}>선택 파일 지우기</button>
+          {historyNotice && <p role="status" className="inline-notice">{historyNotice}</p>}
         </div>
 
         <div className="sidebar-content">
@@ -299,18 +303,16 @@ function App() {
       </div>
 
       {/* 에러 및 로딩 오버레이 */}
-      {fileError && (
-        <div ref={fileErrorRef} tabIndex={-1} role="alertdialog" aria-modal="true" aria-labelledby="file-error-title" className="loading-overlay" onClick={() => setFileError(false)}>
-          <h2 id="file-error-title">파일 오류!</h2>
-          <p>사진 파일을 첨부해주세요!</p>
-        </div>
-      )}
-
       {serverError && (
-        <div ref={serverErrorRef} tabIndex={-1} role="alertdialog" aria-modal="true" aria-labelledby="server-error-title" className="loading-overlay" onClick={() => setServerError('')}>
+        <div ref={serverErrorRef} tabIndex={-1} role="alertdialog" aria-modal="true" aria-labelledby="server-error-title" className="loading-overlay">
           <h2 id="server-error-title">스킨 생성 실패</h2>
           <p>{serverError}</p>
-          <p className="empty-msg">눌러서 닫기</p>
+          <div className="error-actions">
+            <button type="button" className="file-picker-btn" onClick={() => setServerError('')}>닫기</button>
+            {file && (
+              <button type="button" className="generate-btn" onClick={() => handleGenerate()}>다시 시도</button>
+            )}
+          </div>
         </div>
       )}
 
@@ -375,6 +377,8 @@ function App() {
               {isLoading ? '생성 중...' : '스킨 변환하기'}
             </button>
           </div>
+          {fileError && <p role="alert" className="inline-notice">이미지 파일(JPEG/PNG)만 첨부할 수 있어요.</p>}
+          {uploadNotice && <p role="status" className="inline-notice">{uploadNotice}</p>}
           {file && <SelectedPhoto file={file} />}
         </div>
 
