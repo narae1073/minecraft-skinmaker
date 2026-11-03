@@ -479,12 +479,12 @@ function App() {
                 </div>
               )}
               {skins.map((skin, index) => (
-                <div key={index} className="skin-card">
+                <div key={index} className="skin-card candidate-card">
                   <h3>후보 {index + 1}</h3>
                   {skin.varied && skin.varied !== "as-answered" && (
                     <p className="varied-note">{skin.varied}</p>
                   )}
-                  <Skin3DViewer skinUrl={skin.url} model={skin.model} />
+                  <Skin3DViewer skinUrl={skin.url} model={skin.model} className="candidate-viewer" />
                   <div className="card-actions">
                     <a href={skin.url} download={`skin_option_${index + 1}.png`} className="download-btn">
                       스킨 다운로드

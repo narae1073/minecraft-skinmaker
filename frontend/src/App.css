@@ -326,6 +326,26 @@ h1 {
   border: 1px solid #e2e8f0;
 }
 
+.skin-viewer {
+  background: #e2e8f0;
+  border-radius: 8px;
+}
+
+/* 후보 카드는 원본 사진보다 크게 — 260×360 뷰어(13:18)를 담는 300px 카드. */
+.compare-grid .candidate-card {
+  width: min(300px, 100%);
+}
+.candidate-viewer {
+  width: 100%;
+  aspect-ratio: 13 / 18;
+}
+
+@media (max-width: 720px) {
+  .compare-grid .candidate-card {
+    padding: 10px;
+  }
+}
+
 .download-btn {
   display: inline-block;
   margin-top: 15px;
