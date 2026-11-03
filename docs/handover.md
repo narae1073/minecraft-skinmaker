@@ -533,6 +533,7 @@ S0 quality/face detection (YuNet) → S1 colour measurement (white-balance + ban
 - 2026-11-04 (results UI cleanup, `feat/results-ui`): 사용자 요청 3건.
   - 로딩 바 아래 `보통 20~40초 걸려요. 창을 닫지 말아 주세요.` 힌트 삭제. 진행 바와 `loading-stage` 단계 문구는 유지.
   - 후보 카드의 `스킨 편집 ✏️` 버튼 삭제. 사이드바의 `편집` 버튼과 `SkinEditor` 모달은 유지.
-  - 후보 카드를 원본보다 크게: `Skin3DViewer` 에 선택적 `className` 을 추가하고 후보 카드는 `width: min(300px, 100%)` + `aspect-ratio: 13 / 18` 로 CSS sizing. 데스크톱 뷰어 약 258×357, 원본 사진은 기존 200×280 유지. 720px 이하에서는 후보 카드 패딩만 10px 로 줄여 360px 뷰포트에서 뷰어 220×305, 가로 스크롤 없음. 편집기 뷰어는 360×480 그대로.
-  - 검증: `npm run lint` / `npm run build` green; headless Chrome에서 1440×1000 및 360×800 확인(로딩 힌트 0개, 후보 편집 버튼 0개, 사이드바 편집 버튼 1개, `scrollWidth` = viewport). `.venv/bin/python -m pytest -q` → **726 passed, 2 skipped** (115.16s).
-  - 리스크: mock transport + 후보 1개로 시각 확인했으므로 3후보 줄바꿈은 CSS 폭 계산에 의존한다. 실제 3후보/실기기 확인은 수동 후속.
+  - 후보 카드를 원본보다 크게: `Skin3DViewer` 에 선택적 `className` 을 추가하고 후보 카드는 `width: min(300px, 100%)` + `aspect-ratio: 13 / 18` 로 CSS sizing. 데스크톱 후보 카드 300px, 뷰어 약 258×357, 원본 사진은 기존 200×280 유지. 720px 이하에서는 후보 카드 패딩만 10px 로 줄여 360px 뷰포트에서 뷰어 220×305, 가로 스크롤 없음. 편집기 뷰어는 360×480 그대로.
+  - 원본 카드의 다운로드 버튼은 `margin-top: auto` + `padding-top: 12px` 로 카드 하단에 맞춰 후보 카드 버튼과 같은 높이에 정렬.
+  - 검증: `npm run lint` / `npm run build` green. Headless Chrome 1440×1000 및 360×800, 후보 1개와 3개 모두 확인. 3후보 데스크톱은 `[원본+후보1] / [후보2+후보3]`, 360px에서는 세로 1열, `scrollWidth` = viewport(1440/360). 로딩 힌트 0개, 후보 편집 버튼 0개, 사이드바 편집 버튼 1개, 원본/후보 다운로드 버튼 y좌표 일치(1391px). `.venv/bin/python -m pytest -q` → **726 passed, 2 skipped** (115.16s, 2회 실행 중 108.22s).
+  - 리스크: 시각 확인은 mock transport 기반이며 실제 사진/실기기 확인은 수동 후속. 320px 미만에서는 기존 고정 200×280 원본 카드가 넘칠 수 있다(이번 변경 전부터 존재).
