@@ -55,7 +55,6 @@ function App() {
   const [fileError, setFileError] = useState(false);
   const [serverError, setServerError] = useState('');
   const [skins, setSkins] = useState([]); // 현재 결과: {url, flatUrl} 쌍 배열
-  const [inputPhoto, setInputPhoto] = useState(null);
   const [editorItem, setEditorItem] = useState(null); // SkinEditor 모달 대상 ({url, flatUrl, steps, model})
   const [noiseLevel, setNoiseLevel] = useState(50); // 노이즈 세기 % (기본 50 — 사용자 결정 2026-10-13)
   const [skinModel, setSkinModel] = useState('classic'); // 체형: classic(4px 팔) | slim(3px 팔)
@@ -126,7 +125,6 @@ function App() {
     setLoadingStage('사진을 올리는 중이에요');
     setIsLoading(true);
     setSkins([]);
-    setInputPhoto(null);
     setServerError('');
     setCatInfo(null);
     setSteps(null);
@@ -214,7 +212,6 @@ function App() {
           noiseLevel: data.data.noise_level,
         });
         setSteps(data.data.steps || null);
-        setInputPhoto(data.data.input || null);
         // 스킨 생성이 완료되면 기존 기록(skinHistory) 뒤에 새 스킨들을 추가
         setSkinHistory(prev => [...prev, ...pairs]);
       } else {
@@ -462,23 +459,7 @@ function App() {
         {skins.length > 0 && (
           <div className="result-section" ref={resultRef}>
             <h2>생성된 64×64 스킨 후보 {skins.length}종</h2>
-            <p className="compare-hint">원본 사진을 왼쪽에 두고 스킨을 비교해보세요 (3D 뷰어에서 회전도 가능)</p>
             <div className="compare-grid">
-              {inputPhoto && (
-                <div className="skin-card input-card">
-                  <h3>원본 사진</h3>
-                  <img
-                    src={inputPhoto}
-                    alt="입력 사진"
-                    className="input-photo"
-                  />
-                  <div className="card-actions">
-                    <a href={inputPhoto} download="input_photo.png" className="download-btn">
-                      사진 다운로드
-                    </a>
-                  </div>
-                </div>
-              )}
               {skins.map((skin, index) => (
                 <div key={index} className="skin-card candidate-card">
                   <h3>후보 {index + 1}</h3>
