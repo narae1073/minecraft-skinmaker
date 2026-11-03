@@ -488,3 +488,5 @@ S0 quality/face detection (YuNet) → S1 colour measurement (white-balance + ban
 - 2026-11-03 (head L2 hair, `fix/head-l2-hair`): head L2 mask seed from overlay-on vs hair_overlay=False baseline (long_wavy head L2 72 cells); apply_head_masks L2 clip; Mask view/head L2 atlas editable. Tests 711; QA 50.
 
 - 2026-11-03 (hair_length preview style, `fix/hair-length-preview`): preview/seed base style mapping short→short, medium→bob, long/very_long→long_straight. head L1 146/212/272/328, body 0/0/186/186; short no longer looks like long_straight. Tests 712; QA 50.
+
+- 2026-11-03 (hair_length saved migration, `fix/hair-length-draft`): stored draft hair_length body faces replaced by new length-matched seed (head edits preserved): short/medium body0, long/very_long 186 L1. Fixes short showing very_long-like saved body drape. Tests 712; QA 50.

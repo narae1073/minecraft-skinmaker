@@ -180,3 +180,15 @@ This was a preview base-state bug, not a mask-data bug.
 Head L1 seed counts: short 146, medium 212, long 272, very_long 328;
 body L1: 0/0/186/186. There is no `hair_length=normal` value (hood_fit normal is
 unrelated).
+
+## Saved-draft migration for hair_length bodies
+
+Drafts saved before the length→style fix can carry the old long_straight body
+drape on `hair_length.short`/`medium`. `/api/defaults` now preserves the user's
+head edits but replaces the **body faces** with the length-matched seed:
+
+- short/medium body L1 = 0, long/very_long body L1 = 186
+- L2 body likewise 0/0/50/50
+- head cells remain from the saved draft.
+
+Reload the editor to pick up the migration.
