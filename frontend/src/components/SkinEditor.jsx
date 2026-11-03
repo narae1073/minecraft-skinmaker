@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
+import useDialog from '../useDialog';
 import Skin3DViewer from './Skin3DViewer';
 import StepsPanel from './StepsPanel';
 
@@ -12,13 +13,23 @@ export default function SkinEditor({ skin, steps, onClose }) {
   const twoTone = options.two_tone || !canFlat;
   const texture = twoTone ? skin.url : skin.flatUrl;
   const name = twoTone ? "skin_2tone" : "skin_flat"; // 토큰 대신 사람이 읽는 파일명 (후속 검토 2)
+  const dialogRef = useRef(null);
+  useDialog(dialogRef, true, onClose);
 
   return (
     <div className="editor-overlay" onClick={onClose}>
-      <div className="editor-modal" onClick={(e) => e.stopPropagation()}>
+      <div
+        ref={dialogRef}
+        tabIndex={-1}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="skin-editor-title"
+        className="editor-modal"
+        onClick={(e) => e.stopPropagation()}
+      >
         <div className="editor-header">
-          <h3>스킨 편집</h3>
-          <button className="close-btn" onClick={onClose}>✕</button>
+          <h3 id="skin-editor-title">스킨 편집</h3>
+          <button className="close-btn" aria-label="편집 창 닫기" onClick={onClose}>✕</button>
         </div>
         <div className="editor-body">
           <Skin3DViewer skinUrl={texture} model={skin.model || 'classic'} width={360} height={480} />

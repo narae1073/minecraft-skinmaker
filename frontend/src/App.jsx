@@ -7,6 +7,7 @@ import StepsPanel from './components/StepsPanel';
 import CameraCapture from './components/CameraCapture';
 import SelectedPhoto from './components/SelectedPhoto';
 import CropModal from './components/CropModal';
+import useDialog from './useDialog';
 import './App.css';
 
 const MAX_UPLOAD_EDGE = 1600;
@@ -65,6 +66,10 @@ function App() {
   const [catInfo, setCatInfo] = useState(null); // 분류 카테고리 {attributes, candidates, noiseLevel} (설계 §11)
   const [steps, setSteps] = useState(null); // 처리 과정 시트 {clean, full} (설계 §12)
   const abortRef = useRef(null);
+  const fileErrorRef = useRef(null);
+  const serverErrorRef = useRef(null);
+  useDialog(fileErrorRef, fileError, () => setFileError(false));
+  useDialog(serverErrorRef, Boolean(serverError), () => setServerError(''));
   const [cropOpen, setCropOpen] = useState(false);
   const [loadingPct, setLoadingPct] = useState(0);
   const [loadingStage, setLoadingStage] = useState('');
@@ -258,7 +263,7 @@ function App() {
       <div className={`sidebar ${isSidebarOpen ? 'open' : ''}`}>
         <div className="sidebar-header">
           <h3>생성된 스킨 목록</h3>
-          <button className="close-btn" onClick={() => setIsSidebarOpen(false)}>✕</button>
+          <button className="close-btn" aria-label="목록 닫기" onClick={() => setIsSidebarOpen(false)}>✕</button>
         </div>
         
         <div className="sidebar-actions">
@@ -295,15 +300,15 @@ function App() {
 
       {/* 에러 및 로딩 오버레이 */}
       {fileError && (
-        <div className="loading-overlay" onClick={() => setFileError(false)}>
-          <h2>파일 오류!</h2>
+        <div ref={fileErrorRef} tabIndex={-1} role="alertdialog" aria-modal="true" aria-labelledby="file-error-title" className="loading-overlay" onClick={() => setFileError(false)}>
+          <h2 id="file-error-title">파일 오류!</h2>
           <p>사진 파일을 첨부해주세요!</p>
         </div>
       )}
 
       {serverError && (
-        <div className="loading-overlay" onClick={() => setServerError('')}>
-          <h2>스킨 생성 실패</h2>
+        <div ref={serverErrorRef} tabIndex={-1} role="alertdialog" aria-modal="true" aria-labelledby="server-error-title" className="loading-overlay" onClick={() => setServerError('')}>
+          <h2 id="server-error-title">스킨 생성 실패</h2>
           <p>{serverError}</p>
           <p className="empty-msg">눌러서 닫기</p>
         </div>
