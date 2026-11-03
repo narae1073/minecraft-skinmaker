@@ -252,8 +252,8 @@ function App() {
   return (
     <>
       {/* 화면 왼쪽 상단: 목록 열기 버튼 */}
-      <button className="sidebar-toggle-btn" onClick={() => setIsSidebarOpen(true)}>
-        ☰ 스킨 목록
+      <button className="sidebar-toggle-btn" aria-label={`스킨 목록 열기, 저장된 스킨 ${skinHistory.length}개`} onClick={() => setIsSidebarOpen(true)}>
+        ☰ 스킨 목록{skinHistory.length > 0 && <span className="toggle-count">{skinHistory.length}</span>}
       </button>
 
       {/* 왼쪽 사이드바 (목록 창) */}
@@ -479,6 +479,7 @@ function App() {
         {skins.length > 0 && (
           <div className="result-section" ref={resultRef}>
             <h2>생성된 64×64 스킨 후보 {skins.length}종</h2>
+            <p className="result-note">이 스킨들은 왼쪽 위 <strong>☰ 스킨 목록</strong>에도 저장돼요. 목록에서 다운로드하거나 삭제할 수 있어요.</p>
             <div className="compare-grid">
               {skins.map((skin, index) => (
                 <div key={index} className="skin-card candidate-card">
