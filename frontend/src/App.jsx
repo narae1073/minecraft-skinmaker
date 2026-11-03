@@ -326,6 +326,7 @@ function App() {
               <div className="loading-bar-fill" style={{ width: `${loadingPct}%` }} />
             </div>
             <p className="loading-stage">{loadingStage || '준비 중이에요'}</p>
+            <p className="loading-hint">보통 10초 정도 걸려요. 창을 닫지 말아 주세요.</p>
           </div>
         </div>
       )}

@@ -44,6 +44,8 @@
 
 Remove `<p className="loading-hint">보통 20~40초 걸려요. 창을 닫지 말아 주세요.</p>` from the loading card. Keep the progress bar and `<p className="loading-stage">`.
 
+> Later reverted by user request: the hint is restored as `보통 10초 정도 걸려요. 창을 닫지 말아 주세요.` (`.loading-hint` CSS restored). See `docs/handover.md`.
+
 - [x] **Step 2: Delete the candidate edit button**
 
 Remove only the `<button className="edit-btn" ...>스킨 편집 ✏️</button>` from the candidate card's `.card-actions`. Keep the download link and the sidebar edit button.

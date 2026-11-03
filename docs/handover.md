@@ -531,7 +531,7 @@ S0 quality/face detection (YuNet) → S1 colour measurement (white-balance + ban
 - 2026-11-04 (mask-approval policy decided, `docs/mask-approval-policy`): 사용자 결정 **Option B** — 렌더러는 `assets/attribute_masks.json` 을 있는 그대로 사용한다. SHA 승인(`attribute_masks_approval.json`)은 `production_status` 릴리스 리포트에서만 확인하며 렌더링을 막지 않는다. 코드 동작은 변경 없음; `attribute_masks.py` 독스트링을 정책에 맞게 고쳤다. 승인 검사를 렌더에 강제하려면 별도 결정이 필요하다.
 
 - 2026-11-04 (results UI cleanup, `feat/results-ui`): 사용자 요청 3건.
-  - 로딩 바 아래 `보통 20~40초 걸려요. 창을 닫지 말아 주세요.` 힌트 삭제. 진행 바와 `loading-stage` 단계 문구는 유지.
+  - 로딩 바 아래 `보통 20~40초 걸려요. 창을 닫지 말아 주세요.` 힌트 삭제 → 같은 날 복구하고 시간만 `보통 10초 정도 걸려요. 창을 닫지 말아 주세요.` 로 바꿈 (`.loading-hint` 스타일 복원). 진행 바와 `loading-stage` 단계 문구는 유지.
   - 후보 카드의 `스킨 편집 ✏️` 버튼 삭제. 사이드바의 `편집` 버튼과 `SkinEditor` 모달은 유지.
   - 후보 카드를 원본보다 크게: `Skin3DViewer` 에 선택적 `className` 을 추가하고 후보 카드는 `width: min(300px, 100%)` + `aspect-ratio: 13 / 18` 로 CSS sizing. 데스크톱 후보 카드 300px, 뷰어 약 258×357, 원본 사진은 기존 200×280 유지. 720px 이하에서는 후보 카드 패딩만 10px 로 줄여 360px 뷰포트에서 뷰어 220×305, 가로 스크롤 없음. 편집기 뷰어는 360×480 그대로.
   - 원본 카드의 다운로드 버튼은 `margin-top: auto` + `padding-top: 12px` 로 카드 하단에 맞춰 후보 카드 버튼과 같은 높이에 정렬.
