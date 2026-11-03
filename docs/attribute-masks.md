@@ -192,3 +192,17 @@ head edits but replaces the **body faces** with the length-matched seed:
 - head cells remain from the saved draft.
 
 Reload the editor to pick up the migration.
+
+## Other bugs found (2026-11-03)
+
+1. **Saved drafts override new seeds.** `/api/defaults` prefers
+   `out/mask_editor/attribute_masks.json`, so a key saved before a seed fix
+   keeps the old shape (e.g. top_garment saved 166 vs seed 550, hair_style 278
+   vs seed 328). Added `GET /api/seed?key=&value=` + **Seed로 되돌리기** button
+   to reset only the selected key/value.
+2. **hair_style masks clipped very_long.** Style masks were seeded at length
+   `long`; intersecting with `hair_length=very_long` clipped it back to long.
+   Style masks/previews now use `very_long` as their base, so style+length
+   intersection no longer cuts the longest length.
+3. The editor process was running stale code for the saved-draft migration;
+   restart the editor after pulling.

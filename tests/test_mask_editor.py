@@ -71,3 +71,18 @@ def test_hair_length_preview_uses_matching_style():
     assert count(short, "body.") == 0
     assert count(very, "body.") > 0
     assert count(short, "head.") < count(very, "head.")
+
+
+def test_seed_endpoint_returns_current_seed():
+    c = TestClient(mod.app)
+    r = c.get("/api/seed", params={"key": "hair_style", "value": "long_wavy"})
+    assert r.status_code == 200, r.text
+    grid = r.json()["mask"]["L1"]
+    head = sum(sum(row) for face, g in grid.items() if face.startswith("head.") for row in g)
+    body = sum(sum(row) for face, g in grid.items() if face.startswith("body.") for row in g)
+    assert head > 0 and body > 0
+
+
+def test_hair_style_preview_uses_very_long_base_for_full_style():
+    assert mod._attrs_for("hair_style", "long_wavy").get("hair_length") == "very_long"
+    assert mod._attrs_for("hair_length", "short").get("hair_style") == "short"
