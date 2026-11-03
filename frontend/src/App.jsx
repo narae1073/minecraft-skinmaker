@@ -43,8 +43,18 @@ function App() {
   const [hairColor, setHairColor] = useState('#d4af37');
   const [catInfo, setCatInfo] = useState(null); // 분류 카테고리 {attributes, candidates, noiseLevel} (설계 §11)
   const [steps, setSteps] = useState(null); // 처리 과정 시트 {clean, full} (설계 §12)
+  const abortRef = useRef(null);
   const [cropOpen, setCropOpen] = useState(false);
   const [cropSize, setCropSize] = useState(null); // no_face 응답의 image_size
+
+  useEffect(() => {
+    const abort = () => abortRef.current?.abort();
+    window.addEventListener('beforeunload', abort);
+    return () => {
+      window.removeEventListener('beforeunload', abort);
+      abortRef.current?.abort();
+    };
+  }, []);
 
   // 결과 섹션은 설정 아래에 있다. 모바일에서 변환 후 결과가 화면 밖이면
   // (미리보기 모달 제거 이후) 결과가 보이도록 스크롤한다.
@@ -85,6 +95,9 @@ function App() {
       return;
     }
 
+    abortRef.current?.abort();
+    const controller = new AbortController();
+    abortRef.current = controller;
     setIsLoading(true);
     setSkins([]);
     setInputPhoto(null);
@@ -105,6 +118,7 @@ function App() {
       const response = await fetch('/api/v1/generate-skin', {
         method: 'POST',
         body: formData,
+        signal: controller.signal,
       });
 
       const data = await response.json().catch(() => null);
@@ -142,9 +156,11 @@ function App() {
         setServerError(data?.message || '스킨 생성 실패');
       }
     } catch (error) {
+      if (error?.name === 'AbortError') return;
       console.error(error);
       setServerError('서버에 연결하지 못했어요. 백엔드가 켜져 있는지 확인해주세요.');
     } finally {
+      if (abortRef.current === controller) abortRef.current = null;
       setIsLoading(false);
     }
   };

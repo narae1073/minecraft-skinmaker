@@ -506,3 +506,5 @@ S0 quality/face detection (YuNet) → S1 colour measurement (white-balance + ban
 - 2026-11-03 (top body + hood-up hair migration, `fix/top-hair-mask-migration`): `/api/defaults` now refills top_garment body faces as full (body.back 96/96; body 352) and zeroes hair_style/hair_length body.back (L1/L2) for the hood-up/down policy. QA with the fixed asset: 50/50 PASS. Migration skip top_garment.none. Tests 721.
 
 - 2026-11-03 (person auto-crop, `feat/person-autocrop`): YOLOv8n ONNX exported (13MB) and `skinmaker/person.py` detects the largest person via cv2.dnn (class 0, NMS), 10% margin. `quality.inspect` EXIF transpose → person crop → multiscale face; `PhotoInput.source=person`; backend `crop` form + `no_face` can_crop/image_size; frontend CropModal. Provided fullbody/snow fixture: person (557,245,708,1945), face found, source=person. Tests 690.
+
+- 2026-11-03 (request cancellation, `feat/request-cancel`): `generate_skin` stages now run via `asyncio.to_thread` (`_await_or_cancel`); client disconnect raises 499 between stages; frontend uses `AbortController` and aborts on unmount/beforeunload. Tests 725.
