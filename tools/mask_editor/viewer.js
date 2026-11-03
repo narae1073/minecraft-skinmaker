@@ -32,7 +32,6 @@ const LEG = { px: [8, 20, 4, 12], nx: [0, 20, 4, 12], py: [4, 16, 4, 4], ny: [8,
 const LARM = { px: [40, 52, 4, 12], nx: [32, 52, 4, 12], py: [36, 48, 4, 4], ny: [40, 48, 4, 4], pz: [36, 52, 4, 12], nz: [44, 52, 4, 12] };
 const LLEG = { px: [24, 52, 4, 12], nx: [16, 52, 4, 12], py: [20, 48, 4, 4], ny: [24, 48, 4, 4], pz: [20, 52, 4, 12], nz: [28, 52, 4, 12] };
 export const PART_UV = { head: HEAD, body: BODY, r_arm: ARM, l_arm: LARM, r_leg: LEG, l_leg: LLEG };
-export const PART_UV2 = { head: HEAD2, body: BODY2, r_arm: ARM2, l_arm: LARM2, r_leg: LEG2, l_leg: LLEG2 };
 const FACE_NAME = { px: 'right', nx: 'left', py: 'top', ny: 'bottom', pz: 'front', nz: 'back' };
 const HEAD2 = shiftFaces(HEAD, 32, 0);
 const BODY2 = shiftFaces(BODY, 0, 16);
@@ -40,6 +39,7 @@ const ARM2 = shiftFaces(ARM, 0, 16);
 const LARM2 = shiftFaces(LARM, 16, 0);
 const LEG2 = shiftFaces(LEG, 0, 16);
 const LLEG2 = shiftFaces(LLEG, -16, 0);
+export const PART_UV2 = { head: HEAD2, body: BODY2, r_arm: ARM2, l_arm: LARM2, r_leg: LEG2, l_leg: LLEG2 };
 
 export function initViewer(container) {
   const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });

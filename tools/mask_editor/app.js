@@ -40,7 +40,8 @@ async function boot() {
   state.key = Object.keys(state.maskable)[0];
   state.value = state.maskable[state.key][0];
   state.part = 'head';
-  state.face = state.part_faces[state.part][1] || state.part_faces[state.part][0];
+  const headFaces = state.part_faces[state.part];
+  state.face = `${state.part}.${headFaces.includes('front') ? 'front' : headFaces[0]}`;
   renderTabs(); renderAtlas();
   try {
     viewer = initViewer($('#viewer'));
