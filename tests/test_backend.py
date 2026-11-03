@@ -636,3 +636,20 @@ def test_generate_rejects_bad_hair_color():
     body = r.json()["detail"]
     assert body["code"] == "bad_hair_color"
     assert "hair_color" in body["message"]
+
+
+def test_generate_skin_streams_progress():
+    A.make_transport = lambda: MockTransport(first=GOOD)
+    client = TestClient(A.app)
+    with open("tests/fixtures/fullbody_snow.jpg", "rb") as fh:
+        with client.stream(
+            "POST", "/api/v1/generate-skin",
+            files={"file": ("fullbody_snow.jpg", fh, "image/jpeg")},
+            headers={"accept": "text/event-stream"},
+        ) as response:
+            assert response.status_code == 200
+            assert "text/event-stream" in response.headers["content-type"]
+            text = "".join(response.iter_text())
+    assert "event: progress" in text
+    assert "event: result" in text
+    assert "timings" in text
