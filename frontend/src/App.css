@@ -424,7 +424,7 @@ h1 {
 
 .close-btn {
   background: transparent;
-  color: #94a3b8;
+  color: #64748b;
   border: none;
   font-size: 20px;
   font-weight: bold;
@@ -786,7 +786,7 @@ h1 {
   color: #334155;
 }
 .config-row input[type="range"] { flex: 1; max-width: 260px; accent-color: #2563eb; }
-.config-row small { color: #94a3b8; font-size: 12px; }
+.config-row small { color: #64748b; font-size: 12px; }
 .config-row label { display: flex; align-items: center; gap: 8px; cursor: pointer; }
 .config-row label { font-weight: 700; }
 .config-row label small { font-weight: 400; }

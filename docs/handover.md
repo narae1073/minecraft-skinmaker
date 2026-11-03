@@ -528,6 +528,7 @@ S0 quality/face detection (YuNet) → S1 colour measurement (white-balance + ban
   - 검증: 신규 테스트 2개 수정 전 실패 → 수정 후 통과; `pytest -q` → **728 passed** (124.04s), exit 0.
   - 미결정: 마스크 승인 정책. `render()` 는 `attribute_masks_approval.json` 의 SHA 를 확인하지 않고 `assets/attribute_masks.json` 을 그대로 쓴다. 승인 검사는 `production_status.py` 게이트에만 있다. 렌더 경로에서 강제할지, 문서만 고칠지 사용자 결정이 필요하다.
   - 로컬 미추적 파일(`assets/yolov8n.pt`, `scripts/build_pack_review.py`)은 이 PR 에 포함하지 않았다.
+- 2026-11-04 (UX/a11y basics, `feat/ux-a11y-basics`): `<html lang="ko">`, 한국어 `<title>`/description/theme-color. 편집 창·크롭 모달·파일/서버 오류 오버레이에 `role=dialog|alertdialog`, `aria-modal`, 열릴 때 포커스 이동, Escape 닫기, 닫힐 때 포커스 복귀 (`frontend/src/useDialog.js`). 닫기 버튼 `aria-label`. 대비 부족 `#94a3b8` → `#64748b` (닫기 버튼, `.config-row small`; 흰 배경 2.5:1 → 4.5:1 이상). 헤드리스 Chrome 에서 Escape 닫기 확인.
 - 2026-11-04 (remove original card, `feat/remove-original-card`): 결과 영역의 `원본 사진` 카드와 `원본 사진을 왼쪽에 두고…` 안내 문구를 삭제했다 (`inputPhoto` state 포함). 업로드 영역의 `선택한 사진` 미리보기는 유지. 백엔드 응답의 `data.input` 과 `input_*.jpg` 저장은 그대로 두었으며 프론트에서 더 이상 쓰지 않는다. 데스크톱 1400px / 모바일 360px 에서 콘솔 에러·가로 스크롤 없음 확인.
 - 2026-11-04 (mask-approval policy decided, `docs/mask-approval-policy`): 사용자 결정 **Option B** — 렌더러는 `assets/attribute_masks.json` 을 있는 그대로 사용한다. SHA 승인(`attribute_masks_approval.json`)은 `production_status` 릴리스 리포트에서만 확인하며 렌더링을 막지 않는다. 코드 동작은 변경 없음; `attribute_masks.py` 독스트링을 정책에 맞게 고쳤다. 승인 검사를 렌더에 강제하려면 별도 결정이 필요하다.
 
