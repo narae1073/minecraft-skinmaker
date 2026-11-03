@@ -265,6 +265,17 @@ def _defaults() -> dict:
                     src = _seed_top(value)
                 else:
                     src = {}
+            elif key == "hair_length" and isinstance(src, dict):
+                # Migration: old drafts seeded hair_length bodies from
+                # long_straight, so short/medium carried a long body drape.
+                # Preserve the user's head edits; replace body faces with the
+                # new length-matched seed.
+                seed = _seed_hair(key, value)
+                src = {layer: dict(src.get(layer, {}) or {}) for layer in LAYERS}
+                for layer in LAYERS:
+                    for face in FACES:
+                        if face.startswith("body."):
+                            src[layer][face] = seed[layer].get(face) or _blank(face)
             masks[name] = _normalize_key(src)
     return masks
 

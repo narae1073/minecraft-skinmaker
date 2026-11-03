@@ -31,6 +31,15 @@ def test_defaults_expose_key_value_tree_and_general_masks():
                        if face.startswith("head.") for row in grid)
     assert body_hair_l1 > 0 and body_hair_l2 > 0
     assert head_hair_l2 > 0
+    # Saved drafts from the old seed can carry long body drape on short/medium;
+    # the defaults migration must replace body faces with the length-matched seed.
+    def body_l1(name):
+        return sum(sum(row) for face, grid in j["masks"][name]["L1"].items()
+                   if face.startswith("body.") for row in grid)
+    assert body_l1("hair_length.short") == 0
+    assert body_l1("hair_length.medium") == 0
+    assert body_l1("hair_length.long") > 0
+    assert body_l1("hair_length.very_long") > 0
     assert sum(sum(row) for grid in j["masks"]["beard.full"]["L1"].values() for row in grid) == 0
     inner_cells = sum(sum(row) for grid in j["masks"]["inner_top.shirt"]["L1"].values() for row in grid)
     assert inner_cells > 0
