@@ -185,6 +185,7 @@ h1 {
   display: flex;
   align-items: center;
   justify-content: center;
+  flex-wrap: wrap;
   gap: 10px;
   margin: 0;
   max-width: 100%;
@@ -203,7 +204,10 @@ h1 {
   border-radius: 6px;
 }
 
-.selected-photo span { min-width: 0; }
+.selected-photo span { flex: 1 1 140px; min-width: 0; text-align: left; }
+.selected-photo-actions { display: flex; gap: 6px; flex-shrink: 0; }
+.convert-group { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.upload-hint { margin: 0; font-size: 13px; color: #475569; text-align: center; }
 
 /* 카메라 및 변환하기 버튼 */
 .generate-btn {
@@ -223,15 +227,21 @@ h1 {
   word-break: keep-all;
 }
 
-.camera-btn { background-color: #2563eb; }
-.generate-btn.camera-btn:hover:not(:disabled) { background-color: #1d4ed8; }
+/* 카메라 버튼은 보조 동작: 아웃라인 스타일로 낮추고, 변환 버튼만 채움 */
+.camera-btn {
+  background-color: #fff;
+  color: #2563eb;
+  border: 2px solid #2563eb;
+}
+.generate-btn.camera-btn:hover:not(:disabled) { background-color: #eff6ff; }
 
 .generate-btn:hover {
   background-color: #16a34a;
 }
 
 .generate-btn:disabled {
-  background-color: #94a3b8;
+  background-color: #cbd5e1;
+  color: #334155;
   cursor: not-allowed;
 }
 
@@ -777,6 +787,8 @@ h1 {
   text-align: left;
 }
 .config-section h3 { margin: 0 0 10px; font-size: 16px; color: #334155; }
+.config-summary { cursor: pointer; font-size: 16px; font-weight: 600; color: #334155; list-style-position: inside; }
+.config-section[open] > .config-summary { margin-bottom: 10px; }
 .config-row {
   display: flex;
   align-items: center;
