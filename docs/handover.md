@@ -546,3 +546,12 @@ S0 quality/face detection (YuNet) → S1 colour measurement (white-balance + ban
   - 휠 줌(커서 기준 앵커), 우클릭 드래그 지우기.
   - 레이아웃: 보기/확대/도구/기록 그룹 툴바, 사이드바는 조합·key/value·현재 면·파일.
   - 검증: `tests/test_mask_editor.py` 19 + atlas node 6; headless Chrome CDP 21/21 (칠하기·undo·redo·우클릭 지우기·reset=seed·combo 유지·base 토글/갱신·휠 줌 앵커·콘솔 에러 0). 스크린샷 `/tmp/mecheck/shots/10_new_ui.png`.
+- 2026-11-04 (mask editor goal, `feat/mask-editor-atlas`): 편집기 문제/버그 수정.
+  - 머리 마스크 seed 를 렌더 파이프라인(reference silhouette)에서 가져오도록 변경. rule stencil seed 가 style∩length 교집합에서 옆머리를 잘랐다 (short: 옆면 48/64 맨살 → 7/64, procedural 과 일치).
+  - `apply_head_masks`: 파이프라인이 이미 칠한 머리 셀은 strand 음영 유지 (추가된 셀만 평색).
+  - Reset/단일 값 seed/draft 기본값이 `_finalize_seed` 를 공유 → 상의 body 재충전 (등판 맨살 94/96 → 0).
+  - 미리보기 source: draft(기본) / production(승인 asset). 편집기 UI 에 Draft/Production 토글.
+  - 편집기 전용 경고: 모순된 머리 조합 (짧은 스타일 + 긴 길이, 긴 스타일 + 짧은 길이).
+  - 뷰어 `dispose()` 로 루프/리스너/GPU 해제.
+  - 주의: 이 수정 이전에 저장된 draft 의 머리 마스크는 옛 seed 기준. 초기 상태로 또는 머리 값별 seed 로 갱신 필요.
+  - 검증: `pytest -q` → **743 passed** (수정 후, 편집기 테스트 24); headless Chrome CDP 21/21 + Draft/Production 토글 확인; 스크린샷 `/tmp/mecheck/shots/11_after_fix.png`.

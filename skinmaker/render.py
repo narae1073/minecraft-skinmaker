@@ -1150,7 +1150,10 @@ def apply_head_masks(canvas: SkinCanvas, colors: dict[str, Color], attrs: Attrib
             for v, row in enumerate(l1):
                 for u, bit in enumerate(row):
                     if bit and not covered(u, v):
-                        canvas.put("head", face, u, v, shade(hair_c, FACE_SHADE.get(face, 1.0)), 0)
+                        # Keep the pipeline's strand shading on cells it already
+                        # painted as hair; flat colour only for added cells.
+                        if (face, u, v) not in hair_cells:
+                            canvas.put("head", face, u, v, shade(hair_c, FACE_SHADE.get(face, 1.0)), 0)
                     elif (face, u, v) in hair_cells:
                         canvas.put("head", face, u, v, shade(skin_c, FACE_SHADE.get(face, 1.0)), 0)
         l2 = _hair_mask_grid(masks, attrs, face, "L2")
@@ -1158,7 +1161,8 @@ def apply_head_masks(canvas: SkinCanvas, colors: dict[str, Color], attrs: Attrib
             for v, row in enumerate(l2):
                 for u, bit in enumerate(row):
                     if bit and not covered(u, v):
-                        canvas.put("head", face, u, v, _l2_color(hair_c, face), 1)
+                        if canvas.get("head", face, u, v, 1)[3] == 0:
+                            canvas.put("head", face, u, v, _l2_color(hair_c, face), 1)
                     else:
                         canvas.put("head", face, u, v, (0, 0, 0, 0), 1)
     beard = attrs.get("beard") or "none"
@@ -1359,8 +1363,12 @@ def render(
     shoe_two_tone: bool = True,
     hide_body_back_hair: bool = False,
     mask_override: dict | None = None,
+    head_hair_out: set | None = None,
 ) -> SkinCanvas:
     """S3 진입점. 입력 3개 → 검증 통과하는 캔버스 1개.
+
+    ``head_hair_out``, when given, receives the (face, u, v) L1 head hair cells
+    the pipeline painted (the editor seeds hair masks from them).
 
     noise_seed가 주어지면 마지막에 이산 톤 밴딩 패스 (설계 §2: 거울 대칭·결정론).
     noise_level은 세기 배율 (§9): 0=무노이즈와 바이트 동일, 1=현행. 시드에 안 들어간다
@@ -1442,7 +1450,10 @@ def render(
     hair_stencil = replace(hair_stencil, body_rows=back_rows,
                            front_body_rows=front_rows, back_body_rows=back_rows)
     seed = f"{style}:{attrs.get('hair_length')}:{colors['hair'][:3]}"
-    hair_cells = render_head(canvas, colors, attrs, hair_stencil, style=style, pack=pack, seed=seed, masks=masks)
+    hair_cells = render_head(canvas, colors, attrs, hair_stencil, style=style, pack=pack, seed=seed,
+                             masks=masks, return_cells=True)
+    if head_hair_out is not None:
+        head_hair_out.update(hair_cells)
     thickness = observed.stripe_px if pattern in ("vertical_stripe", "horizontal_stripe", "check", "plaid") else 1
     drape_tones = RP.select_body_tones(pack, seed) if drape else None
     # Hood up: the hood covers the back of the head and upper back, so the

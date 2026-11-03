@@ -266,3 +266,85 @@ def test_preview_returns_final_base_always_and_mask_only_in_mask_mode():
     mask = c.post("/api/preview", json={"key": "hood", "value": "up", "masks": masks, "mode": "mask"}).json()
     assert mask["mask"].startswith("/out/") and mask["mask"] != mask["skin"]
     assert mask["skin"].startswith("/out/")
+
+
+def _head_l1(masks, combo):
+    from skinmaker import production_qa as Q
+    from skinmaker import render as R
+    attrs = mod._combo_attrs(dict(mod.DEFAULT_COMBO, **combo))
+    canvas = R.render(Q._observed(), attrs, (), mask_override=masks, model="classic")
+    out = {}
+    for face in ("front", "back", "right", "left", "top"):
+        f = mod.LAYOUT.face("head", face, 0)
+        out[face] = [tuple(canvas.image.getpixel((x, y)))
+                     for y in range(f.y, f.y + f.h) for x in range(f.x, f.x + f.w)]
+    return out
+
+
+def test_seeded_head_hair_matches_procedural_render():
+    # Regression (2026-11-04): hair masks were seeded from the rule stencil
+    # while the renderer uses the reference silhouette, so intersecting the
+    # style and length seeds cut the side hair. A seeded render must match the
+    # procedural one on the head.
+    seed = mod._seed_masks()
+    for combo in ({"hair_style": "short", "hair_length": "short", "hood": "none"},
+                  {"hair_style": "bob", "hair_length": "medium", "hood": "none"},
+                  {"hair_style": "long_straight", "hair_length": "long", "hood": "none"}):
+        proc = _head_l1({}, combo)
+        seeded = _head_l1(seed, combo)
+        diff = sum(1 for face in proc for a, b in zip(proc[face], seeded[face]) if a != b)
+        assert diff == 0, (combo, diff)
+
+
+def test_reset_and_per_value_seed_keep_top_body_clothed():
+    # Regression (2026-11-04): /api/seed-all and /api/seed skipped the top-body
+    # refill that the saved-draft defaults apply, so the back of the torso
+    # rendered as bare skin after Reset.
+    c = TestClient(mod.app)
+    for masks in (c.get("/api/seed-all").json()["masks"],
+                  {"top_garment.hoodie": c.get("/api/seed", params={"key": "top_garment", "value": "hoodie"}).json()["mask"]}):
+        grid = masks["top_garment.hoodie"]
+        for layer in ("L1",):
+            back = grid[layer]["body.back"]
+            assert all(all(row) for row in back), "body.back must be fully clothed"
+
+
+def test_combo_warns_on_contradictory_hair_style_and_length():
+    # Advisory only (editor): contradictory hair pairs cut the hair masks.
+    bad = mod._combo_attrs(dict(mod.DEFAULT_COMBO, hair_style="short", hair_length="long"))
+    assert any("hair" in w for w in mod._combo_warnings({"hair_style": "short", "hair_length": "long"}, bad))
+    bad2 = mod._combo_attrs(dict(mod.DEFAULT_COMBO, hair_style="long_wavy", hair_length="short"))
+    assert any("hair" in w for w in mod._combo_warnings({"hair_style": "long_wavy", "hair_length": "short"}, bad2))
+    ok = mod._combo_attrs(dict(mod.DEFAULT_COMBO, hair_style="short", hair_length="short"))
+    assert not any("hair" in w for w in mod._combo_warnings({"hair_style": "short", "hair_length": "short"}, ok))
+
+
+def test_viewer_exposes_dispose_that_releases_listeners_and_loop():
+    # Regression: the viewer added window/ResizeObserver listeners and an rAF
+    # loop that were never removed, so re-created viewers piled up.
+    src = (ROOT / "tools" / "mask_editor" / "viewer.js").read_text(encoding="utf-8")
+    assert "function dispose()" in src
+    body = src[src.index("function dispose()"):src.index("return {", src.index("function dispose()"))]
+    assert "cancelAnimationFrame" in body
+    assert "removeEventListener('resize'" in body
+    assert "disconnect()" in body
+    assert "renderer.dispose()" in body
+    assert "dispose, " in src or "dispose }" in src or "dispose," in src
+
+
+def test_preview_production_source_uses_approved_asset_not_draft():
+    # source=production renders with the approved asset (what generation uses),
+    # ignoring the draft masks in the request.
+    c = TestClient(mod.app)
+    masks = c.get("/api/seed-all").json()["masks"]
+    draft = c.post("/api/preview", json={"key": "hood", "value": "up", "masks": masks, "mode": "final",
+                                         "source": "draft"}).json()
+    draft_bytes = (mod.OUT / "preview.png").read_bytes()
+    prod = c.post("/api/preview", json={"key": "hood", "value": "up", "masks": masks, "mode": "final",
+                                        "source": "production"}).json()
+    prod_bytes = (mod.OUT / "preview.png").read_bytes()
+    assert draft["source"] == "draft" and prod["source"] == "production"
+    # Seed-all carries hair/top masks the approved asset does not have.
+    assert draft_bytes != prod_bytes
+    bad = c.post("/api/preview", json={"key": "hood", "value": "up", "masks": masks, "source": "x"})
+    assert bad.status_code == 400

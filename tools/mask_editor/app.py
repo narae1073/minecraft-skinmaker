@@ -110,17 +110,18 @@ def _seed_hair(key: str, value: str) -> dict:
     length = value if key == "hair_length" else "very_long"
     style = value if key == "hair_style" else LENGTH_STYLE.get(value, "long_straight")
     attrs = Q._attrs(length, style, "none")
-    canvas = SkinCanvas("classic")
-    cells = R.render_head(canvas, R.resolve_colors(Q._observed()), attrs, None,
-                          style=style, pack=None, seed="", masks=None, return_cells=True)
+    # Head hair comes from the same pipeline the renderer uses (reference
+    # silhouette + overlay), not from the rule stencil: a rule-stencil seed
+    # cut the side hair when style and length masks were intersected.
+    head_cells: set = set()
+    target = R.render(Q._observed(), attrs, (), mask_override={}, head_hair_out=head_cells)
     l1 = {}
     for face in ("top", "front", "right", "left", "back", "bottom"):
         f = LAYOUT.face("head", face, 0)
-        l1[f"head.{face}"] = [[1 if (face, u, v) in cells else 0 for u in range(f.w)] for v in range(f.h)]
+        l1[f"head.{face}"] = [[1 if (face, u, v) in head_cells else 0 for u in range(f.w)] for v in range(f.h)]
     # Body hair drape (medium/long/very_long): seed L1 and L2 from the
     # procedural target vs a short-hair baseline. This is the body hair the
     # editor/mask view previously missed.
-    target = R.render(Q._observed(), attrs, (), mask_override={})
     base = dict(attrs.values)
     base["hair_style"] = "short"
     base["hair_length"] = "short"
@@ -306,23 +307,12 @@ def _defaults() -> dict:
                         if face.startswith("body."):
                             src[layer][face] = seed[layer].get(face) or _blank(face)
             if migrate and key == "top_garment" and value != "none" and isinstance(src, dict):
-                # A saved top mask can have a partial body (e.g. back=2 cells),
-                # which render_body treats as "not top" -> skin. Refill body
-                # faces from the current seed; keep the user's arm/leg edits.
-                src = {layer: dict(src.get(layer, {}) or {}) for layer in LAYERS}
-                for layer in LAYERS:
-                    for face in FACES:
-                        if face.startswith("body."):
-                            w, h = DIMS[face]
-                            src[layer][face] = [[1] * w for _ in range(h)]
+                # A saved top mask can have a partial body (e.g. back=2 cells).
+                # Refill body faces; keep the user's arm/leg edits.
+                src = _refill_top_body(src)
             if key in ("hair_style", "hair_length") and isinstance(src, dict):
-                # Hood up/down hides body-back hair. Zero the body.back cells in
-                # every hair mask so a saved mask cannot paint through the hood.
-                src = {layer: dict(src.get(layer, {}) or {}) for layer in LAYERS}
-                for layer in LAYERS:
-                    for face in FACES:
-                        if face.startswith("body.back"):
-                            src[layer][face] = _blank(face)
+                # Hood up/down hides body-back hair in every hair mask.
+                src = _zero_body_back_hair(src)
             masks[name] = _normalize_key(src)
     return masks
 
@@ -356,20 +346,42 @@ def defaults():
     )
 
 
+def _refill_top_body(src: dict) -> dict:
+    """A top's body faces must be full: a partial body reads as "not top" -> skin."""
+    src = {layer: dict(src.get(layer, {}) or {}) for layer in LAYERS}
+    for layer in LAYERS:
+        for face in FACES:
+            if face.startswith("body."):
+                w, h = DIMS[face]
+                src[layer][face] = [[1] * w for _ in range(h)]
+    return src
+
+
+def _zero_body_back_hair(src: dict) -> dict:
+    """Hood policy: no hair masks on the body back (the hood covers it)."""
+    src = {layer: dict(src.get(layer, {}) or {}) for layer in LAYERS}
+    for layer in LAYERS:
+        for face in FACES:
+            if face.startswith("body.back"):
+                src[layer][face] = _blank(face)
+    return src
+
+
+def _finalize_seed(key: str, value: str, src: dict) -> dict:
+    """Post-process a procedural seed the same way the saved-draft defaults do."""
+    if key == "top_garment" and value != "none" and isinstance(src, dict):
+        src = _refill_top_body(src)
+    if key in ("hair_style", "hair_length") and isinstance(src, dict):
+        src = _zero_body_back_hair(src)
+    return _normalize_key(src)
+
+
 def _seed_masks() -> dict:
     """Procedural seed for every maskable value (no draft, no approved asset)."""
     out = {}
     for key, values in MASKABLE.items():
         for value in values:
-            src = _seed_for(key, value)
-            if key in ("hair_style", "hair_length") and isinstance(src, dict):
-                # Same hood-policy zeroing as _defaults: no body-back hair masks.
-                src = {layer: dict(src.get(layer, {}) or {}) for layer in LAYERS}
-                for layer in LAYERS:
-                    for face in FACES:
-                        if face.startswith("body.back"):
-                            src[layer][face] = _blank(face)
-            out[f"{key}.{value}"] = _normalize_key(src)
+            out[f"{key}.{value}"] = _finalize_seed(key, value, _seed_for(key, value))
     return out
 
 
@@ -382,7 +394,7 @@ def seed_all():
 def seed(key: str, value: str):
     if key not in MASKABLE or value not in MASKABLE[key]:
         return JSONResponse({"error": "bad key/value"}, status_code=400)
-    return JSONResponse({"key": key, "value": value, "mask": _normalize_key(_seed_for(key, value))},
+    return JSONResponse({"key": key, "value": value, "mask": _finalize_seed(key, value, _seed_for(key, value))},
                         headers={"Cache-Control": "no-store"})
 
 
@@ -403,8 +415,23 @@ def _combo_attrs(combo: dict) -> A.Attributes:
     return A.validate(raw)
 
 
+SHORT_STYLES = {"short", "pixie"}
+LONG_STYLES = {"long_straight", "long_wavy", "ponytail", "bun"}
+LONG_LENGTHS = {"long", "very_long"}
+
+
+def _hair_pair_warning(style, length) -> str | None:
+    """Advisory: contradictory hair pairs make the style and length masks cut each other."""
+    if (style in SHORT_STYLES and length in LONG_LENGTHS) or (style in LONG_STYLES and length == "short"):
+        return f"hair: {style} + {length} 은 서로 맞지 않아 머리가 잘릴 수 있음"
+    return None
+
+
 def _combo_warnings(requested: dict, attrs: A.Attributes) -> list[str]:
     out: list[str] = []
+    pair = _hair_pair_warning(attrs.get("hair_style"), attrs.get("hair_length"))
+    if pair:
+        out.append(pair)
     for item in attrs.derived:
         out.append(f"cross: {item}")
     for name in attrs.coerced:
@@ -450,6 +477,9 @@ async def preview(req: Request):
     model = str(body.get("model", "classic"))
     if model not in ("classic", "slim"):
         return JSONResponse({"error": "bad model"}, status_code=400)
+    source = str(body.get("source", "draft"))
+    if source not in ("draft", "production"):
+        return JSONResponse({"error": "bad source"}, status_code=400)
     combo = body.get("combo")
     warnings: list[str] = []
     if combo is not None:
@@ -470,7 +500,9 @@ async def preview(req: Request):
     observed = Q._observed()
     # The final render is always produced: it is the base skin under the atlas
     # and the 3D texture in Final view. Mask view adds a separate image.
-    final = R.render(observed, attrs, (), mask_override=masks, model=model)
+    # production = the approved asset (what generation uses); draft = the editor masks.
+    render_masks = None if source == "production" else masks
+    final = R.render(observed, attrs, (), mask_override=render_masks, model=model)
     final.image.save(OUT / "preview.png")
     mask_url = None
     if mode == "mask":
@@ -488,7 +520,7 @@ async def preview(req: Request):
                             canvas.put(part, short, u, v, color, layer_index)
         canvas.image.save(OUT / "preview_mask.png")
         mask_url = "/out/preview_mask.png"
-    return JSONResponse({"skin": "/out/preview.png", "mask": mask_url, "key": key, "value": value,
+    return JSONResponse({"skin": "/out/preview.png", "mask": mask_url, "key": key, "value": value, "source": source,
                          "mode": mode, "model": model, "effective": attrs.values,
                          "warnings": warnings, "coerced": list(attrs.coerced),
                          "derived": list(attrs.derived)},

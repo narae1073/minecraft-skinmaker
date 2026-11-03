@@ -250,3 +250,18 @@ without a photo:
   the same hood-policy zeroing as the defaults). Combo settings are not changed. Reset
   is an undoable step, and nothing is written to disk until Save.
 - Plain wheel zooms the atlas (2×–24×) around the cursor. Right-drag erases.
+
+## Editor fixes — seeds, hair intersection, preview source (2026-11-04)
+
+- Hair seeds are taken from the same pipeline the renderer uses (`render(head_hair_out=...)`),
+  not from the rule stencil. Seeding from the rule stencil cut the side hair whenever the
+  style and length masks were intersected (short hair: sides 48/64 bare vs 7/64 procedural).
+- Masked hair cells keep the pipeline's strand shading; flat colour only for added cells.
+- Reset (`/api/seed-all`) and the per-value seed (`/api/seed`) now share `_finalize_seed`
+  with the saved-draft defaults, so the top body is refilled (back torso no longer bare).
+- Preview `source`: `draft` (editor masks, default) or `production` (approved asset, what
+  generation uses). The base skin follows the source; the instant tint is draft-only.
+- Advisory combo warning for contradictory hair pairs (e.g. short style + long length).
+- Viewer `dispose()` releases the loop, listeners and GPU resources.
+- Drafts saved before this fix keep their old hair masks. Use 초기 상태로, or 이 값만 seed로
+  on the hair values, to refresh them.

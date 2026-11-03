@@ -8,7 +8,7 @@ const state = {
   enums: null, defaults: null, models: null, combo: null, comboKeys: [], model: 'classic', defaultsCombo: null,
   effective: null, warnings: [],
   boxes: [], key: null, value: null, layer: 'L1', face: null,
-  mode: 'paint', viewMode: 'final', mirror: false,
+  mode: 'paint', viewMode: 'final', source: 'draft', mirror: false,
   zoom: 8, hover: null,
   painting: false, painting3d: false, stroke: 0, last: null, baseImg: null,
   history: { undo: [], redo: [] }, showBase: true,
@@ -410,7 +410,9 @@ function onMaskChanged({ live }) {
 // Tint the masked texels of the active key/value on the last server render.
 // Approximate on purpose: the exact render replaces it when the server answers.
 function overlayPreview() {
-  if (!viewer || state.viewMode !== 'final' || !state.baseImg) return;
+  // The tint previews the draft on top of the last render; it means nothing
+  // against the production asset, so it is off there.
+  if (!viewer || state.viewMode !== 'final' || state.source !== 'draft' || !state.baseImg) return;
   if (!overlayCanvas) {
     overlayCanvas = document.createElement('canvas');
     overlayCanvas.width = ATLAS;
@@ -450,7 +452,7 @@ async function preview() {
   const r = await fetch('/api/preview', {
     method: 'POST', headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ combo: state.combo, model: state.model, key: state.key, value: state.value,
-                           masks: state.masks, mode: state.viewMode }),
+                           masks: state.masks, mode: state.viewMode, source: state.source }),
   });
   const j = await r.json();
   if (seq !== previewSeq) return;
@@ -544,6 +546,13 @@ function setViewMode(m) {
   $('#hoodModeBtn').className = m === 'final' ? 'active' : '';
   $('#maskModeBtn').className = m === 'mask' ? 'active' : '';
   schedulePreview(0);
+}
+
+function setSource(src) {
+  state.source = src;
+  $('#srcBtn').textContent = src === 'draft' ? 'Draft' : 'Production';
+  $('#srcBtn').className = src === 'production' ? 'active' : '';
+  scheduleDraw(); overlayPreview(); schedulePreview(0); updateStatus();
 }
 
 function setShowBase(on) {
@@ -658,6 +667,7 @@ async function resetToSeed() {
 
 function bindButtons() {
   $('#baseBtn').onclick = () => setShowBase(!state.showBase);
+  $('#srcBtn').onclick = () => setSource(state.source === 'draft' ? 'production' : 'draft');
   $('#paintBtn').onclick = () => setMode('paint');
   $('#eraseBtn').onclick = () => setMode('erase');
   $('#hoodModeBtn').onclick = () => setViewMode('final');

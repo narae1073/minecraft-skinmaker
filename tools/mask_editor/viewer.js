@@ -155,11 +155,13 @@ export function initViewer(container) {
     camera.updateProjectionMatrix();
   }
   window.addEventListener('resize', resize);
-  if (typeof ResizeObserver !== 'undefined') new ResizeObserver(resize).observe(container);
+  const resizeObserver = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(resize) : null;
+  if (resizeObserver) resizeObserver.observe(container);
   resize();
 
+  let frameId = 0;
   function animate() {
-    requestAnimationFrame(animate);
+    frameId = requestAnimationFrame(animate);
     controls.update();
     renderer.render(scene, camera);
   }
@@ -253,5 +255,17 @@ export function initViewer(container) {
 
   animate();
   setModel('classic');
-  return { setSkin, setSkinCanvas, setModel, controls, camera, resize, pick, pickAny, pickHead, setEditableLayer, projectHead, projectPoint, meshes };
+  // Stop the loop, drop listeners and GPU resources. Call before discarding a viewer.
+  function dispose() {
+    cancelAnimationFrame(frameId);
+    window.removeEventListener('resize', resize);
+    if (resizeObserver) resizeObserver.disconnect();
+    controls.dispose();
+    if (texture) texture.dispose();
+    material.dispose();
+    renderer.dispose();
+    renderer.domElement.remove();
+  }
+
+  return { dispose, setSkin, setSkinCanvas, setModel, controls, camera, resize, pick, pickAny, pickHead, setEditableLayer, projectHead, projectPoint, meshes };
 }
