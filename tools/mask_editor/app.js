@@ -3,6 +3,8 @@ import { initViewer } from './viewer.js';
 const $ = (s) => document.querySelector(s);
 const state = {
   parts: null, part_faces: null, faces: null, dims: null, layers: null, maskable: null, masks: null,
+  enums: null, defaults: null, models: null, combo: null, comboKeys: [], model: 'classic', defaultsCombo: null,
+  effective: null, warnings: [],
   key: null, value: null, part: 'head', layer: 'L1', face: null,
   mode: 'paint', viewMode: 'final', mirror: false,
   painting3d: false, painting2d: false, stroke: 0, history: [],
@@ -10,6 +12,7 @@ const state = {
 let viewer = null;
 let previewTimer = null;
 let previewSeq = 0;
+const COMBO_STORAGE = 'skinmaker.combo.v1';
 
 const maskName = () => `${state.key}.${state.value}`;
 const curMask = () => ensureMask();
@@ -32,17 +35,125 @@ function ensureMask() {
   return m;
 }
 
+function defaultCombo() {
+  return { ...(state.defaultsCombo || {}) };
+}
+
+function sanitizeCombo(raw) {
+  const combo = defaultCombo();
+  for (const key of state.comboKeys) {
+    const value = raw && raw[key];
+    if (state.enums && state.enums[key] && state.enums[key].includes(value)) combo[key] = value;
+  }
+  return combo;
+}
+
+function loadCombo() {
+  let model = 'classic';
+  try {
+    const hash = new URLSearchParams(location.hash.replace(/^#/, ''));
+    if (hash.get('v') === '1') {
+      const raw = Object.fromEntries(state.comboKeys.map((key) => [key, hash.get(key)]));
+      const m = hash.get('model');
+      if (state.models && state.models.includes(m)) model = m;
+      return { combo: sanitizeCombo(raw), model };
+    }
+  } catch {}
+  try {
+    const raw = JSON.parse(localStorage.getItem(COMBO_STORAGE) || 'null');
+    if (raw && raw.v === 1) {
+      if (state.models && state.models.includes(raw.model)) model = raw.model;
+      return { combo: sanitizeCombo(raw.combo || {}), model };
+    }
+  } catch {}
+  return { combo: defaultCombo(), model };
+}
+
+function saveCombo() {
+  if (!state.combo) return;
+  const params = new URLSearchParams({ v: '1', model: state.model });
+  for (const key of state.comboKeys) params.set(key, state.combo[key]);
+  try { history.replaceState(null, '', '#' + params.toString()); } catch {}
+  try {
+    localStorage.setItem(COMBO_STORAGE, JSON.stringify({ v: 1, model: state.model, combo: state.combo }));
+  } catch {}
+}
+
+function syncComboUI() {
+  for (const sel of document.querySelectorAll('#comboGrid select[data-combo]')) {
+    if (state.combo) sel.value = state.combo[sel.dataset.combo];
+  }
+  const model = document.querySelector('#comboModel');
+  if (model) model.value = state.model;
+  const status = document.querySelector('#comboStatus');
+  if (status) status.textContent = `3D: classic (${state.model})` +
+    (state.combo && state.combo.symmetry === 'asymmetric' ? ' · symmetry: metadata (no visual)' : '');
+}
+
+function setCombo(key, value) {
+  if (!state.combo || !state.enums[key] || !state.enums[key].includes(value)) return;
+  state.combo[key] = value;
+  saveCombo(); syncComboUI(); schedulePreview();
+}
+
+function renderCombo() {
+  const grid = document.querySelector('#comboGrid');
+  if (!grid) return;
+  grid.innerHTML = '';
+  for (const key of state.comboKeys) {
+    const item = document.createElement('label');
+    item.className = 'comboItem';
+    const name = document.createElement('span');
+    name.textContent = key;
+    const sel = document.createElement('select');
+    sel.dataset.combo = key;
+    for (const value of state.enums[key]) {
+      const option = document.createElement('option');
+      option.value = value; option.textContent = value;
+      sel.append(option);
+    }
+    sel.onchange = () => setCombo(key, sel.value);
+    item.append(name, sel);
+    grid.append(item);
+  }
+  const model = document.querySelector('#comboModel');
+  if (model) {
+    model.innerHTML = '';
+    for (const m of (state.models || ['classic'])) {
+      const option = document.createElement('option');
+      option.value = m; option.textContent = m;
+      model.append(option);
+    }
+    model.onchange = () => {
+      state.model = model.value;
+      saveCombo(); syncComboUI(); schedulePreview();
+    };
+  }
+  const reset = document.querySelector('#comboReset');
+  if (reset) reset.onclick = () => {
+    state.combo = defaultCombo();
+    state.model = 'classic';
+    saveCombo(); syncComboUI(); schedulePreview();
+  };
+  syncComboUI();
+}
+
 async function boot() {
   const r = await fetch('/api/defaults?t=' + Date.now(), { cache: 'no-store' });
   const j = await r.json();
   state.parts = j.parts; state.part_faces = j.part_faces; state.faces = j.faces;
   state.dims = j.dims; state.layers = j.layers; state.maskable = j.maskable; state.masks = j.masks;
+  state.enums = j.enums || {}; state.defaults = j.defaults || {};
+  state.models = j.models || ['classic']; state.defaultsCombo = j.combo || {};
+  state.comboKeys = Object.keys(state.enums);
+  const loaded = loadCombo();
+  state.combo = loaded.combo; state.model = loaded.model;
   state.key = Object.keys(state.maskable)[0];
   state.value = state.maskable[state.key][0];
   state.part = 'head';
   const headFaces = state.part_faces[state.part];
   state.face = `${state.part}.${headFaces.includes('front') ? 'front' : headFaces[0]}`;
-  renderTabs(); renderAtlas();
+  renderCombo(); renderTabs(); renderAtlas();
   try {
     viewer = initViewer($('#viewer'));
     window.maskEditor.viewer = viewer;
@@ -108,6 +219,9 @@ function setKey(k) {
   if (state.key === k) return;
   state.key = k;
   state.value = state.maskable[k][0];
+  if (state.combo && state.enums[k] && state.enums[k].includes(state.value)) {
+    state.combo[k] = state.value; saveCombo(); syncComboUI();
+  }
   renderTabs(); renderAtlas();
   if (viewer) viewer.setEditableLayer(state.layer);
   schedulePreview();
@@ -117,6 +231,9 @@ function setKey(k) {
 function setValue(v) {
   if (state.value === v) return;
   state.value = v;
+  if (state.combo && state.enums[state.key] && state.enums[state.key].includes(v)) {
+    state.combo[state.key] = v; saveCombo(); syncComboUI();
+  }
   syncTabs(); renderAtlas();
   schedulePreview(); status();
 }
@@ -148,7 +265,7 @@ function setFace(f) {
 
 function status() {
   const cell = $('#status');
-  if (cell) cell.textContent = `${state.part} / ${maskName()} / ${state.layer} / ${state.face} — ${state.mode === 'paint' ? '칠하기' : '지우개'}`;
+  if (cell) cell.textContent = `${state.part} / ${maskName()} / ${state.layer} / ${state.face} — ${state.mode === 'paint' ? '칠하기' : '지우개'} · model=${state.model}`;
 }
 
 function renderAtlas() {
@@ -241,10 +358,22 @@ async function preview() {
   $('#status').textContent = '3D 갱신 중…';
   const r = await fetch('/api/preview', {
     method: 'POST', headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ key: state.key, value: state.value, masks: state.masks, mode: state.viewMode }),
+    body: JSON.stringify({ combo: state.combo, model: state.model, key: state.key, value: state.value,
+                           masks: state.masks, mode: state.viewMode }),
   });
   const j = await r.json();
   if (seq !== previewSeq) return;
+  if (!r.ok) {
+    const warn = document.querySelector('#comboWarn');
+    if (warn) warn.textContent = 'preview error: ' + (j.error || r.status);
+    return;
+  }
+  if (j.effective) state.effective = j.effective;
+  if (j.warnings) {
+    state.warnings = j.warnings;
+    const warn = document.querySelector('#comboWarn');
+    if (warn) warn.textContent = j.warnings.length ? ('⚠ ' + j.warnings.slice(0, 4).join(' · ')) : '';
+  }
   if (j.skin) {
     if (viewer) viewer.setSkin(j.skin + '?t=' + Date.now());
     $('#skin').src = j.skin + '?t=' + Date.now();
@@ -327,5 +456,5 @@ window.addEventListener('keydown', (e) => {
   if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z') { e.preventDefault(); $('#undoBtn').click(); }
 });
 
-window.maskEditor = { state, viewer: null };
+window.maskEditor = { state, viewer: null, setCombo, saveCombo, loadCombo, renderCombo };
 boot();

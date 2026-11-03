@@ -26,6 +26,10 @@
   label, .hint { color: var(--muted); font-size: 12px; }
   .sectionTitle { font-size: 11px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin: 10px 0 4px; }
   #atlas { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+  #comboGrid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 4px 8px; }
+  .comboItem { display: flex; flex-direction: column; gap: 2px; font-size: 11px; color: var(--muted); }
+  .comboItem select { font: inherit; font-size: 12px; padding: 2px 4px; border: 1px solid var(--line); border-radius: 5px; background: #fff; color: var(--ink); }
+  #comboWarn { color: #b45309; min-height: 16px; font-size: 11px; }
   .faceBlock { border: 1px solid var(--line); border-radius: 8px; padding: 6px; background: #fbfcfd; }
   .faceBlock.active { border-color: #60a5fa; box-shadow: 0 0 0 1px #bfdbfe inset; background: #f5f9ff; }
   .faceLabel { font-size: 11px; color: var(--muted); margin-bottom: 4px; }
@@ -55,6 +59,17 @@
     <div class="viewerHint">좌클릭 칠하기 · 우클릭 회전 · 휠 줌</div>
   </section>
   <aside class="panel controls">
+    <div class="sectionTitle">조합 미리보기 (16 keys)</div>
+    <div id="comboPanel">
+      <div class="row">
+        <label>model <select id="comboModel"></select></label>
+        <button id="comboReset">Reset</button>
+        <span class="hint" id="comboStatus">3D: classic</span>
+      </div>
+      <div id="comboGrid"></div>
+      <div id="comboWarn"></div>
+    </div>
+    <div class="sectionTitle">마스크 편집 대상 (14 keys)</div>
     <div class="row" id="kindTabs"></div>
     <div class="row" id="valueTabs"></div>
     <div class="row" id="partTabs"></div>
@@ -93,6 +108,6 @@
 <script type="importmap">
 {"imports":{"three":"/static/vendor/three.module.js","three/addons/":"/static/vendor/"}}
 </script>
-<script type="module" src="/static/app.js?v=11"></script>
+<script type="module" src="/static/app.js?v=12"></script>
 </body>
 </html>

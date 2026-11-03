@@ -32,6 +32,10 @@ PART_FACES = {part: tuple(LAYOUT.part(part, 0).faces) for part in PARTS}
 FACES = [f"{part}.{face}" for part in PARTS for face in PART_FACES[part]]
 DIMS = {f"{part}.{face}": (f.w, f.h) for part in PARTS for face, f in LAYOUT.part(part, 0).faces.items()}
 LAYERS = ["L1", "L2"]
+COMBO_KEYS = A.FIELD_ORDER
+COMBO_ENUMS = {name: A.ENUMS[name] for name in COMBO_KEYS}
+_COMBO_BASE = Q._attrs("long", "long_straight", "up")
+DEFAULT_COMBO = {name: _COMBO_BASE.get(name) for name in COMBO_KEYS}
 MASKABLE = {
     "hood": ("up", "down"),
     "headwear": ("beanie", "cap"),
@@ -294,7 +298,9 @@ def index():
 def defaults():
     return JSONResponse(
         {"parts": PARTS, "part_faces": PART_FACES, "faces": FACES, "dims": DIMS,
-         "layers": LAYERS, "maskable": MASKABLE, "masks": _defaults()},
+         "layers": LAYERS, "enums": COMBO_ENUMS, "defaults": DEFAULT_COMBO,
+         "models": ["classic", "slim"], "combo": DEFAULT_COMBO,
+         "maskable": MASKABLE, "masks": _defaults()},
         headers={"Cache-Control": "no-store"},
     )
 
@@ -315,6 +321,29 @@ async def save(req: Request):
     (OUT / "attribute_masks.json").write_text(
         json.dumps(payload, ensure_ascii=False, indent=1), encoding="utf-8")
     return {"ok": True, "path": str(OUT / "attribute_masks.json")}
+
+
+def _combo_attrs(combo: dict) -> A.Attributes:
+    raw = dict(DEFAULT_COMBO)
+    raw.update({name: value for name, value in combo.items() if name in COMBO_KEYS})
+    raw["hair_bbox"] = _COMBO_BASE.hair_bbox
+    return A.validate(raw)
+
+
+def _combo_warnings(requested: dict, attrs: A.Attributes) -> list[str]:
+    out: list[str] = []
+    for item in attrs.derived:
+        out.append(f"cross: {item}")
+    for name in attrs.coerced:
+        out.append(f"invalid {name}: {requested.get(name)} -> {attrs.get(name)}")
+    for name in attrs.missing:
+        out.append(f"missing {name}: default {attrs.get(name)}")
+    for name in COMBO_KEYS:
+        if name in requested and requested[name] != attrs.get(name):
+            msg = f"{name}: {requested[name]} -> {attrs.get(name)}"
+            if msg not in out:
+                out.append(msg)
+    return out
 
 
 def _attrs_for(key: str, value: str) -> A.Attributes:
@@ -342,15 +371,32 @@ async def preview(req: Request):
     key = str(body.get("key", "hood"))
     value = str(body.get("value", "up"))
     masks = body.get("masks", {})
-    if key not in MASKABLE or value not in MASKABLE[key]:
-        return JSONResponse({"error": "bad key/value"}, status_code=400)
     mode = body.get("mode", "final")
     if mode not in ("final", "mask"):
         mode = "final"
-    attrs = _attrs_for(key, value)
+    model = str(body.get("model", "classic"))
+    if model not in ("classic", "slim"):
+        return JSONResponse({"error": "bad model"}, status_code=400)
+    combo = body.get("combo")
+    warnings: list[str] = []
+    if combo is not None:
+        if not isinstance(combo, dict):
+            return JSONResponse({"error": "bad combo"}, status_code=400)
+        for name, val in combo.items():
+            if name not in COMBO_ENUMS or val not in COMBO_ENUMS[name]:
+                return JSONResponse({"error": f"bad combo {name}={val}"}, status_code=400)
+        attrs = _combo_attrs(combo)
+        warnings = _combo_warnings(combo, attrs)
+    else:
+        # Back-compat for the single key/value preview used by older tests.
+        if key not in MASKABLE or value not in MASKABLE[key]:
+            return JSONResponse({"error": "bad key/value"}, status_code=400)
+        attrs = _attrs_for(key, value)
+    if mode == "mask" and (key not in MASKABLE or value not in MASKABLE[key]):
+        return JSONResponse({"error": "bad key/value"}, status_code=400)
     observed = Q._observed()
     if mode == "mask":
-        canvas = R.render(observed, attrs, (), mask_override={})
+        canvas = R.render(observed, attrs, (), mask_override={}, model=model)
         for layer, layer_index in (("L1", 0), ("L2", 1)):
             for face in FACES:
                 part, short = face.split(".", 1)
@@ -363,7 +409,10 @@ async def preview(req: Request):
                         if bit:
                             canvas.put(part, short, u, v, color, layer_index)
     else:
-        canvas = R.render(observed, attrs, (), mask_override=masks)
+        canvas = R.render(observed, attrs, (), mask_override=masks, model=model)
     canvas.image.save(OUT / "preview.png")
-    return JSONResponse({"skin": "/out/preview.png", "key": key, "value": value, "mode": mode},
+    return JSONResponse({"skin": "/out/preview.png", "key": key, "value": value,
+                         "mode": mode, "model": model, "effective": attrs.values,
+                         "warnings": warnings, "coerced": list(attrs.coerced),
+                         "derived": list(attrs.derived)},
                         headers={"Cache-Control": "no-store"})
