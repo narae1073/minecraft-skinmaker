@@ -832,3 +832,6 @@ h1 {
 .loading-bar-fill { height: 100%; border-radius: 999px; background: linear-gradient(90deg,#22c55e,#4ade80); transition: width .25s ease; }
 .loading-stage { color: #e5e7eb; font-size: 14px; margin: 0 0 6px; min-height: 20px; }
 .loading-hint { color: #9ca3af; font-size: 12px; margin: 0; }
+
+.inline-notice { color: #b91c1c; font-size: 14px; margin: 8px 0 0; }
+.error-actions { display: flex; gap: 10px; justify-content: center; margin-top: 16px; }
