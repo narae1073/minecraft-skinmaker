@@ -657,7 +657,9 @@ def apply_top_leg_masks(canvas: SkinCanvas, colors: dict[str, Color], attrs: Att
     for part in ("r_leg", "l_leg"):
         for face_name in canvas.layout.part(part, 0).faces:
             grid = AM.get_mask(masks or {}, "top_garment", top, "L1", part, face_name)
-            if not grid:
+            if not grid or not any(any(row) for row in grid):
+                # A blank top-garment leg grid means "this top does not own the
+                # leg"; it must not erase the bottom garment (pants).
                 continue
             f = canvas.layout.face(part, face_name, 0)
             for v in range(min(9, f.h)):

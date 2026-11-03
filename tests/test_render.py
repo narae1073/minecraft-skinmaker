@@ -1293,3 +1293,15 @@ def test_head_l2_hair_mask_is_editable():
     px = canvas.image.getpixel((f.x + 1, f.y + 0))
     assert px[3] == 255
     assert canvas.image.getpixel((f.x + 2, f.y + 0))[3] == 0
+
+
+def test_blank_top_leg_mask_does_not_erase_pants():
+    blank = [[0] * 4 for _ in range(12)]
+    full = [[1] * 4 for _ in range(12)]
+    canvas = R.render(observed(), attrs(top_garment="hoodie", bottom_garment="jeans", hood="none"), (),
+                      mask_override={"top_garment.hoodie": {"L1": {"r_leg.front": blank}},
+                                     "bottom_garment.jeans": {"L1": {"r_leg.front": full}}})
+    f = canvas.layout.face("r_leg", "front", 0)
+    px = canvas.image.getpixel((f.x + 1, f.y + 1))[:3]
+    skin = shade(rgba(observed().skin.hex), R.FACE_SHADE["front"])[:3]
+    assert px != skin
