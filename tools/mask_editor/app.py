@@ -48,6 +48,12 @@ MASKABLE = {
     "inner_top": ("none", "shirt", "tee", "knit"),
     "top_garment": ("tee", "hoodie", "jacket", "shirt", "sweater", "vest", "uniform", "apron", "overalls", "dress", "none"),
 }
+LENGTH_STYLE = {
+    "short": "short",
+    "medium": "bob",
+    "long": "long_straight",
+    "very_long": "long_straight",
+}
 app = FastAPI(title="skinmaker attribute mask editor")
 
 
@@ -93,7 +99,7 @@ def _seed_hair(key: str, value: str) -> dict:
     if key not in ("hair_style", "hair_length"):
         return {}
     length = value if key == "hair_length" else "long"
-    style = value if key == "hair_style" else "long_straight"
+    style = value if key == "hair_style" else LENGTH_STYLE.get(value, "long_straight")
     attrs = Q._attrs(length, style, "none")
     canvas = SkinCanvas("classic")
     cells = R.render_head(canvas, R.resolve_colors(Q._observed()), attrs, None,
@@ -292,7 +298,10 @@ def _attrs_for(key: str, value: str) -> A.Attributes:
                              "closure_type", "collar_type", "pocket_type", "neckwear", "inner_top", "top_garment") else "up"
     if key == "hood":
         hood = value
-    base = dict(Q._attrs("long", "long_straight", hood).values)
+    if key == "hair_length":
+        base = dict(Q._attrs(value, LENGTH_STYLE.get(value, "long_straight"), hood).values)
+    else:
+        base = dict(Q._attrs("long", "long_straight", hood).values)
     base.setdefault("headwear", "none")
     base.setdefault("hood_fit", "normal")
     if key == "neckwear":

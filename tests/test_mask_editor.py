@@ -45,3 +45,20 @@ def test_preview_final_and_mask_modes():
         r = c.post("/api/preview", json={"key": "hood", "value": "up", "masks": masks, "mode": mode})
         assert r.status_code == 200, r.text
         assert r.json()["skin"].startswith("/out/")
+
+
+def test_hair_length_preview_uses_matching_style():
+    # The old preview always used hair_style=long_straight, so short length
+    # looked like long hair. Match the style to the length instead.
+    assert mod._attrs_for("hair_length", "short").get("hair_style") == "short"
+    assert mod._attrs_for("hair_length", "medium").get("hair_style") == "bob"
+    assert mod._attrs_for("hair_length", "long").get("hair_style") == "long_straight"
+    short = mod._seed_hair("hair_length", "short")
+    very = mod._seed_hair("hair_length", "very_long")
+
+    def count(seed, prefix):
+        return sum(sum(row) for face, grid in seed["L1"].items() if face.startswith(prefix) for row in grid)
+
+    assert count(short, "body.") == 0
+    assert count(very, "body.") > 0
+    assert count(short, "head.") < count(very, "head.")

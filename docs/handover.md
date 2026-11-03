@@ -486,3 +486,5 @@ S0 quality/face detection (YuNet) → S1 colour measurement (white-balance + ban
 - 2026-11-03 (body hair masks, `fix/body-hair-masks`): hair mask seed에 body L1/L2 drape 포함(long_wavy 예: L1 186, L2 50); `apply_body_hair_masks`가 L1/L2 body hair를 mask로 clip/add; hood-down back policy 유지. 3D Mask view/body atlas에 body hair 표시. Tests 710; QA 50.
 
 - 2026-11-03 (head L2 hair, `fix/head-l2-hair`): head L2 mask seed from overlay-on vs hair_overlay=False baseline (long_wavy head L2 72 cells); apply_head_masks L2 clip; Mask view/head L2 atlas editable. Tests 711; QA 50.
+
+- 2026-11-03 (hair_length preview style, `fix/hair-length-preview`): preview/seed base style mapping short→short, medium→bob, long/very_long→long_straight. head L1 146/212/272/328, body 0/0/186/186; short no longer looks like long_straight. Tests 712; QA 50.
