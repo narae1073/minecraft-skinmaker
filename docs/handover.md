@@ -508,3 +508,5 @@ S0 quality/face detection (YuNet) → S1 colour measurement (white-balance + ban
 - 2026-11-03 (person auto-crop, `feat/person-autocrop`): YOLOv8n ONNX exported (13MB) and `skinmaker/person.py` detects the largest person via cv2.dnn (class 0, NMS), 10% margin. `quality.inspect` EXIF transpose → person crop → multiscale face; `PhotoInput.source=person`; backend `crop` form + `no_face` can_crop/image_size; frontend CropModal. Provided fullbody/snow fixture: person (557,245,708,1945), face found, source=person. Tests 690.
 
 - 2026-11-03 (request cancellation, `feat/request-cancel`): `generate_skin` stages now run via `asyncio.to_thread` (`_await_or_cancel`); client disconnect raises 499 between stages; frontend uses `AbortController` and aborts on unmount/beforeunload. Tests 725.
+
+- 2026-11-03 (loading progress, `feat/loading-progress`): loading overlay now shows a progress bar plus a short current-operation line (사진 읽기 → 인물 찾기 → 전신 크롭 → 얼굴 → 의상 분석 → 색 추출 → 스킨 그리기 → 마무리), elapsed-time estimate capped at 92%. Frontend-only; real server progress is a follow-up.
