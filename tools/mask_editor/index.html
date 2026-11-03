@@ -20,6 +20,9 @@
   .gtitle { font-size: 10px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin-right: 2px; }
   .group label { color: var(--ink); font-size: 12px; }
   button:disabled { opacity: .45; cursor: default; }
+  .fileBtn { position: relative; display: inline-block; padding: 6px 10px; border: 1px solid var(--line); border-radius: 7px; background: #fff; cursor: pointer; font-size: 14px; color: var(--ink); }
+  .fileBtn:hover { background: #f1f3f5; }
+  .fileBtn input { position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; }
   .legend { display: flex; gap: 10px; align-items: center; font-size: 12px; color: var(--muted); margin-top: 6px; flex-wrap: wrap; }
   .swatch { display: inline-block; width: 16px; height: 16px; border-radius: 3px; border: 1px solid #94a3b8; vertical-align: middle; }
   .swatch.l1 { background: repeating-linear-gradient(-45deg, #1d4ed8 0 2px, transparent 2px 6px), #c9d6e6; }
@@ -82,6 +85,12 @@
         <label><input type="checkbox" id="mirror" /> 좌우 미러</label>
       </div>
       <div class="group">
+        <span class="gtitle">사진</span>
+        <label class="fileBtn" title="이 사진의 색과 머리 실루엣으로 seed 를 만듭니다">사진 선택<input type="file" id="photoInput" accept="image/jpeg,image/png,image/webp" /></label>
+        <span class="hint" id="photoName">기본 fixture</span>
+        <button id="photoClear" disabled title="fixture 기준으로 되돌림">해제</button>
+      </div>
+      <div class="group">
         <span class="gtitle">기록</span>
         <button id="undoBtn" disabled title="Ctrl+Z">Undo</button>
         <button id="redoBtn" disabled title="Ctrl+Y / Ctrl+Shift+Z">Redo</button>
@@ -141,6 +150,6 @@
 <script type="importmap">
 {"imports":{"three":"/static/vendor/three.module.js","three/addons/":"/static/vendor/"}}
 </script>
-<script type="module" src="/static/app.js?v=17"></script>
+<script type="module" src="/static/app.js?v=18"></script>
 </body>
 </html>

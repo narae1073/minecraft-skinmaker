@@ -57,3 +57,10 @@ test('texelAt maps client pixels to texels and rejects outside', () => {
   assert.equal(texelAt(99, 50, rect, 8), null);
   assert.equal(texelAt(100 + 64 * 8, 50, rect, 8), null);
 });
+
+test('buildBoxes marks slim sub-faces so they read and write the slim grid', () => {
+  const boxes = buildBoxes({ L1: { 'r_arm.front': [40, 20, 3, 12], 'r_arm.right': [48, 20, 4, 12] }, L2: {} }, ['r_arm.front']);
+  assert.equal(boxes.find((b) => b.face === 'r_arm.front').sub, 'slim');
+  assert.equal(boxes.find((b) => b.face === 'r_arm.right').sub, undefined);
+  assert.equal(buildBoxes(rects)[0].sub, undefined);
+});

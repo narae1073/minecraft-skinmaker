@@ -267,6 +267,14 @@ without a photo:
   `out/mask_editor/attribute_masks.pre-v3-<stamp>.json`, re-seeds the hair keys, and refills
   legacy top bodies. Later loads do nothing. Editor tests run against a temp OUT and never
   touch the real draft.
-- Known limits (not done): slim masks still use the classic grid (the 4-wide classic arm
-  grid is read against 3-wide slim faces, so columns are misaligned; the renderer does not
-  write outside the face); seeds come from a fixed fixture, not the photo.
+- Slim-specific masks: slim arm faces that are narrower than classic (front, back, top,
+  bottom: 3 px vs 4 px) can carry a per-entry `"slim"` sub-dict with grids of the slim width.
+  `attribute_masks.resolve_model(masks, model)` swaps those in for slim renders only; classic
+  renders ignore them. The editor's model select switches the atlas to the slim layout; a
+  slim override starts as a copy of the classic columns on first edit, so the visible cells
+  do not jump. Existing assets have no slim sub-dicts and are unchanged.
+- Photo-driven seeds: `POST /api/photo` observes an uploaded photo (colours, SCHP hair
+  silhouette; no VLM) and the seeds and preview use it until `DELETE /api/photo`. Without a
+  photo the fixture is used. Uploading does not overwrite drafts; 초기 상태로 or 이 값만 seed로
+  re-seed from the photo (undoable). Process-wide state: one photo at a time for everyone
+  who can reach the editor.

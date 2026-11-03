@@ -21,6 +21,9 @@ import pytest
 def _isolated_out(tmp_path, monkeypatch):
     # Never read or write the user's real draft (out/mask_editor) from tests.
     monkeypatch.setattr(mod, "OUT", tmp_path)
+    # Each test starts without an uploaded photo.
+    monkeypatch.setitem(mod._PHOTO, "observed", None)
+    monkeypatch.setitem(mod._PHOTO, "name", None)
 
 
 def test_defaults_expose_key_value_tree_and_general_masks():
@@ -384,3 +387,88 @@ def test_legacy_draft_hair_is_migrated_once_with_backup(tmp_path, monkeypatch):
     assert path.read_text(encoding="utf-8") == before
     assert len(list(tmp_path.glob("attribute_masks.pre-v3-*.json"))) == 1
     assert masks["hair_length.short"]["L1"]["head.right"] == mod._seed_masks()["hair_length.short"]["L1"]["head.right"]
+
+
+def test_slim_override_applies_only_to_slim_renders():
+    # Slim arm faces are narrower (front/back/top/bottom are 3 px, not 4). An
+    # entry may carry a "slim" sub-dict with grids for those faces. Only slim
+    # renders use them; classic renders and existing assets are unchanged.
+    from skinmaker import attribute_masks as AM
+    grid3 = [[1, 1, 1] for _ in range(12)]
+    masks = {"sleeve_len.long": {"L1": {}, "L2": {}, "slim": {"L1": {"r_arm.front": grid3}, "L2": {}}}}
+    slim = AM.resolve_model(masks, "slim")
+    classic = AM.resolve_model(masks, "classic")
+    assert slim["sleeve_len.long"]["L1"]["r_arm.front"] == grid3
+    assert "r_arm.front" not in classic["sleeve_len.long"]["L1"]
+    assert "slim" not in classic["sleeve_len.long"]
+    assert AM.resolve_model({"x.y": {"L1": {}, "L2": {}}}, "slim") == {"x.y": {"L1": {}, "L2": {}}}
+
+
+def test_slim_override_changes_slim_render_not_classic():
+    from skinmaker import production_qa as Q
+    from skinmaker import render as R
+    obs = Q._observed()
+    attrs = mod._combo_attrs(dict(mod.DEFAULT_COMBO, sleeve_len="long", top_garment="tee", hood="none"))
+    cleared = {"sleeve_len.long": {"L1": {}, "L2": {}, "slim": {"L1": {
+        "r_arm.front": [[0, 0, 0] for _ in range(12)],
+        "l_arm.front": [[0, 0, 0] for _ in range(12)]}, "L2": {}}}}
+    none = {}
+    slim_a = R.render(obs, attrs, (), mask_override=cleared, model="slim")
+    slim_b = R.render(obs, attrs, (), mask_override=none, model="slim")
+    assert slim_a.image.tobytes() != slim_b.image.tobytes()
+    cls_a = R.render(obs, attrs, (), mask_override=cleared, model="classic")
+    cls_b = R.render(obs, attrs, (), mask_override=none, model="classic")
+    assert cls_a.image.tobytes() == cls_b.image.tobytes()
+
+
+def test_defaults_publish_slim_atlas_and_sub_faces():
+    j = TestClient(mod.app).get("/api/defaults").json()
+    assert set(j["slim"]["sub_faces"]) == {f"{p}.{f}" for p in ("r_arm", "l_arm") for f in ("front", "back", "top", "bottom")}
+    rects = j["slim"]["atlas"]["rects"]
+    assert rects["L1"]["r_arm.front"][2] == 3 and rects["L1"]["r_arm.right"][2] == 4
+    assert j["atlas"]["rects"]["L1"]["r_arm.front"][2] == 4
+
+
+def test_slim_override_survives_normalize_and_save_load(tmp_path, monkeypatch):
+    monkeypatch.setattr(mod, "OUT", tmp_path)
+    grid3 = [[1, 0, 1] for _ in range(12)]
+    key = mod._normalize_key({"L1": {}, "L2": {}, "slim": {"L1": {"r_arm.front": grid3}}})
+    assert key["slim"]["L1"]["r_arm.front"] == grid3
+    assert "slim" not in mod._normalize_key({"L1": {}, "L2": {}})
+
+
+PHOTO_PATH = ROOT / "tests" / "fixtures" / "messi5.jpg"
+
+
+def test_photo_upload_drives_observed_and_can_be_cleared():
+    c = TestClient(mod.app)
+    fixture = mod._observed().skin.hex
+    with open(PHOTO_PATH, "rb") as fh:
+        r = c.post("/api/photo", files={"file": ("messi5.jpg", fh.read(), "image/jpeg")})
+    assert r.status_code == 200, r.text
+    info = r.json()
+    assert info["name"] == "messi5.jpg" and info["skin"].startswith("#")
+    assert c.get("/api/photo").json()["name"] == "messi5.jpg"
+    assert mod._observed().skin.hex == info["skin"] != fixture
+    assert c.delete("/api/photo").status_code == 200
+    assert c.get("/api/photo").json() is None
+    assert mod._observed().skin.hex == fixture
+
+
+def test_photo_changes_the_seed_for_hair():
+    c = TestClient(mod.app)
+    before = c.get("/api/seed", params={"key": "hair_style", "value": "short"}).json()["mask"]
+    with open(PHOTO_PATH, "rb") as fh:
+        assert c.post("/api/photo", files={"file": ("messi5.jpg", fh.read(), "image/jpeg")}).status_code == 200
+    after = c.get("/api/seed", params={"key": "hair_style", "value": "short"}).json()["mask"]
+    c.delete("/api/photo")
+    assert before != after
+
+
+def test_photo_without_a_face_is_rejected():
+    import io
+    from PIL import Image
+    buf = io.BytesIO()
+    Image.new("RGB", (64, 64), (128, 128, 128)).save(buf, format="PNG")
+    r = TestClient(mod.app).post("/api/photo", files={"file": ("blank.png", buf.getvalue(), "image/png")})
+    assert r.status_code == 422, r.text

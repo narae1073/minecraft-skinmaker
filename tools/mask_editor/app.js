@@ -6,8 +6,8 @@ const dimsFor = (face) => (state.dims && state.dims[face]) || [8, 8];
 const state = {
   faces: null, dims: null, layers: null, maskable: null, masks: null,
   enums: null, defaults: null, models: null, combo: null, comboKeys: [], model: 'classic', defaultsCombo: null,
-  effective: null, warnings: [],
-  boxes: [], key: null, value: null, layer: 'L1', face: null,
+  effective: null, warnings: [], notice: '',
+  boxes: [], atlasRects: null, slimRects: null, slimSubFaces: [], key: null, value: null, layer: 'L1', face: null,
   mode: 'paint', viewMode: 'final', source: 'draft', mirror: false,
   zoom: 8, hover: null,
   painting: false, painting3d: false, stroke: 0, last: null, baseImg: null,
@@ -138,6 +138,7 @@ function renderCombo() {
     }
     model.onchange = () => {
       state.model = model.value;
+      setModelView(state.model);
       if (viewer) viewer.setModel(state.model);
       saveCombo(); syncComboUI(); schedulePreview();
     };
@@ -159,6 +160,8 @@ function renderCombo() {
   if (reset) reset.onclick = () => {
     state.combo = defaultCombo();
     state.model = 'classic';
+    setModelView(state.model);
+    if (viewer) viewer.setModel(state.model);
     saveCombo(); syncComboUI(); schedulePreview();
   };
   syncComboUI();
@@ -184,14 +187,35 @@ function activeBox() {
   return state.boxes.find((b) => b.face === state.face && b.layer === state.layer) || null;
 }
 
-function cellOn(layer, face, u, v) {
-  const grid = state.masks?.[maskName()]?.[layer]?.[face];
+// Read grid for a box: the slim override when the box is a slim sub-face and
+// one exists, else the classic grid (its extra columns are ignored by the box).
+function readGrid(name, layer, face, sub) {
+  const entry = state.masks?.[name];
+  if (!entry) return null;
+  if (sub === 'slim' && entry.slim?.[layer]?.[face]) return entry.slim[layer][face];
+  return entry[layer]?.[face] || null;
+}
+
+function cellOn(box, u, v) {
+  const grid = readGrid(maskName(), box.layer, box.face, box.sub);
   return !!(grid && grid[v] && grid[v][u]);
 }
 
-function hasMaskFor(layer, face) {
-  const grid = state.masks?.[maskName()]?.[layer]?.[face];
-  return gridHasMask(grid);
+function hasMaskFor(box) {
+  for (let v = 0; v < box.h; v++) for (let u = 0; u < box.w; u++) if (cellOn(box, u, v)) return true;
+  return false;
+}
+
+// Switch the atlas between the classic and slim layouts.
+function setModelView(model) {
+  const slim = model === 'slim';
+  state.boxes = buildBoxes(slim ? state.slimRects : state.atlasRects, slim ? state.slimSubFaces : null);
+  if (!state.boxes.some((b) => b.face === state.face && b.layer === state.layer)) {
+    const first = state.boxes.find((b) => b.layer === 'L1' && b.face === 'head.front') || state.boxes[0];
+    state.layer = first.layer;
+    state.face = first.face;
+  }
+  scheduleDraw(); updateStatus();
 }
 
 function scheduleDraw() {
@@ -256,7 +280,8 @@ function updateStatus() {
   } else if (state.hover) {
     where += ` · atlas (${state.hover.u}, ${state.hover.v})`;
   }
-  cell.textContent = `${maskName()} · ${where} — ${state.mode === 'paint' ? '칠하기' : '지우개'} (우클릭·Shift = 지우개) · model=${state.model}`;
+  const notice = state.notice ? ` · ${state.notice}` : '';
+  cell.textContent = `${maskName()} · ${where} — ${state.mode === 'paint' ? '칠하기' : '지우개'} (우클릭·Shift = 지우개) · model=${state.model}${notice}`;
 }
 
 // ---- history ---------------------------------------------------------------
@@ -286,7 +311,7 @@ function applyCommand(cmd, forward) {
   }
   const list = forward ? cmd.changes : [...cmd.changes].reverse();
   for (const c of list) {
-    const grid = ensureGrid(c.name, c.layer, c.face);
+    const grid = ensureGrid(c.name, c.layer, c.face, c.sub, { w: c.w, h: c.h });
     grid[c.v][c.u] = forward ? c.to : c.from;
   }
 }
@@ -324,23 +349,38 @@ function snapshotChange(nextMasks, label) {
 
 // ---- painting ------------------------------------------------------------
 
-function ensureGrid(name, layer, face) {
+// Grid for (name, layer, face). The slim sub-view creates its override on first
+// touch, copied from the classic grid's columns, so the visible cells stay the same.
+function ensureGrid(name, layer, face, sub = null, box = null) {
   if (!state.masks[name]) state.masks[name] = { L1: {}, L2: {} };
-  const m = state.masks[name];
-  if (!m[layer]) m[layer] = {};
-  if (!m[layer][face]) m[layer][face] = blank(face);
-  return m[layer][face];
+  const entry = state.masks[name];
+  if (sub === 'slim') {
+    if (!entry.slim) entry.slim = { L1: {}, L2: {} };
+    if (!entry.slim[layer]) entry.slim[layer] = {};
+    if (!entry.slim[layer][face]) {
+      const base = readGrid(name, layer, face, null);
+      const w = box ? box.w : 3;
+      const h = box ? box.h : (base ? base.length : 12);
+      entry.slim[layer][face] = Array.from({ length: h }, (_, v) =>
+        Array.from({ length: w }, (_, u) => (base && base[v] && base[v][u] ? 1 : 0)));
+    }
+    return entry.slim[layer][face];
+  }
+  if (!entry[layer]) entry[layer] = {};
+  if (!entry[layer][face]) entry[layer][face] = blank(face);
+  return entry[layer][face];
 }
 
 // Set one cell of the current mask and record the change for undo.
 function setCell(box, u, v, value) {
   if (u < 0 || v < 0 || u >= box.w || v >= box.h) return false;
   const name = maskName();
-  const grid = ensureGrid(name, box.layer, box.face);
+  const grid = ensureGrid(name, box.layer, box.face, box.sub || null, box);
   const from = grid[v][u];
   if (from === value) return false;
   grid[v][u] = value;
-  if (txn) txn.push({ name, layer: box.layer, face: box.face, u, v, from, to: value });
+  if (txn) txn.push({ name, layer: box.layer, face: box.face, sub: box.sub || null,
+                      w: box.w, h: box.h, u, v, from, to: value });
   return true;
 }
 
@@ -426,7 +466,7 @@ function overlayPreview() {
     overlayCtx.fillStyle = LAYER_STYLE[box.layer].tint;
     for (let v = 0; v < box.h; v++) {
       for (let u = 0; u < box.w; u++) {
-        if (cellOn(box.layer, box.face, u, v)) overlayCtx.fillRect(box.x + u, box.y + v, 1, 1);
+        if (cellOn(box, u, v)) overlayCtx.fillRect(box.x + u, box.y + v, 1, 1);
       }
     }
   }
@@ -555,6 +595,41 @@ function setSource(src) {
   scheduleDraw(); overlayPreview(); schedulePreview(0); updateStatus();
 }
 
+function showPhoto(info) {
+  $('#photoName').textContent = info ? info.name : '기본 fixture';
+  $('#photoClear').disabled = !info;
+}
+
+// Upload a photo: its colours and hair silhouette drive the seeds and the preview.
+// Existing drafts are kept; 초기 상태로 / 이 값만 seed로 re-seed from the photo.
+async function uploadPhoto(file) {
+  const fd = new FormData();
+  fd.append('file', file, file.name);
+  state.notice = '사진 분석 중… (처음에는 몇 초 걸려요)';
+  updateStatus();
+  const r = await fetch('/api/photo', { method: 'POST', body: fd });
+  const j = await r.json().catch(() => ({}));
+  if (!r.ok) {
+    const why = { no_face: '얼굴을 찾지 못했어요', bad_size: '파일이 너무 커요(15MB 이하)',
+                  not_an_image: '이미지가 아니에요', unsupported_format: 'JPEG/PNG/WEBP 만 지원해요' }[j.error] || j.error || r.status;
+    state.notice = '사진 실패: ' + why;
+    updateStatus();
+    return;
+  }
+  showPhoto(j);
+  state.notice = `사진 적용: ${j.name} — '초기 상태로'를 누르면 seed 도 이 사진 기준 (Undo 가능)`;
+  updateStatus();
+  schedulePreview(0);
+}
+
+async function clearPhoto() {
+  await fetch('/api/photo', { method: 'DELETE' });
+  showPhoto(null);
+  state.notice = '사진 해제 — 기본 fixture 기준';
+  updateStatus();
+  schedulePreview(0);
+}
+
 function setShowBase(on) {
   state.showBase = on;
   $('#baseBtn').className = on ? 'active' : '';
@@ -668,6 +743,8 @@ async function resetToSeed() {
 function bindButtons() {
   $('#baseBtn').onclick = () => setShowBase(!state.showBase);
   $('#srcBtn').onclick = () => setSource(state.source === 'draft' ? 'production' : 'draft');
+  $('#photoInput').onchange = (e) => { const f = e.target.files && e.target.files[0]; if (f) uploadPhoto(f); e.target.value = ''; };
+  $('#photoClear').onclick = clearPhoto;
   $('#paintBtn').onclick = () => setMode('paint');
   $('#eraseBtn').onclick = () => setMode('erase');
   $('#hoodModeBtn').onclick = () => setViewMode('final');
@@ -714,9 +791,12 @@ async function boot() {
   state.enums = j.enums || {}; state.defaults = j.defaults || {};
   state.models = j.models || ['classic']; state.defaultsCombo = j.combo || {};
   state.comboKeys = Object.keys(state.enums);
-  state.boxes = buildBoxes(j.atlas.rects);
+  state.atlasRects = j.atlas.rects;
+  state.slimRects = j.slim.atlas.rects;
+  state.slimSubFaces = j.slim.sub_faces;
   const loaded = loadCombo();
   state.combo = loaded.combo; state.model = loaded.model;
+  setModelView(state.model);
   state.key = Object.keys(state.maskable)[0];
   state.value = state.maskable[state.key][0];
   const first = state.boxes.find((b) => b.layer === 'L1' && b.face === 'head.front') || state.boxes[0];
@@ -725,6 +805,7 @@ async function boot() {
   renderCombo(); renderKeyTabs(); bind2d(); bindButtons();
   setShowBase(true);
   historyChanged();
+  fetch('/api/photo', { cache: 'no-store' }).then((r) => r.json()).then(showPhoto).catch(() => {});
   fitZoom();
   scheduleDraw();
   try {

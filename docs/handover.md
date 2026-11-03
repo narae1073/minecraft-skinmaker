@@ -554,5 +554,7 @@ S0 quality/face detection (YuNet) → S1 colour measurement (white-balance + ban
   - 편집기 전용 경고: 모순된 머리 조합 (짧은 스타일 + 긴 길이, 긴 스타일 + 짧은 길이).
   - 뷰어 `dispose()` 로 루프/리스너/GPU 해제.
   - draft schema 3: 첫 로드 시 옛 draft 를 `attribute_masks.pre-v3-<stamp>.json` 으로 백업하고 머리 키를 재시드, 레거시 상의 body 재충전. 이후 로드는 무변경. 편집기 테스트는 임시 OUT 사용(실제 draft 미접촉).
-  - 미완(의도적 한계): slim 전용 마스크 없음(classic 4폭 팔 격자를 slim 3폭 면에 읽음 → 열 어긋남, 렌더러는 면 밖으로 쓰지 않음); seed 는 고정 fixture 기준(사진 기반 아님).
-  - 검증: `pytest -q` → **744 passed** (수정 후, 편집기 테스트 24); headless Chrome CDP 21/21 + Draft/Production 토글 확인; 스크린샷 `/tmp/mecheck/shots/11_after_fix.png`.
+  - slim 전용 마스크: 팔 면(front/back/top/bottom, 3폭)에 엔트리별 `slim` sub-dict. `resolve_model` 은 slim 렌더에서만 적용. 편집기 모델 선택이 atlas 를 slim 레이아웃으로 전환.
+  - 사진 기반 seed: `POST/GET/DELETE /api/photo` — 사진의 색·SCHP 머리 실루엣으로 seed 와 미리보기. 초기 상태로/이 값만 seed로 가 사진 기준으로 재시드(undo 가능). 프로세스 전역 상태.
+  - 편집기 combo 'Reset' 버튼이 3D 모델과 atlas 를 갱신하지 않던 버그 수정.
+  - 검증: `pytest -q` → **751 passed**; headless Chrome CDP 9/9 (slim 전환 4폭→3폭, slim 칠하기는 slim 격자만, undo, classic 복귀, 파일 입력으로 사진 업로드, 콘솔 에러 0). (수정 후, 편집기 테스트 24); headless Chrome CDP 21/21 + Draft/Production 토글 확인; 스크린샷 `/tmp/mecheck/shots/11_after_fix.png`.

@@ -17,11 +17,16 @@ export const DIM_ALPHA = 0.35;
 export const EMPTY_VEIL = 'rgba(241, 243, 245, 0.62)';
 
 // One box per (layer, face): the face rectangle inside the 64x64 atlas.
-export function buildBoxes(rects) {
+// `subFaces` lists faces that have a per-model (slim) grid; those boxes carry
+// sub: 'slim' so reads and writes go to the slim override.
+export function buildBoxes(rects, subFaces = null) {
+  const subs = new Set(subFaces || []);
   const boxes = [];
   for (const layer of ['L1', 'L2']) {
     for (const [face, [x, y, w, h]] of Object.entries((rects && rects[layer]) || {})) {
-      boxes.push({ layer, face, x, y, w, h });
+      const box = { layer, face, x, y, w, h };
+      if (subs.has(face)) box.sub = 'slim';
+      boxes.push(box);
     }
   }
   return boxes;
@@ -68,8 +73,8 @@ export function texelAt(clientX, clientY, rect, zoom) {
   return { u, v };
 }
 
-// Draw the atlas. `cellOn(layer, face, u, v)` and `hasMaskFor(layer, face)`
-// read the current mask; `opts.activeBox` and `opts.hover` are optional.
+// Draw the atlas. `cellOn(box, u, v)` and `hasMaskFor(box)` read the current
+// mask; `opts.activeBox`, `opts.hover` and `opts.base` are optional.
 export function drawAtlas(ctx, opts) {
   const { boxes, zoom, cellOn, hasMaskFor, activeBox, hover, base } = opts;
   const size = ATLAS * zoom;
@@ -83,11 +88,11 @@ export function drawAtlas(ctx, opts) {
     ctx.drawImage(base, 0, 0, size, size);
     ctx.fillStyle = EMPTY_VEIL;
     for (const b of boxes) {
-      if (!hasMaskFor(b.layer, b.face)) ctx.fillRect(b.x * zoom, b.y * zoom, b.w * zoom, b.h * zoom);
+      if (!hasMaskFor(b)) ctx.fillRect(b.x * zoom, b.y * zoom, b.w * zoom, b.h * zoom);
     }
   } else {
     for (const b of boxes) {
-      ctx.globalAlpha = boxAlpha(hasMaskFor(b.layer, b.face));
+      ctx.globalAlpha = boxAlpha(hasMaskFor(b));
       ctx.fillStyle = LAYER_STYLE[b.layer].base;
       ctx.fillRect(b.x * zoom, b.y * zoom, b.w * zoom, b.h * zoom);
     }
@@ -104,7 +109,7 @@ export function drawAtlas(ctx, opts) {
     ctx.beginPath();
     for (let v = 0; v < b.h; v++) {
       for (let u = 0; u < b.w; u++) {
-        if (!cellOn(b.layer, b.face, u, v)) continue;
+        if (!cellOn(b, u, v)) continue;
         const x0 = (b.x + u) * zoom;
         const y0 = (b.y + v) * zoom;
         ctx.fillRect(x0, y0, zoom, zoom);

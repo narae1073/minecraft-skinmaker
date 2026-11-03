@@ -11,7 +11,7 @@ import json
 import sys
 from pathlib import Path
 
-from fastapi import FastAPI, Request
+from fastapi import File, FastAPI, Request, UploadFile
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
@@ -20,6 +20,7 @@ REPO = ROOT.parents[1]
 sys.path.insert(0, str(REPO))
 from skinmaker import attribute_masks as AM  # noqa: E402
 from skinmaker import attributes as A  # noqa: E402
+from skinmaker import colors as C, parsing as P, quality as QU  # noqa: E402
 from skinmaker import production_qa as Q, render as R  # noqa: E402
 from skinmaker.canvas import SkinCanvas  # noqa: E402
 from skinmaker.format import get_layout  # noqa: E402
@@ -63,6 +64,65 @@ LENGTH_STYLE = {
 }
 app = FastAPI(title="skinmaker attribute mask editor")
 
+# One uploaded photo drives the seeds and the preview. Without one, the
+# fixture observation is used. Single-user local tool: process-wide state.
+_PHOTO: dict = {"observed": None, "name": None, "info": None}
+MAX_PHOTO_BYTES = 15 * 1024 * 1024
+
+
+def _observed():
+    return _PHOTO["observed"] or Q._observed()
+
+
+def _photo_info(name: str, observed) -> dict:
+    return {"name": name, "skin": observed.skin.hex, "hair": observed.hair.hex,
+            "top": observed.top.hex, "bottom": observed.bottom.hex,
+            "hair_stencil": observed.hair_stencil is not None}
+
+
+@app.get("/api/photo")
+def photo_info():
+    return JSONResponse(_PHOTO["info"], headers={"Cache-Control": "no-store"})
+
+
+@app.delete("/api/photo")
+def photo_clear():
+    _PHOTO.update(observed=None, name=None, info=None)
+    return JSONResponse({"ok": True})
+
+
+@app.post("/api/photo")
+def photo_upload(file: UploadFile = File(...)):
+    """Observe a photo (colours, hair silhouette) for the editor's seeds and preview."""
+    import io
+    from PIL import Image
+    raw = file.file.read(MAX_PHOTO_BYTES + 1)
+    if not raw or len(raw) > MAX_PHOTO_BYTES:
+        return JSONResponse({"error": "bad_size"}, status_code=413)
+    try:
+        fmt = Image.open(io.BytesIO(raw)).format
+    except Exception:
+        return JSONResponse({"error": "not_an_image"}, status_code=400)
+    suffix = {"JPEG": ".jpg", "PNG": ".png", "WEBP": ".webp"}.get(fmt)
+    if suffix is None:
+        return JSONResponse({"error": "unsupported_format"}, status_code=400)
+    path = OUT / "photo" / f"current{suffix}"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_bytes(raw)
+    photo = QU.inspect(path)
+    if photo.face is None:
+        return JSONResponse({"error": "no_face"}, status_code=422)
+    try:
+        seg = P.bottom_mask(photo.image) if P.parsing_on() else None
+    except Exception:
+        # No parser model on this host: colours only, no hair silhouette from the photo.
+        seg = None
+    observed = C.extract(photo, hair_bbox=None, seg=seg, hair_overlay=True)
+    name = Path(file.filename or "photo").name
+    info = _photo_info(name, observed)
+    _PHOTO.update(observed=observed, name=name, info=info)
+    return JSONResponse(info, headers={"Cache-Control": "no-store"})
+
 
 @app.middleware("http")
 async def no_store_static(request: Request, call_next):
@@ -81,10 +141,46 @@ def _blank(face: str) -> list[list[int]]:
     return [[0] * w for _ in range(h)]
 
 
+# Arm faces whose slim width differs from classic (slim: 3 px, classic: 4 px).
+SLIM_LAYOUT = get_layout("slim")
+SLIM_FACES = {}
+for _part in ("r_arm", "l_arm"):
+    for _face in PART_FACES[_part]:
+        _sf = SLIM_LAYOUT.face(_part, _face, 0)
+        if (_sf.w, _sf.h) != DIMS[f"{_part}.{_face}"]:
+            SLIM_FACES[f"{_part}.{_face}"] = (_sf.w, _sf.h)
+
+
+def _slim_rects() -> dict:
+    rects = {}
+    for layer, index in (("L1", 0), ("L2", 1)):
+        rects[layer] = {}
+        for face in FACES:
+            part, short = face.split(".", 1)
+            rects[layer][face] = list(SLIM_LAYOUT.face(part, short, index).rect)
+    return rects
+
+
 def _normalize_key(src) -> dict:
     out = {"L1": {}, "L2": {}}
     if not isinstance(src, dict):
         return out
+    slim = src.get("slim")
+    if isinstance(slim, dict):
+        sub = {"L1": {}, "L2": {}}
+        for layer in LAYERS:
+            face_map = slim.get(layer) or {}
+            if not isinstance(face_map, dict):
+                continue
+            for face, (w, h) in SLIM_FACES.items():
+                grid = face_map.get(face)
+                if isinstance(grid, list):
+                    sub[layer][face] = [
+                        [int(bool(grid[v][u])) if v < len(grid) and u < len(grid[v]) else 0 for u in range(w)]
+                        for v in range(h)
+                    ]
+        if any(sub[layer] for layer in LAYERS):
+            out["slim"] = sub
     for layer in LAYERS:
         face_map = src.get(layer) or {}
         if not isinstance(face_map, dict):
@@ -114,7 +210,7 @@ def _seed_hair(key: str, value: str) -> dict:
     # silhouette + overlay), not from the rule stencil: a rule-stencil seed
     # cut the side hair when style and length masks were intersected.
     head_cells: set = set()
-    target = R.render(Q._observed(), attrs, (), mask_override={}, head_hair_out=head_cells)
+    target = R.render(_observed(), attrs, (), mask_override={}, head_hair_out=head_cells)
     l1 = {}
     for face in ("top", "front", "right", "left", "back", "bottom"):
         f = LAYOUT.face("head", face, 0)
@@ -125,11 +221,11 @@ def _seed_hair(key: str, value: str) -> dict:
     base = dict(attrs.values)
     base["hair_style"] = "short"
     base["hair_length"] = "short"
-    baseline = R.render(Q._observed(), A.validate(base), (), mask_override={})
+    baseline = R.render(_observed(), A.validate(base), (), mask_override={})
     l2 = {}
     # Head L2 hair: the procedural hair overlay. Seed from the overlay-on
     # target vs an overlay-off baseline so the head L2 hair is selectable too.
-    no_overlay = dataclasses.replace(Q._observed(), hair_overlay=False)
+    no_overlay = dataclasses.replace(_observed(), hair_overlay=False)
     l2_base = R.render(no_overlay, attrs, (), mask_override={})
     for face in ("top", "front", "right", "left", "back", "bottom"):
         f = LAYOUT.face("head", face, 0)
@@ -170,9 +266,9 @@ def _seed_bottom(value: str) -> dict:
         return {}
     base = dict(Q._attrs("long", "long_straight", "none").values)
     base["bottom_garment"] = "none"
-    baseline = R.render(Q._observed(), A.validate(base), (), mask_override={})
+    baseline = R.render(_observed(), A.validate(base), (), mask_override={})
     base["bottom_garment"] = value
-    target = R.render(Q._observed(), A.validate(base), (), mask_override={})
+    target = R.render(_observed(), A.validate(base), (), mask_override={})
     grids = {}
     for part in ("r_leg", "l_leg"):
         for face in PART_FACES[part]:
@@ -196,9 +292,9 @@ def _seed_structure(key: str, value: str) -> dict:
     base["top_garment"] = "hoodie"
     base["inner_top"] = "none"
     base[key] = "none"
-    baseline = R.render(Q._observed(), A.validate(base), (), mask_override={})
+    baseline = R.render(_observed(), A.validate(base), (), mask_override={})
     base[key] = value
-    target = R.render(Q._observed(), A.validate(base), (), mask_override={})
+    target = R.render(_observed(), A.validate(base), (), mask_override={})
     f = LAYOUT.face("body", "front", 0)
     grid = [[1 if target.get("body", "front", u, v, 0)[:3] != baseline.get("body", "front", u, v, 0)[:3] else 0
              for u in range(f.w)] for v in range(f.h)]
@@ -211,9 +307,9 @@ def _seed_inner(value: str) -> dict:
     base = dict(Q._attrs("long", "long_straight", "none").values)
     base["top_garment"] = "hoodie"
     base["inner_top"] = "none"
-    baseline = R.render(Q._observed(), A.validate(base), (), mask_override={})
+    baseline = R.render(_observed(), A.validate(base), (), mask_override={})
     base["inner_top"] = value
-    target = R.render(Q._observed(), A.validate(base), (), mask_override={})
+    target = R.render(_observed(), A.validate(base), (), mask_override={})
     grids = {}
     f = LAYOUT.face("body", "front", 0)
     grids["body.front"] = [[1 if target.get("body", "front", u, v, 0)[:3] != baseline.get("body", "front", u, v, 0)[:3] else 0
@@ -233,9 +329,9 @@ def _seed_top(value: str) -> dict:
         return {}
     base = dict(Q._attrs("long", "long_straight", "none").values)
     base["top_garment"] = "none"
-    baseline = R.render(Q._observed(), A.validate(base), (), mask_override={})
+    baseline = R.render(_observed(), A.validate(base), (), mask_override={})
     base["top_garment"] = value
-    target = R.render(Q._observed(), A.validate(base), (), mask_override={})
+    target = R.render(_observed(), A.validate(base), (), mask_override={})
     grids = {}
     for part in ("body", "r_arm", "l_arm", "r_leg", "l_leg"):
         for face in PART_FACES[part]:
@@ -374,6 +470,8 @@ def defaults():
          "layers": LAYERS, "enums": COMBO_ENUMS, "defaults": DEFAULT_COMBO,
          "models": ["classic", "slim"], "combo": DEFAULT_COMBO,
          "atlas": {"size": 64, "rects": _atlas_rects()},
+         "slim": {"sub_faces": sorted(SLIM_FACES), "dims": {f: list(d) for f, d in SLIM_FACES.items()},
+                  "atlas": {"size": 64, "rects": _slim_rects()}},
          "maskable": MASKABLE, "masks": _defaults()},
         headers={"Cache-Control": "no-store"},
     )
@@ -530,7 +628,7 @@ async def preview(req: Request):
         attrs = _attrs_for(key, value)
     if mode == "mask" and (key not in MASKABLE or value not in MASKABLE[key]):
         return JSONResponse({"error": "bad key/value"}, status_code=400)
-    observed = Q._observed()
+    observed = _observed()
     # The final render is always produced: it is the base skin under the atlas
     # and the 3D texture in Final view. Mask view adds a separate image.
     # production = the approved asset (what generation uses); draft = the editor masks.
@@ -540,10 +638,11 @@ async def preview(req: Request):
     mask_url = None
     if mode == "mask":
         canvas = R.render(observed, attrs, (), mask_override={}, model=model)
+        shown = AM.resolve_model(masks, model)
         for layer, layer_index in (("L1", 0), ("L2", 1)):
             for face in FACES:
                 part, short = face.split(".", 1)
-                grid = AM.get_mask(masks, key, value, layer, part, short)
+                grid = AM.get_mask(shown, key, value, layer, part, short)
                 if not grid:
                     continue
                 color = (0, 150, 190, 255) if layer == "L1" else (0, 220, 240, 255)
