@@ -2,6 +2,8 @@
 import sys
 from pathlib import Path
 
+import pytest
+
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 import numpy as np
@@ -289,6 +291,7 @@ def test_select_face_none_when_empty():
 from skinmaker.quality import FaceBox, inspect as _inspect  # noqa: E402
 
 _FIXTURE = Path(__file__).resolve().parent / "fixtures" / "fullbody_snow.jpg"
+_YOLO_MODEL = Path(__file__).resolve().parent.parent / "assets" / "yolov8n.onnx"
 
 
 def test_fullbody_snow_detects_face():
@@ -305,6 +308,7 @@ def test_manual_crop_uses_cropped_image_and_detects_face():
     assert photo.image.size == (1173, 1900)
 
 
+@pytest.mark.skipif(not _YOLO_MODEL.exists(), reason="YOLOv8n ONNX model not fetched")
 def test_empty_crop_uses_person_auto_crop():
     photo = _inspect(_FIXTURE, crop=FaceBox(-10, -10, 5, 5))
     assert photo.face is not None
@@ -312,6 +316,7 @@ def test_empty_crop_uses_person_auto_crop():
     assert photo.crop_box is not None
 
 
+@pytest.mark.skipif(not _YOLO_MODEL.exists(), reason="YOLOv8n ONNX model not fetched")
 def test_person_auto_crop_detects_face():
     photo = _inspect(_FIXTURE)
     assert photo.source == "person"
