@@ -422,6 +422,13 @@ def test_classify_double_check_can_rescue_coerced_value():
     assert "pattern" in r.uncertain
 
 
+def test_classify_merge_records_coerced_field_names_flat():
+    t = MockTransport(first={**GOOD, "bottom_garment": "???"}, second=GOOD)
+    r = C.classify(photo(), t, double_check=True)
+    assert "bottom_garment" in r.attributes.coerced
+    assert all(isinstance(name, str) for name in r.attributes.coerced)
+
+
 def test_classify_merge_keeps_first_when_both_valid():
     t = MockTransport(first=GOOD, second=GOOD)
     r = C.classify(photo(), t, double_check=True)

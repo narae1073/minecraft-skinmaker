@@ -205,13 +205,13 @@ def _merge(a: Attributes, b: Attributes) -> Attributes:
             values[name] = a.get(name)
         elif first_ok:
             values[name] = a.get(name)
-            coerced.extend(n for n in (a.coerced, b.coerced) if name in n)
+            coerced.append(name)
         elif second_ok:
             values[name] = b.get(name)
-            coerced.extend(n for n in (a.coerced, b.coerced) if name in n)
+            coerced.append(name)
         else:
             values[name] = a.get(name)
-            coerced.extend(n for n in (a.coerced, b.coerced) if name in n)
+            coerced.append(name)
         if name in a.missing and name in b.missing:
             missing.append(name)
     bbox = a.hair_bbox or b.hair_bbox

@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import asyncio
 import dataclasses
+import io
 import json
 import time
 import os
@@ -22,6 +23,7 @@ from pathlib import Path
 from fastapi import FastAPI, File, Form, HTTPException, Request, UploadFile
 from fastapi.responses import StreamingResponse
 from fastapi.staticfiles import StaticFiles
+from PIL import Image
 
 from backend.limits import RateLimiter, client_ip, max_upload_bytes
 from skinmaker.attributes import summarize
@@ -104,6 +106,21 @@ def classify_error_status(message: str) -> tuple[int, str, str]:
     if any(t in message for t in transient):
         return 503, "overloaded", "AI 서버가 바빠요. 잠시 후 다시 눌러주세요."
     return 502, "classify_failed", f"분류 실패: {message[:200]}"
+
+
+IMAGE_SUFFIX = {"JPEG": ".jpg", "PNG": ".png", "WEBP": ".webp", "AVIF": ".avif"}
+
+
+def _image_suffix(raw: bytes) -> str:
+    """저장 확장자는 클라이언트 파일명이 아니라 실제 이미지 형식에서 정한다.
+
+    알 수 없는 형식은 .bin 으로 저장해 text/html 등으로 서빙되지 않게 한다.
+    """
+    try:
+        with Image.open(io.BytesIO(raw)) as img:
+            return IMAGE_SUFFIX.get((img.format or "").upper(), ".bin")
+    except Exception:
+        return ".bin"
 
 
 def resolve_skin_model(value: str | None) -> str:
@@ -296,7 +313,7 @@ async def _pipeline(request: Request, file: UploadFile = File(...), noise_level:
     if not candidates or not all(c.ok for c in candidates):
         fail(500, "render_failed", "렌더 검증 실패. 같은 사진으로 다시 시도해주세요.")
     token = uuid.uuid4().hex[:12]
-    input_name = f"input_{token}{Path(file.filename or 'up.jpg').suffix or '.jpg'}"
+    input_name = f"input_{token}{_image_suffix(raw)}"
     (STATIC_DIR / input_name).write_bytes(raw)
     # 처리 과정 시트 (설계 §12): 스킨 목록과 분리된 steps/ 하위폴더. 끄면 아예 미생성.
     steps_urls = None

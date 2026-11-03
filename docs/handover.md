@@ -5,9 +5,9 @@
 Photo → Minecraft 64×64 skin pipeline.
 S0 quality/face detection (YuNet) → S1 colour measurement (white-balance + band/cascade) → SCHP human-parsing mask (colour localization for bottom/hair/shoes — default ON) → S2 classification (double query, uncertainty flags) → S3 parametric render (+ deterministic noise) → S4 candidates (1–3 variants from double-query disagreements) → web app (FastAPI + React 19 / three.js with 3D viewer and editor modal).
 
-## 2. Current state (verified 2026-11-01)
+## 2. Current state (verified 2026-11-04)
 
-- Tests: **677 passed** (`tests/fixtures/` committed; ~10 s without the SCHP model, 361.62 s = 6:01 with it, measured 2026-11-02). Tests no longer need the 66 MB SCHP model: the jeans-rule tests stub a zero mask and `test_parsing` uses a dummy model path with a fake session.
+- Tests: **728 passed** (`tests/fixtures/` committed; 124 s on 2026-11-04 with the local SCHP model; ~10 s without it). Tests no longer need the 66 MB SCHP model: the jeans-rule tests stub a zero mask and `test_parsing` uses a dummy model path with a fake session.
 - Frontend: `npm run lint` clean, `npm run build` green (Vite 8 / Node 24).
 - Python 3.12.3 venv at `.venv`; do **not** use `python` or `uv`.
 - Parsing model: `out/models/schp-atr-18-int8-static.onnx` (66 MB, gitignored). YuNet: `assets/face_detection_yunet_2023mar.onnx` (228 KB, gitignored). Both fetched by `scripts/fetch_assets.sh`.
@@ -521,3 +521,10 @@ S0 quality/face detection (YuNet) → S1 colour measurement (white-balance + ban
 - 2026-11-03 (VLM timeout, `fix/vlm-timeout`): `make_transport` now passes `timeout=SKINMAKER_VLM_TIMEOUT` (default **10s**, previously 30s) so a slow Gemini call costs at most 10s instead of 30s. Tests 726.
 
 - 2026-11-03 (final stage order, `fix/final-stage-order`): SSE now emits `saving` (88%) before writing the input/steps/candidate files, then `steps` (95%) after the writes, then `done` (100%). Avoids the bar appearing frozen at the end. Tests 726.
+
+- 2026-11-04 (merge coerced fields + upload suffix, `fix/merge-coerced-upload-suffix`): 코드 리뷰 2건 수정.
+  - `classify._merge`: 병합된 `coerced` 에 필드명이 아니라 튜플이 들어가 `"bottom_garment" in attrs.coerced` 가 거짓이었다. 그래서 강제된 필드를 확신 있는 값으로 취급해 S1 커버 폴백(`resolve_sleeve`/`resolve_bottom_ex`)과 패턴 보수화(`effective_pattern`)가 건너뛰어졌다. 이제 필드명을 `append` 한다. 테스트 `test_classify_merge_records_coerced_field_names_flat`.
+  - 업로드 저장 확장자: 파일명(`Path(file.filename).suffix`)을 그대로 써서 `x.html` 로 올리면 공개 출처의 `/static/skins/` 에서 `text/html` 로 서빙될 수 있었다. 이제 PIL 이 감지한 형식(JPEG/PNG/WEBP/AVIF → .jpg/.png/.webp/.avif), 그 밖은 `.bin`. 테스트 `test_upload_is_stored_with_extension_from_image_format`.
+  - 검증: 신규 테스트 2개 수정 전 실패 → 수정 후 통과; `pytest -q` → **728 passed** (124.04s), exit 0.
+  - 미결정: 마스크 승인 정책. `render()` 는 `attribute_masks_approval.json` 의 SHA 를 확인하지 않고 `assets/attribute_masks.json` 을 그대로 쓴다. 승인 검사는 `production_status.py` 게이트에만 있다. 렌더 경로에서 강제할지, 문서만 고칠지 사용자 결정이 필요하다.
+  - 로컬 미추적 파일(`assets/yolov8n.pt`, `scripts/build_pack_review.py`)은 이 PR 에 포함하지 않았다.

@@ -145,6 +145,21 @@ def test_app_always_mounts_frontend():
     assert any(isinstance(route, Mount) and route.name == "frontend" for route in A.app.routes)
 
 
+def test_upload_is_stored_with_extension_from_image_format(tmp_path):
+    """파일명 확장자는 클라이언트 입력이다. 저장 확장자는 실제 이미지 형식으로 정한다.
+
+    messi5.jpg 바이트를 evil.html 이름으로 올려도 static 에 .html 로 남으면
+    공개 출처에서 text/html 로 서빙된다.
+    """
+    client()
+    with PHOTO.open("rb") as f:
+        r = TestClient(A.app).post("/api/v1/generate-skin", files={"file": ("evil.html", f, "image/jpeg")})
+    assert r.status_code == 200, r.text
+    url = r.json()["data"]["input"]
+    assert url.endswith(".jpg"), url
+    assert not url.endswith(".html")
+
+
 def test_generate_returns_three_urls():
     second = dict(GOOD, sleeve_len="long", hair_length="long")
     with PHOTO.open("rb") as f:
