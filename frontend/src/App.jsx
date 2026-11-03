@@ -55,7 +55,6 @@ function App() {
   const [isLoading, setIsLoading] = useState(false);
   const [fileError, setFileError] = useState(false);
   const [serverError, setServerError] = useState('');
-  const [uploadNotice, setUploadNotice] = useState(''); // 업로드 영역 인라인 안내
   const [historyNotice, setHistoryNotice] = useState(''); // 사이드바 인라인 안내
   const [skins, setSkins] = useState([]); // 현재 결과: {url, flatUrl} 쌍 배열
   const [editorItem, setEditorItem] = useState(null); // SkinEditor 모달 대상 ({url, flatUrl, steps, model})
@@ -118,12 +117,7 @@ function App() {
   };
 
   const handleGenerate = async (cropBox = null) => {
-    if (!file) {
-      setUploadNotice('사진을 먼저 선택해주세요.');
-      setTimeout(() => setUploadNotice(''), 3000);
-      return;
-    }
-    setUploadNotice('');
+    if (!file) return; // 버튼이 사진 없을 때 비활성 상태이므로 방어용
 
     abortRef.current?.abort();
     const controller = new AbortController();
@@ -373,13 +367,30 @@ function App() {
               <button type="button" className="file-picker-btn" onClick={() => fileInputRef.current?.click()} disabled={isLoading}>파일 선택</button>
               <span className="file-picker-name" title={file?.name}>{file?.name || '선택된 파일 없음'}</span>
             </div>
-            <button onClick={() => handleGenerate()} disabled={isLoading} className="generate-btn">
-              {isLoading ? '생성 중...' : '스킨 변환하기'}
-            </button>
+            <div className="convert-group">
+              <button
+                onClick={() => handleGenerate()}
+                disabled={isLoading || !file}
+                aria-describedby={file ? undefined : 'convert-hint'}
+                className="generate-btn"
+              >
+                {isLoading ? '생성 중...' : '스킨 변환하기'}
+              </button>
+              {!file && !isLoading && <p id="convert-hint" className="upload-hint">먼저 사진을 선택해 주세요.</p>}
+            </div>
           </div>
           {fileError && <p role="alert" className="inline-notice">이미지 파일(JPEG/PNG)만 첨부할 수 있어요.</p>}
-          {uploadNotice && <p role="status" className="inline-notice">{uploadNotice}</p>}
-          {file && <SelectedPhoto file={file} />}
+          {file && (
+            <SelectedPhoto
+              file={file}
+              disabled={isLoading}
+              onReplace={() => fileInputRef.current?.click()}
+              onRemove={() => {
+                setFile(null);
+                if (fileInputRef.current) fileInputRef.current.value = '';
+              }}
+            />
+          )}
         </div>
 
         {cameraOpen && (
@@ -390,8 +401,8 @@ function App() {
           />
         )}
 
-        <div className="config-section">
-          <h3>설정</h3>
+        <details className="config-section">
+          <summary className="config-summary">설정</summary>
           <div className="config-row">
             <label htmlFor="noise-level">픽셀 질감</label>
             <input
@@ -463,7 +474,7 @@ function App() {
             </select>
           </div>
           <p id="hair-overlay-help" className="config-help">머리카락을 바깥쪽에 한 겹 더 그려 입체감을 줘요. 앞머리와 긴 머리도 더 도드라져 보여요.</p>
-        </div>
+        </details>
 
         {skins.length > 0 && (
           <div className="result-section" ref={resultRef}>
