@@ -1282,3 +1282,14 @@ def test_body_hair_mask_clips_l1_and_l2():
     top = shade(rgba(observed().top.hex), R.FACE_SHADE["front"])[:3]
     assert hair != top
     assert canvas.image.getpixel((f.x + 1, f.y + 0))[3] == 255
+
+
+def test_head_l2_hair_mask_is_editable():
+    grid = [[0] * 8 for _ in range(8)]
+    grid[0][1] = 1
+    canvas = R.render(observed(), attrs(hair_style="long_wavy", hair_length="long", hood="none"), (),
+                      mask_override={"hair_style.long_wavy": {"L2": {"head.front": grid}}})
+    f = canvas.layout.face("head", "front", 1)
+    px = canvas.image.getpixel((f.x + 1, f.y + 0))
+    assert px[3] == 255
+    assert canvas.image.getpixel((f.x + 2, f.y + 0))[3] == 0

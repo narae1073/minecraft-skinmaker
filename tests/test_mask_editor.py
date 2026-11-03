@@ -27,7 +27,10 @@ def test_defaults_expose_key_value_tree_and_general_masks():
                        if face.startswith("body.") for row in grid)
     body_hair_l2 = sum(sum(row) for face, grid in j["masks"]["hair_style.long_wavy"]["L2"].items()
                        if face.startswith("body.") for row in grid)
+    head_hair_l2 = sum(sum(row) for face, grid in j["masks"]["hair_style.long_wavy"]["L2"].items()
+                       if face.startswith("head.") for row in grid)
     assert body_hair_l1 > 0 and body_hair_l2 > 0
+    assert head_hair_l2 > 0
     assert sum(sum(row) for grid in j["masks"]["beard.full"]["L1"].values() for row in grid) == 0
     inner_cells = sum(sum(row) for grid in j["masks"]["inner_top.shirt"]["L1"].values() for row in grid)
     assert inner_cells > 0
