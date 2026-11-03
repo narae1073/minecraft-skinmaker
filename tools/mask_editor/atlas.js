@@ -13,6 +13,9 @@ export const LAYER_STYLE = {
 // Dimmed boxes (no mask pixels) are drawn at this alpha; masked boxes at 1.
 export const DIM_ALPHA = 0.35;
 
+// Over the base skin, empty boxes are veiled with this so masked boxes stand out.
+export const EMPTY_VEIL = 'rgba(241, 243, 245, 0.62)';
+
 // One box per (layer, face): the face rectangle inside the 64x64 atlas.
 export function buildBoxes(rects) {
   const boxes = [];
@@ -68,19 +71,28 @@ export function texelAt(clientX, clientY, rect, zoom) {
 // Draw the atlas. `cellOn(layer, face, u, v)` and `hasMaskFor(layer, face)`
 // read the current mask; `opts.activeBox` and `opts.hover` are optional.
 export function drawAtlas(ctx, opts) {
-  const { boxes, zoom, cellOn, hasMaskFor, activeBox, hover } = opts;
+  const { boxes, zoom, cellOn, hasMaskFor, activeBox, hover, base } = opts;
   const size = ATLAS * zoom;
   ctx.clearRect(0, 0, size, size);
   ctx.fillStyle = '#f1f3f5';
   ctx.fillRect(0, 0, size, size);
 
-  // 1. Box fill: masked boxes bright, empty boxes dimmed.
-  for (const b of boxes) {
-    ctx.globalAlpha = boxAlpha(hasMaskFor(b.layer, b.face));
-    ctx.fillStyle = LAYER_STYLE[b.layer].base;
-    ctx.fillRect(b.x * zoom, b.y * zoom, b.w * zoom, b.h * zoom);
+  // 1. Background. With a base skin: the real output pixels, with empty boxes
+  // veiled. Without: the palette, masked boxes bright and empty boxes dimmed.
+  if (base) {
+    ctx.drawImage(base, 0, 0, size, size);
+    ctx.fillStyle = EMPTY_VEIL;
+    for (const b of boxes) {
+      if (!hasMaskFor(b.layer, b.face)) ctx.fillRect(b.x * zoom, b.y * zoom, b.w * zoom, b.h * zoom);
+    }
+  } else {
+    for (const b of boxes) {
+      ctx.globalAlpha = boxAlpha(hasMaskFor(b.layer, b.face));
+      ctx.fillStyle = LAYER_STYLE[b.layer].base;
+      ctx.fillRect(b.x * zoom, b.y * zoom, b.w * zoom, b.h * zoom);
+    }
+    ctx.globalAlpha = 1;
   }
-  ctx.globalAlpha = 1;
 
   // 2. Masked texels: tint plus hatch in the layer's own direction/colour.
   const lineWidth = Math.max(1, zoom / 8);

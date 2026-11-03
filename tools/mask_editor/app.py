@@ -356,6 +356,28 @@ def defaults():
     )
 
 
+def _seed_masks() -> dict:
+    """Procedural seed for every maskable value (no draft, no approved asset)."""
+    out = {}
+    for key, values in MASKABLE.items():
+        for value in values:
+            src = _seed_for(key, value)
+            if key in ("hair_style", "hair_length") and isinstance(src, dict):
+                # Same hood-policy zeroing as _defaults: no body-back hair masks.
+                src = {layer: dict(src.get(layer, {}) or {}) for layer in LAYERS}
+                for layer in LAYERS:
+                    for face in FACES:
+                        if face.startswith("body.back"):
+                            src[layer][face] = _blank(face)
+            out[f"{key}.{value}"] = _normalize_key(src)
+    return out
+
+
+@app.get("/api/seed-all")
+def seed_all():
+    return JSONResponse({"masks": _seed_masks()}, headers={"Cache-Control": "no-store"})
+
+
 @app.get("/api/seed")
 def seed(key: str, value: str):
     if key not in MASKABLE or value not in MASKABLE[key]:
@@ -446,6 +468,11 @@ async def preview(req: Request):
     if mode == "mask" and (key not in MASKABLE or value not in MASKABLE[key]):
         return JSONResponse({"error": "bad key/value"}, status_code=400)
     observed = Q._observed()
+    # The final render is always produced: it is the base skin under the atlas
+    # and the 3D texture in Final view. Mask view adds a separate image.
+    final = R.render(observed, attrs, (), mask_override=masks, model=model)
+    final.image.save(OUT / "preview.png")
+    mask_url = None
     if mode == "mask":
         canvas = R.render(observed, attrs, (), mask_override={}, model=model)
         for layer, layer_index in (("L1", 0), ("L2", 1)):
@@ -459,10 +486,9 @@ async def preview(req: Request):
                     for u, bit in enumerate(row[:DIMS[face][0]]):
                         if bit:
                             canvas.put(part, short, u, v, color, layer_index)
-    else:
-        canvas = R.render(observed, attrs, (), mask_override=masks, model=model)
-    canvas.image.save(OUT / "preview.png")
-    return JSONResponse({"skin": "/out/preview.png", "key": key, "value": value,
+        canvas.image.save(OUT / "preview_mask.png")
+        mask_url = "/out/preview_mask.png"
+    return JSONResponse({"skin": "/out/preview.png", "mask": mask_url, "key": key, "value": value,
                          "mode": mode, "model": model, "effective": attrs.values,
                          "warnings": warnings, "coerced": list(attrs.coerced),
                          "derived": list(attrs.derived)},

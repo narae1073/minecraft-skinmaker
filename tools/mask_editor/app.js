@@ -10,7 +10,8 @@ const state = {
   boxes: [], key: null, value: null, layer: 'L1', face: null,
   mode: 'paint', viewMode: 'final', mirror: false,
   zoom: 8, hover: null,
-  painting: false, painting3d: false, stroke: 0, last: null, history: [], baseImg: null,
+  painting: false, painting3d: false, stroke: 0, last: null, baseImg: null,
+  history: { undo: [], redo: [] }, showBase: true,
 };
 let viewer = null;
 const COMBO_STORAGE = 'skinmaker.combo.v1';
@@ -168,13 +169,16 @@ function renderCombo() {
 
 const ZOOM_MIN = 2;
 const ZOOM_MAX = 24;
+const WHEEL_STEP = 40;          // accumulated deltaY per zoom step (trackpads send many small deltas)
 const STROKE_THROTTLE_MS = 150;
 const SCHEDULE_DEBOUNCE_MS = 200;
+const HISTORY_MAX = 100;
 let atlasCanvas = null;
 let atlasCtx = null;
 let drawQueued = false;
 let overlayCanvas = null;
 let overlayCtx = null;
+let wheelAccum = 0;
 
 function activeBox() {
   return state.boxes.find((b) => b.face === state.face && b.layer === state.layer) || null;
@@ -210,16 +214,30 @@ function drawAtlasNow() {
   drawAtlas(atlasCtx, {
     boxes: state.boxes, zoom: z, cellOn, hasMaskFor,
     activeBox: activeBox(), hover: state.hover,
+    base: state.showBase && state.baseImg ? state.baseImg : null,
   });
   const zl = document.querySelector('#zoomLabel');
   if (zl) zl.textContent = `${z}×`;
 }
 
-function setZoom(z) {
+// Zoom keeps the texel under the cursor fixed on screen (anchor = client point).
+function setZoom(z, anchor = null) {
   const next = Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, Math.round(z)));
   if (next === state.zoom) return;
+  const wrap = document.querySelector('#atlasWrap');
+  let fx = null, fy = null;
+  if (anchor && atlasCanvas) {
+    const before = atlasCanvas.getBoundingClientRect();
+    fx = (anchor.clientX - before.left) / state.zoom;
+    fy = (anchor.clientY - before.top) / state.zoom;
+  }
   state.zoom = next;
-  scheduleDraw();
+  drawAtlasNow();
+  if (fx !== null && wrap) {
+    const after = atlasCanvas.getBoundingClientRect();
+    wrap.scrollLeft += (after.left + fx * next) - anchor.clientX;
+    wrap.scrollTop += (after.top + fy * next) - anchor.clientY;
+  }
 }
 
 function fitZoom() {
@@ -238,30 +256,108 @@ function updateStatus() {
   } else if (state.hover) {
     where += ` · atlas (${state.hover.u}, ${state.hover.v})`;
   }
-  cell.textContent = `${maskName()} · ${where} — ${state.mode === 'paint' ? '칠하기' : '지우개'} (Shift = 지우개) · model=${state.model}`;
+  cell.textContent = `${maskName()} · ${where} — ${state.mode === 'paint' ? '칠하기' : '지우개'} (우클릭·Shift = 지우개) · model=${state.model}`;
+}
+
+// ---- history ---------------------------------------------------------------
+// A command is either a set of cell changes (strokes, fill, clear) or a whole
+// mask snapshot (seed and reset). Cell changes are small; snapshots are rare.
+
+let txn = null;
+
+function txnBegin() { if (!txn) txn = []; }
+
+function txnCommit() {
+  if (txn && txn.length) pushCommand({ type: 'cells', changes: txn });
+  txn = null;
+}
+
+function pushCommand(cmd) {
+  state.history.undo.push(cmd);
+  if (state.history.undo.length > HISTORY_MAX) state.history.undo.shift();
+  state.history.redo = [];
+  historyChanged();
+}
+
+function applyCommand(cmd, forward) {
+  if (cmd.type === 'snapshot') {
+    state.masks = JSON.parse(forward ? cmd.after : cmd.before);
+    return;
+  }
+  const list = forward ? cmd.changes : [...cmd.changes].reverse();
+  for (const c of list) {
+    const grid = ensureGrid(c.name, c.layer, c.face);
+    grid[c.v][c.u] = forward ? c.to : c.from;
+  }
+}
+
+function undo() {
+  const cmd = state.history.undo.pop();
+  if (!cmd) return;
+  applyCommand(cmd, false);
+  state.history.redo.push(cmd);
+  historyChanged();
+}
+
+function redo() {
+  const cmd = state.history.redo.pop();
+  if (!cmd) return;
+  applyCommand(cmd, true);
+  state.history.undo.push(cmd);
+  historyChanged();
+}
+
+function historyChanged() {
+  $('#undoBtn').disabled = !state.history.undo.length;
+  $('#redoBtn').disabled = !state.history.redo.length;
+  scheduleDraw(); overlayPreview(); schedulePreview(0); updateStatus();
+}
+
+// Whole-mask change as one undoable command.
+function snapshotChange(nextMasks, label) {
+  const before = JSON.stringify(state.masks);
+  state.masks = nextMasks;
+  const after = JSON.stringify(state.masks);
+  if (before !== after) pushCommand({ type: 'snapshot', before, after, label });
+  else historyChanged();
 }
 
 // ---- painting ------------------------------------------------------------
 
-function setLocal(box, u, v, value) {
-  const grid = gridFor(box.face, box.layer);
-  if (!grid || v < 0 || v >= box.h || u < 0 || u >= box.w) return false;
-  if (grid[v][u] === value) return false;
+function ensureGrid(name, layer, face) {
+  if (!state.masks[name]) state.masks[name] = { L1: {}, L2: {} };
+  const m = state.masks[name];
+  if (!m[layer]) m[layer] = {};
+  if (!m[layer][face]) m[layer][face] = blank(face);
+  return m[layer][face];
+}
+
+// Set one cell of the current mask and record the change for undo.
+function setCell(box, u, v, value) {
+  if (u < 0 || v < 0 || u >= box.w || v >= box.h) return false;
+  const name = maskName();
+  const grid = ensureGrid(name, box.layer, box.face);
+  const from = grid[v][u];
+  if (from === value) return false;
   grid[v][u] = value;
+  if (txn) txn.push({ name, layer: box.layer, face: box.face, u, v, from, to: value });
   return true;
 }
 
-// Paint one atlas texel (and its mirror inside the same face when enabled).
+// Set a cell and its mirror (inside the same face) when mirror is on.
+function setLocal(box, u, v, value) {
+  let changed = setCell(box, u, v, value);
+  if (state.mirror) changed = setCell(box, box.w - 1 - u, v, value) || changed;
+  return changed;
+}
+
+// Paint one atlas texel. The box under the texel decides the layer and face.
 function paintTexel(U, V, value) {
   const box = boxAt(state.boxes, U, V);
   if (!box) return false;
   state.layer = box.layer;
   state.face = box.face;
-  const u = U - box.x;
-  const v = V - box.y;
-  let changed = setLocal(box, u, v, value);
-  if (state.mirror) changed = setLocal(box, box.w - 1 - u, v, value) || changed;
-  return changed;
+  return setLocal(box, U - box.x, V - box.y, value);
 }
 
 // 3D hits are face-local already.
@@ -270,15 +366,13 @@ function paintFaceCell(face, layer, u, v, value) {
   if (!box) return false;
   state.layer = layer;
   state.face = face;
-  let changed = setLocal(box, u, v, value);
-  if (state.mirror) changed = setLocal(box, box.w - 1 - u, v, value) || changed;
-  return changed;
+  return setLocal(box, u, v, value);
 }
 
 function beginStroke(U, V, erase) {
   if (!boxAt(state.boxes, U, V)) return false;
   state.stroke = erase ? 0 : 1;
-  pushHistory();
+  txnBegin();
   state.painting = true;
   state.last = [U, V];
   paintTexel(U, V, state.stroke);
@@ -297,12 +391,8 @@ function endStroke() {
   state.painting = false;
   state.painting3d = false;
   state.last = null;
-  schedulePreview(0);
-}
-
-function pushHistory() {
-  state.history.push(JSON.stringify(state.masks));
-  if (state.history.length > 50) state.history.shift();
+  txnCommit();
+  historyChanged();
 }
 
 // Paint changes: refresh the atlas now, the 3D overlay immediately, and the
@@ -376,14 +466,18 @@ async function preview() {
     if (warn) warn.textContent = j.warnings.length ? ('⚠ ' + j.warnings.slice(0, 4).join(' · ')) : '';
   }
   if (j.skin) {
-    const url = j.skin + '?t=' + Date.now();
+    const stamp = Date.now();
+    const finalUrl = j.skin + '?t=' + stamp;
+    // The base skin is always the final render, even in Mask view.
     const img = new Image();
     img.onload = () => {
-      if (seq === previewSeq) state.baseImg = img;
+      if (seq !== previewSeq) return;
+      state.baseImg = img;
+      scheduleDraw();
     };
-    img.src = url;
-    if (viewer) viewer.setSkin(url);
-    $('#skin').src = url;
+    img.src = finalUrl;
+    if (viewer) viewer.setSkin(j.mask ? j.mask + '?t=' + stamp : finalUrl);
+    $('#skin').src = finalUrl;
   }
   updateStatus();
 }
@@ -452,6 +546,12 @@ function setViewMode(m) {
   schedulePreview(0);
 }
 
+function setShowBase(on) {
+  state.showBase = on;
+  $('#baseBtn').className = on ? 'active' : '';
+  scheduleDraw();
+}
+
 // Both layers are always shown in 3D so the overlay shell matches the output.
 const LAYERS_3D = ['L1', 'L2'];
 
@@ -459,12 +559,14 @@ function bind2d() {
   atlasCanvas = $('#atlasCanvas');
   atlasCtx = atlasCanvas.getContext('2d');
   const texel = (e) => texelAt(e.clientX, e.clientY, atlasCanvas.getBoundingClientRect(), state.zoom);
+  atlasCanvas.addEventListener('contextmenu', (e) => e.preventDefault());
   atlasCanvas.addEventListener('pointerdown', (e) => {
-    if (e.button !== 0) return;
+    if (e.button !== 0 && e.button !== 2) return;
     const t = texel(e);
     if (!t) return;
     e.preventDefault();
-    if (!beginStroke(t.u, t.v, e.shiftKey || state.mode === 'erase')) return;
+    const erase = e.button === 2 || e.shiftKey || state.mode === 'erase';
+    if (!beginStroke(t.u, t.v, erase)) return;
     atlasCanvas.setPointerCapture(e.pointerId);
     scheduleDraw(); updateStatus(); overlayPreview();
     schedulePreview(STROKE_THROTTLE_MS, true);
@@ -484,14 +586,16 @@ function bind2d() {
   });
   const wrap = $('#atlasWrap');
   wrap.addEventListener('wheel', (e) => {
-    if (!e.ctrlKey) return;
     e.preventDefault();
-    setZoom(state.zoom + (e.deltaY < 0 ? 1 : -1));
+    wheelAccum += e.deltaY;
+    if (Math.abs(wheelAccum) < WHEEL_STEP) return;
+    const step = wheelAccum < 0 ? 1 : -1;
+    wheelAccum = 0;
+    setZoom(state.zoom + step, { clientX: e.clientX, clientY: e.clientY });
   }, { passive: false });
   $('#zoomIn').onclick = () => setZoom(state.zoom + 1);
   $('#zoomOut').onclick = () => setZoom(state.zoom - 1);
   $('#zoomFit').onclick = fitZoom;
-  $('#zoom100').onclick = () => setZoom(8);
 }
 
 function bind3d(v) {
@@ -504,7 +608,7 @@ function bind3d(v) {
     if (!hit) return;
     state.painting3d = true;
     state.stroke = (state.mode === 'erase' || e.shiftKey) ? 0 : 1;
-    pushHistory();
+    txnBegin();
     paintFaceCell(hit.face, state.layer, hit.u, hit.v, state.stroke);
     try { canvas.setPointerCapture(e.pointerId); } catch {}
     e.preventDefault();
@@ -517,13 +621,14 @@ function bind3d(v) {
   });
 }
 
-// Clear / fill / undo act on the active box (face + layer).
+// Clear / fill act on the active box and are one undo step.
 function actOnActiveBox(fn) {
   const box = activeBox();
   if (!box) return;
-  pushHistory();
+  txnBegin();
   fn(box);
-  scheduleDraw(); overlayPreview(); schedulePreview(0); updateStatus();
+  txnCommit();
+  historyChanged();
 }
 
 async function save() {
@@ -536,35 +641,46 @@ async function save() {
   $('#status').textContent = j.ok ? `저장됨: ${j.path}` : '저장 실패';
 }
 
+// Reset every mask to the procedural seed. Combo settings are not touched.
+async function resetToSeed() {
+  const btn = $('#resetBtn');
+  btn.disabled = true;
+  $('#status').textContent = '초기 상태(seed) 계산 중…';
+  try {
+    const r = await fetch('/api/seed-all', { cache: 'no-store' });
+    const j = await r.json();
+    snapshotChange(j.masks, 'reset');
+    $('#status').textContent = '초기 상태(procedural seed)로 되돌림 — Undo로 취소 가능';
+  } finally {
+    btn.disabled = false;
+  }
+}
+
 function bindButtons() {
+  $('#baseBtn').onclick = () => setShowBase(!state.showBase);
   $('#paintBtn').onclick = () => setMode('paint');
   $('#eraseBtn').onclick = () => setMode('erase');
   $('#hoodModeBtn').onclick = () => setViewMode('final');
   $('#maskModeBtn').onclick = () => setViewMode('mask');
   $('#mirror').onchange = (e) => { state.mirror = e.target.checked; };
   $('#undoBtn').onclick = undo;
+  $('#redoBtn').onclick = redo;
+  $('#resetBtn').onclick = resetToSeed;
   $('#clearBtn').onclick = () => actOnActiveBox((box) => {
-    curMask()[box.layer][box.face] = blank(box.face);
+    for (let v = 0; v < box.h; v++) for (let u = 0; u < box.w; u++) setCell(box, u, v, 0);
   });
   $('#fillBtn').onclick = () => actOnActiveBox((box) => {
-    curMask()[box.layer][box.face] = Array.from({ length: box.h }, () => Array(box.w).fill(1));
+    for (let v = 0; v < box.h; v++) for (let u = 0; u < box.w; u++) setCell(box, u, v, 1);
   });
   $('#saveBtn').onclick = save;
   $('#seedBtn').onclick = async () => {
     const r = await fetch(`/api/seed?key=${encodeURIComponent(state.key)}&value=${encodeURIComponent(state.value)}`);
     const j = await r.json();
     if (!j.mask) return;
-    pushHistory();
-    state.masks[state.key + '.' + state.value] = j.mask;
-    scheduleDraw(); overlayPreview(); schedulePreview(0);
-    $('#status').textContent = `seed 복원: ${state.key}.${state.value}`;
+    const next = { ...state.masks, [state.key + '.' + state.value]: j.mask };
+    snapshotChange(next, 'seed');
+    $('#status').textContent = `seed 복원: ${state.key}.${state.value} — Undo로 취소 가능`;
   };
-}
-
-function undo() {
-  if (!state.history.length) return;
-  state.masks = JSON.parse(state.history.pop());
-  scheduleDraw(); overlayPreview(); schedulePreview(0); updateStatus();
 }
 
 window.addEventListener('pointerup', endStroke);
@@ -572,8 +688,10 @@ window.addEventListener('mouseup', endStroke);
 window.addEventListener('keydown', (e) => {
   if (e.target && /INPUT|SELECT|TEXTAREA/.test(e.target.tagName)) return;
   const mod = e.ctrlKey || e.metaKey;
-  if (mod && e.key.toLowerCase() === 'z') { e.preventDefault(); undo(); }
-  else if (mod && e.key.toLowerCase() === 's') { e.preventDefault(); save(); }
+  const k = e.key.toLowerCase();
+  if (mod && k === 'z' && !e.shiftKey) { e.preventDefault(); undo(); }
+  else if (mod && (k === 'y' || (k === 'z' && e.shiftKey))) { e.preventDefault(); redo(); }
+  else if (mod && k === 's') { e.preventDefault(); save(); }
   else if (!mod && (e.key === '+' || e.key === '=')) setZoom(state.zoom + 1);
   else if (!mod && (e.key === '-' || e.key === '_')) setZoom(state.zoom - 1);
 });
@@ -595,6 +713,8 @@ async function boot() {
   state.layer = first.layer;
   state.face = first.face;
   renderCombo(); renderKeyTabs(); bind2d(); bindButtons();
+  setShowBase(true);
+  historyChanged();
   fitZoom();
   scheduleDraw();
   try {
@@ -610,5 +730,5 @@ async function boot() {
   schedulePreview(0);
 }
 
-window.maskEditor = { state, viewer: null, setCombo, saveCombo, loadCombo, renderCombo, paintTexel, drawAtlasNow };
+window.maskEditor = { state, viewer: null, setCombo, saveCombo, loadCombo, renderCombo, paintTexel, drawAtlasNow, undo, redo };
 boot();

@@ -539,3 +539,10 @@ S0 quality/face detection (YuNet) → S1 colour measurement (white-balance + ban
   - 마스크가 있는 면은 밝게, 없는 면은 흐리게; 빈 면에 칠하면 즉시 밝아짐. 클릭/드래그 칠하기, Shift 지우개, Ctrl+휠·버튼 줌(2–24×).
   - 3D: 어느 파트든 클릭 칠하기(`pickAny`), 편집은 클라이언트 틴트로 즉시 반영되고 서버 렌더가 도착하면 정확한 결과로 교체.
   - 검증: `tests/test_mask_editor.py` 17 + `tests/test_mask_editor_atlas.py`(node 6 tests); headless Chrome CDP 실측: 칠하기 4셀 정확, 면 지우기 0, Shift 지우기 0, L2 클릭 레이어 판별, Ctrl+휠 줌, 3D pickAny body 히트, 콘솔 에러 0. 스크린샷 `/tmp/mecheck/shots/03_zoomed.png`(세션 로컬).
+- 2026-11-04 (mask editor history/base/reset, `feat/mask-editor-atlas`): 편집기 추가 기능.
+  - Base skin 토글(기본 ON): atlas 배경에 실제 최종 렌더를 표시. 편집 후 서버 렌더가 도착하면 교체.
+  - Undo/Redo: 칠하기·채우기·지우기는 셀 단위 diff, seed/reset 은 스냅샷. 100 단계 제한. Ctrl+Z / Ctrl+Y / Ctrl+Shift+Z.
+  - 초기 상태로(Reset): `GET /api/seed-all` 의 절차적 seed 로 모든 마스크를 되돌림. 조합 설정은 유지, 디스크는 저장 전까지 불변, undo 가능.
+  - 휠 줌(커서 기준 앵커), 우클릭 드래그 지우기.
+  - 레이아웃: 보기/확대/도구/기록 그룹 툴바, 사이드바는 조합·key/value·현재 면·파일.
+  - 검증: `tests/test_mask_editor.py` 19 + atlas node 6; headless Chrome CDP 21/21 (칠하기·undo·redo·우클릭 지우기·reset=seed·combo 유지·base 토글/갱신·휠 줌 앵커·콘솔 에러 0). 스크린샷 `/tmp/mecheck/shots/10_new_ui.png`.

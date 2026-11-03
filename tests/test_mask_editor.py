@@ -242,3 +242,27 @@ def test_defaults_publish_atlas_rects_for_both_layers():
                 for px in range(x, x + w):
                     assert (px, py) not in taken, f"{layer}.{face} overlaps {taken.get((px, py))}"
                     taken[(px, py)] = f"{layer}.{face}"
+
+
+def test_seed_all_returns_procedural_seed_for_every_value():
+    # Reset target: every maskable value, from the algorithm only (no draft,
+    # no approved asset). Hood policy still hides body-back hair.
+    c = TestClient(mod.app)
+    r = c.get("/api/seed-all")
+    assert r.status_code == 200, r.text
+    masks = r.json()["masks"]
+    assert set(masks) == {f"{k}.{v}" for k, vs in mod.MASKABLE.items() for v in vs}
+    assert sum(sum(row) for grid in masks["hair_style.bob"]["L1"].values() for row in grid) > 0
+    for layer in ("L1", "L2"):
+        assert sum(sum(row) for face, grid in masks["hair_style.long_wavy"][layer].items()
+                   if face.startswith("body.back") for row in grid) == 0
+
+
+def test_preview_returns_final_base_always_and_mask_only_in_mask_mode():
+    c = TestClient(mod.app)
+    masks = c.get("/api/defaults").json()["masks"]
+    final = c.post("/api/preview", json={"key": "hood", "value": "up", "masks": masks, "mode": "final"}).json()
+    assert final["skin"].startswith("/out/") and final.get("mask") is None
+    mask = c.post("/api/preview", json={"key": "hood", "value": "up", "masks": masks, "mode": "mask"}).json()
+    assert mask["mask"].startswith("/out/") and mask["mask"] != mask["skin"]
+    assert mask["skin"].startswith("/out/")

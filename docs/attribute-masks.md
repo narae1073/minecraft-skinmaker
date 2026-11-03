@@ -237,3 +237,16 @@ without a photo:
   `tests/test_mask_editor_atlas.py` when Node is installed.
 - Known limits: slim-model masks still use the classic grid (3-px arm faces are not
   separate in the editor); the whole mask set is still sent on each preview.
+
+## Editor UI — history, base skin, reset (2026-11-04)
+
+- Base skin (on by default): the atlas shows the real final render (the same image as
+  the 3D Final view), with empty boxes veiled. The base is always the final render,
+  even in Mask view. It refreshes from the server after each edit (about 30 ms render).
+- Undo/Redo: strokes, fill and clear are per-cell diffs (small). Seed and reset are
+  whole-mask snapshots. History is capped at 100 commands. Shortcuts: Ctrl+Z, Ctrl+Y,
+  Ctrl+Shift+Z.
+- 초기 상태로 (Reset): every mask goes back to the procedural seed (`GET /api/seed-all`,
+  the same hood-policy zeroing as the defaults). Combo settings are not changed. Reset
+  is an undoable step, and nothing is written to disk until Save.
+- Plain wheel zooms the atlas (2×–24×) around the cursor. Right-drag erases.
