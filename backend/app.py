@@ -74,7 +74,8 @@ SKIN_MODELS = ("classic", "slim")
 def make_transport():
     """테스트에서 monkeypatch 로 교체한다."""
     name = os.environ.get(TRANSPORT_ENV, "gemini")
-    return get_transport(name, model=os.environ.get(MODEL_ENV))
+    timeout = float(os.environ.get("SKINMAKER_VLM_TIMEOUT", "10"))
+    return get_transport(name, model=os.environ.get(MODEL_ENV), timeout=timeout)
 
 
 def fail(status_code: int, code: str, message: str, extra: dict | None = None):
