@@ -162,10 +162,66 @@ def run_matrix(styles=STYLES, hoods=HOODS, noise_levels=(0.0, 0.5)) -> dict:
     }
 
 
-def write_report(path: Path) -> dict:
+def write_report(path: Path, image: Path | None = None, title: str | None = None) -> dict:
     import json
     report = run_matrix()
     path = Path(path)
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(report, indent=2), encoding="utf-8")
+    if image is not None:
+        render_contact_sheet(report["cases"], image, title or "production QA")
     return report
+
+
+def _case_canvas(case: dict):
+    attrs = _attrs(case["length"], case["style"], case["hood"], case.get("beard", "none"))
+    level = case.get("noise", 0.0)
+    seed = 12345 if level else None
+    return R.render(_observed(), attrs, (), noise_seed=seed, noise_level=level or 1.0,
+                    model=case.get("model", "classic"))
+
+
+def render_contact_sheet(cases: list[dict], path: Path, title: str = "production QA") -> Path:
+    """Render every QA case into one labelled contact sheet (pass green / fail red)."""
+    from PIL import Image, ImageDraw, ImageFont
+
+    cols = 7
+    cell = 256
+    pad = 6
+    label_h = 62
+    title_h = 54
+    rows = (len(cases) + cols - 1) // cols
+    sheet = Image.new("RGB", (cols * (cell + pad * 2) + pad, title_h + rows * (cell + label_h + pad * 2) + pad),
+                      (22, 24, 28))
+    draw = ImageDraw.Draw(sheet)
+    font = ImageFont.load_default()
+    draw.text((pad + 2, 12), title, fill=(235, 235, 240), font=font)
+    fails = sum(1 for c in cases if c["problems"])
+    draw.text((pad + 2, 30), f"{len(cases)} cases · {fails} failed · "
+              f"{len(cases) - fails} passed", fill=(150, 210, 160) if not fails else (240, 130, 120), font=font)
+    for i, case in enumerate(cases):
+        cx = i % cols
+        cy = i // cols
+        x = pad + cx * (cell + pad * 2)
+        y = title_h + cy * (cell + label_h + pad * 2) + pad
+        image = _case_canvas(case).image.convert("RGBA")
+        image = Image.new("RGBA", (cell, cell), (32, 34, 40, 255))
+        image.alpha_composite(_case_canvas(case).image.resize((cell, cell), Image.NEAREST))
+        ok = not case["problems"]
+        color = (90, 200, 120) if ok else (235, 90, 80)
+        draw.rectangle((x - 1, y - 1, x + cell, y + cell), outline=color, width=2)
+        sheet.paste(image.convert("RGB"), (x, y))
+        label = f"{case['style']}/{case['length']} · {case['hood']} · n{case.get('noise', 0):g}"
+        if case.get("model"):
+            label += f" · {case['model']}"
+        if case.get("beard"):
+            label += f" · beard:{case['beard']}"
+        draw.text((x, y + cell + 4), label, fill=(225, 225, 230), font=font)
+        status = "PASS" if ok else "FAIL"
+        draw.text((x, y + cell + 20), status, fill=color, font=font)
+        if case["problems"]:
+            draw.text((x, y + cell + 36), case["problems"][0][:60], fill=(240, 150, 140), font=font)
+    path = Path(path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    sheet.save(path)
+    return path

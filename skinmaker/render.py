@@ -1135,12 +1135,19 @@ def apply_head_masks(canvas: SkinCanvas, colors: dict[str, Color], attrs: Attrib
     the front face (there is no procedural beard).
     """
     hair_c, skin_c = colors["hair"], colors["skin"]
+    hood_up = attrs.get("hood") == "up"
     for face in canvas.layout.part("head", 0).faces:
+        # A hood-up covers the head; hair masks must not paint through it.
+        hgrid = AM.get_mask(masks, "hood", "up", "L1", "head", face) if hood_up else None
+
+        def covered(u: int, v: int) -> bool:
+            return hgrid is not None and v < len(hgrid) and u < len(hgrid[v]) and bool(hgrid[v][u])
+
         l1 = _hair_mask_grid(masks, attrs, face, "L1")
         if l1:
             for v, row in enumerate(l1):
                 for u, bit in enumerate(row):
-                    if bit:
+                    if bit and not covered(u, v):
                         canvas.put("head", face, u, v, shade(hair_c, FACE_SHADE.get(face, 1.0)), 0)
                     elif (face, u, v) in hair_cells:
                         canvas.put("head", face, u, v, shade(skin_c, FACE_SHADE.get(face, 1.0)), 0)
@@ -1148,7 +1155,7 @@ def apply_head_masks(canvas: SkinCanvas, colors: dict[str, Color], attrs: Attrib
         if l2:
             for v, row in enumerate(l2):
                 for u, bit in enumerate(row):
-                    if bit:
+                    if bit and not covered(u, v):
                         canvas.put("head", face, u, v, _l2_color(hair_c, face), 1)
                     else:
                         canvas.put("head", face, u, v, (0, 0, 0, 0), 1)
@@ -1445,7 +1452,8 @@ def render(
     # Hood-down + long hair: the hood sits behind the neck, so long hair must
     # not be drawn over the body back face (only that face; side locks stay).
     hide_body_back_hair = hide_body_back_hair or (
-        attrs.get("hood") == "down" and attrs.get("hair_length") in ("long", "medium")
+        attrs.get("hood") in ("up", "down")
+        and attrs.get("hair_length") in ("long", "medium", "very_long")
     )
     body_cells = render_body(canvas, colors, attrs, pattern, alt, hair_stencil, thickness,
                 drape=drape, drape_tones=drape_tones, hide_back_drape=hide_back_drape,
@@ -1467,7 +1475,8 @@ def render(
                             hide_body_back_hair=hide_body_back_hair,
                             allow_eye_fringe=attrs.get("hood") not in ("up", "down"))
     apply_head_masks(canvas, colors, attrs, masks, style, hair_cells)
-    apply_body_hair_masks(canvas, colors, attrs, masks, body_cells, hide_body_back_hair)
+    apply_body_hair_masks(canvas, colors, attrs, masks, body_cells,
+                          hide_body_back_hair or hide_back_drape or attrs.get("hood") == "up")
     if noise_seed is not None:
         # Reference-shaded hair keeps its strands: block noise would stamp
         # 2-3px squares over them (refs have no such texture on hair).

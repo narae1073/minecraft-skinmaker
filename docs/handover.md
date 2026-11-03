@@ -492,3 +492,5 @@ S0 quality/face detection (YuNet) → S1 colour measurement (white-balance + ban
 - 2026-11-03 (hair_length saved migration, `fix/hair-length-draft`): stored draft hair_length body faces replaced by new length-matched seed (head edits preserved): short/medium body0, long/very_long 186 L1. Fixes short showing very_long-like saved body drape. Tests 712; QA 50.
 
 - 2026-11-03 (seed reset + hair_style base, `fix/editor-seed-reset`): saved drafts override new seeds -> `/api/seed` + "Seed로 되돌리기" per key/value; hair_style seed/preview base very_long so hair_length=very_long is not clipped by long-baseline style masks. Tests 714; QA 50.
+
+- 2026-11-03 (QA contact sheets, `feat/qa-contact-sheet`): `run_production_qa.py` now writes a labelled contact sheet (`--image`, default `out/production_qa/contact_sheet.png`; `--asset` to QA a draft). Production asset c4bae: 50/50 PASS. Promoted draft b387: 17 FAIL, all hood-up + long hair body-back; stay undeployed. Tests 715.
