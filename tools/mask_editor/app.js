@@ -314,6 +314,15 @@ $('#fillBtn').onclick = () => {
   renderAtlas(); schedulePreview();
 };
 $('#saveBtn').onclick = save;
+$('#seedBtn').onclick = async () => {
+  const r = await fetch(`/api/seed?key=${encodeURIComponent(state.key)}&value=${encodeURIComponent(state.value)}`);
+  const j = await r.json();
+  if (!j.mask) return;
+  pushHistory();
+  state.masks[state.key + '.' + state.value] = j.mask;
+  renderAtlas(); schedulePreview();
+  $('#status').textContent = `seed 복원: ${state.key}.${state.value}`;
+};
 window.addEventListener('keydown', (e) => {
   if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z') { e.preventDefault(); $('#undoBtn').click(); }
 });

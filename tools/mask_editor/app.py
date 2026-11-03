@@ -98,7 +98,9 @@ def _normalize_key(src) -> dict:
 def _seed_hair(key: str, value: str) -> dict:
     if key not in ("hair_style", "hair_length"):
         return {}
-    length = value if key == "hair_length" else "long"
+    # hair_style masks are seeded at the longest length so a later
+    # hair_length=very_long mask is not clipped by a long-baseline style mask.
+    length = value if key == "hair_length" else "very_long"
     style = value if key == "hair_style" else LENGTH_STYLE.get(value, "long_straight")
     attrs = Q._attrs(length, style, "none")
     canvas = SkinCanvas("classic")
@@ -237,6 +239,22 @@ def _seed_top(value: str) -> dict:
     return {"L1": grids, "L2": {}}
 
 
+def _seed_for(key: str, value: str) -> dict:
+    if key in ("hair_style", "hair_length"):
+        return _seed_hair(key, value)
+    if key == "sleeve_len":
+        return _seed_sleeve(key, value)
+    if key == "bottom_garment":
+        return _seed_bottom(value)
+    if key in ("closure_type", "collar_type", "pocket_type", "neckwear"):
+        return _seed_structure(key, value)
+    if key == "inner_top":
+        return _seed_inner(value)
+    if key == "top_garment":
+        return _seed_top(value)
+    return {}
+
+
 def _defaults() -> dict:
     approved = AM.load_masks()
     saved = {}
@@ -251,20 +269,7 @@ def _defaults() -> dict:
             name = f"{key}.{value}"
             src = (saved.get(name) if isinstance(saved, dict) else None) or approved.get(name)
             if src is None:
-                if key in ("hair_style", "hair_length"):
-                    src = _seed_hair(key, value)
-                elif key == "sleeve_len":
-                    src = _seed_sleeve(key, value)
-                elif key == "bottom_garment":
-                    src = _seed_bottom(value)
-                elif key in ("closure_type", "collar_type", "pocket_type", "neckwear"):
-                    src = _seed_structure(key, value)
-                elif key == "inner_top":
-                    src = _seed_inner(value)
-                elif key == "top_garment":
-                    src = _seed_top(value)
-                else:
-                    src = {}
+                src = _seed_for(key, value)
             elif key == "hair_length" and isinstance(src, dict):
                 # Migration: old drafts seeded hair_length bodies from
                 # long_straight, so short/medium carried a long body drape.
@@ -294,6 +299,14 @@ def defaults():
     )
 
 
+@app.get("/api/seed")
+def seed(key: str, value: str):
+    if key not in MASKABLE or value not in MASKABLE[key]:
+        return JSONResponse({"error": "bad key/value"}, status_code=400)
+    return JSONResponse({"key": key, "value": value, "mask": _normalize_key(_seed_for(key, value))},
+                        headers={"Cache-Control": "no-store"})
+
+
 @app.post("/api/save")
 async def save(req: Request):
     body = await req.json()
@@ -311,6 +324,8 @@ def _attrs_for(key: str, value: str) -> A.Attributes:
         hood = value
     if key == "hair_length":
         base = dict(Q._attrs(value, LENGTH_STYLE.get(value, "long_straight"), hood).values)
+    elif key == "hair_style":
+        base = dict(Q._attrs("very_long", value, hood).values)
     else:
         base = dict(Q._attrs("long", "long_straight", hood).values)
     base.setdefault("headwear", "none")
