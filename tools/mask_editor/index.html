@@ -80,9 +80,19 @@
     <div class="meta"><img id="skin" class="skin" alt="64x64 skin" /><span class="hint">L1은 어두운 원단, L2는 밝은 원단으로 합성된다.</span></div>
   </aside>
 </main>
+<script>
+  window.addEventListener('error', (e) => {
+    const s = document.getElementById('status');
+    if (s) s.textContent = '로드 오류: ' + (e.message || e.error || 'unknown');
+  });
+  window.addEventListener('unhandledrejection', (e) => {
+    const s = document.getElementById('status');
+    if (s) s.textContent = '로드 오류: ' + (e.reason?.message || e.reason || 'unknown');
+  });
+</script>
 <script type="importmap">
 {"imports":{"three":"/static/vendor/three.module.js","three/addons/":"/static/vendor/"}}
 </script>
-<script type="module" src="/static/app.js?v=8"></script>
+<script type="module" src="/static/app.js?v=10"></script>
 </body>
 </html>

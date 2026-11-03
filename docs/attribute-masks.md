@@ -135,3 +135,12 @@ editor-only (draft); production approval is still separate.
   (tee/vest 550, dress 582 cells).
 - All 14 shape keys are now editable; `pattern`/`symmetry` are colour/pattern
   rules, not shape masks.
+
+## Load / troubleshooting
+
+- The editor boot requests `/api/defaults` (about 0.6 s on the host; it seeds
+  the masks), then renders one preview. Expect a few seconds, not a minute.
+- A module-level error before `boot()` leaves the status at “불러오는 중…” and
+  no `/api/defaults` request appears in the server log. The viewer's TDZ
+  (`PART_UV2` before `HEAD2`) caused exactly that and is fixed; `index.html`
+  now has an error handler that prints the error into the status.
