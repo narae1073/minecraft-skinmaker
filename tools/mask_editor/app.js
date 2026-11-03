@@ -5,7 +5,7 @@ const state = {
   parts: null, part_faces: null, faces: null, dims: null, layers: null, maskable: null, masks: null,
   enums: null, defaults: null, models: null, combo: null, comboKeys: [], model: 'classic', defaultsCombo: null,
   effective: null, warnings: [],
-  key: null, value: null, part: 'head', layer: 'L1', face: null,
+  key: null, value: null, part: 'head', layer: 'L1', selectedLayers: ['L1'], face: null,
   mode: 'paint', viewMode: 'final', mirror: false,
   painting3d: false, painting2d: false, stroke: 0, history: [],
 };
@@ -28,7 +28,7 @@ const COMBO_PRESETS = [
 const maskName = () => `${state.key}.${state.value}`;
 const curMask = () => ensureMask();
 const dimsFor = (face) => state.dims[face] || [8, 8];
-const gridFor = (face) => curMask()[state.layer][face];
+const gridFor = (face, layer = state.layer) => curMask()[layer][face];
 
 function blank(face) { const [w, h] = dimsFor(face); return Array.from({ length: h }, () => Array(w).fill(0)); }
 
@@ -183,7 +183,7 @@ async function boot() {
     viewer = initViewer($('#viewer'));
     window.maskEditor.viewer = viewer;
     viewer.setModel(state.model);
-    viewer.setEditableLayer(state.layer);
+    viewer.setEditableLayer(state.selectedLayers);
     bind3d(viewer);
   } catch (e) {
     console.error(e);
@@ -236,9 +236,9 @@ function syncTabs() {
   for (const b of document.querySelectorAll('#kindTabs button')) b.classList.toggle('active', b.dataset.key === state.key);
   for (const b of document.querySelectorAll('#valueTabs button')) b.classList.toggle('active', b.dataset.value === state.value);
   for (const b of document.querySelectorAll('#partTabs button')) b.classList.toggle('active', b.dataset.part === state.part);
-  for (const b of document.querySelectorAll('#layerTabs button')) b.classList.toggle('active', b.dataset.layer === state.layer);
+  for (const b of document.querySelectorAll('#layerTabs button')) b.classList.toggle('active', state.selectedLayers.includes(b.dataset.layer));
   for (const b of document.querySelectorAll('#faceTabs button')) b.classList.toggle('active', b.dataset.face === state.face);
-  for (const b of document.querySelectorAll('#atlas .faceBlock')) b.classList.toggle('active', b.dataset.face === state.face);
+  for (const b of document.querySelectorAll('#atlas .faceBlock')) b.classList.toggle('active', b.dataset.face === state.face && b.dataset.layer === state.layer);
 }
 
 function setKey(k) {
@@ -249,7 +249,7 @@ function setKey(k) {
     state.combo[k] = state.value; saveCombo(); syncComboUI();
   }
   renderTabs(); renderAtlas();
-  if (viewer) viewer.setEditableLayer(state.layer);
+  if (viewer) viewer.setEditableLayer(state.selectedLayers);
   schedulePreview();
   status();
 }
@@ -275,10 +275,17 @@ function setPart(p) {
 }
 
 function setLayer(l) {
-  if (state.layer === l) return;
-  state.layer = l;
+  const idx = state.selectedLayers.indexOf(l);
+  if (idx >= 0) {
+    if (state.selectedLayers.length === 1) return;
+    state.selectedLayers = state.selectedLayers.filter((x) => x !== l);
+    if (state.layer === l) state.layer = state.selectedLayers[state.selectedLayers.length - 1];
+  } else {
+    state.selectedLayers = state.layers.filter((x) => state.selectedLayers.includes(x) || x === l);
+    state.layer = l;
+  }
   syncTabs(); renderAtlas();
-  if (viewer) viewer.setEditableLayer(l);
+  if (viewer) viewer.setEditableLayer(state.selectedLayers);
   status();
 }
 
@@ -291,49 +298,54 @@ function setFace(f) {
 
 function status() {
   const cell = $('#status');
-  if (cell) cell.textContent = `${state.part} / ${maskName()} / ${state.layer} / ${state.face} — ${state.mode === 'paint' ? '칠하기' : '지우개'} · model=${state.model}`;
+  if (cell) cell.textContent = `${state.part} / ${maskName()} / ${state.selectedLayers.join('+')} / ${state.face} — ${state.mode === 'paint' ? '칠하기' : '지우개'} · model=${state.model}`;
 }
 
 function renderAtlas() {
   const el = $('#atlas'); el.innerHTML = '';
   for (const face of state.faces) {
     const [w, h] = dimsFor(face);
-    const block = document.createElement('div');
-    block.className = 'faceBlock' + (face === state.face ? ' active' : '');
-    block.dataset.face = face;
-    const label = document.createElement('div');
-    label.className = 'faceLabel';
-    label.textContent = face.replace('.', ' · ');
-    block.appendChild(label);
-    const gridEl = document.createElement('div');
-    gridEl.className = 'faceGrid';
-    gridEl.style.gridTemplateColumns = `repeat(${w}, 20px)`;
-    const g = gridFor(face);
-    for (let v = 0; v < h; v++) for (let u = 0; u < w; u++) {
-      const c = document.createElement('div');
-      c.className = 'cell' + (g[v][u] ? ' on' : '');
-      c.dataset.face = face; c.dataset.u = u; c.dataset.v = v;
-      gridEl.appendChild(c);
+    for (const layer of state.selectedLayers) {
+      const block = document.createElement('div');
+      block.className = 'faceBlock' + (face === state.face && layer === state.layer ? ' active' : '');
+      block.dataset.face = face;
+      block.dataset.layer = layer;
+      const label = document.createElement('div');
+      label.className = 'faceLabel';
+      label.textContent = face.replace('.', ' · ') + ' · ' + layer;
+      block.appendChild(label);
+      const gridEl = document.createElement('div');
+      gridEl.className = 'faceGrid';
+      gridEl.style.gridTemplateColumns = `repeat(${w}, 20px)`;
+      const g = gridFor(face, layer);
+      for (let v = 0; v < h; v++) for (let u = 0; u < w; u++) {
+        const c = document.createElement('div');
+        c.className = 'cell' + (g[v][u] ? ' on' : '');
+        c.dataset.face = face; c.dataset.layer = layer; c.dataset.u = u; c.dataset.v = v;
+        gridEl.appendChild(c);
+      }
+      block.appendChild(gridEl);
+      el.appendChild(block);
     }
-    block.appendChild(gridEl);
-    el.appendChild(block);
   }
   syncTabs();
 }
 
-function cellEl(face, u, v) {
-  return document.querySelector(`#atlas .cell[data-face="${face}"][data-u="${u}"][data-v="${v}"]`);
+function cellEl(face, u, v, layer = state.layer) {
+  return document.querySelector(`#atlas .cell[data-face="${face}"][data-layer="${layer}"][data-u="${u}"][data-v="${v}"]`);
 }
 
 function paintAt(face, u, v, value) {
   const [w, h] = dimsFor(face);
-  const g = gridFor(face);
-  if (!g || v < 0 || v >= h || u < 0 || u >= w) return;
   let changed = false;
-  if (g[v][u] !== value) { g[v][u] = value; cellEl(face, u, v)?.classList.toggle('on', !!value); changed = true; }
-  if (state.mirror) {
-    const mu = w - 1 - u;
-    if (g[v][mu] !== value) { g[v][mu] = value; cellEl(face, mu, v)?.classList.toggle('on', !!value); changed = true; }
+  for (const layer of state.selectedLayers) {
+    const g = gridFor(face, layer);
+    if (!g || v < 0 || v >= h || u < 0 || u >= w) continue;
+    if (g[v][u] !== value) { g[v][u] = value; cellEl(face, u, v, layer)?.classList.toggle('on', !!value); changed = true; }
+    if (state.mirror) {
+      const mu = w - 1 - u;
+      if (g[v][mu] !== value) { g[v][mu] = value; cellEl(face, mu, v, layer)?.classList.toggle('on', !!value); changed = true; }
+    }
   }
   if (changed && state.face !== face) { state.face = face; state.part = face.split('.', 2)[0]; renderTabs(); }
   if (changed) status();
@@ -482,5 +494,5 @@ window.addEventListener('keydown', (e) => {
   if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z') { e.preventDefault(); $('#undoBtn').click(); }
 });
 
-window.maskEditor = { state, viewer: null, setCombo, saveCombo, loadCombo, renderCombo };
+window.maskEditor = { state, viewer: null, setCombo, saveCombo, loadCombo, renderCombo, setLayer, paintAt, renderAtlas };
 boot();

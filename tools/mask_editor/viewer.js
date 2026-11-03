@@ -205,9 +205,11 @@ export function initViewer(container) {
     return pick('head', layer, clientX, clientY);
   }
 
-  function setEditableLayer(layer) {
+  function setEditableLayer(layers) {
+    const selected = Array.isArray(layers) ? layers : [layers];
+    const showL2 = selected.includes('L2');
     for (const name of ['head2', 'body2', 'arm2', 'larm2', 'leg2', 'lleg2']) {
-      if (meshes[name]) meshes[name].visible = layer === 'L2';
+      if (meshes[name]) meshes[name].visible = showL2;
     }
   }
 
