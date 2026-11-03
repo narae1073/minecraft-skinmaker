@@ -20,6 +20,7 @@ S0 quality/face detection (YuNet) → S1 colour measurement (white-balance + ban
 - 2026-10-27: 요청 경로 견고성 (PR #19) — `TransportError`(키 누락)를 500 대신 503 `ai_unavailable` 로 구조화, health 는 네트워크 프로브 없이 `configured()` 만 사용, RateLimiter 가 창당 1회 sweep 으로 만료 키 제거, YuNet 안내 메시지의 `None`/mkdir 부작용 제거, `measure` 독스트링 오타 수정.
 - 2026-10-27: `.env` 자동 로드 + `frontend/dist` 상시 마운트 (PR #20) — `python-dotenv` 명시 의존성, 빌드 전에는 404·빌드 후 재시작 없이 서빙. `:8765` 수동 스모크에서 `set -a` 없이 health mock + 생성 200.
 - 2026-10-27: 웹 slim 체형 (PR #21) — `skin_model=classic|slim` 폼/응답, `build`·`steps_sheets`·3D 뷰어 지오메트리 배선, UI 선택. 잘못된 값은 400 `bad_model`. 포즈는 계속 휴면.
+- 2026-11-04: "스킨 변환하기" 버튼이 요청을 아예 보내지 않던 버그 수정 — `onClick={handleGenerate}` 가 클릭 이벤트를 `cropBox` 로 넘겨 `JSON.stringify` 가 try 밖에서 던졌고, 가짜 진행 타이머만 92% 를 향해 기어갔다. 이제 진행바는 SSE 실제 진행률만 쓰고, SSE 에러 객체 메시지·`no_face` 크롭 모달도 처리한다. 업로드 전 1600px 로 축소(`shrinkImage`).
 - Git: `master` has hygiene (PR #1), CI/agent workflow (PR #2), deployment hardening (PR #3), live docs (PR #4), Windows support (PR #5), Windows docs (PR #6), devbox (PR #7), no-CLI cleanup (PR #8), Codex CLI enabled (PR #9), persistent SSH host keys (PR #10), workspace move (PR #11), and auto-deploy (PR #12). Branch protection requires `test`, `test-windows`, `web`, 1 approval, linear history; admins can bypass for ops. `opencode.jsonc` is deleted and gitignored by the user.
 
 ## 3. Repo hygiene that landed (PR #1)
