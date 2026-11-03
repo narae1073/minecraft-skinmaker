@@ -9,6 +9,28 @@ import SelectedPhoto from './components/SelectedPhoto';
 import CropModal from './components/CropModal';
 import './App.css';
 
+const MAX_UPLOAD_EDGE = 1600;
+
+const shrinkImage = (file) => new Promise((resolve) => {
+  if (!file.type.startsWith('image/')) { resolve(file); return; }
+  const url = URL.createObjectURL(file);
+  const img = new Image();
+  img.onload = () => {
+    const scale = Math.min(1, MAX_UPLOAD_EDGE / Math.max(img.width, img.height));
+    if (scale >= 1) { URL.revokeObjectURL(url); resolve(file); return; }
+    const canvas = document.createElement('canvas');
+    canvas.width = Math.round(img.width * scale);
+    canvas.height = Math.round(img.height * scale);
+    canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
+    canvas.toBlob((blob) => {
+      URL.revokeObjectURL(url);
+      resolve(blob ? new File([blob], 'upload.jpg', { type: 'image/jpeg' }) : file);
+    }, 'image/jpeg', 0.87);
+  };
+  img.onerror = () => { URL.revokeObjectURL(url); resolve(file); };
+  img.src = url;
+});
+
 function App() {
   const mobileSiteUrl = import.meta.env.DEV
     || ['localhost', '127.0.0.1', '[::1]'].includes(window.location.hostname)
@@ -58,30 +80,6 @@ function App() {
     };
   }, []);
 
-  useEffect(() => {
-    if (!isLoading) return;
-    const started = Date.now();
-    const stages = [
-      [0, '사진을 읽는 중이에요'],
-      [3, '인물을 찾는 중이에요'],
-      [7, '전신을 크롭하는 중이에요'],
-      [11, '얼굴을 찾는 중이에요'],
-      [16, '의상을 분석하는 중이에요'],
-      [35, '색을 추출하는 중이에요'],
-      [45, '스킨을 그리는 중이에요'],
-      [55, '마무리하는 중이에요'],
-    ];
-    const tick = () => {
-      const sec = (Date.now() - started) / 1000;
-      setLoadingPct(Math.min(92, 92 * (1 - Math.exp(-sec / 35))));
-      let label = stages[0][1];
-      for (const [at, text] of stages) if (sec >= at) label = text;
-      setLoadingStage(label);
-    };
-    const id = setInterval(tick, 250);
-    return () => clearInterval(id);
-  }, [isLoading]);
-
   // 결과 섹션은 설정 아래에 있다. 모바일에서 변환 후 결과가 화면 밖이면
   // (미리보기 모달 제거 이후) 결과가 보이도록 스크롤한다.
   useEffect(() => {
@@ -111,7 +109,7 @@ function App() {
         }, 2500);
         return;
       }
-      setFile(selectedFile);
+      shrinkImage(selectedFile).then(setFile);
     }
   };
 
@@ -125,7 +123,7 @@ function App() {
     const controller = new AbortController();
     abortRef.current = controller;
     setLoadingPct(0);
-    setLoadingStage('준비 중이에요');
+    setLoadingStage('사진을 올리는 중이에요');
     setIsLoading(true);
     setSkins([]);
     setInputPhoto(null);
@@ -133,16 +131,24 @@ function App() {
     setCatInfo(null);
     setSteps(null);
 
-    const formData = new FormData();
-    formData.append('file', file);
-    formData.append('noise_level', String(noiseLevel / 100));
-    formData.append('steps', showSteps ? '1' : '0');
-    formData.append('hair_overlay', hairOverlay);
-    formData.append('skin_model', skinModel);
-    if (hairColorOn) formData.append('hair_color', hairColor);
-    if (cropBox) formData.append('crop', JSON.stringify(cropBox));
+    const showFailure = (detail) => {
+      setServerError(detail.message || '스킨 생성에 실패했어요.');
+      if (detail.can_crop && detail.image_size) {
+        setCropSize(detail.image_size);
+        setCropOpen(true);
+      }
+    };
 
     try {
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('noise_level', String(noiseLevel / 100));
+      formData.append('steps', showSteps ? '1' : '0');
+      formData.append('hair_overlay', hairOverlay);
+      formData.append('skin_model', skinModel);
+      if (hairColorOn) formData.append('hair_color', hairColor);
+      if (cropBox) formData.append('crop', JSON.stringify(cropBox));
+
       const response = await fetch('/api/v1/generate-skin', {
         method: 'POST',
         body: formData,
@@ -156,7 +162,7 @@ function App() {
         const reader = response.body.getReader();
         const decoder = new TextDecoder();
         let buffer = '';
-        let streamError = '';
+        let streamError = null;
         for (;;) {
           const { done, value } = await reader.read();
           if (done) break;
@@ -176,23 +182,19 @@ function App() {
             } else if (event === 'result') {
               data = obj;
             } else if (event === 'error') {
-              streamError = obj.message || '스킨 생성에 실패했어요.';
+              // 서버 HTTPException.detail 이 그대로 온다 — 문자열이거나 {message, can_crop, image_size} 객체
+              streamError = typeof obj.message === 'string' ? { message: obj.message } : (obj.message || {});
             }
           }
         }
-        if (streamError) { setServerError(streamError); return; }
+        if (streamError) { showFailure(streamError); return; }
         if (!data) { setServerError('응답이 비어 있어요. 다시 시도해주세요.'); return; }
       } else {
         data = await response.json().catch(() => null);
       }
       if (!response.ok) {
         const detail = data?.detail || {};
-        const msg = detail.message || data?.message || `서버 오류 (${response.status})`;
-        setServerError(msg);
-        if (detail.can_crop && detail.image_size) {
-          setCropSize(detail.image_size);
-          setCropOpen(true);
-        }
+        showFailure({ ...detail, message: detail.message || data?.message || `서버 오류 (${response.status})` });
         return;
       }
       if (data.status === 'success') {
@@ -367,7 +369,7 @@ function App() {
               <button type="button" className="file-picker-btn" onClick={() => fileInputRef.current?.click()} disabled={isLoading}>파일 선택</button>
               <span className="file-picker-name" title={file?.name}>{file?.name || '선택된 파일 없음'}</span>
             </div>
-            <button onClick={handleGenerate} disabled={isLoading} className="generate-btn">
+            <button onClick={() => handleGenerate()} disabled={isLoading} className="generate-btn">
               {isLoading ? '생성 중...' : '스킨 변환하기'}
             </button>
           </div>
