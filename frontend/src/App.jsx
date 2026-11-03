@@ -45,6 +45,8 @@ function App() {
   const [steps, setSteps] = useState(null); // 처리 과정 시트 {clean, full} (설계 §12)
   const abortRef = useRef(null);
   const [cropOpen, setCropOpen] = useState(false);
+  const [loadingPct, setLoadingPct] = useState(0);
+  const [loadingStage, setLoadingStage] = useState('');
   const [cropSize, setCropSize] = useState(null); // no_face 응답의 image_size
 
   useEffect(() => {
@@ -55,6 +57,30 @@ function App() {
       abortRef.current?.abort();
     };
   }, []);
+
+  useEffect(() => {
+    if (!isLoading) return;
+    const started = Date.now();
+    const stages = [
+      [0, '사진을 읽는 중이에요'],
+      [3, '인물을 찾는 중이에요'],
+      [7, '전신을 크롭하는 중이에요'],
+      [11, '얼굴을 찾는 중이에요'],
+      [16, '의상을 분석하는 중이에요'],
+      [35, '색을 추출하는 중이에요'],
+      [45, '스킨을 그리는 중이에요'],
+      [55, '마무리하는 중이에요'],
+    ];
+    const tick = () => {
+      const sec = (Date.now() - started) / 1000;
+      setLoadingPct(Math.min(92, 92 * (1 - Math.exp(-sec / 35))));
+      let label = stages[0][1];
+      for (const [at, text] of stages) if (sec >= at) label = text;
+      setLoadingStage(label);
+    };
+    const id = setInterval(tick, 250);
+    return () => clearInterval(id);
+  }, [isLoading]);
 
   // 결과 섹션은 설정 아래에 있다. 모바일에서 변환 후 결과가 화면 밖이면
   // (미리보기 모달 제거 이후) 결과가 보이도록 스크롤한다.
@@ -98,6 +124,8 @@ function App() {
     abortRef.current?.abort();
     const controller = new AbortController();
     abortRef.current = controller;
+    setLoadingPct(0);
+    setLoadingStage('준비 중이에요');
     setIsLoading(true);
     setSkins([]);
     setInputPhoto(null);
@@ -248,10 +276,21 @@ function App() {
       )}
 
       {isLoading && (
-        <div className="loading-overlay">
-          <div className="spinner"></div>
-          <h2>로딩중</h2>
-          <p>스킨을 만들고 있어요!</p>
+        <div className="loading-overlay" role="status" aria-live="polite">
+          <div className="loading-card">
+            <h2>스킨을 만들고 있어요</h2>
+            <div
+              className="loading-bar"
+              role="progressbar"
+              aria-valuemin={0}
+              aria-valuemax={100}
+              aria-valuenow={Math.round(loadingPct)}
+            >
+              <div className="loading-bar-fill" style={{ width: `${loadingPct}%` }} />
+            </div>
+            <p className="loading-stage">{loadingStage || '준비 중이에요'}</p>
+            <p className="loading-hint">보통 20~40초 걸려요. 창을 닫지 말아 주세요.</p>
+          </div>
         </div>
       )}
 
