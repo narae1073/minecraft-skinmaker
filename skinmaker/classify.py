@@ -4,6 +4,8 @@
 """
 from __future__ import annotations
 
+from concurrent.futures import ThreadPoolExecutor
+
 import time
 from dataclasses import dataclass, field
 
@@ -147,28 +149,33 @@ def classify(
         )
 
     started = time.monotonic()
-    first_raw, first_err = _complete(
-        transport, crop.image, build_prompt(NATURAL_ORDER), build_schema(NATURAL_ORDER)
-    )
-    if first_raw is None:
-        err = first_err or getattr(transport, "last_error", None) or "모델 응답 파싱 실패"
-        return Classification(
-            Attributes(dict(), None), tuple(FIELD_ORDER), getattr(transport, "name", "?"), False,
-            time.monotonic() - started, False, error=err,
-            error_kind="transport" if first_err else None,
-        )
-    first = validate(first_raw)
+    # Both VLM calls are independent (different field order, same crop). Running
+    # them sequentially doubles the worst-case latency (2 x 30s timeout); run
+    # them concurrently and keep the same merge/agreement semantics.
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        first_future = pool.submit(
+            _complete, transport, crop.image,
+            build_prompt(NATURAL_ORDER), build_schema(NATURAL_ORDER))
+        second_future = pool.submit(
+            _complete, transport, crop.image,
+            build_prompt(REVERSED_ORDER), build_schema(REVERSED_ORDER)) if double_check else None
+        first_raw, first_err = first_future.result()
+        if first_raw is None:
+            if second_future is not None:
+                second_future.cancel()
+            err = first_err or getattr(transport, "last_error", None) or "모델 응답 파싱 실패"
+            return Classification(
+                Attributes(dict(), None), tuple(FIELD_ORDER), getattr(transport, "name", "?"), False,
+                time.monotonic() - started, False, error=err,
+                error_kind="transport" if first_err else None,
+            )
+        first = validate(first_raw)
+        second_raw = second_future.result()[0] if second_future is not None else None
 
-    second_raw = None
     uncertain = is_uncertain(first)
-    if double_check:
-        # 둘째 질의 실패는 치명적이지 않다 — 첫 답만으로 진행한다 (None 반환과 동일).
-        second_raw, _second_err = _complete(
-            transport, crop.image, build_prompt(REVERSED_ORDER), build_schema(REVERSED_ORDER)
-        )
-        if second_raw is not None:
-            second = validate(second_raw)
-            uncertain = tuple(n for n in agreement(first, second) if n != BBOX_FIELD)
+    if second_raw is not None:
+        second = validate(second_raw)
+        uncertain = tuple(n for n in agreement(first, second) if n != BBOX_FIELD)
 
     elapsed = time.monotonic() - started
     merged = first if second_raw is None else _merge(first, validate(second_raw))
