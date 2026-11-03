@@ -169,8 +169,12 @@ export function initViewer(container) {
     meshes.arm2.geometry = slim ? geos.slimArm2 : geos.arm2;
     meshes.larm.geometry = slim ? geos.slimLarm : geos.larm;
     meshes.larm2.geometry = slim ? geos.slimLarm2 : geos.larm2;
-    meshes.arm.position.x = slim ? 0.6875 : 0.75;
-    meshes.larm.position.x = slim ? -0.6875 : -0.75;
+    // L1 and L2 arms share one x so the overlay stays concentric.
+    const armX = slim ? 0.6875 : 0.75;
+    meshes.arm.position.x = armX;
+    meshes.arm2.position.x = armX;
+    meshes.larm.position.x = -armX;
+    meshes.larm2.position.x = -armX;
     activeUV = slim ? PART_UV_SLIM : PART_UV;
     activeUV2 = slim ? PART_UV2_SLIM : PART_UV2;
   }

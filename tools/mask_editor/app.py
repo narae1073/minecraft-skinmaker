@@ -52,6 +52,9 @@ MASKABLE = {
     "inner_top": ("none", "shirt", "tee", "knit"),
     "top_garment": ("tee", "hoodie", "jacket", "shirt", "sweater", "vest", "uniform", "apron", "overalls", "dress", "none"),
 }
+# Saved-draft schema. 2 = drafts written by this editor after the one-off
+# body migrations were retired from the load path; user body edits persist.
+SCHEMA = 2
 LENGTH_STYLE = {
     "short": "short",
     "medium": "bob",
@@ -259,22 +262,39 @@ def _seed_for(key: str, value: str) -> dict:
     return {}
 
 
+def _load_saved() -> tuple[dict, int]:
+    """Return ``(masks, schema)`` for the saved draft; schema 1 when unmarked."""
+    try:
+        doc = json.loads((OUT / "attribute_masks.json").read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return {}, SCHEMA
+    if not isinstance(doc, dict):
+        return {}, SCHEMA
+    if "masks" not in doc:
+        return doc, 1
+    try:
+        schema = int(doc.get("schema", 1))
+    except (TypeError, ValueError):
+        schema = 1
+    masks = doc["masks"] if isinstance(doc["masks"], dict) else {}
+    return masks, schema
+
+
 def _defaults() -> dict:
     approved = AM.load_masks()
-    saved = {}
-    try:
-        saved = json.loads((OUT / "attribute_masks.json").read_text(encoding="utf-8"))
-        saved = saved.get("masks", saved)
-    except (OSError, ValueError):
-        saved = {}
+    saved, schema = _load_saved()
     masks = {}
     for key, values in MASKABLE.items():
         for value in values:
             name = f"{key}.{value}"
-            src = (saved.get(name) if isinstance(saved, dict) else None) or approved.get(name)
+            from_draft = isinstance(saved.get(name), dict)
+            src = saved.get(name) or approved.get(name)
+            # One-off body migrations only touch legacy drafts (schema < 2) and
+            # approved assets; a current draft keeps the user's body edits.
+            migrate = not from_draft or schema < SCHEMA
             if src is None:
                 src = _seed_for(key, value)
-            elif key == "hair_length" and isinstance(src, dict):
+            elif migrate and key == "hair_length" and isinstance(src, dict):
                 # Migration: old drafts seeded hair_length bodies from
                 # long_straight, so short/medium carried a long body drape.
                 # Preserve the user's head edits; replace body faces with the
@@ -285,7 +305,7 @@ def _defaults() -> dict:
                     for face in FACES:
                         if face.startswith("body."):
                             src[layer][face] = seed[layer].get(face) or _blank(face)
-            if key == "top_garment" and value != "none" and isinstance(src, dict):
+            if migrate and key == "top_garment" and value != "none" and isinstance(src, dict):
                 # A saved top mask can have a partial body (e.g. back=2 cells),
                 # which render_body treats as "not top" -> skin. Refill body
                 # faces from the current seed; keep the user's arm/leg edits.
@@ -334,7 +354,7 @@ def seed(key: str, value: str):
 @app.post("/api/save")
 async def save(req: Request):
     body = await req.json()
-    payload = {"version": 1, "source": "mask_editor", "policy": AM.POLICY,
+    payload = {"version": 1, "schema": SCHEMA, "source": "mask_editor", "policy": AM.POLICY,
                "masks": body.get("masks", {})}
     (OUT / "attribute_masks.json").write_text(
         json.dumps(payload, ensure_ascii=False, indent=1), encoding="utf-8")

@@ -529,3 +529,8 @@ S0 quality/face detection (YuNet) → S1 colour measurement (white-balance + ban
   - 미결정: 마스크 승인 정책. `render()` 는 `attribute_masks_approval.json` 의 SHA 를 확인하지 않고 `assets/attribute_masks.json` 을 그대로 쓴다. 승인 검사는 `production_status.py` 게이트에만 있다. 렌더 경로에서 강제할지, 문서만 고칠지 사용자 결정이 필요하다.
   - 로컬 미추적 파일(`assets/yolov8n.pt`, `scripts/build_pack_review.py`)은 이 PR 에 포함하지 않았다.
 - 2026-11-04 (mask-approval policy decided, `docs/mask-approval-policy`): 사용자 결정 **Option B** — 렌더러는 `assets/attribute_masks.json` 을 있는 그대로 사용한다. SHA 승인(`attribute_masks_approval.json`)은 `production_status` 릴리스 리포트에서만 확인하며 렌더링을 막지 않는다. 코드 동작은 변경 없음; `attribute_masks.py` 독스트링을 정책에 맞게 고쳤다. 승인 검사를 렌더에 강제하려면 별도 결정이 필요하다.
+
+- 2026-11-04 (mask editor fixes, `fix/mask-editor-arm-and-draft-migration`): 두 버그 수정.
+  - Slim 3D: `setModel` 이 L2 팔(`arm2`/`larm2`)의 x 를 갱신하지 않아 L1 과 동심이 아니었다. 이제 L1/L2 가 같은 x 를 쓴다.
+  - 드래프트: `/api/defaults` 가 저장된 `top_garment`/`hair_length` 드래프트의 body 면을 매 읽기마다 재시드해 사용자 편집이 사라졌다. 저장 파일에 `schema: 2` 마커를 쓰고, 마이그레이션은 마커 없는 레거시 드래프트와 승인 자산에만 적용한다. 훅 정책(후드 up/down 에서 body.back 머리 0)은 그대로 매번 적용.
+  - 검증: `tests/test_mask_editor.py` 16 passed (신규 6: 사용자 편집 유지 2, 레거시 마이그레이션 유지, 훅 정책 유지, save 마커, viewer 정적 검사); `pytest -q` → **734 passed** (127.24s); `node --check viewer.js` ok. 렌더 경로 무변경.

@@ -152,3 +152,73 @@ def test_defaults_migrates_top_body_and_hair_back():
         for layer in ("L1", "L2"):
             assert sum(sum(row) for face, grid in j["masks"][name][layer].items()
                        if face == "body.back" for row in grid) == 0
+
+
+def _saved_doc(tmp_path, monkeypatch, doc):
+    monkeypatch.setattr(mod, "OUT", tmp_path)
+    (tmp_path / "attribute_masks.json").write_text(__import__("json").dumps(doc), encoding="utf-8")
+
+
+def _cells(grid_by_face, prefix):
+    return sum(sum(row) for face, grid in grid_by_face.items() if face.startswith(prefix) for row in grid)
+
+
+def test_saved_draft_user_body_edits_survive_reload(tmp_path, monkeypatch):
+    # Regression: a saved, schema-2 draft with the user's cleared top body.back
+    # must not be refilled on every /api/defaults read.
+    hoodie = mod._seed_top("hoodie")
+    layers = {layer: dict(hoodie.get(layer, {})) for layer in ("L1", "L2")}
+    layers["L1"]["body.back"] = [[0] * 8 for _ in range(12)]
+    saved = {"version": 1, "schema": mod.SCHEMA, "masks": {"top_garment.hoodie": mod._normalize_key(layers)}}
+    _saved_doc(tmp_path, monkeypatch, saved)
+    j = mod._defaults()["top_garment.hoodie"]["L1"]
+    assert _cells(j, "body.back") == 0
+
+
+def test_saved_hair_length_user_body_edits_survive_reload(tmp_path, monkeypatch):
+    seed = mod._seed_hair("hair_length", "long")
+    layers = {layer: dict(seed.get(layer, {})) for layer in ("L1", "L2")}
+    layers["L1"]["body.front"] = [[0] * 4 for _ in range(12)]
+    saved = {"version": 1, "schema": mod.SCHEMA, "masks": {"hair_length.long": mod._normalize_key(layers)}}
+    _saved_doc(tmp_path, monkeypatch, saved)
+    j = mod._defaults()["hair_length.long"]["L1"]
+    assert _cells(j, "body.front") == 0
+
+
+def test_legacy_draft_without_schema_is_still_migrated(tmp_path, monkeypatch):
+    # Drafts written before the schema marker still get the one-off refill.
+    hoodie = mod._seed_top("hoodie")
+    layers = {layer: dict(hoodie.get(layer, {})) for layer in ("L1", "L2")}
+    layers["L1"]["body.back"] = [[0] * 8 for _ in range(12)]
+    _saved_doc(tmp_path, monkeypatch, {"version": 1, "masks": {"top_garment.hoodie": mod._normalize_key(layers)}})
+    j = mod._defaults()["top_garment.hoodie"]["L1"]
+    assert _cells(j, "body.back") == 96
+
+
+def test_hood_policy_still_zeroes_body_back_hair_in_saved_draft(tmp_path, monkeypatch):
+    seed = mod._seed_hair("hair_style", "long_wavy")
+    layers = {layer: dict(seed.get(layer, {})) for layer in ("L1", "L2")}
+    layers["L1"]["body.back"] = [[1] * 8 for _ in range(12)]
+    saved = {"version": 1, "schema": mod.SCHEMA, "masks": {"hair_style.long_wavy": mod._normalize_key(layers)}}
+    _saved_doc(tmp_path, monkeypatch, saved)
+    j = mod._defaults()["hair_style.long_wavy"]
+    for layer in ("L1", "L2"):
+        assert _cells(j[layer], "body.back") == 0
+
+
+def test_save_writes_schema_marker(tmp_path, monkeypatch):
+    import json
+    monkeypatch.setattr(mod, "OUT", tmp_path)
+    c = TestClient(mod.app)
+    r = c.post("/api/save", json={"masks": {}})
+    assert r.status_code == 200, r.text
+    assert json.loads((tmp_path / "attribute_masks.json").read_text(encoding="utf-8"))["schema"] == mod.SCHEMA
+
+
+def test_viewer_moves_l2_arms_with_l1_for_slim():
+    # Regression: setModel moved the L1 arms for slim but left the L2 arm
+    # overlays at the classic x, so they were not concentric.
+    src = (ROOT / "tools" / "mask_editor" / "viewer.js").read_text(encoding="utf-8")
+    body = src[src.index("function setModel("):src.index("function pick(")]
+    assert "meshes.arm2.position.x" in body
+    assert "meshes.larm2.position.x" in body
