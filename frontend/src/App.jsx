@@ -147,9 +147,44 @@ function App() {
         method: 'POST',
         body: formData,
         signal: controller.signal,
+        headers: { Accept: 'text/event-stream' },
       });
 
-      const data = await response.json().catch(() => null);
+      const contentType = response.headers.get('content-type') || '';
+      let data = null;
+      if (contentType.includes('text/event-stream')) {
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder();
+        let buffer = '';
+        let streamError = '';
+        for (;;) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          buffer += decoder.decode(value, { stream: true });
+          let split;
+          while ((split = buffer.indexOf('\n\n')) >= 0) {
+            const chunk = buffer.slice(0, split);
+            buffer = buffer.slice(split + 2);
+            const event = (chunk.match(/^event: (.+)$/m) || [])[1];
+            const raw = (chunk.match(/^data: (.+)$/m) || [])[1];
+            if (!raw) continue;
+            let obj;
+            try { obj = JSON.parse(raw); } catch { continue; }
+            if (event === 'progress') {
+              setLoadingPct(obj.pct ?? 0);
+              setLoadingStage(obj.label || '');
+            } else if (event === 'result') {
+              data = obj;
+            } else if (event === 'error') {
+              streamError = obj.message || '스킨 생성에 실패했어요.';
+            }
+          }
+        }
+        if (streamError) { setServerError(streamError); return; }
+        if (!data) { setServerError('응답이 비어 있어요. 다시 시도해주세요.'); return; }
+      } else {
+        data = await response.json().catch(() => null);
+      }
       if (!response.ok) {
         const detail = data?.detail || {};
         const msg = detail.message || data?.message || `서버 오류 (${response.status})`;

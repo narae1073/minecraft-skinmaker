@@ -12,6 +12,7 @@ from __future__ import annotations
 import asyncio
 import dataclasses
 import json
+import time
 import os
 import sys
 import tempfile
@@ -19,6 +20,7 @@ import uuid
 from pathlib import Path
 
 from fastapi import FastAPI, File, Form, HTTPException, Request, UploadFile
+from fastapi.responses import StreamingResponse
 from fastapi.staticfiles import StaticFiles
 
 from backend.limits import RateLimiter, client_ip, max_upload_bytes
@@ -130,6 +132,49 @@ def health():
 async def generate_skin(request: Request, file: UploadFile = File(...), noise_level: str = Form(None), steps: str = Form(None),
                         hair_overlay: str = Form(None), skin_model: str = Form(None), hair_color: str = Form(None),
                         crop: str = Form(None)):
+    return await _start(request, file, noise_level, steps, hair_overlay, skin_model, hair_color, crop)
+
+
+async def _start(request, file, noise_level, steps, hair_overlay, skin_model, hair_color, crop):
+    if "text/event-stream" not in (request.headers.get("accept") or ""):
+        return await _pipeline(request, file, noise_level, steps, hair_overlay, skin_model, hair_color, crop)
+    queue = asyncio.Queue()
+
+    async def on_stage(item):
+        await queue.put(item)
+
+    task = asyncio.create_task(_pipeline(
+        request, file, noise_level, steps, hair_overlay, skin_model, hair_color, crop, on_stage=on_stage))
+
+    async def gen():
+        while not task.done():
+            try:
+                item = await asyncio.wait_for(queue.get(), timeout=0.2)
+                yield "event: progress\ndata: " + json.dumps(item, ensure_ascii=False) + "\n\n"
+            except asyncio.TimeoutError:
+                continue
+        while not queue.empty():
+            item = queue.get_nowait()
+            yield "event: progress\ndata: " + json.dumps(item, ensure_ascii=False) + "\n\n"
+        if task.exception() is not None:
+            exc = task.exception()
+            detail = exc.detail if isinstance(exc, HTTPException) else str(exc)
+            yield "event: error\ndata: " + json.dumps({"message": detail}, ensure_ascii=False) + "\n\n"
+        else:
+            yield "event: result\ndata: " + json.dumps(task.result(), ensure_ascii=False) + "\n\n"
+
+    return StreamingResponse(gen(), media_type="text/event-stream",
+                             headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})
+
+
+async def _pipeline(request: Request, file: UploadFile = File(...), noise_level: str = Form(None), steps: str = Form(None),
+                        hair_overlay: str = Form(None), skin_model: str = Form(None), hair_color: str = Form(None),
+                        crop: str = Form(None), *, on_stage=None):
+    timings = {}
+    async def stage(name, pct, label):
+        if on_stage is not None:
+            await on_stage({"stage": name, "pct": pct, "label": label})
+    t0 = time.perf_counter()
     # 공개 배포 가드 (로그인 없음): IP당 분당 요청 제한.
     if not _rate_limiter.allow(client_ip(request)):
         fail(429, "rate_limited", "요청이 너무 잦아요. 잠시 후 다시 시도해주세요.")
@@ -183,7 +228,10 @@ async def generate_skin(request: Request, file: UploadFile = File(...), noise_le
         with os.fdopen(fd, "wb") as tmp:
             tmp.write(raw)
         try:
+            await stage("inspect", 8, "인물과 얼굴을 찾는 중이에요")
+            _t = time.perf_counter()
             photo = await _await_or_cancel(request, inspect, tmp_name, crop=crop_box)
+            timings["inspect"] = round(time.perf_counter() - _t, 3)
         except Exception as exc:
             fail(400, "unreadable", f"이미지를 읽지 못했어요: {type(exc).__name__}")
     finally:
@@ -194,8 +242,11 @@ async def generate_skin(request: Request, file: UploadFile = File(...), noise_le
     if photo.rejected:
         fail(422, "no_face", "사진에서 얼굴을 찾지 못했어요. 정면 실사 얼굴 사진으로 다시 시도해주세요.",
              extra={"can_crop": True, "image_size": list(photo.image.size), "source": photo.source})
+    await stage("classify", 30, "의상을 분석하는 중이에요")
+    _t = time.perf_counter()
     transport = make_transport()
     result = await _await_or_cancel(request, classify, photo, transport)
+    timings["classify"] = round(time.perf_counter() - _t, 3)
     if not result.ok:
         # 자격증명/설정 누락은 재시도로 풀리지 않는다 — 502 분류 실패와 구분한다.
         if result.error_kind == "transport":
@@ -205,10 +256,16 @@ async def generate_skin(request: Request, file: UploadFile = File(...), noise_le
     from skinmaker import parsing as _parsing
     from skinmaker.debugview import steps_sheets
 
+    await stage("segment", 55, "옷 영역을 나누는 중이에요")
+    _t = time.perf_counter()
     seg = (await _await_or_cancel(request, _parsing.bottom_mask, photo.image)) if _parsing.parsing_on() else None
+    timings["segment"] = round(time.perf_counter() - _t, 3)
+    await stage("extract", 68, "색을 추출하는 중이에요")
+    _t = time.perf_counter()
     observed = await _await_or_cancel(
         request, extract, photo, hair_bbox=result.hair_bbox_px, seg=seg,
         hair_overlay=hair_overlay == "on")
+    timings["extract"] = round(time.perf_counter() - _t, 3)
     # Manual hair-colour override (2026-11-02): the user's notes 00/02/06 are
     # source-limited (no gold in the visible hair); the UI can set the colour.
     if hair_color:
@@ -231,7 +288,10 @@ async def generate_skin(request: Request, file: UploadFile = File(...), noise_le
             result.attributes, values=values,
             derived=(*result.attributes.derived, "bottom_garment=jeans (하체 미관측 기본)"),
         )
+    await stage("render", 80, "스킨을 그리는 중이에요")
+    _t = time.perf_counter()
     candidates = await _await_or_cancel(request, build, observed, result, photo.degrade, model=skin_model, noise_level=level)
+    timings["render"] = round(time.perf_counter() - _t, 3)
     if not candidates or not all(c.ok for c in candidates):
         fail(500, "render_failed", "렌더 검증 실패. 같은 사진으로 다시 시도해주세요.")
     token = uuid.uuid4().hex[:12]
@@ -239,6 +299,7 @@ async def generate_skin(request: Request, file: UploadFile = File(...), noise_le
     (STATIC_DIR / input_name).write_bytes(raw)
     # 처리 과정 시트 (설계 §12): 스킨 목록과 분리된 steps/ 하위폴더. 끄면 아예 미생성.
     steps_urls = None
+    await stage("steps", 92, "마무리하는 중이에요")
     if want_steps:
         STEPS_DIR = ROOT / "static" / "steps"  # /static 마운트 위치와 일치 (실앱 404 수정 2026-10-13)
         STEPS_DIR.mkdir(exist_ok=True)
@@ -262,6 +323,8 @@ async def generate_skin(request: Request, file: UploadFile = File(...), noise_le
         c.image_flat.save(STATIC_DIR / flat_name)  # Edit Skin 토글 OFF 변형 (설계 §5)
         urls.append(f"/static/skins/{name}")
         flat_urls.append(f"/static/skins/{flat_name}")
+    await stage("done", 100, "완료")
+    timings["total"] = round(time.perf_counter() - t0, 3)
     return {
         "status": "success",
         "data": {
@@ -284,6 +347,7 @@ async def generate_skin(request: Request, file: UploadFile = File(...), noise_le
             "skin_model": skin_model,
             "hair_overlay": hair_overlay,
             "steps": steps_urls,
+            "timings": timings,
         },
     }
 
