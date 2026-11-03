@@ -553,5 +553,6 @@ S0 quality/face detection (YuNet) → S1 colour measurement (white-balance + ban
   - 미리보기 source: draft(기본) / production(승인 asset). 편집기 UI 에 Draft/Production 토글.
   - 편집기 전용 경고: 모순된 머리 조합 (짧은 스타일 + 긴 길이, 긴 스타일 + 짧은 길이).
   - 뷰어 `dispose()` 로 루프/리스너/GPU 해제.
-  - 주의: 이 수정 이전에 저장된 draft 의 머리 마스크는 옛 seed 기준. 초기 상태로 또는 머리 값별 seed 로 갱신 필요.
-  - 검증: `pytest -q` → **743 passed** (수정 후, 편집기 테스트 24); headless Chrome CDP 21/21 + Draft/Production 토글 확인; 스크린샷 `/tmp/mecheck/shots/11_after_fix.png`.
+  - draft schema 3: 첫 로드 시 옛 draft 를 `attribute_masks.pre-v3-<stamp>.json` 으로 백업하고 머리 키를 재시드, 레거시 상의 body 재충전. 이후 로드는 무변경. 편집기 테스트는 임시 OUT 사용(실제 draft 미접촉).
+  - 미완(의도적 한계): slim 전용 마스크 없음(classic 4폭 팔 격자를 slim 3폭 면에 읽음 → 열 어긋남, 렌더러는 면 밖으로 쓰지 않음); seed 는 고정 fixture 기준(사진 기반 아님).
+  - 검증: `pytest -q` → **744 passed** (수정 후, 편집기 테스트 24); headless Chrome CDP 21/21 + Draft/Production 토글 확인; 스크린샷 `/tmp/mecheck/shots/11_after_fix.png`.

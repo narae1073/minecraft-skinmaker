@@ -54,7 +54,7 @@ MASKABLE = {
 }
 # Saved-draft schema. 2 = drafts written by this editor after the one-off
 # body migrations were retired from the load path; user body edits persist.
-SCHEMA = 2
+SCHEMA = 3
 LENGTH_STYLE = {
     "short": "short",
     "medium": "bob",
@@ -263,6 +263,38 @@ def _seed_for(key: str, value: str) -> dict:
     return {}
 
 
+def _migrate_draft_if_legacy() -> None:
+    """One-time: drafts before schema 3 carry rule-stencil hair masks that clip
+    the side hair. Back the file up, re-seed the hair keys, and mark it v3."""
+    import time
+    path = OUT / "attribute_masks.json"
+    try:
+        doc = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return
+    if not isinstance(doc, dict) or not isinstance(doc.get("masks"), dict):
+        return
+    try:
+        schema = int(doc.get("schema", 1))
+    except (TypeError, ValueError):
+        schema = 1
+    if schema >= SCHEMA:
+        return
+    stamp = time.strftime("%Y%m%d-%H%M%S")
+    (OUT / f"attribute_masks.pre-v3-{stamp}.json").write_text(path.read_text(encoding="utf-8"), encoding="utf-8")
+    masks = dict(doc["masks"])
+    for name, grid in _seed_masks().items():
+        if name.startswith(("hair_style.", "hair_length.")):
+            masks[name] = grid
+    # Legacy top masks may hold a partial body; refill it once here, since the
+    # v3 load path no longer does it.
+    for name, grid in list(masks.items()):
+        if name.startswith("top_garment.") and not name.endswith(".none") and isinstance(grid, dict):
+            masks[name] = _normalize_key(_refill_top_body(grid))
+    doc = {**doc, "schema": SCHEMA, "masks": masks}
+    path.write_text(json.dumps(doc, ensure_ascii=False, indent=1), encoding="utf-8")
+
+
 def _load_saved() -> tuple[dict, int]:
     """Return ``(masks, schema)`` for the saved draft; schema 1 when unmarked."""
     try:
@@ -282,6 +314,7 @@ def _load_saved() -> tuple[dict, int]:
 
 
 def _defaults() -> dict:
+    _migrate_draft_if_legacy()
     approved = AM.load_masks()
     saved, schema = _load_saved()
     masks = {}

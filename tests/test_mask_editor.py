@@ -14,6 +14,15 @@ mod = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(mod)
 
 
+import pytest
+
+
+@pytest.fixture(autouse=True)
+def _isolated_out(tmp_path, monkeypatch):
+    # Never read or write the user's real draft (out/mask_editor) from tests.
+    monkeypatch.setattr(mod, "OUT", tmp_path)
+
+
 def test_defaults_expose_key_value_tree_and_general_masks():
     c = TestClient(mod.app)
     r = c.get("/api/defaults")
@@ -348,3 +357,30 @@ def test_preview_production_source_uses_approved_asset_not_draft():
     assert draft_bytes != prod_bytes
     bad = c.post("/api/preview", json={"key": "hood", "value": "up", "masks": masks, "source": "x"})
     assert bad.status_code == 400
+
+
+def test_legacy_draft_hair_is_migrated_once_with_backup(tmp_path, monkeypatch):
+    # The pre-fix draft (schema < 3) carries rule-stencil hair masks. The first
+    # load re-seeds the hair keys once, keeps a backup, and marks the draft v3.
+    import json
+    monkeypatch.setattr(mod, "OUT", tmp_path)
+    narrow = mod._normalize_key({"L1": {"head.right": [[1, 0, 0, 0, 0, 0, 0, 0]] * 8}, "L2": {}})
+    other = mod._seed_for("hood", "up")
+    doc = {"version": 1, "schema": 2, "masks": {"hair_length.short": narrow,
+                                                "hood.up": mod._normalize_key(other)}}
+    path = tmp_path / "attribute_masks.json"
+    path.write_text(json.dumps(doc), encoding="utf-8")
+    masks = mod._defaults()
+    backups = list(tmp_path.glob("attribute_masks.pre-v3-*.json"))
+    assert len(backups) == 1
+    assert json.loads(backups[0].read_text(encoding="utf-8"))["schema"] == 2
+    saved = json.loads(path.read_text(encoding="utf-8"))
+    assert saved["schema"] == mod.SCHEMA
+    assert saved["masks"]["hair_length.short"] == mod._seed_masks()["hair_length.short"]
+    assert saved["masks"]["hood.up"] == doc["masks"]["hood.up"]
+    # Second load: already v3, no new backup, no rewrite.
+    before = path.read_text(encoding="utf-8")
+    mod._defaults()
+    assert path.read_text(encoding="utf-8") == before
+    assert len(list(tmp_path.glob("attribute_masks.pre-v3-*.json"))) == 1
+    assert masks["hair_length.short"]["L1"]["head.right"] == mod._seed_masks()["hair_length.short"]["L1"]["head.right"]

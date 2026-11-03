@@ -263,5 +263,10 @@ without a photo:
   generation uses). The base skin follows the source; the instant tint is draft-only.
 - Advisory combo warning for contradictory hair pairs (e.g. short style + long length).
 - Viewer `dispose()` releases the loop, listeners and GPU resources.
-- Drafts saved before this fix keep their old hair masks. Use 초기 상태로, or 이 값만 seed로
-  on the hair values, to refresh them.
+- Draft schema 3: the first load of a draft saved before this fix backs the file up to
+  `out/mask_editor/attribute_masks.pre-v3-<stamp>.json`, re-seeds the hair keys, and refills
+  legacy top bodies. Later loads do nothing. Editor tests run against a temp OUT and never
+  touch the real draft.
+- Known limits (not done): slim masks still use the classic grid (the 4-wide classic arm
+  grid is read against 3-wide slim faces, so columns are misaligned; the renderer does not
+  write outside the face); seeds come from a fixed fixture, not the photo.
