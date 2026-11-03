@@ -157,3 +157,13 @@ overlay. The hair mask seed now includes those body cells:
 - The hood-down body-back policy wins (back skipped when hidden).
 - The 3D Mask view now paints body hair blue for hair_style/hair_length, and the
   body part atlas shows the mask cells to edit.
+
+## Head L2 hair masks (2026-11-03)
+
+The head L2 hair is the procedural hair overlay. It was not seeded, so the L2
+layer showed no mask cells (and no blue in the Mask view). Seed it by diffing the
+overlay-on target against an `hair_overlay=False` baseline:
+
+- head L2 seed: 72 cells for long_wavy/long; body L2 remains the body drape.
+- `apply_head_masks` clips L2 head hair to the same mask.
+- 3D Mask view + head L2 atlas now expose these cells for editing.

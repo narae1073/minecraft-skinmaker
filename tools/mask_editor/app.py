@@ -6,6 +6,7 @@ renderer reads the same asset; colours/patterns stay in the pipeline.
 """
 from __future__ import annotations
 
+import dataclasses
 import json
 import sys
 from pathlib import Path
@@ -110,6 +111,16 @@ def _seed_hair(key: str, value: str) -> dict:
     base["hair_length"] = "short"
     baseline = R.render(Q._observed(), A.validate(base), (), mask_override={})
     l2 = {}
+    # Head L2 hair: the procedural hair overlay. Seed from the overlay-on
+    # target vs an overlay-off baseline so the head L2 hair is selectable too.
+    no_overlay = dataclasses.replace(Q._observed(), hair_overlay=False)
+    l2_base = R.render(no_overlay, attrs, (), mask_override={})
+    for face in ("top", "front", "right", "left", "back", "bottom"):
+        f = LAYOUT.face("head", face, 0)
+        grid = [[1 if target.get("head", face, u, v, 1)[:3] != l2_base.get("head", face, u, v, 1)[:3] else 0
+                 for u in range(f.w)] for v in range(f.h)]
+        if any(any(r) for r in grid):
+            l2[f"head.{face}"] = grid
     for face in ("front", "back", "right", "left"):
         f = LAYOUT.face("body", face, 0)
         grid1 = [[1 if target.get("body", face, u, v, 0)[:3] != baseline.get("body", face, u, v, 0)[:3] else 0
