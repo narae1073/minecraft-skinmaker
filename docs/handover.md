@@ -529,3 +529,10 @@ S0 quality/face detection (YuNet) → S1 colour measurement (white-balance + ban
   - 미결정: 마스크 승인 정책. `render()` 는 `attribute_masks_approval.json` 의 SHA 를 확인하지 않고 `assets/attribute_masks.json` 을 그대로 쓴다. 승인 검사는 `production_status.py` 게이트에만 있다. 렌더 경로에서 강제할지, 문서만 고칠지 사용자 결정이 필요하다.
   - 로컬 미추적 파일(`assets/yolov8n.pt`, `scripts/build_pack_review.py`)은 이 PR 에 포함하지 않았다.
 - 2026-11-04 (mask-approval policy decided, `docs/mask-approval-policy`): 사용자 결정 **Option B** — 렌더러는 `assets/attribute_masks.json` 을 있는 그대로 사용한다. SHA 승인(`attribute_masks_approval.json`)은 `production_status` 릴리스 리포트에서만 확인하며 렌더링을 막지 않는다. 코드 동작은 변경 없음; `attribute_masks.py` 독스트링을 정책에 맞게 고쳤다. 승인 검사를 렌더에 강제하려면 별도 결정이 필요하다.
+
+- 2026-11-04 (results UI cleanup, `feat/results-ui`): 사용자 요청 3건.
+  - 로딩 바 아래 `보통 20~40초 걸려요. 창을 닫지 말아 주세요.` 힌트 삭제. 진행 바와 `loading-stage` 단계 문구는 유지.
+  - 후보 카드의 `스킨 편집 ✏️` 버튼 삭제. 사이드바의 `편집` 버튼과 `SkinEditor` 모달은 유지.
+  - 후보 카드를 원본보다 크게: `Skin3DViewer` 에 선택적 `className` 을 추가하고 후보 카드는 `width: min(300px, 100%)` + `aspect-ratio: 13 / 18` 로 CSS sizing. 데스크톱 뷰어 약 258×357, 원본 사진은 기존 200×280 유지. 720px 이하에서는 후보 카드 패딩만 10px 로 줄여 360px 뷰포트에서 뷰어 220×305, 가로 스크롤 없음. 편집기 뷰어는 360×480 그대로.
+  - 검증: `npm run lint` / `npm run build` green; headless Chrome에서 1440×1000 및 360×800 확인(로딩 힌트 0개, 후보 편집 버튼 0개, 사이드바 편집 버튼 1개, `scrollWidth` = viewport). `.venv/bin/python -m pytest -q` → **726 passed, 2 skipped** (115.16s).
+  - 리스크: mock transport + 후보 1개로 시각 확인했으므로 3후보 줄바꿈은 CSS 폭 계산에 의존한다. 실제 3후보/실기기 확인은 수동 후속.
