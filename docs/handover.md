@@ -518,3 +518,5 @@ S0 quality/face detection (YuNet) → S1 colour measurement (white-balance + ban
 - 2026-11-03 (segment cache, `perf/segment-cache`): `parsing.bottom_mask` caches the SCHP result by RGB pixel SHA-1 in a small 8-entry in-memory LRU (no disk persistence). Same image: ~3.1s → ~0.03s. Tests 726 (118.78s).
 
 - 2026-11-03 (VLM timeout, `fix/vlm-timeout`): `make_transport` now passes `timeout=SKINMAKER_VLM_TIMEOUT` (default **10s**, previously 30s) so a slow Gemini call costs at most 10s instead of 30s. Tests 726.
+
+- 2026-11-03 (final stage order, `fix/final-stage-order`): SSE now emits `saving` (88%) before writing the input/steps/candidate files, then `steps` (95%) after the writes, then `done` (100%). Avoids the bar appearing frozen at the end. Tests 726.

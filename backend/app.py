@@ -300,7 +300,7 @@ async def _pipeline(request: Request, file: UploadFile = File(...), noise_level:
     (STATIC_DIR / input_name).write_bytes(raw)
     # 처리 과정 시트 (설계 §12): 스킨 목록과 분리된 steps/ 하위폴더. 끄면 아예 미생성.
     steps_urls = None
-    await stage("steps", 92, "마무리하는 중이에요")
+    await stage("saving", 88, "이미지를 저장하는 중이에요")
     if want_steps:
         STEPS_DIR = ROOT / "static" / "steps"  # /static 마운트 위치와 일치 (실앱 404 수정 2026-10-13)
         STEPS_DIR.mkdir(exist_ok=True)
@@ -316,6 +316,7 @@ async def _pipeline(request: Request, file: UploadFile = File(...), noise_level:
             "clean": f"/static/steps/{token}_steps.png",
             "full": f"/static/steps/{token}_steps_full.png",
         }
+    await stage("steps", 95, "마무리하는 중이에요")
     urls, flat_urls = [], []
     for c in candidates:
         name = f"{token}_c{c.index}.png"
