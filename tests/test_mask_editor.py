@@ -222,3 +222,23 @@ def test_viewer_moves_l2_arms_with_l1_for_slim():
     body = src[src.index("function setModel("):src.index("function pick(")]
     assert "meshes.arm2.position.x" in body
     assert "meshes.larm2.position.x" in body
+
+
+def test_defaults_publish_atlas_rects_for_both_layers():
+    # The 2D editor draws boxes from these rects: one per face per layer, all
+    # inside the 64x64 atlas, and L1/L2 must not overlap each other.
+    j = TestClient(mod.app).get("/api/defaults").json()
+    atlas = j["atlas"]
+    assert atlas["size"] == 64
+    for layer in ("L1", "L2"):
+        assert set(atlas["rects"][layer]) == set(j["faces"])
+        for face, (x, y, w, h) in atlas["rects"][layer].items():
+            assert 0 <= x and 0 <= y and x + w <= 64 and y + h <= 64, (layer, face)
+            assert [w, h] == j["dims"][face], (layer, face)
+    taken = {}
+    for layer in ("L1", "L2"):
+        for face, (x, y, w, h) in atlas["rects"][layer].items():
+            for py in range(y, y + h):
+                for px in range(x, x + w):
+                    assert (px, py) not in taken, f"{layer}.{face} overlaps {taken.get((px, py))}"
+                    taken[(px, py)] = f"{layer}.{face}"

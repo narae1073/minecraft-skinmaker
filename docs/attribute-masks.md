@@ -221,3 +221,19 @@ without a photo:
 - Combo/model persist in the URL hash and localStorage.
 - P0 renders classic/slim **2D**; 3D is classic front. Slim 3D, presets, 3D back/
   overlay are P1.
+
+## Editor UI — 2D atlas (2026-11-04)
+
+- The 2D editor is a canvas drawn on the real 64×64 classic atlas. Rects come from
+  `/api/defaults` → `atlas.rects` (one box per face per layer; L1 and L2 never overlap).
+- Masked texels are hatched: L1 `\` in blue, L2 `/` in orange. Boxes that contain
+  mask pixels are bright; empty boxes are dimmed and light up as soon as a pixel is drawn.
+- Draw by clicking/dragging on the atlas (Shift = erase). Ctrl+wheel, +/−, or the
+  zoom buttons change zoom (2×–24×). Clear/Fill act on the active box only.
+- 3D: left-drag paints on whichever part is under the cursor (nearest hit across parts).
+  Edits show in 3D immediately (a client-side tint on the last render); the exact
+  server render replaces it when it arrives.
+- Pure helpers live in `tools/mask_editor/atlas.js`; `atlas.test.mjs` runs from
+  `tests/test_mask_editor_atlas.py` when Node is installed.
+- Known limits: slim-model masks still use the classic grid (3-px arm faces are not
+  separate in the editor); the whole mask set is still sent on each preview.

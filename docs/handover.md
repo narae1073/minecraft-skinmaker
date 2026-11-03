@@ -534,3 +534,8 @@ S0 quality/face detection (YuNet) → S1 colour measurement (white-balance + ban
   - Slim 3D: `setModel` 이 L2 팔(`arm2`/`larm2`)의 x 를 갱신하지 않아 L1 과 동심이 아니었다. 이제 L1/L2 가 같은 x 를 쓴다.
   - 드래프트: `/api/defaults` 가 저장된 `top_garment`/`hair_length` 드래프트의 body 면을 매 읽기마다 재시드해 사용자 편집이 사라졌다. 저장 파일에 `schema: 2` 마커를 쓰고, 마이그레이션은 마커 없는 레거시 드래프트와 승인 자산에만 적용한다. 훅 정책(후드 up/down 에서 body.back 머리 0)은 그대로 매번 적용.
   - 검증: `tests/test_mask_editor.py` 16 passed (신규 6: 사용자 편집 유지 2, 레거시 마이그레이션 유지, 훅 정책 유지, save 마커, viewer 정적 검사); `pytest -q` → **734 passed** (127.24s); `node --check viewer.js` ok. 렌더 경로 무변경.
+- 2026-11-04 (mask editor 2D atlas, `feat/mask-editor-atlas`): 2D 편집기를 캔버스 atlas 로 재설계.
+  - 64×64 실제 classic atlas 를 그리고(`/api/defaults` → `atlas.rects`), 마스크 픽셀은 L1 `\` 파랑 / L2 `/` 주황 사선으로 표시.
+  - 마스크가 있는 면은 밝게, 없는 면은 흐리게; 빈 면에 칠하면 즉시 밝아짐. 클릭/드래그 칠하기, Shift 지우개, Ctrl+휠·버튼 줌(2–24×).
+  - 3D: 어느 파트든 클릭 칠하기(`pickAny`), 편집은 클라이언트 틴트로 즉시 반영되고 서버 렌더가 도착하면 정확한 결과로 교체.
+  - 검증: `tests/test_mask_editor.py` 17 + `tests/test_mask_editor_atlas.py`(node 6 tests); headless Chrome CDP 실측: 칠하기 4셀 정확, 면 지우기 0, Shift 지우기 0, L2 클릭 레이어 판별, Ctrl+휠 줌, 3D pickAny body 히트, 콘솔 에러 0. 스크린샷 `/tmp/mecheck/shots/03_zoomed.png`(세션 로컬).

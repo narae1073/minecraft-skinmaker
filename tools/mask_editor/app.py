@@ -332,12 +332,25 @@ def index():
     return FileResponse(ROOT / "index.html", headers={"Cache-Control": "no-store"})
 
 
+def _atlas_rects() -> dict:
+    """Face rects in the 64x64 classic atlas, per layer (L1 = base, L2 = overlay)."""
+    rects = {}
+    for layer, index in (("L1", 0), ("L2", 1)):
+        rects[layer] = {}
+        for face in FACES:
+            part, short = face.split(".", 1)
+            r = LAYOUT.face(part, short, index).rect
+            rects[layer][face] = list(r)
+    return rects
+
+
 @app.get("/api/defaults")
 def defaults():
     return JSONResponse(
         {"parts": PARTS, "part_faces": PART_FACES, "faces": FACES, "dims": DIMS,
          "layers": LAYERS, "enums": COMBO_ENUMS, "defaults": DEFAULT_COMBO,
          "models": ["classic", "slim"], "combo": DEFAULT_COMBO,
+         "atlas": {"size": 64, "rects": _atlas_rects()},
          "maskable": MASKABLE, "masks": _defaults()},
         headers={"Cache-Control": "no-store"},
     )
