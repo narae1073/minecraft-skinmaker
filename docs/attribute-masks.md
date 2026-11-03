@@ -144,3 +144,16 @@ editor-only (draft); production approval is still separate.
   no `/api/defaults` request appears in the server log. The viewer's TDZ
   (`PART_UV2` before `HEAD2`) caused exactly that and is fixed; `index.html`
   now has an error handler that prints the error into the status.
+
+## Body hair masks (2026-11-03)
+
+medium/long/very_long hair draws a body drape on the L1 body front/back/sides
+(reference pack `l1_depth`, or legacy `body_rows`/front locks) and an L2 body
+overlay. The hair mask seed now includes those body cells:
+
+- `hair_style.long_wavy` seed: body L1 186 cells, L2 50 cells (example).
+- `apply_body_hair_masks` clips/adds L1 body hair to the mask and restores the
+  top colour for removed cells; L2 body hair is clipped/added on the L2 layer.
+- The hood-down body-back policy wins (back skipped when hidden).
+- The 3D Mask view now paints body hair blue for hair_style/hair_length, and the
+  body part atlas shows the mask cells to edit.
