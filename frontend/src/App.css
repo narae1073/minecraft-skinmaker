@@ -271,7 +271,7 @@ h1 {
   margin-top: 20px;
 }
 
-/* 원본 사진 + 스킨 후보 나란히 비교 (원본이 맨 왼쪽) */
+/* 스킨 후보 카드 나란히 배치 */
 .compare-grid {
   display: flex;
   gap: 20px;
@@ -279,45 +279,6 @@ h1 {
   flex-wrap: wrap;
   margin-top: 20px;
   justify-content: center;
-}
-
-.compare-grid .input-card h3 {
-  color: #64748b;
-}
-
-/* 원본 카드도 후보 카드와 같은 액션 행을 써서 다운로드 버튼을 사진 아래
-   가운데에 둔다. (인라인 앵커가 왼쪽에 붙던 문제) */
-.input-card {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-}
-.input-card .input-photo {
-  display: block;
-  margin: 0 auto;
-}
-.input-card .card-actions {
-  width: 100%;
-  margin-top: auto;
-  padding-top: 12px;
-}
-.input-card .download-btn {
-  margin-top: 0;
-}
-
-.compare-hint {
-  color: #64748b;
-  font-size: 14px;
-  margin-top: 8px;
-}
-
-.input-photo {
-  width: 200px;
-  height: 280px;
-  object-fit: contain;
-  background: #f1f5f9;
-  border: 1px solid #cbd5e1;
-  border-radius: 6px;
 }
 
 .skin-card {
