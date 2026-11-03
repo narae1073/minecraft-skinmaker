@@ -140,3 +140,15 @@ def test_preview_rejects_bad_combo_and_model():
     assert r.status_code == 400
     r = c.post("/api/preview", json={"combo": j["combo"], "model": "bogus", "masks": j["masks"]})
     assert r.status_code == 400
+
+
+def test_defaults_migrates_top_body_and_hair_back():
+    c = TestClient(mod.app)
+    j = c.get("/api/defaults").json()
+    hoodie = j["masks"]["top_garment.hoodie"]["L1"]
+    assert sum(sum(row) for face, grid in hoodie.items() if face == "body.back" for row in grid) == 96
+    assert sum(sum(row) for face, grid in hoodie.items() if face.startswith("body.") for row in grid) >= 352
+    for name in ("hair_style.long_wavy", "hair_length.long", "hair_style.short"):
+        for layer in ("L1", "L2"):
+            assert sum(sum(row) for face, grid in j["masks"][name][layer].items()
+                       if face == "body.back" for row in grid) == 0
