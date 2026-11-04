@@ -171,6 +171,43 @@ def photo_upload(file: UploadFile = File(...)):
     return JSONResponse(info, headers={"Cache-Control": "no-store"})
 
 
+TOKEN_ENV = "SKINMAKER_EDITOR_TOKEN"
+TOKEN_COOKIE = "editor_token"
+GATED_PREFIXES = ("/api/", "/out/")
+
+
+def _token_ok(request: Request, token: str) -> bool:
+    import hmac
+    sent = request.headers.get("x-editor-token") or request.cookies.get(TOKEN_COOKIE) or ""
+    return hmac.compare_digest(sent.encode(), token.encode())
+
+
+@app.middleware("http")
+async def require_token(request: Request, call_next):
+    """When SKINMAKER_EDITOR_TOKEN is set, the API and rendered output need it
+    (header X-Editor-Token, or the cookie set by POST /api/auth)."""
+    import os
+    token = os.environ.get(TOKEN_ENV, "")
+    path = request.url.path
+    if token and path.startswith(GATED_PREFIXES) and path != "/api/auth" and not _token_ok(request, token):
+        return JSONResponse({"error": "unauthorized"}, status_code=401)
+    return await call_next(request)
+
+
+@app.post("/api/auth")
+async def editor_auth(request: Request):
+    import hmac
+    import os
+    token = os.environ.get(TOKEN_ENV, "")
+    body = await request.json() if request.headers.get("content-type", "").startswith("application/json") else {}
+    given = str((body or {}).get("token", ""))
+    if not token or not hmac.compare_digest(given.encode(), token.encode()):
+        return JSONResponse({"error": "unauthorized"}, status_code=401)
+    response = JSONResponse({"ok": True})
+    response.set_cookie(TOKEN_COOKIE, token, httponly=True, samesite="strict", max_age=60 * 60 * 24 * 30)
+    return response
+
+
 @app.middleware("http")
 async def no_store_static(request: Request, call_next):
     response = await call_next(request)

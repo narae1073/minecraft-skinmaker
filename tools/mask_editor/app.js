@@ -2,6 +2,24 @@ import { initViewer } from './viewer.js';
 import { ATLAS, LAYER_STYLE, buildBoxes, boxAt, gridHasMask, bresenham, texelAt, drawAtlas } from './atlas.js';
 
 const $ = (s) => document.querySelector(s);
+
+// All editor requests go through here. When the server has an access token
+// configured, a 401 asks once for the token, stores it as a cookie, and retries.
+async function apiFetch(url, opts = {}) {
+  const send = () => fetch(url, { cache: 'no-store', ...opts });
+  const r = await send();
+  if (r.status !== 401) return r;
+  const token = window.prompt('편집기 접근 토큰 (서버의 out/mask_editor/access_token 값)');
+  if (!token) return r;
+  const auth = await fetch('/api/auth', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ token }),
+  });
+  if (!auth.ok) {
+    if (typeof state !== 'undefined') { state.notice = '토큰이 맞지 않아요'; updateStatus(); }
+    return r;
+  }
+  return send();
+}
 const dimsFor = (face) => (state.dims && state.dims[face]) || [8, 8];
 const state = {
   faces: null, dims: null, layers: null, maskable: null, masks: null,
@@ -489,7 +507,7 @@ function schedulePreview(delay = SCHEDULE_DEBOUNCE_MS, throttle = false) {
 
 async function preview() {
   const seq = ++previewSeq;
-  const r = await fetch('/api/preview', {
+  const r = await apiFetch('/api/preview', {
     method: 'POST', headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ combo: state.combo, model: state.model, key: state.key, value: state.value,
                            masks: state.masks, mode: state.viewMode, source: state.source }),
@@ -607,7 +625,7 @@ async function uploadPhoto(file) {
   fd.append('file', file, file.name);
   state.notice = '사진 분석 중… (처음에는 몇 초 걸려요)';
   updateStatus();
-  const r = await fetch('/api/photo', { method: 'POST', body: fd });
+  const r = await apiFetch('/api/photo', { method: 'POST', body: fd });
   const j = await r.json().catch(() => ({}));
   if (!r.ok) {
     const why = { no_face: '얼굴을 찾지 못했어요', bad_size: '파일이 너무 커요(15MB 이하)',
@@ -628,7 +646,7 @@ async function uploadPhoto(file) {
 }
 
 async function clearPhoto() {
-  await fetch('/api/photo', { method: 'DELETE' });
+  await apiFetch('/api/photo', { method: 'DELETE' });
   showPhoto(null);
   state.combo = defaultCombo();
   saveCombo(); syncComboUI();
@@ -724,7 +742,7 @@ function actOnActiveBox(fn) {
 
 async function save() {
   $('#status').textContent = '저장 중…';
-  const r = await fetch('/api/save', {
+  const r = await apiFetch('/api/save', {
     method: 'POST', headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ masks: state.masks }),
   });
@@ -738,7 +756,7 @@ async function resetToSeed() {
   btn.disabled = true;
   $('#status').textContent = '초기 상태(seed) 계산 중…';
   try {
-    const r = await fetch('/api/seed-all', { cache: 'no-store' });
+    const r = await apiFetch('/api/seed-all', { cache: 'no-store' });
     const j = await r.json();
     snapshotChange(j.masks, 'reset');
     $('#status').textContent = '초기 상태(procedural seed)로 되돌림 — Undo로 취소 가능';
@@ -768,7 +786,7 @@ function bindButtons() {
   });
   $('#saveBtn').onclick = save;
   $('#seedBtn').onclick = async () => {
-    const r = await fetch(`/api/seed?key=${encodeURIComponent(state.key)}&value=${encodeURIComponent(state.value)}`);
+    const r = await apiFetch(`/api/seed?key=${encodeURIComponent(state.key)}&value=${encodeURIComponent(state.value)}`);
     const j = await r.json();
     if (!j.mask) return;
     const next = { ...state.masks, [state.key + '.' + state.value]: j.mask };
@@ -791,7 +809,11 @@ window.addEventListener('keydown', (e) => {
 });
 
 async function boot() {
-  const r = await fetch('/api/defaults?t=' + Date.now(), { cache: 'no-store' });
+  const r = await apiFetch('/api/defaults?t=' + Date.now(), { cache: 'no-store' });
+  if (!r.ok) {
+    $('#status').textContent = '접근 토큰이 필요해요 — 토큰을 입력한 뒤 새로고침하세요';
+    return;
+  }
   const j = await r.json();
   state.faces = j.faces; state.dims = j.dims; state.layers = j.layers;
   state.maskable = j.maskable; state.masks = j.masks;
@@ -812,7 +834,7 @@ async function boot() {
   renderCombo(); renderKeyTabs(); bind2d(); bindButtons();
   setShowBase(true);
   historyChanged();
-  fetch('/api/photo', { cache: 'no-store' }).then((r) => r.json()).then(showPhoto).catch(() => {});
+  apiFetch('/api/photo', { cache: 'no-store' }).then((r) => r.json()).then(showPhoto).catch(() => {});
   fitZoom();
   scheduleDraw();
   try {

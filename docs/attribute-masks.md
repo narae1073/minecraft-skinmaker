@@ -286,5 +286,10 @@ without a photo:
   deleted (`out/` is served at `/out`, so a stored photo would be downloadable). Only the
   derived colours and attributes stay in memory. The preview combo takes the photo's
   attributes; clearing the photo restores the defaults. The editor has no auth, like its
-  other endpoints: anyone who can reach the shared editor can upload or clear the photo
-  and read its derived attributes, but not the image.
+  The shared editor is gated by an access token: set `SKINMAKER_EDITOR_TOKEN` and every
+  `/api/*` and `/out/*` request needs it (header `X-Editor-Token`, or the cookie set by
+  `POST /api/auth`). The page and static files stay open. The page asks once for the token
+  on a 401 and stores it as a cookie. On the shared host the token lives in
+  `out/mask_editor/access_token` (mode 600, gitignored); read it there to log in.
+  The tailnet is the network boundary; the token is the application boundary. Over
+  plain HTTP the token travels inside WireGuard, not TLS.

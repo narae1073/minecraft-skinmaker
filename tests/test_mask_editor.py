@@ -529,3 +529,28 @@ def test_photo_is_not_persisted_under_the_served_out_directory(tmp_path, monkeyp
         r = TestClient(mod.app).post("/api/photo", files={"file": ("messi5.jpg", fh.read(), "image/jpeg")})
     assert r.status_code == 200, r.text
     assert not [p for p in tmp_path.rglob("*") if p.suffix.lower() in (".jpg", ".jpeg", ".png", ".webp")]
+
+
+def test_editor_token_gates_api_and_rendered_output_when_configured(monkeypatch):
+    # The shared editor is reachable from the whole tailnet. With a token
+    # configured, the API and the rendered /out files need it; the page and
+    # static assets stay open (they hold no data).
+    monkeypatch.setenv("SKINMAKER_EDITOR_TOKEN", "s3cret-token")
+    c = TestClient(mod.app)
+    assert c.get("/").status_code == 200
+    assert c.get("/api/defaults").status_code == 401
+    assert c.get("/api/photo").status_code == 401
+    assert c.get("/out/preview.png").status_code in (401,)
+    assert c.post("/api/auth", json={"token": "wrong"}).status_code == 401
+    ok = c.post("/api/auth", json={"token": "s3cret-token"})
+    assert ok.status_code == 200
+    assert "editor_token" in ok.headers.get("set-cookie", "")
+    assert c.get("/api/defaults").status_code == 200  # cookie kept by TestClient
+    fresh = TestClient(mod.app)
+    assert fresh.get("/api/defaults", headers={"X-Editor-Token": "s3cret-token"}).status_code == 200
+    assert fresh.get("/api/defaults", headers={"X-Editor-Token": "nope"}).status_code == 401
+
+
+def test_no_token_configured_means_no_gate(monkeypatch):
+    monkeypatch.delenv("SKINMAKER_EDITOR_TOKEN", raising=False)
+    assert TestClient(mod.app).get("/api/defaults").status_code == 200
