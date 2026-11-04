@@ -18,6 +18,7 @@ import tempfile
 from pathlib import Path
 
 from skinmaker import attribute_masks as AM
+from skinmaker import attribute_seeds as AS
 from skinmaker import attributes as A
 from skinmaker import colors as C
 from skinmaker import job_codec as JC
@@ -28,7 +29,8 @@ PRIVATE_DIR = ROOT / "private"
 JOBS_DIR = PRIVATE_DIR / "jobs"
 INPUTS_DIR = PRIVATE_DIR / "inputs"
 OWNER_COOKIE = "skinmaker_owner"
-OVERLAY_MAX_BYTES = 512 * 1024
+OVERLAY_MAX_BYTES = 512 * 1024   # stored overlay (only differing entries)
+EDITOR_BODY_MAX_BYTES = 4 * 1024 * 1024  # a full effective-mask payload from the editor
 TOKEN_RE = re.compile(r"^[0-9a-f]{12}$")
 
 
@@ -107,11 +109,15 @@ def create_record(token: str, owner: str, observed: C.ObservedColors, candidates
 
 
 def validate_overlay(masks) -> list[str]:
-    """Overlay entries must be known mask keys with well-formed 0/1 grids."""
+    return validate_masks(masks, OVERLAY_MAX_BYTES)
+
+
+def validate_masks(masks, limit: int) -> list[str]:
+    """Mask entries must be known mask keys with well-formed 0/1 grids."""
     if not isinstance(masks, dict):
         return ["masks must be an object"]
-    if len(json.dumps(masks)) > OVERLAY_MAX_BYTES:
-        return ["overlay too large"]
+    if len(json.dumps(masks)) > limit:
+        return ["masks too large"]
     errors = AM.validate_asset({"masks": masks})
     for key in masks:
         if AM._split_key(key) is None:
@@ -143,3 +149,106 @@ def render_candidate(record: dict, index: int, overlay: dict | None = None):
     from skinmaker.validate import validate_image
     problems = [str(p) for img in (canvas.image, flat.image) for p in validate_image(img, record["model"])]
     return canvas.image, flat.image, problems
+
+
+# ---- per-skin editor -----------------------------------------------------------
+
+_BASELINE_CACHE: dict[tuple[str, int], dict] = {}
+_BASELINE_CACHE_MAX = 64
+
+
+def seed_context(record: dict, index: int) -> AS.SeedContext:
+    """Seeds for this job and candidate: the job's own observed colours and attributes."""
+    cand = candidate(record, index)
+    if cand is None:
+        raise KeyError(index)
+    observed = JC.load_dataclass(record["observed"], C.ObservedColors)
+    attrs = JC.load_dataclass(cand["attributes"], A.Attributes)
+    base = dict(attrs.values, hair_bbox=attrs.hair_bbox, hood="none")
+    return AS.SeedContext(observed=observed, base=base)
+
+
+def _normalized(entry: dict) -> dict:
+    return AS._normalize_key(entry)
+
+
+def baseline_masks(record: dict, index: int) -> dict:
+    """What the editor starts from for this job: production entries where they exist,
+    else the job's procedural seed. Cached per (job, candidate)."""
+    key = (record["id"], index)
+    if key in _BASELINE_CACHE:
+        return _BASELINE_CACHE[key]
+    with AS.using(seed_context(record, index)):
+        seeds = AS.seed_masks()
+    production = AM.load_masks()
+    merged = {}
+    for name, seeded in seeds.items():
+        merged[name] = _normalized(production[name]) if name in production else seeded
+    if len(_BASELINE_CACHE) >= _BASELINE_CACHE_MAX:
+        _BASELINE_CACHE.clear()
+    _BASELINE_CACHE[key] = merged
+    return merged
+
+
+def effective_masks(record: dict, index: int) -> dict:
+    """Baseline with this job's overlay on top: what the editor shows and renders."""
+    base = baseline_masks(record, index)
+    out = dict(base)
+    for name, entry in record.get("overlay", {}).items():
+        out[name] = _normalized(entry)
+    return out
+
+
+def diff_against_baseline(masks: dict, record: dict, index: int) -> dict:
+    """Store only the entries the user changed; unchanged entries stay procedural."""
+    base = baseline_masks(record, index)
+    changed = {}
+    for name, entry in masks.items():
+        norm = _normalized(entry)
+        if name not in base or norm != base[name]:
+            changed[name] = norm
+    return changed
+
+
+def editor_payload(record: dict, index: int) -> dict:
+    cand = candidate(record, index)
+    attrs = JC.load_dataclass(cand["attributes"], A.Attributes)
+    from skinmaker.format import get_layout
+    layout = get_layout("classic")
+    return {
+        "parts": list(AS.PARTS), "part_faces": {p: list(f) for p, f in AS.PART_FACES.items()},
+        "faces": AS.FACES, "dims": {k: list(v) for k, v in AS.DIMS.items()}, "layers": AS.LAYERS,
+        "enums": {name: list(A.ENUMS[name]) for name in A.FIELD_ORDER},
+        "defaults": dict(attrs.values), "combo": {name: attrs.get(name) for name in A.FIELD_ORDER},
+        "models": [record["model"]],
+        "atlas": {"size": 64, "rects": _rects(layout)},
+        "slim": {"sub_faces": sorted(AS.SLIM_FACES),
+                 "dims": {f: list(d) for f, d in AS.SLIM_FACES.items()},
+                 "atlas": {"size": 64, "rects": AS._slim_rects()}},
+        "maskable": AS.MASKABLE,
+        "masks": effective_masks(record, index),
+        "candidate": {"index": index, "varied": cand["varied"]},
+        "revision": record["revision"],
+    }
+
+
+def _rects(layout) -> dict:
+    rects = {}
+    for layer, idx in (("L1", 0), ("L2", 1)):
+        rects[layer] = {}
+        for face in AS.FACES:
+            part, short = face.split(".", 1)
+            rects[layer][face] = list(layout.face(part, short, idx).rect)
+    return rects
+
+
+def preview_png(record: dict, index: int, masks: dict) -> tuple[bytes, list[str]]:
+    """Preview = the render that Save + render would produce: the editor's full masks
+    are converted to the overlay they differ by, then rendered the same way. PNG bytes,
+    nothing written."""
+    import io
+    overlay = diff_against_baseline(masks, record, index)
+    image, _flat, problems = render_candidate(record, index, overlay)
+    buf = io.BytesIO()
+    image.save(buf, format="PNG")
+    return buf.getvalue(), problems

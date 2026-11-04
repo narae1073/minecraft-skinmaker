@@ -582,3 +582,30 @@ S0 quality/face detection (YuNet) → S1 colour measurement (white-balance + ban
   page in the website.
 - Tests: `tests/test_job_codec.py`, `tests/test_jobs.py`, `tests/test_skin_jobs_api.py`;
   backend input tests updated. Full suite: 742 passed.
+
+## Per-skin editor on the website (stacked on feat/mask-editor-atlas)
+
+- Shared seeds: `skinmaker/attribute_seeds.py` (procedural masks from a `SeedContext`:
+  observed colours + base attributes). The developer editor and the job editor both use it.
+- Baseline for a job: production entries where they exist, else the job's own procedural seed
+  (cached per job and candidate, ~0.6 s to compute).
+- Overlay: the save stores only entries that differ from the baseline. Preview renders the same
+  way as the final render (the editor's masks are turned into that overlay first), so what you
+  see is what you get.
+- Endpoints (owner cookie required): `GET /api/v1/jobs/{id}/editor?index&baseline` (the payload
+  the editor reads), `GET /api/v1/jobs/{id}/seed?key&value`, `POST /api/v1/jobs/{id}/preview`
+  (PNG as a data URL, nothing stored), `PUT /api/v1/jobs/{id}/overlay` (diff-based save),
+  `POST /api/v1/jobs/{id}/render` (writes `<id>_e<rev>_c<n>.png`).
+- Editor page: `GET /edit/{id}` serves `tools/mask_editor/index.html` with job mode injected
+  (combo and photo panels hidden, endpoints mapped). Assets come only from
+  `/edit/lib/{app.js,viewer.js,atlas.js,vendor/*}`.
+- Website: result cards carry `jobId` when the browser owns the job; the edit buttons open
+  `/edit/<id>` in a new tab, and fall back to the preview modal otherwise.
+- Checks: `tests/test_skin_jobs_api.py` (12, including page ownership and asset allowlist);
+  headless Chrome against the local website backend (mock transport): 12/12 (boot, job mode,
+  panels hidden, paint +4 cells, instant 3D overlay, save, render new skin served 200,
+  painted cells persist after reload, no errors). `npm run lint` exit 0, `npm run build` ok.
+  Full suite: 776 passed.
+- Not browser-tested: the main page's edit button itself (the new-tab hand-off is by code).
+- Deployment order: merge `feat/mask-editor-atlas` first, then this branch. The editor files
+  must exist on the host (`tools/mask_editor/`).

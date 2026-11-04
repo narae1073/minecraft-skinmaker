@@ -5,7 +5,26 @@ const $ = (s) => document.querySelector(s);
 
 // All editor requests go through here. When the server has an access token
 // configured, a 401 asks once for the token, stores it as a cookie, and retries.
+// Job mode: this page is the per-skin editor on the website. The developer
+// endpoints map onto the owner's job API; there is no token or photo step.
+const JOB = window.MASK_EDITOR_JOB || null;
+const JOB_API = JOB ? `/api/v1/jobs/${JOB}` : null;
+
+async function jobFetch(url, opts = {}) {
+  const path = url.split('?')[0];
+  const query = url.includes('?') ? url.slice(url.indexOf('?') + 1) : '';
+  const send = (u, o = {}) => fetch(u, { cache: 'no-store', credentials: 'same-origin', ...o });
+  if (path === '/api/defaults') return send(`${JOB_API}/editor?index=1`);
+  if (path === '/api/seed-all') return send(`${JOB_API}/editor?index=1&baseline=1`);
+  if (path === '/api/seed') return send(`${JOB_API}/seed?index=1&${query}`);
+  if (path === '/api/preview') return send(`${JOB_API}/preview`, opts);
+  if (path === '/api/save') return send(`${JOB_API}/overlay`, { ...opts, method: 'PUT' });
+  if (path === '/api/photo') return new Response('null', { headers: { 'Content-Type': 'application/json' } });
+  return send(url, opts);
+}
+
 async function apiFetch(url, opts = {}) {
+  if (JOB) return jobFetch(url, opts);
   const send = () => fetch(url, { cache: 'no-store', ...opts });
   const r = await send();
   if (r.status !== 401) return r;
@@ -100,6 +119,7 @@ function loadCombo() {
 }
 
 function saveCombo() {
+  if (JOB) return;
   if (!state.combo) return;
   const params = new URLSearchParams({ v: '1', model: state.model });
   for (const key of state.comboKeys) params.set(key, state.combo[key]);
@@ -527,7 +547,7 @@ async function preview() {
   }
   if (j.skin) {
     const stamp = Date.now();
-    const finalUrl = j.skin + '?t=' + stamp;
+    const finalUrl = j.skin.startsWith('data:') ? j.skin : j.skin + '?t=' + stamp;
     // The base skin is always the final render, even in Mask view.
     const img = new Image();
     img.onload = () => {
@@ -747,7 +767,7 @@ async function save() {
     body: JSON.stringify({ masks: state.masks }),
   });
   const j = await r.json();
-  $('#status').textContent = j.ok ? `저장됨: ${j.path}` : '저장 실패';
+  $('#status').textContent = j.ok ? (j.path ? `저장됨: ${j.path}` : `저장됨 (rev ${j.revision ?? '?'})`) : '저장 실패';
 }
 
 // Reset every mask to the procedural seed. Combo settings are not touched.
@@ -795,6 +815,42 @@ function bindButtons() {
   };
 }
 
+// Job mode: save the edit, then render the skin from it (a new file the owner gets).
+function addJobRenderButton() {
+  const bar = document.querySelector('.toolbar');
+  if (!bar) return;
+  const wrap = document.createElement('div');
+  wrap.className = 'group';
+  const btn = document.createElement('button');
+  btn.className = 'primary';
+  btn.textContent = '이 편집으로 스킨 만들기';
+  const link = document.createElement('a');
+  link.target = '_blank';
+  link.rel = 'noopener';
+  link.style.fontSize = '13px';
+  btn.onclick = async () => {
+    btn.disabled = true;
+    try {
+      await save();
+      const r = await apiFetch(`${JOB_API}/render`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ index: 1 }),
+      });
+      const j = await r.json();
+      if (!r.ok) throw new Error(j.message || r.status);
+      link.href = j.skin;
+      link.textContent = '결과 보기';
+      state.notice = '스킨을 만들었어요';
+    } catch (e) {
+      state.notice = '생성 실패: ' + e.message;
+    } finally {
+      updateStatus();
+      btn.disabled = false;
+    }
+  };
+  wrap.append(btn, link);
+  bar.prepend(wrap);
+}
+
 window.addEventListener('pointerup', endStroke);
 window.addEventListener('mouseup', endStroke);
 window.addEventListener('keydown', (e) => {
@@ -823,7 +879,7 @@ async function boot() {
   state.atlasRects = j.atlas.rects;
   state.slimRects = j.slim.atlas.rects;
   state.slimSubFaces = j.slim.sub_faces;
-  const loaded = loadCombo();
+  const loaded = JOB ? { combo: sanitizeCombo(j.combo), model: j.models[0] } : loadCombo();
   state.combo = loaded.combo; state.model = loaded.model;
   setModelView(state.model);
   state.key = Object.keys(state.maskable)[0];
@@ -834,7 +890,8 @@ async function boot() {
   renderCombo(); renderKeyTabs(); bind2d(); bindButtons();
   setShowBase(true);
   historyChanged();
-  apiFetch('/api/photo', { cache: 'no-store' }).then((r) => r.json()).then(showPhoto).catch(() => {});
+  if (!JOB) apiFetch('/api/photo', { cache: 'no-store' }).then((r) => r.json()).then(showPhoto).catch(() => {});
+  if (JOB) addJobRenderButton();
   fitZoom();
   scheduleDraw();
   try {
