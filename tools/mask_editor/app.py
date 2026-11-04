@@ -134,10 +134,21 @@ def photo_upload(file: UploadFile = File(...)):
     suffix = {"JPEG": ".jpg", "PNG": ".png", "WEBP": ".webp"}.get(fmt)
     if suffix is None:
         return JSONResponse({"error": "unsupported_format"}, status_code=400)
-    path = OUT / "photo" / f"current{suffix}"
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_bytes(raw)
-    photo = QU.inspect(path)
+    # The photo is only needed while it is observed: write it to a private temp
+    # file, read it, delete it. Nothing under out/ (which /out serves) keeps the
+    # original; only the derived colours and attributes are held in memory.
+    import os
+    import tempfile
+    fd, tmp_name = tempfile.mkstemp(suffix=suffix)
+    try:
+        with os.fdopen(fd, "wb") as fh:
+            fh.write(raw)
+        photo = QU.inspect(tmp_name)
+    finally:
+        try:
+            os.unlink(tmp_name)
+        except OSError:
+            pass
     if photo.face is None:
         return JSONResponse({"error": "no_face"}, status_code=422)
     try:

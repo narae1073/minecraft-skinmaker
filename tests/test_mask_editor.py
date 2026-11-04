@@ -520,3 +520,12 @@ def test_failed_photo_classification_is_reported_and_not_stored(monkeypatch):
         r = c.post("/api/photo", files={"file": ("messi5.jpg", fh.read(), "image/jpeg")})
     assert r.status_code == 503, r.text
     assert c.get("/api/photo").json() is None
+
+
+def test_photo_is_not_persisted_under_the_served_out_directory(tmp_path, monkeypatch):
+    # /out is a static mount: an uploaded photo kept there would be downloadable
+    # by anyone who can reach the editor. Only derived data may remain.
+    with open(PHOTO_PATH, "rb") as fh:
+        r = TestClient(mod.app).post("/api/photo", files={"file": ("messi5.jpg", fh.read(), "image/jpeg")})
+    assert r.status_code == 200, r.text
+    assert not [p for p in tmp_path.rglob("*") if p.suffix.lower() in (".jpg", ".jpeg", ".png", ".webp")]

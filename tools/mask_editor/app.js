@@ -618,8 +618,11 @@ async function uploadPhoto(file) {
     return;
   }
   showPhoto(j);
+  // The preview combo follows the photo too; the user can still change any value.
+  state.combo = sanitizeCombo(j.attributes || {});
+  saveCombo(); syncComboUI();
   const garment = j.attributes ? `${j.attributes.top_garment}/${j.attributes.bottom_garment}, hair ${j.attributes.hair_style}·${j.attributes.hair_length}` : '';
-  state.notice = `사진 적용: ${j.name} [${garment}; 속성 출처 ${j.attributes_source}] — '초기 상태로'를 누르면 seed 도 이 사진 기준 (Undo 가능)`;
+  state.notice = `사진 적용: ${j.name} [${garment}; 속성 출처 ${j.attributes_source}; 미리보기 조합도 맞춤] — '초기 상태로'를 누르면 seed 도 이 사진 기준 (Undo 가능)`;
   updateStatus();
   schedulePreview(0);
 }
@@ -627,6 +630,8 @@ async function uploadPhoto(file) {
 async function clearPhoto() {
   await fetch('/api/photo', { method: 'DELETE' });
   showPhoto(null);
+  state.combo = defaultCombo();
+  saveCombo(); syncComboUI();
   state.notice = '사진 해제 — 기본 fixture 기준';
   updateStatus();
   schedulePreview(0);

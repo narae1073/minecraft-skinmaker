@@ -558,4 +558,5 @@ S0 quality/face detection (YuNet) → S1 colour measurement (white-balance + ban
   - 사진 기반 seed: `POST/GET/DELETE /api/photo` — 사진의 색·SCHP 머리 실루엣으로 seed 와 미리보기. 초기 상태로/이 값만 seed로 가 사진 기준으로 재시드(undo 가능). 프로세스 전역 상태.
   - 편집기 combo 'Reset' 버튼이 3D 모델과 atlas 를 갱신하지 않던 버그 수정.
   - 사진 속성: 업로드 시 production VLM classify 실행 → 속성이 seed 기준(`_seed_base`)이 됨. 실패는 503/502, 저장 안 함. 편집기가 저장소 `.env` 를 로드(백엔드와 동일).
-  - 검증: `pytest -q` → **753 passed**; 실제 Gemini 분류 확인(messi5: shirt/shorts, hair medium·short); headless Chrome CDP 9/9 (slim 전환 4폭→3폭, slim 칠하기는 slim 격자만, undo, classic 복귀, 파일 입력으로 사진 업로드, 콘솔 에러 0). (수정 후, 편집기 테스트 24); headless Chrome CDP 21/21 + Draft/Production 토글 확인; 스크린샷 `/tmp/mecheck/shots/11_after_fix.png`.
+  - 사진 원본은 저장하지 않음(임시 파일 후 삭제; `/out` 정적 마운트로 노출되던 문제 수정), 미리보기 조합도 사진 속성을 따름(해제 시 기본값).
+  - 검증: `pytest -q` → **754 passed** (사진 비저장 테스트 추가); 사후 브라우저 CDP 10/10 (업로드→조합 반영·URL 해시·base 재렌더·/out/photo 404·해제 시 기본 조합, 콘솔 에러 0); 실제 Gemini 분류 확인(messi5: shirt/shorts, hair medium·short); headless Chrome CDP 9/9 (slim 전환 4폭→3폭, slim 칠하기는 slim 격자만, undo, classic 복귀, 파일 입력으로 사진 업로드, 콘솔 에러 0). (수정 후, 편집기 테스트 24); headless Chrome CDP 21/21 + Draft/Production 토글 확인; 스크린샷 `/tmp/mecheck/shots/11_after_fix.png`.

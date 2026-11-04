@@ -282,3 +282,9 @@ without a photo:
   Its garment and hair attributes become the seed base (`_seed_base`), so garment seeds
   follow the photo too. A classification failure returns 503/502 and stores nothing.
   Tests fake the classification; the response reports `attributes_source` and `attributes`.
+  The uploaded image is never kept: it goes to a private temp file for observation and is
+  deleted (`out/` is served at `/out`, so a stored photo would be downloadable). Only the
+  derived colours and attributes stay in memory. The preview combo takes the photo's
+  attributes; clearing the photo restores the defaults. The editor has no auth, like its
+  other endpoints: anyone who can reach the shared editor can upload or clear the photo
+  and read its derived attributes, but not the image.
