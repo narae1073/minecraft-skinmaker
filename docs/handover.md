@@ -557,4 +557,5 @@ S0 quality/face detection (YuNet) → S1 colour measurement (white-balance + ban
   - slim 전용 마스크: 팔 면(front/back/top/bottom, 3폭)에 엔트리별 `slim` sub-dict. `resolve_model` 은 slim 렌더에서만 적용. 편집기 모델 선택이 atlas 를 slim 레이아웃으로 전환.
   - 사진 기반 seed: `POST/GET/DELETE /api/photo` — 사진의 색·SCHP 머리 실루엣으로 seed 와 미리보기. 초기 상태로/이 값만 seed로 가 사진 기준으로 재시드(undo 가능). 프로세스 전역 상태.
   - 편집기 combo 'Reset' 버튼이 3D 모델과 atlas 를 갱신하지 않던 버그 수정.
-  - 검증: `pytest -q` → **751 passed**; headless Chrome CDP 9/9 (slim 전환 4폭→3폭, slim 칠하기는 slim 격자만, undo, classic 복귀, 파일 입력으로 사진 업로드, 콘솔 에러 0). (수정 후, 편집기 테스트 24); headless Chrome CDP 21/21 + Draft/Production 토글 확인; 스크린샷 `/tmp/mecheck/shots/11_after_fix.png`.
+  - 사진 속성: 업로드 시 production VLM classify 실행 → 속성이 seed 기준(`_seed_base`)이 됨. 실패는 503/502, 저장 안 함. 편집기가 저장소 `.env` 를 로드(백엔드와 동일).
+  - 검증: `pytest -q` → **753 passed**; 실제 Gemini 분류 확인(messi5: shirt/shorts, hair medium·short); headless Chrome CDP 9/9 (slim 전환 4폭→3폭, slim 칠하기는 slim 격자만, undo, classic 복귀, 파일 입력으로 사진 업로드, 콘솔 에러 0). (수정 후, 편집기 테스트 24); headless Chrome CDP 21/21 + Draft/Production 토글 확인; 스크린샷 `/tmp/mecheck/shots/11_after_fix.png`.

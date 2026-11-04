@@ -24,6 +24,12 @@ def _isolated_out(tmp_path, monkeypatch):
     # Each test starts without an uploaded photo.
     monkeypatch.setitem(mod._PHOTO, "observed", None)
     monkeypatch.setitem(mod._PHOTO, "name", None)
+    monkeypatch.setitem(mod._PHOTO, "info", None)
+    monkeypatch.setitem(mod._PHOTO, "attrs", None)
+    # No network in tests: the photo classification returns the fixture attributes.
+    from skinmaker import production_qa as Q
+    fixture = _fake_classification(Q._attrs("long", "long_straight", "none").values)
+    monkeypatch.setattr(mod, "_classify_photo", lambda photo: (fixture, "test"))
 
 
 def test_defaults_expose_key_value_tree_and_general_masks():
@@ -472,3 +478,45 @@ def test_photo_without_a_face_is_rejected():
     Image.new("RGB", (64, 64), (128, 128, 128)).save(buf, format="PNG")
     r = TestClient(mod.app).post("/api/photo", files={"file": ("blank.png", buf.getvalue(), "image/png")})
     assert r.status_code == 422, r.text
+
+
+def _fake_classification(attrs_values, ok=True, error_kind=None, error=None):
+    from types import SimpleNamespace
+    from skinmaker import attributes as A
+    attrs = A.validate(dict(attrs_values, hair_bbox=[200, 50, 800, 600]))
+    return SimpleNamespace(ok=ok, attributes=attrs, error=error, error_kind=error_kind,
+                           hair_bbox_px=None, uncertain=())
+
+
+def test_photo_classification_drives_the_seed_base(monkeypatch):
+    # Garment and hair attributes for the seeds come from the photo's VLM
+    # classification, not from the fixed fixture.
+    from skinmaker import production_qa as Q
+    jacket = dict(Q._attrs("short", "short", "none").values, top_garment="jacket", bottom_garment="shorts")
+    monkeypatch.setattr(mod, "_classify_photo", lambda photo: (_fake_classification(jacket), "fake"))
+    c = TestClient(mod.app)
+    with open(PHOTO_PATH, "rb") as fh:
+        r = c.post("/api/photo", files={"file": ("messi5.jpg", fh.read(), "image/jpeg")})
+    assert r.status_code == 200, r.text
+    assert r.json()["attributes_source"] == "fake"
+    assert r.json()["attributes"]["top_garment"] == "jacket"
+    base = mod._seed_base()
+    assert base["top_garment"] == "jacket" and base["bottom_garment"] == "shorts"
+    assert base["hood"] == "none"
+    assert base["hair_length"] == "short"
+    assert tuple(base["hair_bbox"]) == (200, 50, 800, 600)
+    assert c.delete("/api/photo").status_code == 200
+    assert mod._seed_base()["top_garment"] == "hoodie"  # fixture again
+
+
+def test_failed_photo_classification_is_reported_and_not_stored(monkeypatch):
+    from skinmaker import production_qa as Q
+    monkeypatch.setattr(mod, "_classify_photo",
+                        lambda photo: (_fake_classification(Q._attrs("long", "long_straight", "none").values,
+                                                            ok=False, error_kind="transport",
+                                                            error="no key"), "gemini"))
+    c = TestClient(mod.app)
+    with open(PHOTO_PATH, "rb") as fh:
+        r = c.post("/api/photo", files={"file": ("messi5.jpg", fh.read(), "image/jpeg")})
+    assert r.status_code == 503, r.text
+    assert c.get("/api/photo").json() is None

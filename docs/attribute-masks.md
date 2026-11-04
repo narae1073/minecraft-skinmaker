@@ -278,3 +278,7 @@ without a photo:
   photo the fixture is used. Uploading does not overwrite drafts; 초기 상태로 or 이 값만 seed로
   re-seed from the photo (undoable). Process-wide state: one photo at a time for everyone
   who can reach the editor.
+  Upload also runs the production VLM classification (`classify`, transport from `.env`).
+  Its garment and hair attributes become the seed base (`_seed_base`), so garment seeds
+  follow the photo too. A classification failure returns 503/502 and stores nothing.
+  Tests fake the classification; the response reports `attributes_source` and `attributes`.

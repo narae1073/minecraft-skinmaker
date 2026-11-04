@@ -611,13 +611,15 @@ async function uploadPhoto(file) {
   const j = await r.json().catch(() => ({}));
   if (!r.ok) {
     const why = { no_face: '얼굴을 찾지 못했어요', bad_size: '파일이 너무 커요(15MB 이하)',
-                  not_an_image: '이미지가 아니에요', unsupported_format: 'JPEG/PNG/WEBP 만 지원해요' }[j.error] || j.error || r.status;
+                  not_an_image: '이미지가 아니에요', unsupported_format: 'JPEG/PNG/WEBP 만 지원해요',
+                  classify_failed: `속성 분석(VLM) 실패${j.detail ? ': ' + j.detail : ''}` }[j.error] || j.error || r.status;
     state.notice = '사진 실패: ' + why;
     updateStatus();
     return;
   }
   showPhoto(j);
-  state.notice = `사진 적용: ${j.name} — '초기 상태로'를 누르면 seed 도 이 사진 기준 (Undo 가능)`;
+  const garment = j.attributes ? `${j.attributes.top_garment}/${j.attributes.bottom_garment}, hair ${j.attributes.hair_style}·${j.attributes.hair_length}` : '';
+  state.notice = `사진 적용: ${j.name} [${garment}; 속성 출처 ${j.attributes_source}] — '초기 상태로'를 누르면 seed 도 이 사진 기준 (Undo 가능)`;
   updateStatus();
   schedulePreview(0);
 }

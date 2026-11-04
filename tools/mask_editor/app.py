@@ -25,6 +25,10 @@ from skinmaker import production_qa as Q, render as R  # noqa: E402
 from skinmaker.canvas import SkinCanvas  # noqa: E402
 from skinmaker.format import get_layout  # noqa: E402
 
+# Same .env handling as the backend: the photo classification needs the VLM key.
+from backend.app import load_env_file  # noqa: E402
+load_env_file()
+
 OUT = REPO / "out" / "mask_editor"
 OUT.mkdir(parents=True, exist_ok=True)
 LAYOUT = get_layout("classic")
@@ -66,12 +70,36 @@ app = FastAPI(title="skinmaker attribute mask editor")
 
 # One uploaded photo drives the seeds and the preview. Without one, the
 # fixture observation is used. Single-user local tool: process-wide state.
-_PHOTO: dict = {"observed": None, "name": None, "info": None}
+_PHOTO: dict = {"observed": None, "name": None, "info": None, "attrs": None}
 MAX_PHOTO_BYTES = 15 * 1024 * 1024
 
 
 def _observed():
     return _PHOTO["observed"] or Q._observed()
+
+
+def _seed_base(hood: str = "none") -> dict:
+    """Attribute values the seeds vary one key of: the photo's classification when a
+    photo is loaded, else the fixture. The hood is always set explicitly."""
+    attrs = _PHOTO["attrs"]
+    if attrs is not None:
+        base = dict(attrs.values, hair_bbox=attrs.hair_bbox)
+    else:
+        fixture = Q._attrs("long", "long_straight", hood)
+        base = dict(fixture.values, hair_bbox=fixture.hair_bbox)
+    base["hood"] = hood
+    return base
+
+
+def _classify_photo(photo):
+    """Run the production VLM classification on the photo. Returns (result, transport name)."""
+    import os
+    from skinmaker.classify import classify
+    from skinmaker.vlm import get_transport
+    name = os.environ.get("SKINMAKER_TRANSPORT", "gemini")
+    timeout = float(os.environ.get("SKINMAKER_VLM_TIMEOUT", "10"))
+    transport = get_transport(name, model=os.environ.get("SKINMAKER_MODEL"), timeout=timeout)
+    return classify(photo, transport), name
 
 
 def _photo_info(name: str, observed) -> dict:
@@ -87,7 +115,7 @@ def photo_info():
 
 @app.delete("/api/photo")
 def photo_clear():
-    _PHOTO.update(observed=None, name=None, info=None)
+    _PHOTO.update(observed=None, name=None, info=None, attrs=None)
     return JSONResponse({"ok": True})
 
 
@@ -113,14 +141,22 @@ def photo_upload(file: UploadFile = File(...)):
     if photo.face is None:
         return JSONResponse({"error": "no_face"}, status_code=422)
     try:
+        result, transport_name = _classify_photo(photo)
+    except Exception as exc:
+        return JSONResponse({"error": "classify_failed", "detail": type(exc).__name__}, status_code=502)
+    if not result.ok:
+        status = 503 if result.error_kind == "transport" else 502
+        return JSONResponse({"error": "classify_failed", "detail": result.error}, status_code=status)
+    try:
         seg = P.bottom_mask(photo.image) if P.parsing_on() else None
     except Exception:
         # No parser model on this host: colours only, no hair silhouette from the photo.
         seg = None
-    observed = C.extract(photo, hair_bbox=None, seg=seg, hair_overlay=True)
+    observed = C.extract(photo, hair_bbox=result.hair_bbox_px, seg=seg, hair_overlay=True)
     name = Path(file.filename or "photo").name
-    info = _photo_info(name, observed)
-    _PHOTO.update(observed=observed, name=name, info=info)
+    info = dict(_photo_info(name, observed), attributes_source=transport_name,
+                attributes={field: result.attributes.get(field) for field in A.FIELD_ORDER})
+    _PHOTO.update(observed=observed, name=name, info=info, attrs=result.attributes)
     return JSONResponse(info, headers={"Cache-Control": "no-store"})
 
 
@@ -205,7 +241,7 @@ def _seed_hair(key: str, value: str) -> dict:
     # hair_length=very_long mask is not clipped by a long-baseline style mask.
     length = value if key == "hair_length" else "very_long"
     style = value if key == "hair_style" else LENGTH_STYLE.get(value, "long_straight")
-    attrs = Q._attrs(length, style, "none")
+    attrs = A.validate(dict(_seed_base(), hair_length=length, hair_style=style))
     # Head hair comes from the same pipeline the renderer uses (reference
     # silhouette + overlay), not from the rule stencil: a rule-stencil seed
     # cut the side hair when style and length masks were intersected.
@@ -264,7 +300,7 @@ def _seed_sleeve(key: str, value: str) -> dict:
 def _seed_bottom(value: str) -> dict:
     if value == "none":
         return {}
-    base = dict(Q._attrs("long", "long_straight", "none").values)
+    base = _seed_base()
     base["bottom_garment"] = "none"
     baseline = R.render(_observed(), A.validate(base), (), mask_override={})
     base["bottom_garment"] = value
@@ -288,7 +324,7 @@ def _seed_structure(key: str, value: str) -> dict:
         # The tie colour can equal the inner colour in synthetic QA colours;
         # seed the known tie cells instead of a colour diff.
         return {"L1": {"body.front": [[1 if (u == 4 and v in (1, 2)) else 0 for u in range(8)] for v in range(12)]}}
-    base = dict(Q._attrs("long", "long_straight", "none").values)
+    base = _seed_base()
     base["top_garment"] = "hoodie"
     base["inner_top"] = "none"
     base[key] = "none"
@@ -304,7 +340,7 @@ def _seed_structure(key: str, value: str) -> dict:
 def _seed_inner(value: str) -> dict:
     if value == "none":
         return {}
-    base = dict(Q._attrs("long", "long_straight", "none").values)
+    base = _seed_base()
     base["top_garment"] = "hoodie"
     base["inner_top"] = "none"
     baseline = R.render(_observed(), A.validate(base), (), mask_override={})
@@ -327,7 +363,7 @@ def _seed_inner(value: str) -> dict:
 def _seed_top(value: str) -> dict:
     if value == "none":
         return {}
-    base = dict(Q._attrs("long", "long_straight", "none").values)
+    base = _seed_base()
     base["top_garment"] = "none"
     baseline = R.render(_observed(), A.validate(base), (), mask_override={})
     base["top_garment"] = value
