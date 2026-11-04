@@ -30,9 +30,13 @@ PRIVATE_DIR = ROOT / "private"
 JOBS_DIR = PRIVATE_DIR / "jobs"
 INPUTS_DIR = PRIVATE_DIR / "inputs"
 OWNER_COOKIE = "skinmaker_owner"
-# Per-skin headwear choices. The cap shape is a draft (not in the production asset).
-HEADWEAR_CHOICES = ("none", "cap")
-HAT_DRAFT_PATH = ROOT.parent / "assets" / "headwear_cap.draft.json"
+# Per-skin headwear choices. The hat shapes are drafts (not in the production asset).
+HEADWEAR_CHOICES = ("none", "cap", "beanie")
+HAT_DRAFT_PATHS = {
+    "cap": ROOT.parent / "assets" / "headwear_cap.draft.json",
+    "beanie": ROOT.parent / "assets" / "headwear_beanie.draft.json",
+}
+HAT_COLOR_RE = re.compile(r"^#[0-9a-fA-F]{6}$")
 OVERLAY_MAX_BYTES = 512 * 1024   # stored overlay (only differing entries)
 EDITOR_BODY_MAX_BYTES = 4 * 1024 * 1024  # a full effective-mask payload from the editor
 TOKEN_RE = re.compile(r"^[0-9a-f]{12}$")
@@ -150,20 +154,25 @@ def candidate_attributes(record: dict, index: int) -> A.Attributes:
     return dataclasses.replace(attrs, values=values)
 
 
-def hat_draft_entry() -> dict:
-    """The cap draft as a mask entry (L1 head faces)."""
-    return json.loads(HAT_DRAFT_PATH.read_text(encoding="utf-8"))["masks"]["headwear.cap"]
+def hat_draft_entry(value: str) -> dict:
+    """A hat draft as a mask entry (L1 head faces)."""
+    key = f"headwear.{value}"
+    return json.loads(HAT_DRAFT_PATHS[value].read_text(encoding="utf-8"))["masks"][key]
 
 
-def set_headwear(record: dict, value: str) -> dict:
-    """Change this skin's headwear. Choosing a cap puts the draft cap into this skin's
-    overlay (unless the user already has a cap mask of their own)."""
+def set_headwear(record: dict, value: str, color: str | None = None) -> dict:
+    """Change this skin's headwear and, for a hat, its colour. Choosing a hat puts its
+    draft into this skin's overlay (unless the user already has a mask for it)."""
     if value not in HEADWEAR_CHOICES:
         raise ValueError(value)
+    if color is not None and not HAT_COLOR_RE.match(color):
+        raise ValueError(color)
     record["attr_overrides"] = {"headwear": value}
-    if value == "cap":
+    if color is not None:
+        record["hat_color"] = color.lower()
+    if value in HAT_DRAFT_PATHS:
         overlay = dict(record.get("overlay", {}))
-        overlay.setdefault("headwear.cap", _normalized(hat_draft_entry()))
+        overlay.setdefault(f"headwear.{value}", _normalized(hat_draft_entry(value)))
         record["overlay"] = overlay
     return record
 
@@ -182,7 +191,7 @@ def render_candidate(record: dict, index: int, overlay: dict | None = None):
     # A skin whose headwear was chosen by the user draws the hat over the hair.
     hat_on_top = bool(record.get("attr_overrides"))
     common = dict(noise_seed=cand["seed"], noise_level=record["noise_level"], mask_override=masks,
-                  hat_on_top=hat_on_top)
+                  hat_on_top=hat_on_top, hat_color=record.get("hat_color"))
     canvas = R.render(observed, attrs, degrade, record["model"], **common)
     flat = R.render(observed, attrs, degrade, record["model"], shoe_two_tone=False, **common)
     from skinmaker.validate import validate_image
@@ -267,6 +276,7 @@ def editor_payload(record: dict, index: int) -> dict:
         "maskable": AS.MASKABLE,
         "masks": effective_masks(record, index),
         "candidate": {"index": index, "varied": cand["varied"]},
+        "hat_color": record.get("hat_color"),
         "revision": record["revision"],
     }
 

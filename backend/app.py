@@ -477,9 +477,13 @@ async def job_attributes(token: str, request: Request):
     record = _job_for_owner(request, token)
     body = await request.json()
     value = body.get("headwear") if isinstance(body, dict) else None
+    color = body.get("hat_color") if isinstance(body, dict) else None
     if value not in JOBS.HEADWEAR_CHOICES:
-        fail(400, "bad_headwear", "headwear 는 none 또는 cap 이어야 해요.")
-    JOBS.set_headwear(record, value)
+        fail(400, "bad_headwear", "headwear 는 none, cap, beanie 중 하나여야 해요.")
+    try:
+        JOBS.set_headwear(record, value, color)
+    except ValueError:
+        fail(400, "bad_hat_color", "hat_color 는 #rrggbb 형식이어야 해요.")
     record["revision"] = int(record.get("revision", 0)) + 1
     JOBS.save_record(record)
     return {"ok": True, "headwear": value, "revision": record["revision"]}

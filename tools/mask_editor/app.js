@@ -847,22 +847,40 @@ function addJobRenderButton() {
       btn.disabled = false;
     }
   };
-  // Headwear for this skin only: a cap is drawn from the cap draft mask.
+  // Headwear for this skin only: none, a cap, or a beanie, with a colour for a hat.
   const hat = document.createElement('label');
   hat.style.fontSize = '13px';
-  const hatBox = document.createElement('input');
-  hatBox.type = 'checkbox';
-  hatBox.checked = (state.combo && state.combo.headwear) === 'cap';
-  hatBox.onchange = async () => {
-    hatBox.disabled = true;
+  hat.append('모자 ');
+  const sel = document.createElement('select');
+  for (const [v, t] of [['none', '없음'], ['cap', 'cap'], ['beanie', 'beanie']]) {
+    const o = document.createElement('option'); o.value = v; o.textContent = t; sel.append(o);
+  }
+  sel.value = (state.combo && state.combo.headwear) || 'none';
+  const color = document.createElement('input');
+  color.type = 'color';
+  color.value = state.jobHatColor || ((state.combo && state.combo.headwear) === 'beanie' ? '#1f1f1f' : '#e9eef3');
+  color.style.marginLeft = '6px';
+  color.style.display = sel.value === 'none' ? 'none' : 'inline-block';
+  const save = async (headwear) => {
+    sel.disabled = true; color.disabled = true;
+    const body = { headwear };
+    if (headwear !== 'none') body.hat_color = color.value;
     const r = await apiFetch(`${JOB_API}/attributes`, {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ headwear: hatBox.checked ? 'cap' : 'none' }),
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
     });
     if (r.ok) window.location.reload();
-    else { hatBox.disabled = false; state.notice = '모자 변경 실패'; updateStatus(); }
+    else { sel.disabled = false; color.disabled = false; state.notice = '모자 변경 실패'; updateStatus(); }
   };
-  hat.append(hatBox, ' 모자 (cap)');
+  // Each hat starts from its own colour; a colour the user picked is kept.
+  let colorTouched = false;
+  const HAT_DEFAULT = { cap: '#e9eef3', beanie: '#1f1f1f' };
+  sel.onchange = () => {
+    if (!colorTouched && HAT_DEFAULT[sel.value]) color.value = HAT_DEFAULT[sel.value];
+    color.style.display = sel.value === 'none' ? 'none' : 'inline-block';
+    save(sel.value);
+  };
+  color.onchange = () => { colorTouched = true; if (sel.value !== 'none') save(sel.value); };
+  hat.append(sel, color);
   wrap.append(btn, link, hat);
   bar.prepend(wrap);
 }
@@ -897,6 +915,7 @@ async function boot() {
   state.slimSubFaces = j.slim.sub_faces;
   const loaded = JOB ? { combo: sanitizeCombo(j.combo), model: j.models[0] } : loadCombo();
   state.combo = loaded.combo; state.model = loaded.model;
+  if (JOB) state.jobHatColor = j.hat_color || null;
   setModelView(state.model);
   state.key = Object.keys(state.maskable)[0];
   state.value = state.maskable[state.key][0];

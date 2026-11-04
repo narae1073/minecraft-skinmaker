@@ -616,3 +616,9 @@ S0 quality/face detection (YuNet) → S1 colour measurement (white-balance + ban
   - 편집기: 툴바 "모자 (cap)" 체크박스 → 저장 후 새로고침. 브라우저 CDP 5/5 + 스크린샷 `/tmp/mecheck/shots/13_cap_on.png`.
   - 검증: `tests/test_hat_on_top.py` 2, `tests/test_skin_jobs_api.py` 14, `tests/test_jobs.py`.
   - 미결: beanie 초안 없음(선택지에서 제외), 모자 색은 고정 #e9eef3, 머리 길이별 모양 검수 필요.
+- 2026-11-04 (per-skin beanie + hat colour, `feat/skin-owner-edit`): 
+  - 비니 초안 `assets/headwear_beanie.draft.json` (168 texels, 크라운·앞 3행·옆 3행·뒤 4행, 챙 없음).
+  - `POST /api/v1/jobs/{id}/attributes {headwear: none|cap|beanie, hat_color?: "#rrggbb"}`. 색은 이 스킨 단위 `hat_color`; 잘못된 색은 400. 기본색: cap `#e9eef3`, beanie `#1f1f1f`.
+  - 편집기: 모자 선택 + 색 선택기. 선택 시 해당 모자의 기본색으로 바뀌고, 사용자가 고른 색은 유지. 새로고침 후에도 저장된 색을 표시.
+  - 브라우저 CDP 6/6 (비니 선택 → 어두운 색으로 3D 반영 → 색 선택기 #1f1f1f). 스크린샷 `/tmp/mecheck/shots/15_beanie_dark.png`.
+  - 검증: `tests/test_skin_jobs_api.py` 16 (비니·색·잘못된 색 포함).

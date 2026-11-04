@@ -200,7 +200,7 @@ def test_headwear_toggle_is_per_skin_and_puts_the_cap_draft_in_the_overlay(_isol
     owner = TestClient(A.app)
     token = _generate(owner).json()["data"]["job"]["id"]
     other = _generate(owner).json()["data"]["job"]["id"]
-    assert owner.post(f"/api/v1/jobs/{token}/attributes", json={"headwear": "beanie"}).status_code == 400
+    assert owner.post(f"/api/v1/jobs/{token}/attributes", json={"headwear": "fedora"}).status_code == 400
     r = owner.post(f"/api/v1/jobs/{token}/attributes", json={"headwear": "cap"})
     assert r.status_code == 200, r.text
     overlay = owner.get(f"/api/v1/jobs/{token}/overlay").json()["masks"]
@@ -225,3 +225,29 @@ def test_cap_render_shows_the_hat_and_none_matches_the_original(_isolated):
     owner.post(f"/api/v1/jobs/{token}/attributes", json={"headwear": "cap"})
     assert owner.post(f"/api/v1/jobs/{token}/render", json={"index": 1}).status_code == 200
     assert (_isolated / f"{token}_e2_c1.png").read_bytes() != original
+
+
+def test_beanie_is_per_skin_and_uses_its_draft(_isolated):
+    owner = TestClient(A.app)
+    token = _generate(owner).json()["data"]["job"]["id"]
+    assert owner.post(f"/api/v1/jobs/{token}/attributes", json={"headwear": "beanie"}).status_code == 200
+    overlay = owner.get(f"/api/v1/jobs/{token}/overlay").json()["masks"]
+    assert "headwear.beanie" in overlay and "headwear.cap" not in overlay
+    assert owner.get(f"/api/v1/jobs/{token}/editor").json()["combo"]["headwear"] == "beanie"
+
+
+def test_hat_colour_is_per_skin_and_validated(_isolated):
+    owner = TestClient(A.app)
+    token = _generate(owner).json()["data"]["job"]["id"]
+    assert owner.post(f"/api/v1/jobs/{token}/attributes",
+                      json={"headwear": "cap", "hat_color": "red"}).status_code == 400
+    assert owner.post(f"/api/v1/jobs/{token}/attributes",
+                      json={"headwear": "cap", "hat_color": "#ff0000"}).status_code == 200
+    assert owner.post(f"/api/v1/jobs/{token}/render", json={"index": 1}).status_code == 200
+    from PIL import Image
+    img = Image.open(_isolated / f"{token}_e1_c1.png").convert("RGBA")
+    px = img.load()
+    reds = sum(1 for x in range(img.width) for y in range(img.height)
+               if px[x, y][0] > 200 and px[x, y][1] < 60 and px[x, y][2] < 60)
+    assert reds > 40
+    assert owner.post(f"/api/v1/jobs/{token}/attributes", json={"headwear": "none"}).status_code == 200
