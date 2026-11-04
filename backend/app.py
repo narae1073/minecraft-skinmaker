@@ -20,11 +20,13 @@ import tempfile
 import uuid
 from pathlib import Path
 
-from fastapi import FastAPI, File, Form, HTTPException, Request, UploadFile
-from fastapi.responses import StreamingResponse
+from fastapi import FastAPI, File, Form, HTTPException, Request, Response, UploadFile
+from fastapi.responses import FileResponse, JSONResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from PIL import Image
 
+from backend import jobs as JOBS
+from skinmaker import job_codec as JC
 from backend.limits import RateLimiter, client_ip, max_upload_bytes
 from skinmaker.attributes import summarize
 from skinmaker.candidates import build
@@ -147,22 +149,43 @@ def health():
 
 
 @app.post("/api/v1/generate-skin")
-async def generate_skin(request: Request, file: UploadFile = File(...), noise_level: str = Form(None), steps: str = Form(None),
+async def generate_skin(request: Request, response: Response, file: UploadFile = File(...), noise_level: str = Form(None), steps: str = Form(None),
                         hair_overlay: str = Form(None), skin_model: str = Form(None), hair_color: str = Form(None),
                         crop: str = Form(None)):
-    return await _start(request, file, noise_level, steps, hair_overlay, skin_model, hair_color, crop)
+    # The owner cookie identifies the browser that generated a skin (edit access).
+    secret = JOBS.owner_secret_from_request(request)
+    is_new = secret is None
+    if is_new:
+        secret = JOBS.new_owner_secret()
+    result = await _start(request, file, noise_level, steps, hair_overlay, skin_model, hair_color, crop,
+                          owner_hash=JOBS.owner_hash(secret))
+    if is_new:
+        cookie = dict(key=JOBS.OWNER_COOKIE, value=secret, httponly=True, samesite="strict",
+                      max_age=60 * 60 * 24 * 365, path="/",
+                      secure=_is_https(request))
+        if isinstance(result, StreamingResponse):
+            result.set_cookie(**cookie)
+        else:
+            response.set_cookie(**cookie)
+    return result
 
 
-async def _start(request, file, noise_level, steps, hair_overlay, skin_model, hair_color, crop):
+def _is_https(request: Request) -> bool:
+    return request.url.scheme == "https" or request.headers.get("x-forwarded-proto") == "https"
+
+
+async def _start(request, file, noise_level, steps, hair_overlay, skin_model, hair_color, crop, *, owner_hash=None):
     if "text/event-stream" not in (request.headers.get("accept") or ""):
-        return await _pipeline(request, file, noise_level, steps, hair_overlay, skin_model, hair_color, crop)
+        return await _pipeline(request, file, noise_level, steps, hair_overlay, skin_model, hair_color, crop,
+                               owner_hash=owner_hash)
     queue = asyncio.Queue()
 
     async def on_stage(item):
         await queue.put(item)
 
     task = asyncio.create_task(_pipeline(
-        request, file, noise_level, steps, hair_overlay, skin_model, hair_color, crop, on_stage=on_stage))
+        request, file, noise_level, steps, hair_overlay, skin_model, hair_color, crop, on_stage=on_stage,
+        owner_hash=owner_hash))
 
     async def gen():
         while not task.done():
@@ -187,7 +210,7 @@ async def _start(request, file, noise_level, steps, hair_overlay, skin_model, ha
 
 async def _pipeline(request: Request, file: UploadFile = File(...), noise_level: str = Form(None), steps: str = Form(None),
                         hair_overlay: str = Form(None), skin_model: str = Form(None), hair_color: str = Form(None),
-                        crop: str = Form(None), *, on_stage=None):
+                        crop: str = Form(None), *, on_stage=None, owner_hash=None):
     timings = {}
     async def stage(name, pct, label):
         if on_stage is not None:
@@ -313,8 +336,10 @@ async def _pipeline(request: Request, file: UploadFile = File(...), noise_level:
     if not candidates or not all(c.ok for c in candidates):
         fail(500, "render_failed", "렌더 검증 실패. 같은 사진으로 다시 시도해주세요.")
     token = uuid.uuid4().hex[:12]
-    input_name = f"input_{token}{_image_suffix(raw)}"
-    (STATIC_DIR / input_name).write_bytes(raw)
+    # The input photo is private: only the owner's job serves it (never /static).
+    input_name = f"{token}{_image_suffix(raw)}"
+    JOBS.INPUTS_DIR.mkdir(parents=True, exist_ok=True)
+    (JOBS.INPUTS_DIR / input_name).write_bytes(raw)
     # 처리 과정 시트 (설계 §12): 스킨 목록과 분리된 steps/ 하위폴더. 끄면 아예 미생성.
     steps_urls = None
     await stage("saving", 88, "이미지를 저장하는 중이에요")
@@ -342,12 +367,16 @@ async def _pipeline(request: Request, file: UploadFile = File(...), noise_level:
         c.image_flat.save(STATIC_DIR / flat_name)  # Edit Skin 토글 OFF 변형 (설계 §5)
         urls.append(f"/static/skins/{name}")
         flat_urls.append(f"/static/skins/{flat_name}")
+    if owner_hash is not None:
+        JOBS.create_record(token, owner_hash, observed, candidates, model=skin_model,
+                           noise_level=level, degrade=tuple(photo.degrade), input_name=input_name)
     await stage("done", 100, "완료")
     timings["total"] = round(time.perf_counter() - t0, 3)
     return {
         "status": "success",
         "data": {
-            "input": f"/static/skins/{input_name}",
+            "input": f"/api/v1/jobs/{token}/input",
+            "job": {"id": token, "editable": owner_hash is not None},
             "skins": urls,
             "skins_flat": flat_urls,
             "summary": summarize(sum_attrs, result.uncertain),
@@ -369,6 +398,90 @@ async def _pipeline(request: Request, file: UploadFile = File(...), noise_level:
             "timings": timings,
         },
     }
+
+
+# ---- owner-only skin jobs (per-skin mask edits) --------------------------------
+_render_limiter = RateLimiter(limit=20)
+
+
+def _job_for_owner(request: Request, token: str) -> dict:
+    record = JOBS.load_record(token)
+    if record is None:
+        fail(404, "not_found", "그 스킨을 찾을 수 없어요.")
+    if not JOBS.is_owner(record, request):
+        fail(403, "forbidden", "이 스킨은 만든 브라우저에서만 편집할 수 있어요.")
+    return record
+
+
+def _require_json(request: Request) -> None:
+    if not (request.headers.get("content-type") or "").startswith("application/json"):
+        fail(415, "bad_content_type", "JSON 요청만 받아요.")
+
+
+@app.get("/api/v1/jobs/{token}")
+def job_info(token: str, request: Request):
+    record = _job_for_owner(request, token)
+    return {"status": "success", "data": {
+        "id": record["id"], "model": record["model"], "revision": record["revision"],
+        "candidates": [{"index": c["index"], "varied": c["varied"],
+                        "attributes": JC.encode(c["attributes"])["values"]} for c in record["candidates"]],
+    }}
+
+
+@app.get("/api/v1/jobs/{token}/input")
+def job_input(token: str, request: Request):
+    record = _job_for_owner(request, token)
+    path = JOBS.INPUTS_DIR / record["input"]
+    if not path.is_file():
+        fail(404, "not_found", "원본 사진이 만료되었어요.")
+    return FileResponse(path, headers={"Cache-Control": "private, no-store"})
+
+
+@app.get("/api/v1/jobs/{token}/overlay")
+def job_overlay(token: str, request: Request):
+    record = _job_for_owner(request, token)
+    return JSONResponse({"masks": record.get("overlay", {}), "revision": record["revision"]},
+                        headers={"Cache-Control": "no-store"})
+
+
+@app.put("/api/v1/jobs/{token}/overlay")
+async def job_overlay_put(token: str, request: Request):
+    _require_json(request)
+    record = _job_for_owner(request, token)
+    body = await request.json()
+    masks = body.get("masks") if isinstance(body, dict) else None
+    errors = JOBS.validate_overlay(masks)
+    if errors:
+        fail(400, "bad_overlay", "; ".join(errors[:5]))
+    record["overlay"] = masks
+    record["revision"] = int(record.get("revision", 0)) + 1
+    JOBS.save_record(record)
+    return {"status": "success", "data": {"revision": record["revision"]}}
+
+
+@app.post("/api/v1/jobs/{token}/render")
+async def job_render(token: str, request: Request):
+    _require_json(request)
+    record = _job_for_owner(request, token)
+    if not _render_limiter.allow(client_ip(request)):
+        fail(429, "rate_limited", "잠시 후 다시 시도해주세요.")
+    body = await request.json()
+    try:
+        index = int(body.get("index", 1))
+    except (TypeError, ValueError, AttributeError):
+        fail(400, "bad_index", "index 는 정수여야 해요.")
+    if JOBS.candidate(record, index) is None:
+        fail(404, "not_found", "그 후보가 없어요.")
+    image, flat, problems = await asyncio.to_thread(JOBS.render_candidate, record, index)
+    rev = int(record.get("revision", 0))
+    name = f"{token}_e{rev}_c{index}.png"
+    flat_name = f"{token}_e{rev}_c{index}_flat.png"
+    image.save(STATIC_DIR / name)
+    flat.save(STATIC_DIR / flat_name)
+    return {"status": "success", "data": {
+        "skin": f"/static/skins/{name}", "skin_flat": f"/static/skins/{flat_name}",
+        "revision": rev, "problems": problems,
+    }}
 
 
 def mount_frontend(application: FastAPI, dist: Path = FRONTEND_DIST) -> None:

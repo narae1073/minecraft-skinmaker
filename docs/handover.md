@@ -561,3 +561,24 @@ S0 quality/face detection (YuNet) → S1 colour measurement (white-balance + ban
   - 사진 원본은 저장하지 않음(임시 파일 후 삭제; `/out` 정적 마운트로 노출되던 문제 수정), 미리보기 조합도 사진 속성을 따름(해제 시 기본값).
   - 공유 편집기 접근 토큰: `SKINMAKER_EDITOR_TOKEN` 설정 시 `/api/*`·`/out/*` 에 토큰 필요(헤더 또는 `POST /api/auth` 쿠키). 토큰 파일 `out/mask_editor/access_token`(600, gitignore). 10483 은 토큰으로 기동. 테일넷 URL 에서 curl(401/200)과 CDP 7/7 (토큰 프롬프트→부팅→사진 업로드→조합 반영→/out/photo 404).
   - 검증: `pytest -q` → **756 passed** (사진 비저장 + 토큰 게이트 테스트 추가); 사후 브라우저 CDP 10/10 (업로드→조합 반영·URL 해시·base 재렌더·/out/photo 404·해제 시 기본 조합, 콘솔 에러 0); 실제 Gemini 분류 확인(messi5: shirt/shorts, hair medium·short); headless Chrome CDP 9/9 (slim 전환 4폭→3폭, slim 칠하기는 slim 격자만, undo, classic 복귀, 파일 입력으로 사진 업로드, 콘솔 에러 0). (수정 후, 편집기 테스트 24); headless Chrome CDP 21/21 + Draft/Production 토글 확인; 스크린샷 `/tmp/mecheck/shots/11_after_fix.png`.
+## Skin jobs and owner-only edits (feat/skin-owner-edit)
+
+- Generation writes a private job (`backend/private/jobs/<id>.json`): observed colours and
+  hair stencil, each candidate's attributes and noise seed, model, noise level, and the
+  owner's cookie hash. Fabric-texture images are stored as PNG inside the record.
+- Owner cookie `skinmaker_owner`: random per-browser secret, HttpOnly, SameSite=Strict,
+  one year. Only its SHA-256 is stored. Only that browser can read or edit the job.
+- Input photos are private (`backend/private/inputs/`), served at
+  `/api/v1/jobs/<id>/input` to the owner. Previously they were public under /static and
+  never deleted by retention (retention only matched `*.png`).
+- Owner endpoints: `GET /api/v1/jobs/<id>`, `GET|PUT /api/v1/jobs/<id>/overlay` (mask edits
+  on top of the production masks, entry by entry; never touches the shared assets),
+  `POST /api/v1/jobs/<id>/render` (rate-limited; writes `<id>_e<rev>_c<n>.png`).
+- Empty-overlay re-render is byte-identical to the original output (tested).
+- Retention now also removes private inputs and job records older than
+  `SKINMAKER_RETENTION_DAYS`, and old public `input_*` photos.
+- Not done: the website's edit button and the job-scoped editor UI. That needs job-context
+  seeding (the editor's seed functions read the global photo state today) and a job editor
+  page in the website.
+- Tests: `tests/test_job_codec.py`, `tests/test_jobs.py`, `tests/test_skin_jobs_api.py`;
+  backend input tests updated. Full suite: 742 passed.

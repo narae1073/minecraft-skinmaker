@@ -22,3 +22,18 @@ for sub in skins steps; do
   after="$(find "$dir" -type f | wc -l)"
   echo "$sub: removed $(( before - after )) file(s) older than ${DAYS}d (remaining $after)"
 done
+
+# Original photos and job records (per-skin edit state) are private and expire
+# with the skins. Older public input_* photos from before the private store are
+# removed too.
+for dir in "$ROOT/backend/private/inputs" "$ROOT/backend/private/jobs" "$ROOT/backend/static/skins"; do
+  [ -d "$dir" ] || continue
+  before="$(find "$dir" -type f | wc -l)"
+  if [ "$dir" = "$ROOT/backend/static/skins" ]; then
+    find "$dir" -type f -name 'input_*' -mtime +"$DAYS" -delete
+  else
+    find "$dir" -type f -mtime +"$DAYS" -delete
+  fi
+  after="$(find "$dir" -type f | wc -l)"
+  echo "${dir#$ROOT/}: removed $(( before - after )) file(s) older than ${DAYS}d (remaining $after)"
+done

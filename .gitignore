@@ -14,3 +14,4 @@ backend/static/
 opencode.jsonc
 deploy/dev/.env
 deploy/dev/authorized_keys
+backend/private/
