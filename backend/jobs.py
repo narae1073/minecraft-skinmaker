@@ -8,6 +8,7 @@ secret sent as an HttpOnly cookie; the job keeps only its SHA-256.
 """
 from __future__ import annotations
 
+import dataclasses
 import hashlib
 import hmac
 import json
@@ -29,6 +30,9 @@ PRIVATE_DIR = ROOT / "private"
 JOBS_DIR = PRIVATE_DIR / "jobs"
 INPUTS_DIR = PRIVATE_DIR / "inputs"
 OWNER_COOKIE = "skinmaker_owner"
+# Per-skin headwear choices. The cap shape is a draft (not in the production asset).
+HEADWEAR_CHOICES = ("none", "cap")
+HAT_DRAFT_PATH = ROOT.parent / "assets" / "headwear_cap.draft.json"
 OVERLAY_MAX_BYTES = 512 * 1024   # stored overlay (only differing entries)
 EDITOR_BODY_MAX_BYTES = 4 * 1024 * 1024  # a full effective-mask payload from the editor
 TOKEN_RE = re.compile(r"^[0-9a-f]{12}$")
@@ -132,6 +136,38 @@ def candidate(record: dict, index: int) -> dict | None:
     return None
 
 
+def candidate_attributes(record: dict, index: int) -> A.Attributes:
+    """The candidate's attributes with this skin's own choices applied (e.g. headwear)."""
+    cand = candidate(record, index)
+    if cand is None:
+        raise KeyError(index)
+    attrs = JC.load_dataclass(cand["attributes"], A.Attributes)
+    overrides = record.get("attr_overrides") or {}
+    if not overrides:
+        return attrs
+    values = dict(attrs.values)
+    values.update(overrides)
+    return dataclasses.replace(attrs, values=values)
+
+
+def hat_draft_entry() -> dict:
+    """The cap draft as a mask entry (L1 head faces)."""
+    return json.loads(HAT_DRAFT_PATH.read_text(encoding="utf-8"))["masks"]["headwear.cap"]
+
+
+def set_headwear(record: dict, value: str) -> dict:
+    """Change this skin's headwear. Choosing a cap puts the draft cap into this skin's
+    overlay (unless the user already has a cap mask of their own)."""
+    if value not in HEADWEAR_CHOICES:
+        raise ValueError(value)
+    record["attr_overrides"] = {"headwear": value}
+    if value == "cap":
+        overlay = dict(record.get("overlay", {}))
+        overlay.setdefault("headwear.cap", _normalized(hat_draft_entry()))
+        record["overlay"] = overlay
+    return record
+
+
 def render_candidate(record: dict, index: int, overlay: dict | None = None):
     """Render one candidate with the job's overlay on top of the production masks.
     Returns (image, flat_image, problems)."""
@@ -139,11 +175,14 @@ def render_candidate(record: dict, index: int, overlay: dict | None = None):
     if cand is None:
         raise KeyError(index)
     observed = JC.load_dataclass(record["observed"], C.ObservedColors)
-    attrs = JC.load_dataclass(cand["attributes"], A.Attributes)
+    attrs = candidate_attributes(record, index)
     masks = dict(AM.load_masks())
     masks.update(record.get("overlay", {}) if overlay is None else overlay)
     degrade = tuple(record.get("degrade") or ())
-    common = dict(noise_seed=cand["seed"], noise_level=record["noise_level"], mask_override=masks)
+    # A skin whose headwear was chosen by the user draws the hat over the hair.
+    hat_on_top = bool(record.get("attr_overrides"))
+    common = dict(noise_seed=cand["seed"], noise_level=record["noise_level"], mask_override=masks,
+                  hat_on_top=hat_on_top)
     canvas = R.render(observed, attrs, degrade, record["model"], **common)
     flat = R.render(observed, attrs, degrade, record["model"], shoe_two_tone=False, **common)
     from skinmaker.validate import validate_image
@@ -163,7 +202,7 @@ def seed_context(record: dict, index: int) -> AS.SeedContext:
     if cand is None:
         raise KeyError(index)
     observed = JC.load_dataclass(record["observed"], C.ObservedColors)
-    attrs = JC.load_dataclass(cand["attributes"], A.Attributes)
+    attrs = candidate_attributes(record, index)
     base = dict(attrs.values, hair_bbox=attrs.hair_bbox, hood="none")
     return AS.SeedContext(observed=observed, base=base)
 
@@ -175,7 +214,7 @@ def _normalized(entry: dict) -> dict:
 def baseline_masks(record: dict, index: int) -> dict:
     """What the editor starts from for this job: production entries where they exist,
     else the job's procedural seed. Cached per (job, candidate)."""
-    key = (record["id"], index)
+    key = (record["id"], index, json.dumps(record.get("attr_overrides") or {}, sort_keys=True))
     if key in _BASELINE_CACHE:
         return _BASELINE_CACHE[key]
     with AS.using(seed_context(record, index)):
@@ -212,7 +251,7 @@ def diff_against_baseline(masks: dict, record: dict, index: int) -> dict:
 
 def editor_payload(record: dict, index: int) -> dict:
     cand = candidate(record, index)
-    attrs = JC.load_dataclass(cand["attributes"], A.Attributes)
+    attrs = candidate_attributes(record, index)
     from skinmaker.format import get_layout
     layout = get_layout("classic")
     return {

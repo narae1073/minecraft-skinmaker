@@ -194,3 +194,34 @@ def test_editor_page_is_owner_only_and_only_serves_editor_assets(_isolated):
     for probe in ("/edit/lib/../app.py", "/edit/lib/vendor/../../backend/app.py", "/edit/lib/app.py"):
         r = owner.get(probe)
         assert r.status_code != 200 and b"FastAPI" not in r.content and b"def " not in r.content, probe
+
+
+def test_headwear_toggle_is_per_skin_and_puts_the_cap_draft_in_the_overlay(_isolated):
+    owner = TestClient(A.app)
+    token = _generate(owner).json()["data"]["job"]["id"]
+    other = _generate(owner).json()["data"]["job"]["id"]
+    assert owner.post(f"/api/v1/jobs/{token}/attributes", json={"headwear": "beanie"}).status_code == 400
+    r = owner.post(f"/api/v1/jobs/{token}/attributes", json={"headwear": "cap"})
+    assert r.status_code == 200, r.text
+    overlay = owner.get(f"/api/v1/jobs/{token}/overlay").json()["masks"]
+    assert "headwear.cap" in overlay and set(overlay["headwear.cap"]["L1"]) >= {"head.top", "head.front"}
+    editor = owner.get(f"/api/v1/jobs/{token}/editor").json()
+    assert editor["combo"]["headwear"] == "cap"
+    # The other skin is untouched.
+    assert owner.get(f"/api/v1/jobs/{other}/editor").json()["combo"]["headwear"] == "none"
+    assert "headwear.cap" not in owner.get(f"/api/v1/jobs/{other}/overlay").json()["masks"]
+    stranger = TestClient(A.app)
+    assert stranger.post(f"/api/v1/jobs/{token}/attributes", json={"headwear": "none"}).status_code == 403
+
+
+def test_cap_render_shows_the_hat_and_none_matches_the_original(_isolated):
+    owner = TestClient(A.app)
+    token = _generate(owner).json()["data"]["job"]["id"]
+    original = (_isolated / f"{token}_c1.png").read_bytes()
+    owner.post(f"/api/v1/jobs/{token}/attributes", json={"headwear": "none"})
+    assert owner.post(f"/api/v1/jobs/{token}/render", json={"index": 1}).status_code == 200
+    # headwear none on a candidate that had none: the skin is the same as before
+    assert (_isolated / f"{token}_e1_c1.png").read_bytes() == original
+    owner.post(f"/api/v1/jobs/{token}/attributes", json={"headwear": "cap"})
+    assert owner.post(f"/api/v1/jobs/{token}/render", json={"index": 1}).status_code == 200
+    assert (_isolated / f"{token}_e2_c1.png").read_bytes() != original

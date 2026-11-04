@@ -847,7 +847,23 @@ function addJobRenderButton() {
       btn.disabled = false;
     }
   };
-  wrap.append(btn, link);
+  // Headwear for this skin only: a cap is drawn from the cap draft mask.
+  const hat = document.createElement('label');
+  hat.style.fontSize = '13px';
+  const hatBox = document.createElement('input');
+  hatBox.type = 'checkbox';
+  hatBox.checked = (state.combo && state.combo.headwear) === 'cap';
+  hatBox.onchange = async () => {
+    hatBox.disabled = true;
+    const r = await apiFetch(`${JOB_API}/attributes`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ headwear: hatBox.checked ? 'cap' : 'none' }),
+    });
+    if (r.ok) window.location.reload();
+    else { hatBox.disabled = false; state.notice = '모자 변경 실패'; updateStatus(); }
+  };
+  hat.append(hatBox, ' 모자 (cap)');
+  wrap.append(btn, link, hat);
   bar.prepend(wrap);
 }
 

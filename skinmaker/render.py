@@ -1352,6 +1352,24 @@ def render_hair_overlay(canvas: SkinCanvas, colors: dict[str, Color], stencil, h
                         canvas.put(part, face_name, u, v, shade(c, 0.86), 1)
 
 
+def _paint_hat(canvas: SkinCanvas, attrs: Attributes, masks: dict | None) -> None:
+    """Paint the headwear mask cells last, over hair and skin."""
+    value = attrs.get("headwear")
+    if value not in ("cap", "beanie"):
+        return
+    base = rgba("#e9eef3") if value == "cap" else rgba("#1f1f1f")
+    for face in canvas.layout.part("head", 0).faces:
+        grid = AM.get_mask(masks or {}, "headwear", value, "L1", "head", face)
+        if not grid:
+            continue
+        f = canvas.layout.face("head", face, 0)
+        color = shade(base, FACE_SHADE.get(face, 1.0))
+        for v, row in enumerate(grid[: f.h]):
+            for u, bit in enumerate(row[: f.w]):
+                if bit:
+                    canvas.put("head", face, u, v, color, 0)
+
+
 def render(
     observed: ObservedColors,
     attrs: Attributes,
@@ -1364,6 +1382,7 @@ def render(
     hide_body_back_hair: bool = False,
     mask_override: dict | None = None,
     head_hair_out: set | None = None,
+    hat_on_top: bool = False,
 ) -> SkinCanvas:
     """S3 진입점. 입력 3개 → 검증 통과하는 캔버스 1개.
 
@@ -1499,6 +1518,9 @@ def render(
         px = canvas.image.load()
         for xy, c in keep.items():
             px[xy] = c
+    if hat_on_top:
+        # A hat sits on top of the hair. Opt-in (per-skin editor): production keeps its order.
+        _paint_hat(canvas, attrs, masks)
     # Draw the hood AFTER noise: its flat crown must stay solid. Applying the
     # deterministic 1-3px block noise after the hood turns the crown into a
     # grid of isolated light/dark cells.

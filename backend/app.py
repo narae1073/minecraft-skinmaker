@@ -470,6 +470,21 @@ async def job_overlay_put(token: str, request: Request):
     return {"ok": True, "revision": record["revision"], "changed": sorted(record["overlay"])}
 
 
+@app.post("/api/v1/jobs/{token}/attributes")
+async def job_attributes(token: str, request: Request):
+    """Change this skin's headwear (none / cap). Only this skin is affected."""
+    _require_json(request)
+    record = _job_for_owner(request, token)
+    body = await request.json()
+    value = body.get("headwear") if isinstance(body, dict) else None
+    if value not in JOBS.HEADWEAR_CHOICES:
+        fail(400, "bad_headwear", "headwear 는 none 또는 cap 이어야 해요.")
+    JOBS.set_headwear(record, value)
+    record["revision"] = int(record.get("revision", 0)) + 1
+    JOBS.save_record(record)
+    return {"ok": True, "headwear": value, "revision": record["revision"]}
+
+
 @app.get("/api/v1/jobs/{token}/editor")
 def job_editor(token: str, request: Request, index: int = 1, baseline: int = 0):
     """Everything the per-skin editor needs. ``baseline=1`` returns the procedural

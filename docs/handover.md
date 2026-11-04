@@ -609,3 +609,10 @@ S0 quality/face detection (YuNet) → S1 colour measurement (white-balance + ban
 - Not browser-tested: the main page's edit button itself (the new-tab hand-off is by code).
 - Deployment order: merge `feat/mask-editor-atlas` first, then this branch. The editor files
   must exist on the host (`tools/mask_editor/`).
+- 2026-11-04 (per-skin cap, `feat/skin-owner-edit`): 모자(cap)를 이 스킨에만 켜고 끌 수 있음.
+  - 초안 캡 마스크: `assets/headwear_cap.draft.json` (152 texels; 크라운 + 이마 4행 + 옆/뒤 밴드). 프로덕션 자산에는 넣지 않음. 기존 프로덕션 cap 은 이마 1px 브림(8 texels).
+  - 원인: 머리카락이 모자 뒤에 그려져 초안의 152 texels 중 32 만 남음. `render(hat_on_top=True)` 가 마스크 모자 셀을 머리카락·피부 위에 마지막으로 칠함. 기본값 False 라 프로덕션 출력 불변.
+  - 작업 skin 단위: `POST /api/v1/jobs/{id}/attributes {headwear: none|cap}` (소유자). cap 선택 시 초안이 그 스킨의 오버레이에 들어감. 사용자가 이미 모자 마스크를 가졌다면 덮지 않음. 원본 생성물의 재렌더는 바이트 동일(테스트).
+  - 편집기: 툴바 "모자 (cap)" 체크박스 → 저장 후 새로고침. 브라우저 CDP 5/5 + 스크린샷 `/tmp/mecheck/shots/13_cap_on.png`.
+  - 검증: `tests/test_hat_on_top.py` 2, `tests/test_skin_jobs_api.py` 14, `tests/test_jobs.py`.
+  - 미결: beanie 초안 없음(선택지에서 제외), 모자 색은 고정 #e9eef3, 머리 길이별 모양 검수 필요.
