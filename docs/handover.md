@@ -644,3 +644,10 @@ S0 quality/face detection (YuNet) → S1 colour measurement (white-balance + ban
   - 배포/정리 완료(2026-11-05): `master` = `3d017cb`; deploy run 41981142572 성공(2m13s); health ok. release clone purge: 선배포 2,559 input + 4,688 steps, 후배포 0 input + 56 steps 제거; 결과 스킨 9,948장 유지. main dev checkout도 5,244 input + 10,646 steps + 180 private input 제거(21,068 result skins 유지). 오래된 URL은 404이며 Cloudflare 캐시·백업/스냅샷은 수동 확인 대상.
   - 남은 위험: root의 실행 중 프로세스 접근, Cloudflare TLS 종단, Starlette 대용량 업로드 스풀, job record의 옷 천 크롭(원본 아님).
   - 후속(Task 6, `fix/owner-edit-no-photo`): `feat/skin-owner-edit`의 `private/inputs` 저장, `job_input` 엔드포인트, job record `input` 필드를 제거했다. 원본 비교 카드는 master의 UX 정리대로 제거된 상태를 유지한다(업로드 영역의 `선택한 사진` 미리보기는 로컬 object URL). 후보 카드의 `스킨 편집` 버튼은 per-skin editor 진입점으로 유지한다. 이 머지로 owner-edit 브랜치도 원본을 보관하지 않는다.
+
+- 2026-11-05 (per-skin editor live, `feat/skin-owner-edit` → master, PR #105): 웹에서 스킨별 마스크 편집기를 배포했다.
+  - 준비도 점검: #103의 required check가 red였던 원인은 `test_photo_changes_the_seed_for_hair`가 SCHP 모델 설치 여부에 의존한 것. #104에서 deterministic centre-bangs stencil을 주입해 SCHP/VLM 없이도 통과하게 했고, job mode의 개발자 draft 경로 안내를 "저장은 이 스킨에만 적용됩니다"로 교체했다. #104 CI `test`/`test-windows`/`web` green.
+  - 검증: full suite **786 passed** (156.86s, 로컬 SCHP); `npm run lint`/`build` green; headless Chrome 로컬 스모크: 메인 페이지 생성 → 후보 `스킨 편집` → `/edit/{id}` 새 탭, job mode 주입(`data-job`/`MASK_EDITOR_JOB`), combo hidden, hint 교체, canvas 2, `/editor`·`/preview` 200.
+  - 배포: master merge `bfa42fd`; deploy run 41986256587 성공(2m47s); health ok. 프로덕션 CDP 스모크: 실제 Gemini 생성 3후보 → `/edit/1004462b315c` 새 탭, job mode, hint, canvas 1(atlas), `/editor`·`/preview` 200. 스모크 산출물(job record 1 + skins 6장)은 삭제했다.
+  - live: per-skin editor는 owner cookie 전용; 원본 사진 저장 없음; job record/overlay는 `backend/private/jobs` 0600, 14일 보관; cap/beanie는 스킨 단위 opt-in. 새 의존성 없음.
+  - 리스크: job record는 파생 fabric crop을 포함하며 운영자가 읽을 수 있다; 편집기는 feature flag 없이 노출; `SKINMAKER_PARSING=0`에서는 기존 `test_generate_uses_hair_bbox_for_crown`이 실패한다(프로덕션은 parsing on). 프로덕션 headless 스모크는 canvas 1개(atlas)만 확인 — 3D 뷰어는 실제 브라우저에서 수동 확인 권장.
