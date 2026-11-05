@@ -178,6 +178,9 @@ def test_editor_page_is_owner_only_and_only_serves_editor_assets(_isolated):
     assert page.status_code == 200
     assert f'window.MASK_EDITOR_JOB = "{token}"' in page.text
     assert "/edit/lib/app.js" in page.text and "/static/" not in page.text
+    # Job mode saves to this skin's overlay, not the developer draft file.
+    assert "out/mask_editor/attribute_masks.json" not in page.text
+    assert "저장은 이 스킨에만 적용됩니다" in page.text
     assert TestClient(A.app).get(f"/edit/{token}").status_code == 403
     assert owner.get("/edit/lib/app.js").status_code == 200
     assert owner.get("/edit/lib/vendor/three.module.js").status_code == 200

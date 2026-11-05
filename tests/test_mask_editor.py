@@ -461,7 +461,27 @@ def test_photo_upload_drives_observed_and_can_be_cleared():
     assert mod._observed().skin.hex == fixture
 
 
-def test_photo_changes_the_seed_for_hair():
+def test_photo_changes_the_seed_for_hair(monkeypatch):
+    # The photo's observed hair silhouette drives the hair seed. CI has no SCHP
+    # model, so inject a deterministic stencil instead of relying on it.
+    import dataclasses
+    from skinmaker import hairstencil as HS
+
+    real_extract = mod.C.extract
+    base = HS.rule_stencil("very_long")
+    # Centre bangs evidence (rows 3-4, u2-5) changes the short-style fringe
+    # profile; a different length alone does not (rule stencils share a front).
+    front = tuple(
+        tuple(True if (3 <= v <= 4 and 2 <= u <= 5) else base.front[v][u] for u in range(8))
+        for v in range(8)
+    )
+    stencil = dataclasses.replace(base, front=front)
+
+    def extract_with_stencil(*args, **kwargs):
+        observed = real_extract(*args, **kwargs)
+        return dataclasses.replace(observed, hair_stencil=stencil)
+
+    monkeypatch.setattr(mod.C, "extract", extract_with_stencil)
     c = TestClient(mod.app)
     before = c.get("/api/seed", params={"key": "hair_style", "value": "short"}).json()["mask"]
     with open(PHOTO_PATH, "rb") as fh:
