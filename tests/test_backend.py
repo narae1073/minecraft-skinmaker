@@ -145,19 +145,20 @@ def test_app_always_mounts_frontend():
     assert any(isinstance(route, Mount) and route.name == "frontend" for route in A.app.routes)
 
 
-def test_upload_is_stored_with_extension_from_image_format(tmp_path):
-    """파일명 확장자는 클라이언트 입력이다. 저장 확장자는 실제 이미지 형식으로 정한다.
-
-    messi5.jpg 바이트를 evil.html 이름으로 올려도 static 에 .html 로 남으면
-    공개 출처에서 text/html 로 서빙된다.
-    """
-    client()
+def test_generate_does_not_store_or_return_the_input_photo(tmp_path, monkeypatch):
+    """The upload is needed for the request only; no public or private copy remains."""
+    monkeypatch.setattr(A, "STATIC_DIR", tmp_path)
     with PHOTO.open("rb") as f:
-        r = TestClient(A.app).post("/api/v1/generate-skin", files={"file": ("evil.html", f, "image/jpeg")})
+        r = client().post(
+            "/api/v1/generate-skin",
+            files={"file": ("evil.html", f, "image/jpeg")},
+            data={"steps": "0"},
+        )
     assert r.status_code == 200, r.text
-    url = r.json()["data"]["input"]
-    assert url.endswith(".jpg"), url
-    assert not url.endswith(".html")
+    data = r.json()["data"]
+    assert "input" not in data
+    assert not list(tmp_path.glob("input_*")), "raw upload must not be stored"
+    assert list(tmp_path.glob("*_c1.png")), "generated skins still go to STATIC_DIR"
 
 
 def test_generate_returns_three_urls():
@@ -592,20 +593,6 @@ def test_generate_uses_hair_bbox_for_crown():
     expected = expected_pixel(observed, "hair", "top")
     # 노이즈 파이프라인 (설계 §3): 등식은 채널별 톨러런스로.
     assert all(abs(p - q) <= _NOISE_TOL for p, q in zip(crown[:3], expected[:3])), (crown, expected)
-
-
-def test_generate_returns_input_photo_url():
-    with PHOTO.open("rb") as f:
-        r = client().post("/api/v1/generate-skin", files={"file": ("m.jpg", f, "image/jpeg")})
-    assert r.status_code == 200, r.text
-    body = r.json()
-    input_url = body["data"]["input"]
-    assert input_url.startswith("/static/skins/input_")
-    from backend.app import STATIC_DIR
-
-    saved = STATIC_DIR / Path(input_url).name
-    assert saved.exists()
-    assert saved.read_bytes() == PHOTO.read_bytes()  # 사진과 동일 바이트
 
 
 def test_generate_rejects_oversize_upload(monkeypatch):
