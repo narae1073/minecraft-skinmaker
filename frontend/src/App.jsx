@@ -7,6 +7,7 @@ import StepsPanel from './components/StepsPanel';
 import CameraCapture from './components/CameraCapture';
 import SelectedPhoto from './components/SelectedPhoto';
 import CropModal from './components/CropModal';
+import useDialog from './useDialog';
 import './App.css';
 
 const MAX_UPLOAD_EDGE = 1600;
@@ -54,9 +55,8 @@ function App() {
   const [isLoading, setIsLoading] = useState(false);
   const [fileError, setFileError] = useState(false);
   const [serverError, setServerError] = useState('');
+  const [historyNotice, setHistoryNotice] = useState(''); // 사이드바 인라인 안내
   const [skins, setSkins] = useState([]); // 현재 결과: {url, flatUrl} 쌍 배열
-  const [inputPhoto, setInputPhoto] = useState(null);
-
   // 편집: 이 브라우저가 만든 스킨이면 마스크 편집기(새 탭), 아니면 기존 미리보기 모달.
   const openSkinEditor = (skin) => {
     if (skin.jobId) {
@@ -75,6 +75,8 @@ function App() {
   const [catInfo, setCatInfo] = useState(null); // 분류 카테고리 {attributes, candidates, noiseLevel} (설계 §11)
   const [steps, setSteps] = useState(null); // 처리 과정 시트 {clean, full} (설계 §12)
   const abortRef = useRef(null);
+  const serverErrorRef = useRef(null);
+  useDialog(serverErrorRef, Boolean(serverError), () => setServerError(''));
   const [cropOpen, setCropOpen] = useState(false);
   const [loadingPct, setLoadingPct] = useState(0);
   const [loadingStage, setLoadingStage] = useState('');
@@ -112,7 +114,7 @@ function App() {
         setFileError(true);
         setFile(null);
         e.target.value = '';
-        
+
         setTimeout(() => {
           setFileError(false);
         }, 2500);
@@ -123,10 +125,7 @@ function App() {
   };
 
   const handleGenerate = async (cropBox = null) => {
-    if (!file) {
-      alert('사진을 선택해주세요!');
-      return;
-    }
+    if (!file) return; // 버튼이 사진 없을 때 비활성 상태이므로 방어용
 
     abortRef.current?.abort();
     const controller = new AbortController();
@@ -135,7 +134,6 @@ function App() {
     setLoadingStage('사진을 올리는 중이에요');
     setIsLoading(true);
     setSkins([]);
-    setInputPhoto(null);
     setServerError('');
     setCatInfo(null);
     setSteps(null);
@@ -224,7 +222,6 @@ function App() {
           noiseLevel: data.data.noise_level,
         });
         setSteps(data.data.steps || null);
-        setInputPhoto(data.data.input || null);
         // 스킨 생성이 완료되면 기존 기록(skinHistory) 뒤에 새 스킨들을 추가
         setSkinHistory(prev => [...prev, ...pairs]);
       } else {
@@ -252,7 +249,8 @@ function App() {
   // 선택된 스킨 삭제 기능
   const handleDeleteSelected = () => {
     if (selectedSkins.length === 0) {
-      alert('삭제할 스킨을 먼저 선택해주세요.');
+      setHistoryNotice('삭제할 스킨을 먼저 선택해주세요.');
+      setTimeout(() => setHistoryNotice(''), 3000);
       return;
     }
     // 선택되지 않은 인덱스의 스킨들만 남김
@@ -263,19 +261,20 @@ function App() {
   return (
     <>
       {/* 화면 왼쪽 상단: 목록 열기 버튼 */}
-      <button className="sidebar-toggle-btn" onClick={() => setIsSidebarOpen(true)}>
-        ☰ 스킨 목록
+      <button className="sidebar-toggle-btn" aria-label={`스킨 목록 열기, 저장된 스킨 ${skinHistory.length}개`} onClick={() => setIsSidebarOpen(true)}>
+        ☰ 스킨 목록{skinHistory.length > 0 && <span className="toggle-count">{skinHistory.length}</span>}
       </button>
 
       {/* 왼쪽 사이드바 (목록 창) */}
       <div className={`sidebar ${isSidebarOpen ? 'open' : ''}`}>
         <div className="sidebar-header">
           <h3>생성된 스킨 목록</h3>
-          <button className="close-btn" onClick={() => setIsSidebarOpen(false)}>✕</button>
+          <button className="close-btn" aria-label="목록 닫기" onClick={() => setIsSidebarOpen(false)}>✕</button>
         </div>
         
         <div className="sidebar-actions">
           <button className="delete-btn" onClick={handleDeleteSelected}>선택 파일 지우기</button>
+          {historyNotice && <p role="status" className="inline-notice">{historyNotice}</p>}
         </div>
 
         <div className="sidebar-content">
@@ -307,18 +306,16 @@ function App() {
       </div>
 
       {/* 에러 및 로딩 오버레이 */}
-      {fileError && (
-        <div className="loading-overlay" onClick={() => setFileError(false)}>
-          <h2>파일 오류!</h2>
-          <p>사진 파일을 첨부해주세요!</p>
-        </div>
-      )}
-
       {serverError && (
-        <div className="loading-overlay" onClick={() => setServerError('')}>
-          <h2>스킨 생성 실패</h2>
+        <div ref={serverErrorRef} tabIndex={-1} role="alertdialog" aria-modal="true" aria-labelledby="server-error-title" className="loading-overlay">
+          <h2 id="server-error-title">스킨 생성 실패</h2>
           <p>{serverError}</p>
-          <p className="empty-msg">눌러서 닫기</p>
+          <div className="error-actions">
+            <button type="button" className="file-picker-btn" onClick={() => setServerError('')}>닫기</button>
+            {file && (
+              <button type="button" className="generate-btn" onClick={() => handleGenerate()}>다시 시도</button>
+            )}
+          </div>
         </div>
       )}
 
@@ -336,7 +333,7 @@ function App() {
               <div className="loading-bar-fill" style={{ width: `${loadingPct}%` }} />
             </div>
             <p className="loading-stage">{loadingStage || '준비 중이에요'}</p>
-            <p className="loading-hint">보통 20~40초 걸려요. 창을 닫지 말아 주세요.</p>
+            <p className="loading-hint">보통 10초 정도 걸려요. 창을 닫지 말아 주세요.</p>
           </div>
         </div>
       )}
@@ -379,11 +376,30 @@ function App() {
               <button type="button" className="file-picker-btn" onClick={() => fileInputRef.current?.click()} disabled={isLoading}>파일 선택</button>
               <span className="file-picker-name" title={file?.name}>{file?.name || '선택된 파일 없음'}</span>
             </div>
-            <button onClick={() => handleGenerate()} disabled={isLoading} className="generate-btn">
-              {isLoading ? '생성 중...' : '스킨 변환하기'}
-            </button>
+            <div className="convert-group">
+              <button
+                onClick={() => handleGenerate()}
+                disabled={isLoading || !file}
+                aria-describedby={file ? undefined : 'convert-hint'}
+                className="generate-btn"
+              >
+                {isLoading ? '생성 중...' : '스킨 변환하기'}
+              </button>
+              {!file && !isLoading && <p id="convert-hint" className="upload-hint">먼저 사진을 선택해 주세요.</p>}
+            </div>
           </div>
-          {file && <SelectedPhoto file={file} />}
+          {fileError && <p role="alert" className="inline-notice">이미지 파일(JPEG/PNG)만 첨부할 수 있어요.</p>}
+          {file && (
+            <SelectedPhoto
+              file={file}
+              disabled={isLoading}
+              onReplace={() => fileInputRef.current?.click()}
+              onRemove={() => {
+                setFile(null);
+                if (fileInputRef.current) fileInputRef.current.value = '';
+              }}
+            />
+          )}
         </div>
 
         {cameraOpen && (
@@ -394,8 +410,8 @@ function App() {
           />
         )}
 
-        <div className="config-section">
-          <h3>설정</h3>
+        <details className="config-section">
+          <summary className="config-summary">설정</summary>
           <div className="config-row">
             <label htmlFor="noise-level">픽셀 질감</label>
             <input
@@ -467,35 +483,20 @@ function App() {
             </select>
           </div>
           <p id="hair-overlay-help" className="config-help">머리카락을 바깥쪽에 한 겹 더 그려 입체감을 줘요. 앞머리와 긴 머리도 더 도드라져 보여요.</p>
-        </div>
+        </details>
 
         {skins.length > 0 && (
           <div className="result-section" ref={resultRef}>
             <h2>생성된 64×64 스킨 후보 {skins.length}종</h2>
-            <p className="compare-hint">원본 사진을 왼쪽에 두고 스킨을 비교해보세요 (3D 뷰어에서 회전도 가능)</p>
+            <p className="result-note">이 스킨들은 왼쪽 위 <strong>☰ 스킨 목록</strong>에도 저장돼요. 목록에서 다운로드하거나 삭제할 수 있어요.</p>
             <div className="compare-grid">
-              {inputPhoto && (
-                <div className="skin-card input-card">
-                  <h3>원본 사진</h3>
-                  <img
-                    src={inputPhoto}
-                    alt="입력 사진"
-                    className="input-photo"
-                  />
-                  <div className="card-actions">
-                    <a href={inputPhoto} download="input_photo.png" className="download-btn">
-                      사진 다운로드
-                    </a>
-                  </div>
-                </div>
-              )}
               {skins.map((skin, index) => (
-                <div key={index} className="skin-card">
+                <div key={index} className="skin-card candidate-card">
                   <h3>후보 {index + 1}</h3>
                   {skin.varied && skin.varied !== "as-answered" && (
                     <p className="varied-note">{skin.varied}</p>
                   )}
-                  <Skin3DViewer skinUrl={skin.url} model={skin.model} />
+                  <Skin3DViewer skinUrl={skin.url} model={skin.model} className="candidate-viewer" />
                   <div className="card-actions">
                     <button className="edit-btn" onClick={() => openSkinEditor(skin)}>
                       스킨 편집 ✏️
@@ -531,7 +532,7 @@ function App() {
         <footer className="footer">
           &copy; 2026 몬태규. All rights reserved.
           <br />
-          <small>공개 데모입니다. 민감한 사진은 올리지 마세요. 업로드 파일은 보존 기간(기본 14일) 후 삭제됩니다.</small>
+          <small>공개 데모입니다. 민감한 사진은 올리지 마세요. 업로드한 사진은 서버에 저장되지 않습니다.</small>
         </footer>
       </div>
     </>

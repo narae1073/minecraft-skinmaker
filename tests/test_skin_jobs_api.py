@@ -22,7 +22,6 @@ GOOD = {
 def _isolated(tmp_path, monkeypatch):
     monkeypatch.setattr(JOBS, "PRIVATE_DIR", tmp_path / "private")
     monkeypatch.setattr(JOBS, "JOBS_DIR", tmp_path / "private" / "jobs")
-    monkeypatch.setattr(JOBS, "INPUTS_DIR", tmp_path / "private" / "inputs")
     static = tmp_path / "static"
     static.mkdir()
     monkeypatch.setattr(A, "STATIC_DIR", static)
@@ -36,15 +35,15 @@ def _generate(client):
         return client.post("/api/v1/generate-skin", files={"file": ("m.jpg", fh, "image/jpeg")})
 
 
-def test_generate_sets_owner_cookie_and_keeps_input_private(_isolated):
+def test_generate_sets_owner_cookie_and_stores_no_input(_isolated):
     client = TestClient(A.app)
     r = _generate(client)
     assert r.status_code == 200, r.text
     assert "skinmaker_owner" in r.headers.get("set-cookie", "")
     data = r.json()["data"]
-    assert data["input"].startswith("/api/v1/jobs/") and data["job"]["editable"] is True
+    assert "input" not in data and data["job"]["editable"] is True
     token = data["job"]["id"]
-    assert (JOBS.INPUTS_DIR / f"{token}.jpg").is_file()
+    assert not (_isolated.parent / "private" / "inputs").exists()
     assert not [p for p in _isolated.iterdir() if p.name.startswith("input_")]
     assert JOBS.load_record(token) is not None
 
@@ -55,19 +54,11 @@ def test_only_the_generating_browser_can_read_or_edit_the_job(_isolated):
     assert owner.get(f"/api/v1/jobs/{token}").status_code == 200
     stranger = TestClient(A.app)
     assert stranger.get(f"/api/v1/jobs/{token}").status_code == 403
-    assert stranger.get(f"/api/v1/jobs/{token}/input").status_code == 403
+    assert stranger.get(f"/api/v1/jobs/{token}/input").status_code == 404
     assert stranger.put(f"/api/v1/jobs/{token}/overlay", json={"masks": {}}).status_code == 403
     assert stranger.post(f"/api/v1/jobs/{token}/render", json={"index": 1}).status_code == 403
     assert TestClient(A.app).get("/api/v1/jobs/0123456789ab").status_code == 404
     assert TestClient(A.app).get("/api/v1/jobs/../../etc").status_code in (403, 404)
-
-
-def test_owner_input_is_served_privately(_isolated):
-    owner = TestClient(A.app)
-    token = _generate(owner).json()["data"]["job"]["id"]
-    r = owner.get(f"/api/v1/jobs/{token}/input")
-    assert r.status_code == 200 and r.content[:3] == b"\xff\xd8\xff"
-    assert r.headers.get("cache-control", "").startswith("private")
 
 
 def test_overlay_put_validates_and_requires_json(_isolated):

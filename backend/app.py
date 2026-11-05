@@ -11,19 +11,16 @@ from __future__ import annotations
 
 import asyncio
 import dataclasses
-import io
 import json
 import time
 import os
 import sys
-import tempfile
 import uuid
 from pathlib import Path
 
 from fastapi import FastAPI, File, Form, HTTPException, Request, Response, UploadFile
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
-from PIL import Image
 
 from backend import jobs as JOBS
 from skinmaker import job_codec as JC
@@ -108,21 +105,6 @@ def classify_error_status(message: str) -> tuple[int, str, str]:
     if any(t in message for t in transient):
         return 503, "overloaded", "AI 서버가 바빠요. 잠시 후 다시 눌러주세요."
     return 502, "classify_failed", f"분류 실패: {message[:200]}"
-
-
-IMAGE_SUFFIX = {"JPEG": ".jpg", "PNG": ".png", "WEBP": ".webp", "AVIF": ".avif"}
-
-
-def _image_suffix(raw: bytes) -> str:
-    """저장 확장자는 클라이언트 파일명이 아니라 실제 이미지 형식에서 정한다.
-
-    알 수 없는 형식은 .bin 으로 저장해 text/html 등으로 서빙되지 않게 한다.
-    """
-    try:
-        with Image.open(io.BytesIO(raw)) as img:
-            return IMAGE_SUFFIX.get((img.format or "").upper(), ".bin")
-    except Exception:
-        return ".bin"
 
 
 def resolve_skin_model(value: str | None) -> str:
@@ -262,24 +244,15 @@ async def _pipeline(request: Request, file: UploadFile = File(...), noise_level:
     # 공개 배포 가드: 파싱 전에 업로드 크기를 제한한다.
     if len(raw) > max_upload_bytes():
         fail(413, "too_large", f"이미지는 {max_upload_bytes() // (1024 * 1024)}MB 이하여야 해요.")
-    # Windows에서는 NamedTemporaryFile을 연 채로 다시 열 수 없다. mkstemp로
-    # 쓰고 닫은 뒤 inspect하고, 끝나면 지운다 (Linux/Windows 공통).
-    fd, tmp_name = tempfile.mkstemp(suffix=Path(file.filename or "up.jpg").suffix or ".jpg")
+    # The upload is already in memory. inspect() reads the bytes directly, so
+    # the app never creates its own temporary copy of the original photo.
     try:
-        with os.fdopen(fd, "wb") as tmp:
-            tmp.write(raw)
-        try:
-            await stage("inspect", 8, "인물과 얼굴을 찾는 중이에요")
-            _t = time.perf_counter()
-            photo = await _await_or_cancel(request, inspect, tmp_name, crop=crop_box)
-            timings["inspect"] = round(time.perf_counter() - _t, 3)
-        except Exception as exc:
-            fail(400, "unreadable", f"이미지를 읽지 못했어요: {type(exc).__name__}")
-    finally:
-        try:
-            os.unlink(tmp_name)
-        except OSError:
-            pass
+        await stage("inspect", 8, "인물과 얼굴을 찾는 중이에요")
+        _t = time.perf_counter()
+        photo = await _await_or_cancel(request, inspect, raw, crop=crop_box)
+        timings["inspect"] = round(time.perf_counter() - _t, 3)
+    except Exception as exc:
+        fail(400, "unreadable", f"이미지를 읽지 못했어요: {type(exc).__name__}")
     if photo.rejected:
         fail(422, "no_face", "사진에서 얼굴을 찾지 못했어요. 정면 실사 얼굴 사진으로 다시 시도해주세요.",
              extra={"can_crop": True, "image_size": list(photo.image.size), "source": photo.source})
@@ -336,10 +309,6 @@ async def _pipeline(request: Request, file: UploadFile = File(...), noise_level:
     if not candidates or not all(c.ok for c in candidates):
         fail(500, "render_failed", "렌더 검증 실패. 같은 사진으로 다시 시도해주세요.")
     token = uuid.uuid4().hex[:12]
-    # The input photo is private: only the owner's job serves it (never /static).
-    input_name = f"{token}{_image_suffix(raw)}"
-    JOBS.INPUTS_DIR.mkdir(parents=True, exist_ok=True)
-    (JOBS.INPUTS_DIR / input_name).write_bytes(raw)
     # 처리 과정 시트 (설계 §12): 스킨 목록과 분리된 steps/ 하위폴더. 끄면 아예 미생성.
     steps_urls = None
     await stage("saving", 88, "이미지를 저장하는 중이에요")
@@ -351,6 +320,7 @@ async def _pipeline(request: Request, file: UploadFile = File(...), noise_level:
             photo, candidates[0].image, skin_model, observed, seg,
             # 스탬프는 요청이 아니라 실제 사용 모드 — 마스크 근거 실패면 rule로 기록 (진실 규칙)
             note="hair=" + ("mask+symmetrized" if observed.hair_stencil else "rule") + " overlay=" + hair_overlay,
+            privacy=True,  # public sheet: no source-photo pixels (2026-11-05)
         )
         clean_sheet.convert("RGB").save(STEPS_DIR / f"{token}_steps.png")
         full_sheet.convert("RGB").save(STEPS_DIR / f"{token}_steps_full.png")
@@ -369,13 +339,12 @@ async def _pipeline(request: Request, file: UploadFile = File(...), noise_level:
         flat_urls.append(f"/static/skins/{flat_name}")
     if owner_hash is not None:
         JOBS.create_record(token, owner_hash, observed, candidates, model=skin_model,
-                           noise_level=level, degrade=tuple(photo.degrade), input_name=input_name)
+                           noise_level=level, degrade=tuple(photo.degrade))
     await stage("done", 100, "완료")
     timings["total"] = round(time.perf_counter() - t0, 3)
     return {
         "status": "success",
         "data": {
-            "input": f"/api/v1/jobs/{token}/input",
             "job": {"id": token, "editable": owner_hash is not None},
             "skins": urls,
             "skins_flat": flat_urls,
@@ -426,15 +395,6 @@ def job_info(token: str, request: Request):
         "candidates": [{"index": c["index"], "varied": c["varied"],
                         "attributes": JC.encode(c["attributes"])["values"]} for c in record["candidates"]],
     }}
-
-
-@app.get("/api/v1/jobs/{token}/input")
-def job_input(token: str, request: Request):
-    record = _job_for_owner(request, token)
-    path = JOBS.INPUTS_DIR / record["input"]
-    if not path.is_file():
-        fail(404, "not_found", "원본 사진이 만료되었어요.")
-    return FileResponse(path, headers={"Cache-Control": "private, no-store"})
 
 
 @app.get("/api/v1/jobs/{token}/overlay")

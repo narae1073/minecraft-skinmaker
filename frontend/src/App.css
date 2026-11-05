@@ -185,6 +185,7 @@ h1 {
   display: flex;
   align-items: center;
   justify-content: center;
+  flex-wrap: wrap;
   gap: 10px;
   margin: 0;
   max-width: 100%;
@@ -203,7 +204,10 @@ h1 {
   border-radius: 6px;
 }
 
-.selected-photo span { min-width: 0; }
+.selected-photo span { flex: 1 1 140px; min-width: 0; text-align: left; }
+.selected-photo-actions { display: flex; gap: 6px; flex-shrink: 0; }
+.convert-group { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.upload-hint { margin: 0; font-size: 13px; color: #475569; text-align: center; }
 
 /* 카메라 및 변환하기 버튼 */
 .generate-btn {
@@ -223,15 +227,21 @@ h1 {
   word-break: keep-all;
 }
 
-.camera-btn { background-color: #2563eb; }
-.generate-btn.camera-btn:hover:not(:disabled) { background-color: #1d4ed8; }
+/* 카메라 버튼은 보조 동작: 아웃라인 스타일로 낮추고, 변환 버튼만 채움 */
+.camera-btn {
+  background-color: #fff;
+  color: #2563eb;
+  border: 2px solid #2563eb;
+}
+.generate-btn.camera-btn:hover:not(:disabled) { background-color: #eff6ff; }
 
 .generate-btn:hover {
   background-color: #16a34a;
 }
 
 .generate-btn:disabled {
-  background-color: #94a3b8;
+  background-color: #cbd5e1;
+  color: #334155;
   cursor: not-allowed;
 }
 
@@ -271,7 +281,7 @@ h1 {
   margin-top: 20px;
 }
 
-/* 원본 사진 + 스킨 후보 나란히 비교 (원본이 맨 왼쪽) */
+/* 스킨 후보 카드 나란히 배치 */
 .compare-grid {
   display: flex;
   gap: 20px;
@@ -281,49 +291,31 @@ h1 {
   justify-content: center;
 }
 
-.compare-grid .input-card h3 {
-  color: #64748b;
-}
-
-/* 원본 카드도 후보 카드와 같은 액션 행을 써서 다운로드 버튼을 사진 아래
-   가운데에 둔다. (인라인 앵커가 왼쪽에 붙던 문제) */
-.input-card {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-}
-.input-card .input-photo {
-  display: block;
-  margin: 0 auto;
-}
-.input-card .card-actions {
-  width: 100%;
-  margin-top: 12px;
-}
-.input-card .download-btn {
-  margin-top: 0;
-}
-
-.compare-hint {
-  color: #64748b;
-  font-size: 14px;
-  margin-top: 8px;
-}
-
-.input-photo {
-  width: 200px;
-  height: 280px;
-  object-fit: contain;
-  background: #f1f5f9;
-  border: 1px solid #cbd5e1;
-  border-radius: 6px;
-}
-
 .skin-card {
   background: rgba(248, 250, 252, 0.9);
   padding: 20px;
   border-radius: 10px;
   border: 1px solid #e2e8f0;
+}
+
+.skin-viewer {
+  background: #e2e8f0;
+  border-radius: 8px;
+}
+
+/* 후보 카드는 원본 사진보다 크게 — 300px 카드 안에 13:18 뷰어(약 258×357). */
+.compare-grid .candidate-card {
+  width: min(300px, 100%);
+}
+.candidate-viewer {
+  width: 100%;
+  aspect-ratio: 13 / 18;
+}
+
+@media (max-width: 720px) {
+  .compare-grid .candidate-card {
+    padding: 10px;
+  }
 }
 
 .download-btn {
@@ -405,6 +397,8 @@ h1 {
 .sidebar-toggle-btn:hover {
   background: #f8fafc;
 }
+.toggle-count { display: inline-block; min-width: 22px; margin-left: 6px; padding: 0 6px; border-radius: 999px; background: #2563eb; color: #fff; font-size: 12px; line-height: 20px; text-align: center; }
+.result-note { margin: 4px 0 12px; font-size: 14px; color: #475569; text-align: center; }
 
 .sidebar {
   position: fixed;
@@ -442,7 +436,7 @@ h1 {
 
 .close-btn {
   background: transparent;
-  color: #94a3b8;
+  color: #64748b;
   border: none;
   font-size: 20px;
   font-weight: bold;
@@ -795,6 +789,8 @@ h1 {
   text-align: left;
 }
 .config-section h3 { margin: 0 0 10px; font-size: 16px; color: #334155; }
+.config-summary { cursor: pointer; font-size: 16px; font-weight: 600; color: #334155; list-style-position: inside; }
+.config-section[open] > .config-summary { margin-bottom: 10px; }
 .config-row {
   display: flex;
   align-items: center;
@@ -804,7 +800,7 @@ h1 {
   color: #334155;
 }
 .config-row input[type="range"] { flex: 1; max-width: 260px; accent-color: #2563eb; }
-.config-row small { color: #94a3b8; font-size: 12px; }
+.config-row small { color: #64748b; font-size: 12px; }
 .config-row label { display: flex; align-items: center; gap: 8px; cursor: pointer; }
 .config-row label { font-weight: 700; }
 .config-row label small { font-weight: 400; }
@@ -850,3 +846,6 @@ h1 {
 .loading-bar-fill { height: 100%; border-radius: 999px; background: linear-gradient(90deg,#22c55e,#4ade80); transition: width .25s ease; }
 .loading-stage { color: #e5e7eb; font-size: 14px; margin: 0 0 6px; min-height: 20px; }
 .loading-hint { color: #9ca3af; font-size: 12px; margin: 0; }
+
+.inline-notice { color: #b91c1c; font-size: 14px; margin: 8px 0 0; }
+.error-actions { display: flex; gap: 10px; justify-content: center; margin-top: 16px; }

@@ -145,22 +145,20 @@ def test_app_always_mounts_frontend():
     assert any(isinstance(route, Mount) and route.name == "frontend" for route in A.app.routes)
 
 
-def test_upload_is_stored_with_extension_from_image_format(tmp_path, monkeypatch):
-    """파일명 확장자는 클라이언트 입력이다. 저장 확장자는 실제 이미지 형식으로 정한다.
-
-    messi5.jpg 바이트를 evil.html 이름으로 올려도 저장 파일이 .html 이면
-    서빙 경로에서 text/html 로 나갈 수 있다. 입력은 이제 비공개 저장소에 있다.
-    """
-    from backend import jobs as JOBS
-    monkeypatch.setattr(JOBS, "INPUTS_DIR", tmp_path / "inputs")
-    monkeypatch.setattr(JOBS, "JOBS_DIR", tmp_path / "jobs")
-    client()
+def test_generate_does_not_store_or_return_the_input_photo(tmp_path, monkeypatch):
+    """The upload is needed for the request only; no public or private copy remains."""
+    monkeypatch.setattr(A, "STATIC_DIR", tmp_path)
     with PHOTO.open("rb") as f:
-        r = TestClient(A.app).post("/api/v1/generate-skin", files={"file": ("evil.html", f, "image/jpeg")})
+        r = client().post(
+            "/api/v1/generate-skin",
+            files={"file": ("evil.html", f, "image/jpeg")},
+            data={"steps": "0"},
+        )
     assert r.status_code == 200, r.text
-    token = r.json()["data"]["job"]["id"]
-    stored = sorted(p.name for p in (tmp_path / "inputs").iterdir())
-    assert stored == [f"{token}.jpg"], stored
+    data = r.json()["data"]
+    assert "input" not in data
+    assert not list(tmp_path.glob("input_*")), "raw upload must not be stored"
+    assert list(tmp_path.glob("*_c1.png")), "generated skins still go to STATIC_DIR"
 
 
 def test_generate_returns_three_urls():
@@ -482,6 +480,28 @@ def test_generate_returns_steps_sheets():
         assert got.content[:8] == b"\x89PNG\r\n\x1a\n" and len(got.content) > 1000, url
 
 
+def test_generate_steps_use_privacy_panels(monkeypatch):
+    """The web steps sheet must not contain the source photo."""
+    from skinmaker import debugview as DV
+
+    seen = {}
+    real = DV.steps_sheets
+
+    def spy(*args, **kwargs):
+        seen.update(kwargs)
+        return real(*args, **kwargs)
+
+    monkeypatch.setattr(DV, "steps_sheets", spy)
+    with PHOTO.open("rb") as f:
+        r = client().post(
+            "/api/v1/generate-skin",
+            files={"file": ("m.jpg", f, "image/jpeg")},
+            data={"steps": "1"},
+        )
+    assert r.status_code == 200, r.text
+    assert seen.get("privacy") is True
+
+
 def test_generate_steps_flag_skips_sheets():
     """설정 체크박스 (기본 해제): steps=0 → 시트 미생성, 응답 steps=null.
     부재 → 기존 동작(생성). 진위 규칙은 parsing_on 관례와 동일."""
@@ -595,26 +615,6 @@ def test_generate_uses_hair_bbox_for_crown():
     expected = expected_pixel(observed, "hair", "top")
     # 노이즈 파이프라인 (설계 §3): 등식은 채널별 톨러런스로.
     assert all(abs(p - q) <= _NOISE_TOL for p, q in zip(crown[:3], expected[:3])), (crown, expected)
-
-
-def test_generate_returns_input_photo_url(tmp_path, monkeypatch):
-    # The input photo is private: served to the generating browser only, never
-    # from the public /static mount.
-    from backend import jobs as JOBS
-    monkeypatch.setattr(JOBS, "INPUTS_DIR", tmp_path / "inputs")
-    monkeypatch.setattr(JOBS, "JOBS_DIR", tmp_path / "jobs")
-    from backend.app import STATIC_DIR
-    public_before = set(STATIC_DIR.glob("input_*"))
-    owner = client()
-    with PHOTO.open("rb") as f:
-        r = owner.post("/api/v1/generate-skin", files={"file": ("m.jpg", f, "image/jpeg")})
-    assert r.status_code == 200, r.text
-    input_url = r.json()["data"]["input"]
-    assert input_url.startswith("/api/v1/jobs/") and input_url.endswith("/input")
-    served = owner.get(input_url)
-    assert served.status_code == 200
-    assert served.content == PHOTO.read_bytes()  # 사진과 동일 바이트
-    assert set(STATIC_DIR.glob("input_*")) == public_before  # no new public input
 
 
 def test_generate_rejects_oversize_upload(monkeypatch):

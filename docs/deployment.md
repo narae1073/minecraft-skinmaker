@@ -197,8 +197,20 @@ scripts/cleanup_static.sh
 du -sh backend/static
 ```
 
-Uploaded photos are served under `/static/skins/input_*` and steps sheets at
-`/static/steps/*`; both are covered by retention.
+Generated skins are served under `/static/skins/*` and photo-free steps sheets
+at `/static/steps/*`; both are covered by retention. Source photos are not
+stored.
+
+The 2026-11-05 deploy also removed the legacy public copies. Run this once on
+the release clone after the deploy (it keeps result skins):
+
+```bash
+cd /home/achi/Programming/skinmaker-release
+./scripts/purge_photo_artifacts.sh --yes
+```
+
+If an old URL still returns 200 afterwards, purge the Cloudflare cache in the
+dashboard (no API token is configured).
 
 ## Public exposure
 
@@ -206,7 +218,8 @@ There is **no login**. The decision is intentional; mitigations:
 
 - 15 MB upload cap (rejected before decoding);
 - 6/min/IP app limiter + Cloudflare WAF rule;
-- 14-day retention and a footer/README notice;
+- source photos are not stored; generated outputs have 14-day retention;
+- footer/README notice;
 - Gemini key stays server-side in `.env`;
 - uvicorn binds loopback, so the tunnel is the only ingress.
 
