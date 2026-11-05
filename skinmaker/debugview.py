@@ -141,6 +141,30 @@ def panel_reject(photo: PhotoInput) -> Panel:
     return Panel("S0 input gate", img, f"REJECTED  flags={','.join(photo.degrade) or 'none'}")
 
 
+def panel_quality(photo: PhotoInput) -> Panel:
+    """Public S0 panel: metrics only, no source-photo pixels."""
+    w = PANEL_W
+    img = Image.new("RGB", (w, 132), BG)
+    draw = ImageDraw.Draw(img)
+    mono = font(10, mono=True)
+    f = photo.face
+    if f is None:
+        draw.text((6, 8), "REJECTED: no face detected", fill=(255, 120, 120), font=font(12, mono=True))
+        draw.text((6, 34), f"flags={','.join(photo.degrade) or 'none'}", fill=FG, font=mono)
+        return Panel("S0 quality", img, "no source image")
+    q = photo.quality
+    lines = [
+        f"face {f.w}x{f.h}  source={photo.source}",
+        f"score={q.detection_score:.2f}  bright={q.brightness:.0f}  sharp={q.sharpness:.0f}  sat={q.saturation:.0f}",
+        f"flags={','.join(photo.degrade) or 'none'}",
+        f"hair={hair_region(f).w}x{hair_region(f).h}  skin={skin_region(f).w}x{skin_region(f).h}",
+        f"shirt bands={len(shirt_bands(f, photo.image.size))}",
+    ]
+    for i, line in enumerate(lines):
+        draw.text((6, 6 + i * 22), line, fill=FG, font=mono)
+    return Panel("S0 quality", img, "quality metrics only (no source image)")
+
+
 # --- S1 -------------------------------------------------------------------
 
 def _swatch(color: tuple[int, int, int], size: int = 34) -> Image.Image:
@@ -223,6 +247,32 @@ def _s1_note(observed) -> str:
     )
 
 
+def panel_swatches(observed) -> Panel:
+    """Public S1 panel: measured colors only, no photo crops."""
+    w = PANEL_W
+    keys = (("skin", "skin"), ("hair", "hair"), ("top", "top"), ("bottom", "bottom"))
+    row_h = 46
+    img = Image.new("RGB", (w, PAD + row_h * len(keys)), BG)
+    draw = ImageDraw.Draw(img)
+    mono = font(9, mono=True)
+    y = 0
+    for key, label in keys:
+        sample = getattr(observed, key)
+        img.paste(_swatch(sample.rgb), (0, y))
+        x = 42
+        draw.text((x, y + 1), sample.hex if not sample.missing else "--", fill=FG, font=mono)
+        draw.text((x, y + 14), f"{label} share={sample.share:.0%}", fill=DIM, font=mono)
+        draw.text(
+            (x, y + 27),
+            "confident" if sample.confident else "low",
+            fill=(90, 210, 120) if sample.confident else (235, 150, 60),
+            font=mono,
+        )
+        img.paste(_share_bar(sample.share, max(10, w - x)), (x, y + 36))
+        y += row_h
+    return Panel("S1 observed colors", img, _s1_note(observed))
+
+
 # --- S3 / S4 --------------------------------------------------------------
 
 def panel_atlas(image: Image.Image, scale: int = 8, cell: int = 8) -> Panel:
@@ -276,6 +326,9 @@ TEXTURE = 64
 
 PANELS = ("s0", "s1", "atlas", "uvmap", "preview")
 PANEL_STRIP = ("s0", "mask", "s1", "atlas")  # 사용자용 간단 보기 (설계 §12)
+# Public web sheets: no panel may read photo.image (2026-11-05 no-retention).
+PANEL_STRIP_PRIVACY = ("quality", "mask", "swatches", "atlas")
+PANELS_PRIVACY = ("quality", "mask", "swatches", "atlas", "uvmap", "preview")
 
 # SCHP class → 오버레이 색 (마스크 패널). format.py 클래스 주석과 정합.
 MASK_COLORS = {
@@ -316,15 +369,42 @@ def panel_mask(photo: PhotoInput, seg) -> Panel:
     return Panel("S1b parsing mask", img, parts or "마스크 픽셀 없음")
 
 
-def steps_sheets(photo: PhotoInput, skin: Image.Image, model: str, observed=None, seg=None, note: str = ""):
+def panel_mask_silhouette(seg) -> Panel:
+    """Public parsing panel: the class map alone, on a neutral background."""
+    if seg is None:
+        return None
+    import numpy as np
+
+    arr = np.zeros((*seg.shape, 3), dtype=np.uint8)
+    arr[:] = BG
+    for cls, color in MASK_COLORS.items():
+        arr[seg == cls] = color
+    img = _fit(Image.fromarray(arr), PANEL_W)
+    pct = lambda n: f"{n / seg.size * 100:.1f}%"
+    parts = " ".join(
+        f"{name}={pct(int((seg == cls).sum()))}"
+        for cls, name in ((4, "상의"), (5, "치마"), (6, "바지"), (9, "신발"), (12, "맨다리"))
+        if (seg == cls).any()
+    )
+    return Panel("S1b parsing mask", img, parts or "마스크 픽셀 없음")
+
+
+def steps_sheets(photo: PhotoInput, skin: Image.Image, model: str, observed=None, seg=None, note: str = "",
+                 privacy: bool = False):
     """(간단, 전체QA) 두 벌의 contact sheet. skin은 후보 1 렌더 (설계 §12).
 
     2열 격자 — 인라인 썸네일/라이트박스가 세로 6000px 벽이 되지 않는다.
     note는 옵션 스탬프 (예: hair=mask+symmetrized) — 저장 시트에 어떤 조합으로
     그렸는지 남긴다. 크기는 불변, 좌하단 오버레이.
     """
-    clean = contact_sheet(build_panels(photo, skin, model, observed, which=PANEL_STRIP, seg=seg), columns=2)
-    full = contact_sheet(build_panels(photo, skin, model, observed, which=PANELS, seg=seg), columns=2)
+    strip = PANEL_STRIP_PRIVACY if privacy else PANEL_STRIP
+    full_set = PANELS_PRIVACY if privacy else PANELS
+    clean = contact_sheet(
+        build_panels(photo, skin, model, observed, which=strip, seg=seg, privacy=privacy), columns=2
+    )
+    full = contact_sheet(
+        build_panels(photo, skin, model, observed, which=full_set, seg=seg, privacy=privacy), columns=2
+    )
     if note:
         for img in (clean, full):  # 우상단 헤더 바의 빈 공간 — 좌하단 패널 푸터와 겹치지 않는다
             d = ImageDraw.Draw(img)
@@ -333,15 +413,20 @@ def steps_sheets(photo: PhotoInput, skin: Image.Image, model: str, observed=None
     return clean, full
 
 
-def build_panels(photo: PhotoInput, skin: Image.Image | None, model: str, observed=None, which=PANELS, seg=None) -> list[Panel]:
+def build_panels(photo: PhotoInput, skin: Image.Image | None, model: str, observed=None, which=PANELS,
+                 seg=None, privacy: bool = False) -> list[Panel]:
     out = []
     for name in which:
         if name == "s0":
             out.append(panel_s0(photo) if photo.face is not None else panel_reject(photo))
+        elif name == "quality":
+            out.append(panel_quality(photo))
         elif name == "mask":
-            p = panel_mask(photo, seg)
+            p = panel_mask_silhouette(seg) if privacy else panel_mask(photo, seg)
             if p is not None:
                 out.append(p)
+        elif name == "swatches" and observed is not None:
+            out.append(panel_swatches(observed))
         elif name == "s1" and observed is not None:
             corrected = None
             if observed.wb_gain != (1.0, 1.0, 1.0):
