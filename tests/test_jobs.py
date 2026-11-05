@@ -17,7 +17,6 @@ from skinmaker import render as R  # noqa: E402
 def _private_tmp(tmp_path, monkeypatch):
     monkeypatch.setattr(jobs, "PRIVATE_DIR", tmp_path)
     monkeypatch.setattr(jobs, "JOBS_DIR", tmp_path / "jobs")
-    monkeypatch.setattr(jobs, "INPUTS_DIR", tmp_path / "inputs")
 
 
 def _record(token="0123456789ab", owner="ownerhash", seed=12345):
@@ -25,7 +24,7 @@ def _record(token="0123456789ab", owner="ownerhash", seed=12345):
     attrs = A.validate(dict(Q._attrs("long", "long_straight", "none").values, top_garment="tee"))
     cand = SimpleNamespace(index=1, varied="", noise_seed=seed, attributes=attrs)
     return jobs.create_record(token, owner, observed, [cand], model="classic", noise_level=1.0,
-                              degrade=(), input_name="x.jpg"), observed, attrs
+                              degrade=()), observed, attrs
 
 
 def test_rerender_with_empty_overlay_matches_the_original_render():

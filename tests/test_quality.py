@@ -260,6 +260,16 @@ def test_flags_small_face_in_wide_shot():
     assert "small" in result.degrade
 
 
+def test_inspect_accepts_image_bytes():
+    """The web upload is already in memory; inspect must not need a temp path."""
+    raw = (FIXTURES / "lena.jpg").read_bytes()
+    from_path = Q.inspect(FIXTURES / "lena.jpg")
+    from_bytes = Q.inspect(raw)
+    assert from_bytes.image.size == from_path.image.size
+    assert from_bytes.face == from_path.face
+    assert from_bytes.path == "<upload>"
+
+
 # --- 얼굴 선택 (검출 여러 개) --------------------------------------------
 # 점수는 0.85~0.92 로 뭉쳐 있어 정보가 없다. 크기가 주된 신호다.
 # images31: 점수 최고(0.89)는 화면 가장자리 행인 32x39, 주인공은 44x56.

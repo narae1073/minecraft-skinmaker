@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import useDialog from '../useDialog';
 
 const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
 
@@ -10,6 +11,8 @@ export default function CropModal({ file, imageSize, onApply, onClose }) {
   const [url] = useState(() => URL.createObjectURL(file));
   const [drag, setDrag] = useState(null);
   const frameRef = useRef(null);
+  const dialogRef = useRef(null);
+  useDialog(dialogRef, true, onClose);
 
   useEffect(() => () => URL.revokeObjectURL(url), [url]);
 
@@ -45,8 +48,8 @@ export default function CropModal({ file, imageSize, onApply, onClose }) {
 
   return (
     <div className="crop-backdrop" onPointerMove={move} onPointerUp={end} onPointerLeave={end}>
-      <div className="crop-modal">
-        <div className="crop-title">얼굴을 찾기 어려워요. 인물이 전신에 들어오게 크롭해 주세요.</div>
+      <div ref={dialogRef} tabIndex={-1} role="dialog" aria-modal="true" aria-labelledby="crop-title" className="crop-modal">
+        <div id="crop-title" className="crop-title">얼굴을 찾기 어려워요. 인물이 전신에 들어오게 크롭해 주세요.</div>
         <div className="crop-frame" ref={frameRef}>
           <img src={url} alt="crop source" draggable={false} />
           <div

@@ -28,7 +28,6 @@ from skinmaker import render as R
 ROOT = Path(__file__).resolve().parent
 PRIVATE_DIR = ROOT / "private"
 JOBS_DIR = PRIVATE_DIR / "jobs"
-INPUTS_DIR = PRIVATE_DIR / "inputs"
 OWNER_COOKIE = "skinmaker_owner"
 # Per-skin headwear choices. The hat shapes are drafts (not in the production asset).
 HEADWEAR_CHOICES = ("none", "cap", "beanie")
@@ -93,7 +92,7 @@ def load_record(token: str) -> dict | None:
 
 
 def create_record(token: str, owner: str, observed: C.ObservedColors, candidates, *,
-                  model: str, noise_level: float, degrade: tuple[str, ...], input_name: str) -> dict:
+                  model: str, noise_level: float, degrade: tuple[str, ...]) -> dict:
     """Snapshot everything a candidate render needs. ``candidates`` are the
     skinmaker.candidates.Candidate objects from the generation run."""
     record = {
@@ -102,7 +101,6 @@ def create_record(token: str, owner: str, observed: C.ObservedColors, candidates
         "model": model,
         "noise_level": noise_level,
         "degrade": list(degrade),
-        "input": input_name,
         "observed": JC.dump_dataclass(observed),
         "candidates": [
             {"index": c.index, "varied": c.varied, "seed": c.noise_seed,

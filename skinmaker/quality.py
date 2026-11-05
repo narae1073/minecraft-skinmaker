@@ -5,6 +5,7 @@
 """
 from __future__ import annotations
 
+import io
 import os
 from dataclasses import dataclass
 from pathlib import Path
@@ -225,20 +226,28 @@ def _multiscale_face(image: Image.Image, score_min: float) -> tuple[FaceBox | No
     return None, "original"
 
 
-def inspect(path: str | Path, score_min: float = DETECT_SCORE_MIN,
+def inspect(source: str | Path | bytes | bytearray, score_min: float = DETECT_SCORE_MIN,
             crop: FaceBox | None = None) -> PhotoInput:
-    p = Path(path)
-    with Image.open(p) as im:
+    """Read a path or already-read bytes. The web backend passes bytes so the
+    upload never needs an app-owned temporary file."""
+    if isinstance(source, (bytes, bytearray)):
+        im = Image.open(io.BytesIO(source))
+        label = "<upload>"
+    else:
+        p = Path(source)
+        im = Image.open(p)
+        label = str(p)
+    with im:
         image = ImageOps.exif_transpose(im).convert("RGB")
-        source = "original"
+        source_kind = "original"
         crop_box = None
         if crop is not None:
             box = clip_to(crop, image.size)
             if box is not None:
                 image = image.crop((box.x, box.y, box.right, box.bottom))
                 crop_box = box
-                source = "manual"
-        if source == "original":
+                source_kind = "manual"
+        if source_kind == "original":
             try:
                 from .person import detect_person
                 person = detect_person(image)
@@ -248,12 +257,12 @@ def inspect(path: str | Path, score_min: float = DETECT_SCORE_MIN,
                 pb = FaceBox(*person)
                 image = image.crop((pb.x, pb.y, pb.right, pb.bottom))
                 crop_box = pb
-                source = "person"
+                source_kind = "person"
         face, found_source = _multiscale_face(image, score_min)
-        if source == "original":
-            source = found_source
+        if source_kind == "original":
+            source_kind = found_source
         if face is None:
-            return PhotoInput(str(p), image, None, None, (), None, crop_box, source)
+            return PhotoInput(label, image, None, None, (), None, crop_box, source_kind)
         quality = measure_quality(image, face)
     degrade = plan_degradation(quality)
     try:
@@ -262,22 +271,7 @@ def inspect(path: str | Path, score_min: float = DETECT_SCORE_MIN,
         pose = detect_pose(image)
     except Exception:
         pose = None
-    return PhotoInput(str(p), image, face, quality, degrade, pose, crop_box, source)
-    p = Path(path)
-    with Image.open(p) as im:
-        image = im.convert("RGB")
-        face = detect_face(image, score_min)
-        if face is None:
-            return PhotoInput(str(p), image, None, None, (), None)
-        quality = measure_quality(image, face)
-    degrade = plan_degradation(quality)
-    try:
-        from .pose import detect_pose
-
-        pose = detect_pose(image)
-    except Exception:
-        pose = None
-    return PhotoInput(str(p), image, face, quality, degrade, pose)
+    return PhotoInput(label, image, face, quality, degrade, pose, crop_box, source_kind)
 
 
 def clip_to(box: FaceBox, size: tuple[int, int]) -> FaceBox | None:

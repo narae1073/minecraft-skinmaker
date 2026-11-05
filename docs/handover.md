@@ -528,6 +528,11 @@ S0 quality/face detection (YuNet) → S1 colour measurement (white-balance + ban
   - 검증: 신규 테스트 2개 수정 전 실패 → 수정 후 통과; `pytest -q` → **728 passed** (124.04s), exit 0.
   - 미결정: 마스크 승인 정책. `render()` 는 `attribute_masks_approval.json` 의 SHA 를 확인하지 않고 `assets/attribute_masks.json` 을 그대로 쓴다. 승인 검사는 `production_status.py` 게이트에만 있다. 렌더 경로에서 강제할지, 문서만 고칠지 사용자 결정이 필요하다.
   - 로컬 미추적 파일(`assets/yolov8n.pt`, `scripts/build_pack_review.py`)은 이 PR 에 포함하지 않았다.
+- 2026-11-04 (UX results, `feat/ux-results`, stacked on `feat/ux-upload-flow`): 결과 영역에 `이 스킨들은 ☰ 스킨 목록에도 저장돼요` 안내 추가. ☰ 스킨 목록 버튼에 저장 개수 배지와 aria-label. 카테고리 JSON 은 이미 `<details>` 로 접혀 있어 그대로 둠. 후보 카드의 `스킨 편집` 버튼은 사용자 결정으로 계속 제거 상태 (나중에 복원 여부 결정).
+- 2026-11-04 (UX upload flow, `feat/ux-upload-flow`, stacked on `feat/ux-alerts`): 변환 버튼은 사진이 없으면 비활성 + `먼저 사진을 선택해 주세요.` 안내. 카메라 버튼은 아웃라인(보조) 스타일. 선택한 사진 미리보기에 `사진 바꾸기` / `지우기`. 설정 섹션은 `<details>` 로 기본 접힘. 드래그앤드롭은 이번 PR 에서 만들지 않음 (사용자 결정). 헤드리스 Chrome 에서 데스크톱 1400px / 모바일 360px 확인, 가로 스크롤 없음.
+- 2026-11-04 (UX alerts, `feat/ux-alerts`, stacked on `feat/ux-a11y-basics`): `alert()` 2곳을 인라인 안내(`role=status`)로 교체 — 사진 없음(업로드 영역), 삭제 대상 없음(사이드바). 잘못된 파일 형식은 전체 화면 오버레이 대신 업로드 영역 인라인 `role=alert`. 서버 오류 오버레이에 `닫기` / `다시 시도` 버튼 추가 (`다시 시도` 는 같은 사진으로 `handleGenerate()` 재호출). 헤드리스 Chrome 에서 alert 다이얼로그 0건, 재시도 요청 동작 확인.
+- 2026-11-04 (UX/a11y basics, `feat/ux-a11y-basics`): `<html lang="ko">`, 한국어 `<title>`/description/theme-color. 편집 창·크롭 모달·파일/서버 오류 오버레이에 `role=dialog|alertdialog`, `aria-modal`, 열릴 때 포커스 이동, Escape 닫기, 닫힐 때 포커스 복귀 (`frontend/src/useDialog.js`). 닫기 버튼 `aria-label`. 대비 부족 `#94a3b8` → `#64748b` (닫기 버튼, `.config-row small`; 흰 배경 2.5:1 → 4.5:1 이상). 헤드리스 Chrome 에서 Escape 닫기 확인.
+- 2026-11-04 (remove original card, `feat/remove-original-card`): 결과 영역의 `원본 사진` 카드와 `원본 사진을 왼쪽에 두고…` 안내 문구를 삭제했다 (`inputPhoto` state 포함). 업로드 영역의 `선택한 사진` 미리보기는 유지. 백엔드 응답의 `data.input` 과 `input_*.jpg` 저장은 그대로 두었으며 프론트에서 더 이상 쓰지 않는다. 데스크톱 1400px / 모바일 360px 에서 콘솔 에러·가로 스크롤 없음 확인.
 - 2026-11-04 (mask-approval policy decided, `docs/mask-approval-policy`): 사용자 결정 **Option B** — 렌더러는 `assets/attribute_masks.json` 을 있는 그대로 사용한다. SHA 승인(`attribute_masks_approval.json`)은 `production_status` 릴리스 리포트에서만 확인하며 렌더링을 막지 않는다. 코드 동작은 변경 없음; `attribute_masks.py` 독스트링을 정책에 맞게 고쳤다. 승인 검사를 렌더에 강제하려면 별도 결정이 필요하다.
 
 - 2026-11-04 (mask editor fixes, `fix/mask-editor-arm-and-draft-migration`): 두 버그 수정.
@@ -622,3 +627,20 @@ S0 quality/face detection (YuNet) → S1 colour measurement (white-balance + ban
   - 편집기: 모자 선택 + 색 선택기. 선택 시 해당 모자의 기본색으로 바뀌고, 사용자가 고른 색은 유지. 새로고침 후에도 저장된 색을 표시.
   - 브라우저 CDP 6/6 (비니 선택 → 어두운 색으로 3D 반영 → 색 선택기 #1f1f1f). 스크린샷 `/tmp/mecheck/shots/15_beanie_dark.png`.
   - 검증: `tests/test_skin_jobs_api.py` 16 (비니·색·잘못된 색 포함).
+- 2026-11-04 (results UI cleanup, `feat/results-ui`): 사용자 요청 3건.
+  - 로딩 바 아래 `보통 20~40초 걸려요. 창을 닫지 말아 주세요.` 힌트 삭제 → 같은 날 복구하고 시간만 `보통 10초 정도 걸려요. 창을 닫지 말아 주세요.` 로 바꿈 (`.loading-hint` 스타일 복원). 진행 바와 `loading-stage` 단계 문구는 유지.
+  - 후보 카드의 `스킨 편집 ✏️` 버튼 삭제. 사이드바의 `편집` 버튼과 `SkinEditor` 모달은 유지.
+  - 후보 카드를 원본보다 크게: `Skin3DViewer` 에 선택적 `className` 을 추가하고 후보 카드는 `width: min(300px, 100%)` + `aspect-ratio: 13 / 18` 로 CSS sizing. 데스크톱 후보 카드 300px, 뷰어 약 258×357, 원본 사진은 기존 200×280 유지. 720px 이하에서는 후보 카드 패딩만 10px 로 줄여 360px 뷰포트에서 뷰어 220×305, 가로 스크롤 없음. 편집기 뷰어는 360×480 그대로.
+  - 원본 카드의 다운로드 버튼은 `margin-top: auto` + `padding-top: 12px` 로 카드 하단에 맞춰 후보 카드 버튼과 같은 높이에 정렬.
+  - 검증: `npm run lint` / `npm run build` green. Headless Chrome 1440×1000 및 360×800, 후보 1개와 3개 모두 확인. 3후보 데스크톱은 `[원본+후보1] / [후보2+후보3]`, 360px에서는 세로 1열, `scrollWidth` = viewport(1440/360). 로딩 힌트 0개, 후보 편집 버튼 0개, 사이드바 편집 버튼 1개, 원본/후보 다운로드 버튼 y좌표 일치(1391px). `.venv/bin/python -m pytest -q` → **726 passed, 2 skipped** (115.16s, 2회 실행 중 108.22s).
+  - 리스크: 시각 확인은 mock transport 기반이며 실제 사진/실기기 확인은 수동 후속. 320px 미만에서는 기존 고정 200×280 원본 카드가 넘칠 수 있다(이번 변경 전부터 존재).
+
+- 2026-11-05 (원본 사진 무보존, `fix/no-photo-retention`, off `origin/master`): 공개 사이트가 업로드 원본을 `/static/skins/input_*`로 저장하고 `data.input`으로 노출하던 문제, 처리 과정 시트가 원본 사진을 포함하던 문제를 제거했다.
+  - 백엔드: `quality.inspect()`가 `bytes`를 직접 읽어 앱 소유 임시 파일을 만들지 않는다. `input_*` 저장과 응답 `input` 필드를 제거했고, `steps_sheets(..., privacy=True)`로 공개 시트를 만든다.
+  - 처리 과정 시트: 공개용은 `panel_quality`(텍스트 지표), `panel_mask_silhouette`(SCHP class map만), `panel_swatches`(측정 색 칩), `atlas`/`uvmap`/`preview`로 구성. 사진 패널(`s0`, `s1`, `mask`, `reject`)은 CLI 로컬(`privacy=False`)에만 남는다.
+  - 정리: `scripts/purge_photo_artifacts.sh --yes`가 `input_*`, `steps/*`, `private/inputs/*`를 삭제하고 결과 스킨은 남긴다. `cleanup_static.sh`는 `input_*`를 나이와 무관하게 삭제하는 안전망을 갖는다. 작업 트리에서 30 input + 228 steps를 정리했고 결과 스킨 444장은 유지됐다.
+  - 문구: 푸터/README/deployment를 "업로드한 사진은 서버에 저장되지 않습니다"로 갱신. 원본 비교 카드는 master에 이미 없고, `feat/skin-owner-edit`는 rebase 후 private input 저장·`job_input`·`input` 필드를 제거해야 한다(Task 6).
+  - 검증: `pytest -q` → **731 passed, 2 skipped** (105.90s, exit 0); `npm run lint` exit 0; `npm run build` green (기존 chunk 경고); `git diff --check` clean; `tests/test_cleanup.py` 2 passed.
+  - 배포 후 남은 작업: release clone에서 purge 실행, 오래된 `/static/skins/input_*`·`/static/steps/*` URL 404 확인, Cloudflare 캐시 purge(수동), 백업/스냅샷 확인.
+  - 남은 위험: root의 실행 중 프로세스 접근, Cloudflare TLS 종단, Starlette 대용량 업로드 스풀, job record의 옷 천 크롭(원본 아님).
+  - 후속(Task 6, `fix/owner-edit-no-photo`): `feat/skin-owner-edit`의 `private/inputs` 저장, `job_input` 엔드포인트, job record `input` 필드를 제거하고 원본 카드를 브라우저 object URL로 바꿨다. 이 머지로 owner-edit 브랜치도 원본을 보관하지 않는다.

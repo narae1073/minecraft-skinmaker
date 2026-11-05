@@ -23,17 +23,21 @@ for sub in skins steps; do
   echo "$sub: removed $(( before - after )) file(s) older than ${DAYS}d (remaining $after)"
 done
 
-# Original photos and job records (per-skin edit state) are private and expire
-# with the skins. Older public input_* photos from before the private store are
-# removed too.
-for dir in "$ROOT/backend/private/inputs" "$ROOT/backend/private/jobs" "$ROOT/backend/static/skins"; do
-  [ -d "$dir" ] || continue
-  before="$(find "$dir" -type f | wc -l)"
-  if [ "$dir" = "$ROOT/backend/static/skins" ]; then
-    find "$dir" -type f -name 'input_*' -mtime +"$DAYS" -delete
-  else
-    find "$dir" -type f -mtime +"$DAYS" -delete
-  fi
-  after="$(find "$dir" -type f | wc -l)"
-  echo "${dir#$ROOT/}: removed $(( before - after )) file(s) older than ${DAYS}d (remaining $after)"
-done
+# Legacy source photos are no longer created, but remove any that remain
+# regardless of age (2026-11-05).
+skins_dir="$ROOT/backend/static/skins"
+if [ -d "$skins_dir" ]; then
+  before="$(find "$skins_dir" -maxdepth 1 -type f -name 'input_*' | wc -l)"
+  find "$skins_dir" -maxdepth 1 -type f -name 'input_*' -delete
+  after="$(find "$skins_dir" -maxdepth 1 -type f -name 'input_*' | wc -l)"
+  echo "input_*: removed $(( before - after )) legacy upload(s) (all ages)"
+fi
+
+# Per-skin job records (edit state) expire with the generated skins.
+jobs_dir="$ROOT/backend/private/jobs"
+if [ -d "$jobs_dir" ]; then
+  before="$(find "$jobs_dir" -type f | wc -l)"
+  find "$jobs_dir" -type f -mtime +"$DAYS" -delete
+  after="$(find "$jobs_dir" -type f | wc -l)"
+  echo "private/jobs: removed $(( before - after )) file(s) older than ${DAYS}d (remaining $after)"
+fi
