@@ -369,7 +369,7 @@ def panel_mask(photo: PhotoInput, seg) -> Panel:
     return Panel("S1b parsing mask", img, parts or "마스크 픽셀 없음")
 
 
-def panel_mask_silhouette(seg) -> Panel:
+def panel_mask_silhouette(seg) -> Panel | None:
     """Public parsing panel: the class map alone, on a neutral background."""
     if seg is None:
         return None
