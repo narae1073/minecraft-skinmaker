@@ -542,3 +542,12 @@ S0 quality/face detection (YuNet) → S1 colour measurement (white-balance + ban
   - 원본 카드의 다운로드 버튼은 `margin-top: auto` + `padding-top: 12px` 로 카드 하단에 맞춰 후보 카드 버튼과 같은 높이에 정렬.
   - 검증: `npm run lint` / `npm run build` green. Headless Chrome 1440×1000 및 360×800, 후보 1개와 3개 모두 확인. 3후보 데스크톱은 `[원본+후보1] / [후보2+후보3]`, 360px에서는 세로 1열, `scrollWidth` = viewport(1440/360). 로딩 힌트 0개, 후보 편집 버튼 0개, 사이드바 편집 버튼 1개, 원본/후보 다운로드 버튼 y좌표 일치(1391px). `.venv/bin/python -m pytest -q` → **726 passed, 2 skipped** (115.16s, 2회 실행 중 108.22s).
   - 리스크: 시각 확인은 mock transport 기반이며 실제 사진/실기기 확인은 수동 후속. 320px 미만에서는 기존 고정 200×280 원본 카드가 넘칠 수 있다(이번 변경 전부터 존재).
+
+- 2026-11-05 (원본 사진 무보존, `fix/no-photo-retention`, off `origin/master`): 공개 사이트가 업로드 원본을 `/static/skins/input_*`로 저장하고 `data.input`으로 노출하던 문제, 처리 과정 시트가 원본 사진을 포함하던 문제를 제거했다.
+  - 백엔드: `quality.inspect()`가 `bytes`를 직접 읽어 앱 소유 임시 파일을 만들지 않는다. `input_*` 저장과 응답 `input` 필드를 제거했고, `steps_sheets(..., privacy=True)`로 공개 시트를 만든다.
+  - 처리 과정 시트: 공개용은 `panel_quality`(텍스트 지표), `panel_mask_silhouette`(SCHP class map만), `panel_swatches`(측정 색 칩), `atlas`/`uvmap`/`preview`로 구성. 사진 패널(`s0`, `s1`, `mask`, `reject`)은 CLI 로컬(`privacy=False`)에만 남는다.
+  - 정리: `scripts/purge_photo_artifacts.sh --yes`가 `input_*`, `steps/*`, `private/inputs/*`를 삭제하고 결과 스킨은 남긴다. `cleanup_static.sh`는 `input_*`를 나이와 무관하게 삭제하는 안전망을 갖는다. 작업 트리에서 30 input + 228 steps를 정리했고 결과 스킨 444장은 유지됐다.
+  - 문구: 푸터/README/deployment를 "업로드한 사진은 서버에 저장되지 않습니다"로 갱신. 원본 비교 카드는 master에 이미 없고, `feat/skin-owner-edit`는 rebase 후 private input 저장·`job_input`·`input` 필드를 제거해야 한다(Task 6).
+  - 검증: `pytest -q` → **731 passed, 2 skipped** (105.90s, exit 0); `npm run lint` exit 0; `npm run build` green (기존 chunk 경고); `git diff --check` clean; `tests/test_cleanup.py` 2 passed.
+  - 배포 후 남은 작업: release clone에서 purge 실행, 오래된 `/static/skins/input_*`·`/static/steps/*` URL 404 확인, Cloudflare 캐시 purge(수동), 백업/스냅샷 확인.
+  - 남은 위험: root의 실행 중 프로세스 접근, Cloudflare TLS 종단, Starlette 대용량 업로드 스풀, job record의 옷 천 크롭(원본 아님).
