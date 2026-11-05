@@ -1,5 +1,6 @@
 """Daily conversion counters: aggregate attempts/success, KST, private file."""
 import json
+import os
 import subprocess
 import sys
 from datetime import datetime, timedelta, timezone
@@ -23,7 +24,8 @@ def test_record_attempt_and_success():
     assert row["classic"] == 1
     assert row["candidates"] == 3
     assert row["total_seconds"] == 12.5
-    assert stats.STATS_PATH.stat().st_mode & 0o777 == 0o600
+    if os.name != "nt":
+        assert stats.STATS_PATH.stat().st_mode & 0o777 == 0o600
 
 
 def test_kst_day_boundary():
