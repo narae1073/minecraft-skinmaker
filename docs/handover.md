@@ -641,6 +641,6 @@ S0 quality/face detection (YuNet) → S1 colour measurement (white-balance + ban
   - 정리: `scripts/purge_photo_artifacts.sh --yes`가 `input_*`, `steps/*`, `private/inputs/*`를 삭제하고 결과 스킨은 남긴다. `cleanup_static.sh`는 `input_*`를 나이와 무관하게 삭제하는 안전망을 갖는다. 작업 트리에서 30 input + 228 steps를 정리했고 결과 스킨 444장은 유지됐다.
   - 문구: 푸터/README/deployment를 "업로드한 사진은 서버에 저장되지 않습니다"로 갱신. 원본 비교 카드는 master에 이미 없고, `feat/skin-owner-edit`는 rebase 후 private input 저장·`job_input`·`input` 필드를 제거해야 한다(Task 6).
   - 검증: `pytest -q` → **731 passed, 2 skipped** (105.90s, exit 0); `npm run lint` exit 0; `npm run build` green (기존 chunk 경고); `git diff --check` clean; `tests/test_cleanup.py` 2 passed.
-  - 배포 후 남은 작업: release clone에서 purge 실행, 오래된 `/static/skins/input_*`·`/static/steps/*` URL 404 확인, Cloudflare 캐시 purge(수동), 백업/스냅샷 확인.
+  - 배포/정리 완료(2026-11-05): `master` = `3d017cb`; deploy run 41981142572 성공(2m13s); health ok. release clone purge: 선배포 2,559 input + 4,688 steps, 후배포 0 input + 56 steps 제거; 결과 스킨 9,948장 유지. main dev checkout도 5,244 input + 10,646 steps + 180 private input 제거(21,068 result skins 유지). 오래된 URL은 404이며 Cloudflare 캐시·백업/스냅샷은 수동 확인 대상.
   - 남은 위험: root의 실행 중 프로세스 접근, Cloudflare TLS 종단, Starlette 대용량 업로드 스풀, job record의 옷 천 크롭(원본 아님).
   - 후속(Task 6, `fix/owner-edit-no-photo`): `feat/skin-owner-edit`의 `private/inputs` 저장, `job_input` 엔드포인트, job record `input` 필드를 제거했다. 원본 비교 카드는 master의 UX 정리대로 제거된 상태를 유지한다(업로드 영역의 `선택한 사진` 미리보기는 로컬 object URL). 후보 카드의 `스킨 편집` 버튼은 per-skin editor 진입점으로 유지한다. 이 머지로 owner-edit 브랜치도 원본을 보관하지 않는다.
