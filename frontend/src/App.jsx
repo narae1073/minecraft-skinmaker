@@ -520,7 +520,7 @@ function App() {
         <footer className="footer">
           &copy; 2026 몬태규. All rights reserved.
           <br />
-          <small>공개 데모입니다. 민감한 사진은 올리지 마세요. 업로드 파일은 보존 기간(기본 14일) 후 삭제됩니다.</small>
+          <small>공개 데모입니다. 민감한 사진은 올리지 마세요. 업로드한 사진은 서버에 저장되지 않습니다.</small>
         </footer>
       </div>
     </>
