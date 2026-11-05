@@ -24,6 +24,7 @@ from fastapi.staticfiles import StaticFiles
 
 from backend import jobs as JOBS
 from skinmaker import job_codec as JC
+from backend.features import job_editor_on
 from backend.limits import RateLimiter, client_ip, max_upload_bytes
 from skinmaker.attributes import summarize
 from skinmaker.candidates import build
@@ -127,7 +128,11 @@ def health():
     # health 는 앱 생존 확인 경로다. available() 은 OpenRouter/Ollama 에서
     # 외부 네트워크를 타므로, 설정만 보는 configured() 를 쓴다.
     ok, detail = transport.configured()
-    return {"status": "ok" if ok else "unavailable", "transport": detail}
+    return {
+        "status": "ok" if ok else "unavailable",
+        "transport": detail,
+        "job_editor": "on" if job_editor_on() else "off",
+    }
 
 
 @app.post("/api/v1/generate-skin")
@@ -135,12 +140,14 @@ async def generate_skin(request: Request, response: Response, file: UploadFile =
                         hair_overlay: str = Form(None), skin_model: str = Form(None), hair_color: str = Form(None),
                         crop: str = Form(None)):
     # The owner cookie identifies the browser that generated a skin (edit access).
-    secret = JOBS.owner_secret_from_request(request)
-    is_new = secret is None
+    # With the job editor flag off, no cookie or job record is created at all.
+    enabled = job_editor_on()
+    secret = JOBS.owner_secret_from_request(request) if enabled else None
+    is_new = enabled and secret is None
     if is_new:
         secret = JOBS.new_owner_secret()
     result = await _start(request, file, noise_level, steps, hair_overlay, skin_model, hair_color, crop,
-                          owner_hash=JOBS.owner_hash(secret))
+                          owner_hash=JOBS.owner_hash(secret) if secret else None)
     if is_new:
         cookie = dict(key=JOBS.OWNER_COOKIE, value=secret, httponly=True, samesite="strict",
                       max_age=60 * 60 * 24 * 365, path="/",
@@ -345,7 +352,7 @@ async def _pipeline(request: Request, file: UploadFile = File(...), noise_level:
     return {
         "status": "success",
         "data": {
-            "job": {"id": token, "editable": owner_hash is not None},
+            "job": {"id": token, "editable": True} if owner_hash is not None else None,
             "skins": urls,
             "skins_flat": flat_urls,
             "summary": summarize(sum_attrs, result.uncertain),
@@ -374,6 +381,8 @@ _render_limiter = RateLimiter(limit=20)
 
 
 def _job_for_owner(request: Request, token: str) -> dict:
+    if not job_editor_on():
+        fail(404, "not_found", "스킨 편집 기능이 현재 꺼져 있어요.")
     record = JOBS.load_record(token)
     if record is None:
         fail(404, "not_found", "그 스킨을 찾을 수 없어요.")
@@ -531,6 +540,9 @@ body[data-job] #comboPanel, body[data-job] #srcBtn, body[data-job] .group:has(#p
 
 @app.get("/edit/{token}")
 def job_editor_page(token: str, request: Request):
+    if not job_editor_on():
+        return HTMLResponse("<!doctype html><meta charset=utf-8><p>스킨 편집 기능이 현재 꺼져 있어요.</p>",
+                            status_code=404)
     record = JOBS.load_record(token)
     if record is None or not JOBS.is_owner(record, request):
         return HTMLResponse("<!doctype html><meta charset=utf-8><p>이 스킨은 만든 브라우저에서만 편집할 수 있어요.</p>",
@@ -551,6 +563,8 @@ def job_editor_page(token: str, request: Request):
 @app.get("/edit/lib/{name:path}")
 def job_editor_asset(name: str):
     """Only the editor's own scripts and the vendored three.js are public."""
+    if not job_editor_on():
+        fail(404, "not_found", "스킨 편집 기능이 현재 꺼져 있어요.")
     if name in EDITOR_LIB_FILES:
         path = EDITOR_DIR / name
     elif name.startswith("vendor/") and name.split("/", 1)[1] in EDITOR_VENDOR_FILES:

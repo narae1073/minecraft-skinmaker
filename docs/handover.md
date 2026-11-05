@@ -651,3 +651,8 @@ S0 quality/face detection (YuNet) → S1 colour measurement (white-balance + ban
   - 배포: master merge `bfa42fd`; deploy run 41986256587 성공(2m47s); health ok. 프로덕션 CDP 스모크: 실제 Gemini 생성 3후보 → `/edit/1004462b315c` 새 탭, job mode, hint, canvas 1(atlas), `/editor`·`/preview` 200. 스모크 산출물(job record 1 + skins 6장)은 삭제했다.
   - live: per-skin editor는 owner cookie 전용; 원본 사진 저장 없음; job record/overlay는 `backend/private/jobs` 0600, 14일 보관; cap/beanie는 스킨 단위 opt-in. 새 의존성 없음.
   - 리스크: job record는 파생 fabric crop을 포함하며 운영자가 읽을 수 있다; 편집기는 feature flag 없이 노출; `SKINMAKER_PARSING=0`에서는 기존 `test_generate_uses_hair_bbox_for_crown`이 실패한다(프로덕션은 parsing on). 프로덕션 headless 스모크는 canvas 1개(atlas)만 확인 — 3D 뷰어는 실제 브라우저에서 수동 확인 권장.
+
+- 2026-11-05 (per-skin editor kill switch, `feat/job-editor-flag`): `SKINMAKER_JOB_EDITOR` 런타임 플래그 추가. 기본값 on.
+  - `0/false/off/no/빈값`: job record/owner cookie를 만들지 않고, `/edit/{id}`·`/edit/lib/*`·`/api/v1/jobs/*`는 404, 응답 `data.job`은 null(프론트는 기존 미리보기 모달로 폴백). 생성/스킨은 정상.
+  - `/api/v1/health`에 `job_editor: on|off` 표시. 기존 job record는 보존되어 다시 켜면 사용 가능.
+  - 검증: `tests/test_features.py` 11 + `test_skin_jobs_api` flag-off/health 2; 관련 65 passed. `.env.example`/deployment/README/handover 갱신.

@@ -245,3 +245,25 @@ def test_hat_colour_is_per_skin_and_validated(_isolated):
                if px[x, y][0] > 200 and px[x, y][1] < 60 and px[x, y][2] < 60)
     assert reds > 40
     assert owner.post(f"/api/v1/jobs/{token}/attributes", json={"headwear": "none"}).status_code == 200
+
+
+def test_job_editor_flag_off_disables_jobs_and_routes(_isolated, monkeypatch):
+    monkeypatch.setenv("SKINMAKER_JOB_EDITOR", "0")
+    owner = TestClient(A.app)
+    r = _generate(owner)
+    assert r.status_code == 200, r.text
+    data = r.json()["data"]
+    assert data.get("job") is None
+    token = Path(data["skins"][0]).name.split("_")[0]
+    assert not (Path(_isolated).parent / "private" / "jobs").exists()
+    assert "skinmaker_owner" not in r.headers.get("set-cookie", "")
+    assert owner.get(f"/edit/{token}").status_code == 404
+    assert owner.get(f"/api/v1/jobs/{token}").status_code == 404
+    assert owner.get(f"/api/v1/jobs/{token}/editor").status_code == 404
+    assert owner.get("/edit/lib/app.js").status_code == 404
+
+
+def test_health_reports_job_editor_flag(monkeypatch):
+    monkeypatch.setenv("SKINMAKER_JOB_EDITOR", "0")
+    body = TestClient(A.app).get("/api/v1/health").json()
+    assert body["job_editor"] == "off"
