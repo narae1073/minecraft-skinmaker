@@ -32,3 +32,12 @@ if [ -d "$skins_dir" ]; then
   after="$(find "$skins_dir" -maxdepth 1 -type f -name 'input_*' | wc -l)"
   echo "input_*: removed $(( before - after )) legacy upload(s) (all ages)"
 fi
+
+# Per-skin job records (edit state) expire with the generated skins.
+jobs_dir="$ROOT/backend/private/jobs"
+if [ -d "$jobs_dir" ]; then
+  before="$(find "$jobs_dir" -type f | wc -l)"
+  find "$jobs_dir" -type f -mtime +"$DAYS" -delete
+  after="$(find "$jobs_dir" -type f | wc -l)"
+  echo "private/jobs: removed $(( before - after )) file(s) older than ${DAYS}d (remaining $after)"
+fi

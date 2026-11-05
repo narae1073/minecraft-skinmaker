@@ -18,10 +18,12 @@ import sys
 import uuid
 from pathlib import Path
 
-from fastapi import FastAPI, File, Form, HTTPException, Request, UploadFile
-from fastapi.responses import StreamingResponse
+from fastapi import FastAPI, File, Form, HTTPException, Request, Response, UploadFile
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 
+from backend import jobs as JOBS
+from skinmaker import job_codec as JC
 from backend.limits import RateLimiter, client_ip, max_upload_bytes
 from skinmaker.attributes import summarize
 from skinmaker.candidates import build
@@ -129,22 +131,43 @@ def health():
 
 
 @app.post("/api/v1/generate-skin")
-async def generate_skin(request: Request, file: UploadFile = File(...), noise_level: str = Form(None), steps: str = Form(None),
+async def generate_skin(request: Request, response: Response, file: UploadFile = File(...), noise_level: str = Form(None), steps: str = Form(None),
                         hair_overlay: str = Form(None), skin_model: str = Form(None), hair_color: str = Form(None),
                         crop: str = Form(None)):
-    return await _start(request, file, noise_level, steps, hair_overlay, skin_model, hair_color, crop)
+    # The owner cookie identifies the browser that generated a skin (edit access).
+    secret = JOBS.owner_secret_from_request(request)
+    is_new = secret is None
+    if is_new:
+        secret = JOBS.new_owner_secret()
+    result = await _start(request, file, noise_level, steps, hair_overlay, skin_model, hair_color, crop,
+                          owner_hash=JOBS.owner_hash(secret))
+    if is_new:
+        cookie = dict(key=JOBS.OWNER_COOKIE, value=secret, httponly=True, samesite="strict",
+                      max_age=60 * 60 * 24 * 365, path="/",
+                      secure=_is_https(request))
+        if isinstance(result, StreamingResponse):
+            result.set_cookie(**cookie)
+        else:
+            response.set_cookie(**cookie)
+    return result
 
 
-async def _start(request, file, noise_level, steps, hair_overlay, skin_model, hair_color, crop):
+def _is_https(request: Request) -> bool:
+    return request.url.scheme == "https" or request.headers.get("x-forwarded-proto") == "https"
+
+
+async def _start(request, file, noise_level, steps, hair_overlay, skin_model, hair_color, crop, *, owner_hash=None):
     if "text/event-stream" not in (request.headers.get("accept") or ""):
-        return await _pipeline(request, file, noise_level, steps, hair_overlay, skin_model, hair_color, crop)
+        return await _pipeline(request, file, noise_level, steps, hair_overlay, skin_model, hair_color, crop,
+                               owner_hash=owner_hash)
     queue = asyncio.Queue()
 
     async def on_stage(item):
         await queue.put(item)
 
     task = asyncio.create_task(_pipeline(
-        request, file, noise_level, steps, hair_overlay, skin_model, hair_color, crop, on_stage=on_stage))
+        request, file, noise_level, steps, hair_overlay, skin_model, hair_color, crop, on_stage=on_stage,
+        owner_hash=owner_hash))
 
     async def gen():
         while not task.done():
@@ -169,7 +192,7 @@ async def _start(request, file, noise_level, steps, hair_overlay, skin_model, ha
 
 async def _pipeline(request: Request, file: UploadFile = File(...), noise_level: str = Form(None), steps: str = Form(None),
                         hair_overlay: str = Form(None), skin_model: str = Form(None), hair_color: str = Form(None),
-                        crop: str = Form(None), *, on_stage=None):
+                        crop: str = Form(None), *, on_stage=None, owner_hash=None):
     timings = {}
     async def stage(name, pct, label):
         if on_stage is not None:
@@ -314,11 +337,15 @@ async def _pipeline(request: Request, file: UploadFile = File(...), noise_level:
         c.image_flat.save(STATIC_DIR / flat_name)  # Edit Skin 토글 OFF 변형 (설계 §5)
         urls.append(f"/static/skins/{name}")
         flat_urls.append(f"/static/skins/{flat_name}")
+    if owner_hash is not None:
+        JOBS.create_record(token, owner_hash, observed, candidates, model=skin_model,
+                           noise_level=level, degrade=tuple(photo.degrade))
     await stage("done", 100, "완료")
     timings["total"] = round(time.perf_counter() - t0, 3)
     return {
         "status": "success",
         "data": {
+            "job": {"id": token, "editable": owner_hash is not None},
             "skins": urls,
             "skins_flat": flat_urls,
             "summary": summarize(sum_attrs, result.uncertain),
@@ -340,6 +367,199 @@ async def _pipeline(request: Request, file: UploadFile = File(...), noise_level:
             "timings": timings,
         },
     }
+
+
+# ---- owner-only skin jobs (per-skin mask edits) --------------------------------
+_render_limiter = RateLimiter(limit=20)
+
+
+def _job_for_owner(request: Request, token: str) -> dict:
+    record = JOBS.load_record(token)
+    if record is None:
+        fail(404, "not_found", "그 스킨을 찾을 수 없어요.")
+    if not JOBS.is_owner(record, request):
+        fail(403, "forbidden", "이 스킨은 만든 브라우저에서만 편집할 수 있어요.")
+    return record
+
+
+def _require_json(request: Request) -> None:
+    if not (request.headers.get("content-type") or "").startswith("application/json"):
+        fail(415, "bad_content_type", "JSON 요청만 받아요.")
+
+
+@app.get("/api/v1/jobs/{token}")
+def job_info(token: str, request: Request):
+    record = _job_for_owner(request, token)
+    return {"status": "success", "data": {
+        "id": record["id"], "model": record["model"], "revision": record["revision"],
+        "candidates": [{"index": c["index"], "varied": c["varied"],
+                        "attributes": JC.encode(c["attributes"])["values"]} for c in record["candidates"]],
+    }}
+
+
+@app.get("/api/v1/jobs/{token}/overlay")
+def job_overlay(token: str, request: Request):
+    record = _job_for_owner(request, token)
+    return JSONResponse({"masks": record.get("overlay", {}), "revision": record["revision"]},
+                        headers={"Cache-Control": "no-store"})
+
+
+def _candidate_index(value) -> int:
+    try:
+        return int(value if value is not None else 1)
+    except (TypeError, ValueError):
+        fail(400, "bad_index", "index 는 정수여야 해요.")
+
+
+@app.put("/api/v1/jobs/{token}/overlay")
+async def job_overlay_put(token: str, request: Request):
+    """Save the editor's masks. Only entries that differ from the baseline are stored."""
+    _require_json(request)
+    record = _job_for_owner(request, token)
+    body = await request.json()
+    masks = body.get("masks") if isinstance(body, dict) else None
+    errors = JOBS.validate_masks(masks, JOBS.EDITOR_BODY_MAX_BYTES)
+    if errors:
+        fail(400, "bad_overlay", "; ".join(errors[:5]))
+    index = _candidate_index(body.get("index") if isinstance(body, dict) else None)
+    if JOBS.candidate(record, index) is None:
+        fail(404, "not_found", "그 후보가 없어요.")
+    record["overlay"] = JOBS.diff_against_baseline(masks, record, index)
+    record["revision"] = int(record.get("revision", 0)) + 1
+    JOBS.save_record(record)
+    return {"ok": True, "revision": record["revision"], "changed": sorted(record["overlay"])}
+
+
+@app.post("/api/v1/jobs/{token}/attributes")
+async def job_attributes(token: str, request: Request):
+    """Change this skin's headwear (none / cap). Only this skin is affected."""
+    _require_json(request)
+    record = _job_for_owner(request, token)
+    body = await request.json()
+    value = body.get("headwear") if isinstance(body, dict) else None
+    color = body.get("hat_color") if isinstance(body, dict) else None
+    if value not in JOBS.HEADWEAR_CHOICES:
+        fail(400, "bad_headwear", "headwear 는 none, cap, beanie 중 하나여야 해요.")
+    try:
+        JOBS.set_headwear(record, value, color)
+    except ValueError:
+        fail(400, "bad_hat_color", "hat_color 는 #rrggbb 형식이어야 해요.")
+    record["revision"] = int(record.get("revision", 0)) + 1
+    JOBS.save_record(record)
+    return {"ok": True, "headwear": value, "revision": record["revision"]}
+
+
+@app.get("/api/v1/jobs/{token}/editor")
+def job_editor(token: str, request: Request, index: int = 1, baseline: int = 0):
+    """Everything the per-skin editor needs. ``baseline=1`` returns the procedural
+    starting point (the reset target) instead of the job's current masks."""
+    record = _job_for_owner(request, token)
+    index = _candidate_index(index)
+    if JOBS.candidate(record, index) is None:
+        fail(404, "not_found", "그 후보가 없어요.")
+    payload = JOBS.editor_payload(record, index)
+    if baseline:
+        payload["masks"] = JOBS.baseline_masks(record, index)
+    return JSONResponse(payload, headers={"Cache-Control": "no-store"})
+
+
+@app.get("/api/v1/jobs/{token}/seed")
+def job_seed(token: str, request: Request, key: str = "", value: str = "", index: int = 1):
+    from skinmaker.attribute_seeds import MASKABLE
+    record = _job_for_owner(request, token)
+    index = _candidate_index(index)
+    if key not in MASKABLE or value not in MASKABLE[key]:
+        fail(400, "bad_key", "알 수 없는 마스크 키예요.")
+    entry = JOBS.baseline_masks(record, index)[f"{key}.{value}"]
+    return JSONResponse({"key": key, "value": value, "mask": entry}, headers={"Cache-Control": "no-store"})
+
+
+@app.post("/api/v1/jobs/{token}/preview")
+async def job_preview(token: str, request: Request):
+    """Render the candidate with the editor's current masks, without saving anything.
+    Returns the PNG as a data URL so the editor can show it at once."""
+    import base64
+    _require_json(request)
+    record = _job_for_owner(request, token)
+    if not _render_limiter.allow(client_ip(request)):
+        fail(429, "rate_limited", "잠시 후 다시 시도해주세요.")
+    body = await request.json()
+    masks = body.get("masks") if isinstance(body, dict) else None
+    errors = JOBS.validate_masks(masks, JOBS.EDITOR_BODY_MAX_BYTES)
+    if errors:
+        fail(400, "bad_masks", "; ".join(errors[:5]))
+    index = _candidate_index(body.get("index"))
+    if JOBS.candidate(record, index) is None:
+        fail(404, "not_found", "그 후보가 없어요.")
+    png, problems = await asyncio.to_thread(JOBS.preview_png, record, index, masks)
+    return {"skin": "data:image/png;base64," + base64.b64encode(png).decode("ascii"),
+            "mask": None, "key": "", "value": "", "mode": "final", "effective": {},
+            "warnings": [], "coerced": [], "derived": [], "problems": problems}
+
+
+@app.post("/api/v1/jobs/{token}/render")
+async def job_render(token: str, request: Request):
+    _require_json(request)
+    record = _job_for_owner(request, token)
+    if not _render_limiter.allow(client_ip(request)):
+        fail(429, "rate_limited", "잠시 후 다시 시도해주세요.")
+    body = await request.json()
+    try:
+        index = int(body.get("index", 1))
+    except (TypeError, ValueError, AttributeError):
+        fail(400, "bad_index", "index 는 정수여야 해요.")
+    if JOBS.candidate(record, index) is None:
+        fail(404, "not_found", "그 후보가 없어요.")
+    image, flat, problems = await asyncio.to_thread(JOBS.render_candidate, record, index)
+    rev = int(record.get("revision", 0))
+    name = f"{token}_e{rev}_c{index}.png"
+    flat_name = f"{token}_e{rev}_c{index}_flat.png"
+    image.save(STATIC_DIR / name)
+    flat.save(STATIC_DIR / flat_name)
+    return {"skin": f"/static/skins/{name}", "skin_flat": f"/static/skins/{flat_name}",
+            "revision": rev, "problems": problems}
+
+
+# ---- per-skin editor page ------------------------------------------------------
+EDITOR_DIR = REPO_ROOT / "tools" / "mask_editor"
+EDITOR_LIB_FILES = {"app.js", "viewer.js", "atlas.js"}
+EDITOR_VENDOR_FILES = {"three.core.js", "three.module.js", "OrbitControls.js"}
+_EDITOR_CSS = """
+body[data-job] #comboPanel, body[data-job] #srcBtn, body[data-job] .group:has(#photoInput) { display: none !important; }
+"""
+
+
+@app.get("/edit/{token}")
+def job_editor_page(token: str, request: Request):
+    record = JOBS.load_record(token)
+    if record is None or not JOBS.is_owner(record, request):
+        return HTMLResponse("<!doctype html><meta charset=utf-8><p>이 스킨은 만든 브라우저에서만 편집할 수 있어요.</p>",
+                            status_code=403)
+    html = (EDITOR_DIR / "index.html").read_text(encoding="utf-8")
+    html = html.replace("/static/", "/edit/lib/")
+    # Job mode saves to this skin's overlay, not the developer draft file.
+    html = html.replace(
+        "저장은 <code>out/mask_editor/attribute_masks.json</code>",
+        "저장은 이 스킨에만 적용됩니다",
+    )
+    html = html.replace("<body>", f'<body data-job="{token}">', 1)
+    html = html.replace('<script type="module"',
+                        f'<style>{_EDITOR_CSS}</style>\n<script>window.MASK_EDITOR_JOB = "{token}";</script>\n<script type="module"', 1)
+    return HTMLResponse(html, headers={"Cache-Control": "no-store"})
+
+
+@app.get("/edit/lib/{name:path}")
+def job_editor_asset(name: str):
+    """Only the editor's own scripts and the vendored three.js are public."""
+    if name in EDITOR_LIB_FILES:
+        path = EDITOR_DIR / name
+    elif name.startswith("vendor/") and name.split("/", 1)[1] in EDITOR_VENDOR_FILES:
+        path = EDITOR_DIR / name
+    else:
+        fail(404, "not_found", "없는 파일이에요.")
+    if not path.is_file():
+        fail(404, "not_found", "없는 파일이에요.")
+    return FileResponse(path, headers={"Cache-Control": "public, max-age=3600"})
 
 
 def mount_frontend(application: FastAPI, dist: Path = FRONTEND_DIST) -> None:

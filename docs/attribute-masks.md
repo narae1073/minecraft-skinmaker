@@ -221,3 +221,75 @@ without a photo:
 - Combo/model persist in the URL hash and localStorage.
 - P0 renders classic/slim **2D**; 3D is classic front. Slim 3D, presets, 3D back/
   overlay are P1.
+
+## Editor UI — 2D atlas (2026-11-04)
+
+- The 2D editor is a canvas drawn on the real 64×64 classic atlas. Rects come from
+  `/api/defaults` → `atlas.rects` (one box per face per layer; L1 and L2 never overlap).
+- Masked texels are hatched: L1 `\` in blue, L2 `/` in orange. Boxes that contain
+  mask pixels are bright; empty boxes are dimmed and light up as soon as a pixel is drawn.
+- Draw by clicking/dragging on the atlas (Shift = erase). Ctrl+wheel, +/−, or the
+  zoom buttons change zoom (2×–24×). Clear/Fill act on the active box only.
+- 3D: left-drag paints on whichever part is under the cursor (nearest hit across parts).
+  Edits show in 3D immediately (a client-side tint on the last render); the exact
+  server render replaces it when it arrives.
+- Pure helpers live in `tools/mask_editor/atlas.js`; `atlas.test.mjs` runs from
+  `tests/test_mask_editor_atlas.py` when Node is installed.
+- Known limits: slim-model masks still use the classic grid (3-px arm faces are not
+  separate in the editor); the whole mask set is still sent on each preview.
+
+## Editor UI — history, base skin, reset (2026-11-04)
+
+- Base skin (on by default): the atlas shows the real final render (the same image as
+  the 3D Final view), with empty boxes veiled. The base is always the final render,
+  even in Mask view. It refreshes from the server after each edit (about 30 ms render).
+- Undo/Redo: strokes, fill and clear are per-cell diffs (small). Seed and reset are
+  whole-mask snapshots. History is capped at 100 commands. Shortcuts: Ctrl+Z, Ctrl+Y,
+  Ctrl+Shift+Z.
+- 초기 상태로 (Reset): every mask goes back to the procedural seed (`GET /api/seed-all`,
+  the same hood-policy zeroing as the defaults). Combo settings are not changed. Reset
+  is an undoable step, and nothing is written to disk until Save.
+- Plain wheel zooms the atlas (2×–24×) around the cursor. Right-drag erases.
+
+## Editor fixes — seeds, hair intersection, preview source (2026-11-04)
+
+- Hair seeds are taken from the same pipeline the renderer uses (`render(head_hair_out=...)`),
+  not from the rule stencil. Seeding from the rule stencil cut the side hair whenever the
+  style and length masks were intersected (short hair: sides 48/64 bare vs 7/64 procedural).
+- Masked hair cells keep the pipeline's strand shading; flat colour only for added cells.
+- Reset (`/api/seed-all`) and the per-value seed (`/api/seed`) now share `_finalize_seed`
+  with the saved-draft defaults, so the top body is refilled (back torso no longer bare).
+- Preview `source`: `draft` (editor masks, default) or `production` (approved asset, what
+  generation uses). The base skin follows the source; the instant tint is draft-only.
+- Advisory combo warning for contradictory hair pairs (e.g. short style + long length).
+- Viewer `dispose()` releases the loop, listeners and GPU resources.
+- Draft schema 3: the first load of a draft saved before this fix backs the file up to
+  `out/mask_editor/attribute_masks.pre-v3-<stamp>.json`, re-seeds the hair keys, and refills
+  legacy top bodies. Later loads do nothing. Editor tests run against a temp OUT and never
+  touch the real draft.
+- Slim-specific masks: slim arm faces that are narrower than classic (front, back, top,
+  bottom: 3 px vs 4 px) can carry a per-entry `"slim"` sub-dict with grids of the slim width.
+  `attribute_masks.resolve_model(masks, model)` swaps those in for slim renders only; classic
+  renders ignore them. The editor's model select switches the atlas to the slim layout; a
+  slim override starts as a copy of the classic columns on first edit, so the visible cells
+  do not jump. Existing assets have no slim sub-dicts and are unchanged.
+- Photo-driven seeds: `POST /api/photo` observes an uploaded photo (colours, SCHP hair
+  silhouette; no VLM) and the seeds and preview use it until `DELETE /api/photo`. Without a
+  photo the fixture is used. Uploading does not overwrite drafts; 초기 상태로 or 이 값만 seed로
+  re-seed from the photo (undoable). Process-wide state: one photo at a time for everyone
+  who can reach the editor.
+  Upload also runs the production VLM classification (`classify`, transport from `.env`).
+  Its garment and hair attributes become the seed base (`_seed_base`), so garment seeds
+  follow the photo too. A classification failure returns 503/502 and stores nothing.
+  Tests fake the classification; the response reports `attributes_source` and `attributes`.
+  The uploaded image is never kept: it goes to a private temp file for observation and is
+  deleted (`out/` is served at `/out`, so a stored photo would be downloadable). Only the
+  derived colours and attributes stay in memory. The preview combo takes the photo's
+  attributes; clearing the photo restores the defaults. The editor has no auth, like its
+  The shared editor is gated by an access token: set `SKINMAKER_EDITOR_TOKEN` and every
+  `/api/*` and `/out/*` request needs it (header `X-Editor-Token`, or the cookie set by
+  `POST /api/auth`). The page and static files stay open. The page asks once for the token
+  on a 401 and stores it as a cookie. On the shared host the token lives in
+  `out/mask_editor/access_token` (mode 600, gitignored); read it there to log in.
+  The tailnet is the network boundary; the token is the application boundary. Over
+  plain HTTP the token travels inside WireGuard, not TLS.

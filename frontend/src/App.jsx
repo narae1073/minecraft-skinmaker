@@ -57,6 +57,14 @@ function App() {
   const [serverError, setServerError] = useState('');
   const [historyNotice, setHistoryNotice] = useState(''); // 사이드바 인라인 안내
   const [skins, setSkins] = useState([]); // 현재 결과: {url, flatUrl} 쌍 배열
+  // 편집: 이 브라우저가 만든 스킨이면 마스크 편집기(새 탭), 아니면 기존 미리보기 모달.
+  const openSkinEditor = (skin) => {
+    if (skin.jobId) {
+      window.open(`/edit/${encodeURIComponent(skin.jobId)}`, "_blank", "noopener");
+    } else {
+      setEditorItem(skin);
+    }
+  };
   const [editorItem, setEditorItem] = useState(null); // SkinEditor 모달 대상 ({url, flatUrl, steps, model})
   const [noiseLevel, setNoiseLevel] = useState(50); // 노이즈 세기 % (기본 50 — 사용자 결정 2026-10-13)
   const [skinModel, setSkinModel] = useState('classic'); // 체형: classic(4px 팔) | slim(3px 팔)
@@ -205,6 +213,7 @@ function App() {
           varied: (data.data.candidates || [])[i]?.varied || "",
           steps: data.data.steps || null, // 이 생성의 처리 과정 시트 — 사이드바 편집이 자기 세대의 시트를 연다 (후속 검토 1)
           model: resultModel, // 3D 뷰어 체형 (classic | slim)
+          jobId: data.data.job?.editable ? data.data.job.id : null, // 만든 브라우저만 편집 가능 (쿠키)
         }));
         setSkins(pairs);
         setCatInfo({
@@ -286,7 +295,7 @@ function App() {
                   <a href={skin.url} download={`skin_${index + 1}.png`} className="sidebar-download-link">
                     스킨 {index + 1}
                   </a>
-                  <button className="edit-btn" onClick={() => { setEditorItem(skin); setIsSidebarOpen(false); }}>
+                  <button className="edit-btn" onClick={() => { openSkinEditor(skin); setIsSidebarOpen(false); }}>
                     편집
                   </button>
                 </li>
@@ -489,6 +498,9 @@ function App() {
                   )}
                   <Skin3DViewer skinUrl={skin.url} model={skin.model} className="candidate-viewer" />
                   <div className="card-actions">
+                    <button className="edit-btn" onClick={() => openSkinEditor(skin)}>
+                      스킨 편집 ✏️
+                    </button>
                     <a href={skin.url} download={`skin_option_${index + 1}.png`} className="download-btn">
                       스킨 다운로드
                     </a>

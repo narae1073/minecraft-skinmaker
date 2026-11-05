@@ -11,7 +11,22 @@
   header { padding: 12px 18px; border-bottom: 1px solid var(--line); background: #fff; display: flex; gap: 14px; align-items: baseline; flex-wrap: wrap; }
   header h1 { font-size: 16px; margin: 0; }
   header .hint { color: var(--muted); font-size: 12px; }
-  main { display: grid; grid-template-columns: minmax(0, 1.7fr) minmax(380px, 1fr); gap: 12px; padding: 12px; align-items: start; }
+  main { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr) minmax(340px, 1fr); gap: 12px; padding: 12px; align-items: start; }
+  .atlasPanel { padding: 8px; }
+  #atlasWrap { max-height: calc(100vh - 150px); overflow: auto; border-radius: 7px; background: #f1f3f5; padding: 8px; }
+  #atlasCanvas { display: block; image-rendering: pixelated; cursor: crosshair; touch-action: none; }
+  .toolbar { display: flex; gap: 8px; align-items: stretch; flex-wrap: wrap; margin-bottom: 8px; }
+  .group { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; padding: 5px 8px; border: 1px solid var(--line); border-radius: 8px; background: #fafbfc; }
+  .gtitle { font-size: 10px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin-right: 2px; }
+  .group label { color: var(--ink); font-size: 12px; }
+  button:disabled { opacity: .45; cursor: default; }
+  .fileBtn { position: relative; display: inline-block; padding: 6px 10px; border: 1px solid var(--line); border-radius: 7px; background: #fff; cursor: pointer; font-size: 14px; color: var(--ink); }
+  .fileBtn:hover { background: #f1f3f5; }
+  .fileBtn input { position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; }
+  .legend { display: flex; gap: 10px; align-items: center; font-size: 12px; color: var(--muted); margin-top: 6px; flex-wrap: wrap; }
+  .swatch { display: inline-block; width: 16px; height: 16px; border-radius: 3px; border: 1px solid #94a3b8; vertical-align: middle; }
+  .swatch.l1 { background: repeating-linear-gradient(-45deg, #1d4ed8 0 2px, transparent 2px 6px), #c9d6e6; }
+  .swatch.l2 { background: repeating-linear-gradient(45deg, #c2410c 0 2px, transparent 2px 6px), #f2dcc0; }
   .panel { background: #fff; border: 1px solid var(--line); border-radius: 10px; }
   .editor { position: relative; padding: 8px; }
   #viewer { width: 100%; height: calc(100vh - 116px); min-height: 560px; border-radius: 7px; overflow: hidden; background: #eef1f4; cursor: crosshair; }
@@ -25,18 +40,10 @@
   button.active { background: #e0f2fe; border-color: #7dd3fc; }
   label, .hint { color: var(--muted); font-size: 12px; }
   .sectionTitle { font-size: 11px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin: 10px 0 4px; }
-  #atlas { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
   #comboGrid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 4px 8px; }
   .comboItem { display: flex; flex-direction: column; gap: 2px; font-size: 11px; color: var(--muted); }
   .comboItem select { font: inherit; font-size: 12px; padding: 2px 4px; border: 1px solid var(--line); border-radius: 5px; background: #fff; color: var(--ink); }
   #comboWarn { color: #b45309; min-height: 16px; font-size: 11px; }
-  .faceBlock { border: 1px solid var(--line); border-radius: 8px; padding: 6px; background: #fbfcfd; }
-  .faceBlock.active { border-color: #60a5fa; box-shadow: 0 0 0 1px #bfdbfe inset; background: #f5f9ff; }
-  .faceLabel { font-size: 11px; color: var(--muted); margin-bottom: 4px; }
-  .faceGrid { display: grid; grid-template-columns: repeat(8, 20px); gap: 1px; width: max-content; }
-  .cell { width: 20px; height: 20px; border-radius: 2px; background: #eef1f4; border: 1px solid #dde2e8; cursor: crosshair; }
-  .cell.on { background: var(--cyan); border-color: #0097a7; }
-  .cell:hover { outline: 1px solid #94a3b8; }
   .status { color: var(--muted); font-size: 12px; min-height: 18px; margin-top: 8px; }
   .meta { display: flex; gap: 12px; align-items: center; margin-top: 8px; }
   .skin { width: 96px; height: 96px; image-rendering: pixelated; border: 1px solid var(--line); border-radius: 6px; background: #eef1f4; }
@@ -44,6 +51,7 @@
   @media (max-width: 980px) {
     main { grid-template-columns: 1fr; }
     #viewer { height: 58vh; min-height: 380px; }
+    #atlasWrap { max-height: none; }
     .controls { max-height: none; }
   }
 </style>
@@ -51,9 +59,51 @@
 <body>
 <header>
   <h1>skinmaker 3D attribute mask editor</h1>
-  <span class="hint">attribute value별 L1/L2 shape stencil (동시 선택 가능) · 왼쪽 3D에서 좌클릭/드래그 = 칠하기 · 우클릭 드래그 = 회전 · 저장은 <code>out/mask_editor/attribute_masks.json</code></span>
+  <span class="hint">2D atlas에서 좌클릭/드래그 = 칠하기 · 우클릭/Shift = 지우개 · 휠 = 줌 · Ctrl+Z / Ctrl+Y = Undo/Redo · 3D에서도 좌클릭 칠하기 · 저장은 <code>out/mask_editor/attribute_masks.json</code></span>
 </header>
 <main>
+  <section class="panel atlasPanel">
+    <div class="toolbar">
+      <div class="group">
+        <span class="gtitle">보기</span>
+        <button id="baseBtn" class="active" title="실제 출력 스킨을 atlas 배경으로">Base skin</button>
+        <button id="hoodModeBtn" class="active">Final</button>
+        <button id="maskModeBtn">Mask</button>
+        <button id="srcBtn" title="Draft = 편집 중인 마스크, Production = 승인된 asset (실제 생성에 쓰이는 것)">Draft</button>
+      </div>
+      <div class="group">
+        <span class="gtitle">확대</span>
+        <button id="zoomOut" title="휠 아래 = 축소">−</button>
+        <span class="hint" id="zoomLabel">8×</span>
+        <button id="zoomIn" title="휠 위 = 확대">+</button>
+        <button id="zoomFit">맞춤</button>
+      </div>
+      <div class="group">
+        <span class="gtitle">도구</span>
+        <button id="paintBtn" class="active">칠하기</button>
+        <button id="eraseBtn">지우개</button>
+        <label><input type="checkbox" id="mirror" /> 좌우 미러</label>
+      </div>
+      <div class="group">
+        <span class="gtitle">사진</span>
+        <label class="fileBtn" title="이 사진의 색과 머리 실루엣으로 seed 를 만듭니다">사진 선택<input type="file" id="photoInput" accept="image/jpeg,image/png,image/webp" /></label>
+        <span class="hint" id="photoName">기본 fixture</span>
+        <button id="photoClear" disabled title="fixture 기준으로 되돌림">해제</button>
+      </div>
+      <div class="group">
+        <span class="gtitle">기록</span>
+        <button id="undoBtn" disabled title="Ctrl+Z">Undo</button>
+        <button id="redoBtn" disabled title="Ctrl+Y / Ctrl+Shift+Z">Redo</button>
+        <button id="resetBtn" title="모든 마스크를 절차적 seed(초기 상태)로 — 조합 설정은 유지">초기 상태로</button>
+      </div>
+    </div>
+    <div id="atlasWrap"><canvas id="atlasCanvas" width="512" height="512"></canvas></div>
+    <div class="legend">
+      <span><span class="swatch l1"></span> L1 (\ 사선, 파랑)</span>
+      <span><span class="swatch l2"></span> L2 (/ 사선, 주황)</span>
+      <span>우클릭 드래그 = 지우기 · 휠 = 확대/축소</span>
+    </div>
+  </section>
   <section class="panel editor">
     <div id="viewer"></div>
     <div class="viewerHint">좌클릭 칠하기 · 우클릭 회전 · 휠 줌</div>
@@ -73,25 +123,16 @@
     <div class="sectionTitle">마스크 편집 대상 (14 keys)</div>
     <div class="row" id="kindTabs"></div>
     <div class="row" id="valueTabs"></div>
-    <div class="row" id="partTabs"></div>
-    <div class="row" id="layerTabs"></div>
-    <div class="row" id="faceTabs"></div>
+    <div class="sectionTitle">현재 면 (atlas에서 선택된 박스)</div>
     <div class="row">
-      <span class="hint">보기</span>
-      <button id="hoodModeBtn" class="active">Final</button>
-      <button id="maskModeBtn">Mask</button>
+      <button id="clearBtn">이 면 지우기</button>
+      <button id="fillBtn">이 면 채우기</button>
     </div>
+    <div class="sectionTitle">파일</div>
     <div class="row">
-      <button id="paintBtn" class="active">칠하기</button>
-      <button id="eraseBtn">지우개</button>
-      <label><input type="checkbox" id="mirror" /> 좌우 미러</label>
-      <button id="undoBtn">Undo</button>
-      <button id="clearBtn">Clear</button>
-      <button id="fillBtn">Fill</button>
+      <button id="saveBtn" class="primary">저장</button>
+      <button id="seedBtn" title="현재 key/value 만 seed로">이 값만 seed로</button>
     </div>
-    <div class="row"><button id="saveBtn" class="primary">저장</button><button id="seedBtn">Seed로 되돌리기</button></div>
-    <div class="sectionTitle">Part atlas — attribute value shape</div>
-    <div id="atlas"></div>
     <div class="status" id="status">불러오는 중…</div>
     <div class="meta"><img id="skin" class="skin" alt="64x64 skin" /><span class="hint">L1은 어두운 원단, L2는 밝은 원단으로 합성된다.</span></div>
   </aside>
@@ -109,6 +150,6 @@
 <script type="importmap">
 {"imports":{"three":"/static/vendor/three.module.js","three/addons/":"/static/vendor/"}}
 </script>
-<script type="module" src="/static/app.js?v=14"></script>
+<script type="module" src="/static/app.js?v=18"></script>
 </body>
 </html>

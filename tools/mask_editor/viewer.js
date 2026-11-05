@@ -117,6 +117,21 @@ export function initViewer(container) {
 
   let texture = null;
   let loadToken = 0;
+  // Instant preview: show a canvas texture (client-side overlay) until the
+  // server render for the same edit arrives.
+  function setSkinCanvas(canvas) {
+    loadToken++;
+    const t = new THREE.CanvasTexture(canvas);
+    t.magFilter = THREE.NearestFilter;
+    t.minFilter = THREE.NearestFilter;
+    t.colorSpace = THREE.SRGBColorSpace;
+    t.needsUpdate = true;
+    if (texture) texture.dispose();
+    texture = t;
+    material.map = t;
+    material.needsUpdate = true;
+  }
+
   function setSkin(url) {
     const token = ++loadToken;
     new THREE.TextureLoader().load(url, (t) => {
@@ -140,11 +155,13 @@ export function initViewer(container) {
     camera.updateProjectionMatrix();
   }
   window.addEventListener('resize', resize);
-  if (typeof ResizeObserver !== 'undefined') new ResizeObserver(resize).observe(container);
+  const resizeObserver = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(resize) : null;
+  if (resizeObserver) resizeObserver.observe(container);
   resize();
 
+  let frameId = 0;
   function animate() {
-    requestAnimationFrame(animate);
+    frameId = requestAnimationFrame(animate);
     controls.update();
     renderer.render(scene, camera);
   }
@@ -169,8 +186,12 @@ export function initViewer(container) {
     meshes.arm2.geometry = slim ? geos.slimArm2 : geos.arm2;
     meshes.larm.geometry = slim ? geos.slimLarm : geos.larm;
     meshes.larm2.geometry = slim ? geos.slimLarm2 : geos.larm2;
-    meshes.arm.position.x = slim ? 0.6875 : 0.75;
-    meshes.larm.position.x = slim ? -0.6875 : -0.75;
+    // L1 and L2 arms share one x so the overlay stays concentric.
+    const armX = slim ? 0.6875 : 0.75;
+    meshes.arm.position.x = armX;
+    meshes.arm2.position.x = armX;
+    meshes.larm.position.x = -armX;
+    meshes.larm2.position.x = -armX;
     activeUV = slim ? PART_UV_SLIM : PART_UV;
     activeUV2 = slim ? PART_UV2_SLIM : PART_UV2;
   }
@@ -198,7 +219,18 @@ export function initViewer(container) {
     const py = Math.floor((1 - hit.uv.y) * S);
     const u = px - faceRect[0], v = py - faceRect[1];
     if (u < 0 || u >= faceRect[2] || v < 0 || v >= faceRect[3]) return null;
-    return { part, face: `${part}.${faceName}`, u, v };
+    return { part, face: `${part}.${faceName}`, u, v, distance: hit.distance };
+  }
+
+  // Nearest hit across every part on the given layer, so one stroke can cross
+  // body, arms and legs without choosing a tab first.
+  function pickAny(layer, clientX, clientY) {
+    let best = null;
+    for (const part of Object.keys(PART_MESH)) {
+      const hit = pick(part, layer, clientX, clientY);
+      if (hit && (!best || hit.distance < best.distance)) best = hit;
+    }
+    return best;
   }
 
   function pickHead(clientX, clientY, layer) {
@@ -223,5 +255,17 @@ export function initViewer(container) {
 
   animate();
   setModel('classic');
-  return { setSkin, setModel, controls, camera, resize, pick, pickHead, setEditableLayer, projectHead, projectPoint, meshes };
+  // Stop the loop, drop listeners and GPU resources. Call before discarding a viewer.
+  function dispose() {
+    cancelAnimationFrame(frameId);
+    window.removeEventListener('resize', resize);
+    if (resizeObserver) resizeObserver.disconnect();
+    controls.dispose();
+    if (texture) texture.dispose();
+    material.dispose();
+    renderer.dispose();
+    renderer.domElement.remove();
+  }
+
+  return { dispose, setSkin, setSkinCanvas, setModel, controls, camera, resize, pick, pickAny, pickHead, setEditableLayer, projectHead, projectPoint, meshes };
 }

@@ -535,6 +535,98 @@ S0 quality/face detection (YuNet) → S1 colour measurement (white-balance + ban
 - 2026-11-04 (remove original card, `feat/remove-original-card`): 결과 영역의 `원본 사진` 카드와 `원본 사진을 왼쪽에 두고…` 안내 문구를 삭제했다 (`inputPhoto` state 포함). 업로드 영역의 `선택한 사진` 미리보기는 유지. 백엔드 응답의 `data.input` 과 `input_*.jpg` 저장은 그대로 두었으며 프론트에서 더 이상 쓰지 않는다. 데스크톱 1400px / 모바일 360px 에서 콘솔 에러·가로 스크롤 없음 확인.
 - 2026-11-04 (mask-approval policy decided, `docs/mask-approval-policy`): 사용자 결정 **Option B** — 렌더러는 `assets/attribute_masks.json` 을 있는 그대로 사용한다. SHA 승인(`attribute_masks_approval.json`)은 `production_status` 릴리스 리포트에서만 확인하며 렌더링을 막지 않는다. 코드 동작은 변경 없음; `attribute_masks.py` 독스트링을 정책에 맞게 고쳤다. 승인 검사를 렌더에 강제하려면 별도 결정이 필요하다.
 
+- 2026-11-04 (mask editor fixes, `fix/mask-editor-arm-and-draft-migration`): 두 버그 수정.
+  - Slim 3D: `setModel` 이 L2 팔(`arm2`/`larm2`)의 x 를 갱신하지 않아 L1 과 동심이 아니었다. 이제 L1/L2 가 같은 x 를 쓴다.
+  - 드래프트: `/api/defaults` 가 저장된 `top_garment`/`hair_length` 드래프트의 body 면을 매 읽기마다 재시드해 사용자 편집이 사라졌다. 저장 파일에 `schema: 2` 마커를 쓰고, 마이그레이션은 마커 없는 레거시 드래프트와 승인 자산에만 적용한다. 훅 정책(후드 up/down 에서 body.back 머리 0)은 그대로 매번 적용.
+  - 검증: `tests/test_mask_editor.py` 16 passed (신규 6: 사용자 편집 유지 2, 레거시 마이그레이션 유지, 훅 정책 유지, save 마커, viewer 정적 검사); `pytest -q` → **734 passed** (127.24s); `node --check viewer.js` ok. 렌더 경로 무변경.
+- 2026-11-04 (mask editor 2D atlas, `feat/mask-editor-atlas`): 2D 편집기를 캔버스 atlas 로 재설계.
+  - 64×64 실제 classic atlas 를 그리고(`/api/defaults` → `atlas.rects`), 마스크 픽셀은 L1 `\` 파랑 / L2 `/` 주황 사선으로 표시.
+  - 마스크가 있는 면은 밝게, 없는 면은 흐리게; 빈 면에 칠하면 즉시 밝아짐. 클릭/드래그 칠하기, Shift 지우개, Ctrl+휠·버튼 줌(2–24×).
+  - 3D: 어느 파트든 클릭 칠하기(`pickAny`), 편집은 클라이언트 틴트로 즉시 반영되고 서버 렌더가 도착하면 정확한 결과로 교체.
+  - 검증: `tests/test_mask_editor.py` 17 + `tests/test_mask_editor_atlas.py`(node 6 tests); headless Chrome CDP 실측: 칠하기 4셀 정확, 면 지우기 0, Shift 지우기 0, L2 클릭 레이어 판별, Ctrl+휠 줌, 3D pickAny body 히트, 콘솔 에러 0. 스크린샷 `/tmp/mecheck/shots/03_zoomed.png`(세션 로컬).
+- 2026-11-04 (mask editor history/base/reset, `feat/mask-editor-atlas`): 편집기 추가 기능.
+  - Base skin 토글(기본 ON): atlas 배경에 실제 최종 렌더를 표시. 편집 후 서버 렌더가 도착하면 교체.
+  - Undo/Redo: 칠하기·채우기·지우기는 셀 단위 diff, seed/reset 은 스냅샷. 100 단계 제한. Ctrl+Z / Ctrl+Y / Ctrl+Shift+Z.
+  - 초기 상태로(Reset): `GET /api/seed-all` 의 절차적 seed 로 모든 마스크를 되돌림. 조합 설정은 유지, 디스크는 저장 전까지 불변, undo 가능.
+  - 휠 줌(커서 기준 앵커), 우클릭 드래그 지우기.
+  - 레이아웃: 보기/확대/도구/기록 그룹 툴바, 사이드바는 조합·key/value·현재 면·파일.
+  - 검증: `tests/test_mask_editor.py` 19 + atlas node 6; headless Chrome CDP 21/21 (칠하기·undo·redo·우클릭 지우기·reset=seed·combo 유지·base 토글/갱신·휠 줌 앵커·콘솔 에러 0). 스크린샷 `/tmp/mecheck/shots/10_new_ui.png`.
+- 2026-11-04 (mask editor goal, `feat/mask-editor-atlas`): 편집기 문제/버그 수정.
+  - 머리 마스크 seed 를 렌더 파이프라인(reference silhouette)에서 가져오도록 변경. rule stencil seed 가 style∩length 교집합에서 옆머리를 잘랐다 (short: 옆면 48/64 맨살 → 7/64, procedural 과 일치).
+  - `apply_head_masks`: 파이프라인이 이미 칠한 머리 셀은 strand 음영 유지 (추가된 셀만 평색).
+  - Reset/단일 값 seed/draft 기본값이 `_finalize_seed` 를 공유 → 상의 body 재충전 (등판 맨살 94/96 → 0).
+  - 미리보기 source: draft(기본) / production(승인 asset). 편집기 UI 에 Draft/Production 토글.
+  - 편집기 전용 경고: 모순된 머리 조합 (짧은 스타일 + 긴 길이, 긴 스타일 + 짧은 길이).
+  - 뷰어 `dispose()` 로 루프/리스너/GPU 해제.
+  - draft schema 3: 첫 로드 시 옛 draft 를 `attribute_masks.pre-v3-<stamp>.json` 으로 백업하고 머리 키를 재시드, 레거시 상의 body 재충전. 이후 로드는 무변경. 편집기 테스트는 임시 OUT 사용(실제 draft 미접촉).
+  - slim 전용 마스크: 팔 면(front/back/top/bottom, 3폭)에 엔트리별 `slim` sub-dict. `resolve_model` 은 slim 렌더에서만 적용. 편집기 모델 선택이 atlas 를 slim 레이아웃으로 전환.
+  - 사진 기반 seed: `POST/GET/DELETE /api/photo` — 사진의 색·SCHP 머리 실루엣으로 seed 와 미리보기. 초기 상태로/이 값만 seed로 가 사진 기준으로 재시드(undo 가능). 프로세스 전역 상태.
+  - 편집기 combo 'Reset' 버튼이 3D 모델과 atlas 를 갱신하지 않던 버그 수정.
+  - 사진 속성: 업로드 시 production VLM classify 실행 → 속성이 seed 기준(`_seed_base`)이 됨. 실패는 503/502, 저장 안 함. 편집기가 저장소 `.env` 를 로드(백엔드와 동일).
+  - 사진 원본은 저장하지 않음(임시 파일 후 삭제; `/out` 정적 마운트로 노출되던 문제 수정), 미리보기 조합도 사진 속성을 따름(해제 시 기본값).
+  - 공유 편집기 접근 토큰: `SKINMAKER_EDITOR_TOKEN` 설정 시 `/api/*`·`/out/*` 에 토큰 필요(헤더 또는 `POST /api/auth` 쿠키). 토큰 파일 `out/mask_editor/access_token`(600, gitignore). 10483 은 토큰으로 기동. 테일넷 URL 에서 curl(401/200)과 CDP 7/7 (토큰 프롬프트→부팅→사진 업로드→조합 반영→/out/photo 404).
+  - 검증: `pytest -q` → **756 passed** (사진 비저장 + 토큰 게이트 테스트 추가); 사후 브라우저 CDP 10/10 (업로드→조합 반영·URL 해시·base 재렌더·/out/photo 404·해제 시 기본 조합, 콘솔 에러 0); 실제 Gemini 분류 확인(messi5: shirt/shorts, hair medium·short); headless Chrome CDP 9/9 (slim 전환 4폭→3폭, slim 칠하기는 slim 격자만, undo, classic 복귀, 파일 입력으로 사진 업로드, 콘솔 에러 0). (수정 후, 편집기 테스트 24); headless Chrome CDP 21/21 + Draft/Production 토글 확인; 스크린샷 `/tmp/mecheck/shots/11_after_fix.png`.
+## Skin jobs and owner-only edits (feat/skin-owner-edit)
+
+- Generation writes a private job (`backend/private/jobs/<id>.json`): observed colours and
+  hair stencil, each candidate's attributes and noise seed, model, noise level, and the
+  owner's cookie hash. Fabric-texture images are stored as PNG inside the record.
+- Owner cookie `skinmaker_owner`: random per-browser secret, HttpOnly, SameSite=Strict,
+  one year. Only its SHA-256 is stored. Only that browser can read or edit the job.
+- Input photos are private (`backend/private/inputs/`), served at
+  `/api/v1/jobs/<id>/input` to the owner. Previously they were public under /static and
+  never deleted by retention (retention only matched `*.png`).
+- Owner endpoints: `GET /api/v1/jobs/<id>`, `GET|PUT /api/v1/jobs/<id>/overlay` (mask edits
+  on top of the production masks, entry by entry; never touches the shared assets),
+  `POST /api/v1/jobs/<id>/render` (rate-limited; writes `<id>_e<rev>_c<n>.png`).
+- Empty-overlay re-render is byte-identical to the original output (tested).
+- Retention now also removes private inputs and job records older than
+  `SKINMAKER_RETENTION_DAYS`, and old public `input_*` photos.
+- Not done: the website's edit button and the job-scoped editor UI. That needs job-context
+  seeding (the editor's seed functions read the global photo state today) and a job editor
+  page in the website.
+- Tests: `tests/test_job_codec.py`, `tests/test_jobs.py`, `tests/test_skin_jobs_api.py`;
+  backend input tests updated. Full suite: 742 passed.
+
+## Per-skin editor on the website (stacked on feat/mask-editor-atlas)
+
+- Shared seeds: `skinmaker/attribute_seeds.py` (procedural masks from a `SeedContext`:
+  observed colours + base attributes). The developer editor and the job editor both use it.
+- Baseline for a job: production entries where they exist, else the job's own procedural seed
+  (cached per job and candidate, ~0.6 s to compute).
+- Overlay: the save stores only entries that differ from the baseline. Preview renders the same
+  way as the final render (the editor's masks are turned into that overlay first), so what you
+  see is what you get.
+- Endpoints (owner cookie required): `GET /api/v1/jobs/{id}/editor?index&baseline` (the payload
+  the editor reads), `GET /api/v1/jobs/{id}/seed?key&value`, `POST /api/v1/jobs/{id}/preview`
+  (PNG as a data URL, nothing stored), `PUT /api/v1/jobs/{id}/overlay` (diff-based save),
+  `POST /api/v1/jobs/{id}/render` (writes `<id>_e<rev>_c<n>.png`).
+- Editor page: `GET /edit/{id}` serves `tools/mask_editor/index.html` with job mode injected
+  (combo and photo panels hidden, endpoints mapped). Assets come only from
+  `/edit/lib/{app.js,viewer.js,atlas.js,vendor/*}`.
+- Website: result cards carry `jobId` when the browser owns the job; the edit buttons open
+  `/edit/<id>` in a new tab, and fall back to the preview modal otherwise.
+- Checks: `tests/test_skin_jobs_api.py` (12, including page ownership and asset allowlist);
+  headless Chrome against the local website backend (mock transport): 12/12 (boot, job mode,
+  panels hidden, paint +4 cells, instant 3D overlay, save, render new skin served 200,
+  painted cells persist after reload, no errors). `npm run lint` exit 0, `npm run build` ok.
+  Full suite: 776 passed.
+- Not browser-tested: the main page's edit button itself (the new-tab hand-off is by code).
+- Deployment order: merge `feat/mask-editor-atlas` first, then this branch. The editor files
+  must exist on the host (`tools/mask_editor/`).
+- 2026-11-04 (per-skin cap, `feat/skin-owner-edit`): 모자(cap)를 이 스킨에만 켜고 끌 수 있음.
+  - 초안 캡 마스크: `assets/headwear_cap.draft.json` (152 texels; 크라운 + 이마 4행 + 옆/뒤 밴드). 프로덕션 자산에는 넣지 않음. 기존 프로덕션 cap 은 이마 1px 브림(8 texels).
+  - 원인: 머리카락이 모자 뒤에 그려져 초안의 152 texels 중 32 만 남음. `render(hat_on_top=True)` 가 마스크 모자 셀을 머리카락·피부 위에 마지막으로 칠함. 기본값 False 라 프로덕션 출력 불변.
+  - 작업 skin 단위: `POST /api/v1/jobs/{id}/attributes {headwear: none|cap}` (소유자). cap 선택 시 초안이 그 스킨의 오버레이에 들어감. 사용자가 이미 모자 마스크를 가졌다면 덮지 않음. 원본 생성물의 재렌더는 바이트 동일(테스트).
+  - 편집기: 툴바 "모자 (cap)" 체크박스 → 저장 후 새로고침. 브라우저 CDP 5/5 + 스크린샷 `/tmp/mecheck/shots/13_cap_on.png`.
+  - 검증: `tests/test_hat_on_top.py` 2, `tests/test_skin_jobs_api.py` 14, `tests/test_jobs.py`.
+  - 미결: beanie 초안 없음(선택지에서 제외), 모자 색은 고정 #e9eef3, 머리 길이별 모양 검수 필요.
+- 2026-11-04 (per-skin beanie + hat colour, `feat/skin-owner-edit`): 
+  - 비니 초안 `assets/headwear_beanie.draft.json` (168 texels, 크라운·앞 3행·옆 3행·뒤 4행, 챙 없음).
+  - `POST /api/v1/jobs/{id}/attributes {headwear: none|cap|beanie, hat_color?: "#rrggbb"}`. 색은 이 스킨 단위 `hat_color`; 잘못된 색은 400. 기본색: cap `#e9eef3`, beanie `#1f1f1f`.
+  - 편집기: 모자 선택 + 색 선택기. 선택 시 해당 모자의 기본색으로 바뀌고, 사용자가 고른 색은 유지. 새로고침 후에도 저장된 색을 표시.
+  - 브라우저 CDP 6/6 (비니 선택 → 어두운 색으로 3D 반영 → 색 선택기 #1f1f1f). 스크린샷 `/tmp/mecheck/shots/15_beanie_dark.png`.
+  - 검증: `tests/test_skin_jobs_api.py` 16 (비니·색·잘못된 색 포함).
 - 2026-11-04 (results UI cleanup, `feat/results-ui`): 사용자 요청 3건.
   - 로딩 바 아래 `보통 20~40초 걸려요. 창을 닫지 말아 주세요.` 힌트 삭제 → 같은 날 복구하고 시간만 `보통 10초 정도 걸려요. 창을 닫지 말아 주세요.` 로 바꿈 (`.loading-hint` 스타일 복원). 진행 바와 `loading-stage` 단계 문구는 유지.
   - 후보 카드의 `스킨 편집 ✏️` 버튼 삭제. 사이드바의 `편집` 버튼과 `SkinEditor` 모달은 유지.
@@ -549,5 +641,6 @@ S0 quality/face detection (YuNet) → S1 colour measurement (white-balance + ban
   - 정리: `scripts/purge_photo_artifacts.sh --yes`가 `input_*`, `steps/*`, `private/inputs/*`를 삭제하고 결과 스킨은 남긴다. `cleanup_static.sh`는 `input_*`를 나이와 무관하게 삭제하는 안전망을 갖는다. 작업 트리에서 30 input + 228 steps를 정리했고 결과 스킨 444장은 유지됐다.
   - 문구: 푸터/README/deployment를 "업로드한 사진은 서버에 저장되지 않습니다"로 갱신. 원본 비교 카드는 master에 이미 없고, `feat/skin-owner-edit`는 rebase 후 private input 저장·`job_input`·`input` 필드를 제거해야 한다(Task 6).
   - 검증: `pytest -q` → **731 passed, 2 skipped** (105.90s, exit 0); `npm run lint` exit 0; `npm run build` green (기존 chunk 경고); `git diff --check` clean; `tests/test_cleanup.py` 2 passed.
-  - 배포 후 남은 작업: release clone에서 purge 실행, 오래된 `/static/skins/input_*`·`/static/steps/*` URL 404 확인, Cloudflare 캐시 purge(수동), 백업/스냅샷 확인.
+  - 배포/정리 완료(2026-11-05): `master` = `3d017cb`; deploy run 41981142572 성공(2m13s); health ok. release clone purge: 선배포 2,559 input + 4,688 steps, 후배포 0 input + 56 steps 제거; 결과 스킨 9,948장 유지. main dev checkout도 5,244 input + 10,646 steps + 180 private input 제거(21,068 result skins 유지). 오래된 URL은 404이며 Cloudflare 캐시·백업/스냅샷은 수동 확인 대상.
   - 남은 위험: root의 실행 중 프로세스 접근, Cloudflare TLS 종단, Starlette 대용량 업로드 스풀, job record의 옷 천 크롭(원본 아님).
+  - 후속(Task 6, `fix/owner-edit-no-photo`): `feat/skin-owner-edit`의 `private/inputs` 저장, `job_input` 엔드포인트, job record `input` 필드를 제거했다. 원본 비교 카드는 master의 UX 정리대로 제거된 상태를 유지한다(업로드 영역의 `선택한 사진` 미리보기는 로컬 object URL). 후보 카드의 `스킨 편집` 버튼은 per-skin editor 진입점으로 유지한다. 이 머지로 owner-edit 브랜치도 원본을 보관하지 않는다.

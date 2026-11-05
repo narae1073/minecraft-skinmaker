@@ -65,6 +65,33 @@ def _split_key(key: str) -> tuple[str, str] | None:
     return attr, value
 
 
+SLIM_KEY = "slim"
+
+
+def resolve_model(masks: dict, model: str) -> dict:
+    """Masks as one model should read them.
+
+    An entry's ``"slim"`` sub-dict holds grids for the slim-only arm faces (3 px
+    wide, not 4). For ``model == "slim"`` those grids replace the entry's
+    classic ones; for classic the sub-dict is dropped. Everything else passes
+    through unchanged.
+    """
+    if not masks:
+        return masks
+    out: dict = {}
+    for name, entry in masks.items():
+        if not isinstance(entry, dict) or SLIM_KEY not in entry:
+            out[name] = entry
+            continue
+        resolved = {layer: dict(entry.get(layer) or {}) for layer in LAYERS}
+        if model == "slim":
+            for layer in LAYERS:
+                for face, grid in ((entry.get(SLIM_KEY) or {}).get(layer) or {}).items():
+                    resolved[layer][face] = grid
+        out[name] = resolved
+    return out
+
+
 def validate_asset(data: dict) -> list[str]:
     """Schema validation; the editor/approval script must reject on any error."""
     errors: list[str] = []
@@ -73,6 +100,30 @@ def validate_asset(data: dict) -> list[str]:
     masks = data.get("masks", data)
     if not isinstance(masks, dict):
         return ["masks must be an object"]
+
+    def check_layers(prefix: str, layers: dict) -> None:
+        for layer, face_map in layers.items():
+            if layer not in LAYERS:
+                errors.append(f"{prefix}: invalid layer {layer!r}")
+                continue
+            if not isinstance(face_map, dict):
+                errors.append(f"{prefix}.{layer}: faces must be an object")
+                continue
+            for face, grid in face_map.items():
+                if not isinstance(face, str) or "." not in face:
+                    errors.append(f"{prefix}.{layer}: invalid face {face!r}")
+                    continue
+                if not isinstance(grid, list) or not grid:
+                    errors.append(f"{prefix}.{layer}.{face}: grid must be a non-empty list")
+                    continue
+                for v, row in enumerate(grid):
+                    if not isinstance(row, list) or not row:
+                        errors.append(f"{prefix}.{layer}.{face}: row {v} must be a non-empty list")
+                        continue
+                    for u, bit in enumerate(row):
+                        if bit not in (0, 1, True, False):
+                            errors.append(f"{prefix}.{layer}.{face}[{v}][{u}]: expected 0/1")
+
     for key, entry in masks.items():
         if _split_key(key) is None:
             errors.append(f"invalid key: {key!r}")
@@ -80,27 +131,13 @@ def validate_asset(data: dict) -> list[str]:
         if not isinstance(entry, dict):
             errors.append(f"{key}: layers must be an object")
             continue
-        for layer, face_map in entry.items():
-            if layer not in LAYERS:
-                errors.append(f"{key}: invalid layer {layer!r}")
-                continue
-            if not isinstance(face_map, dict):
-                errors.append(f"{key}.{layer}: faces must be an object")
-                continue
-            for face, grid in face_map.items():
-                if not isinstance(face, str) or "." not in face:
-                    errors.append(f"{key}.{layer}: invalid face {face!r}")
-                    continue
-                if not isinstance(grid, list) or not grid:
-                    errors.append(f"{key}.{layer}.{face}: grid must be a non-empty list")
-                    continue
-                for v, row in enumerate(grid):
-                    if not isinstance(row, list) or not row:
-                        errors.append(f"{key}.{layer}.{face}: row {v} must be a non-empty list")
-                        continue
-                    for u, bit in enumerate(row):
-                        if bit not in (0, 1, True, False):
-                            errors.append(f"{key}.{layer}.{face}[{v}][{u}]: expected 0/1")
+        classic = {k: v for k, v in entry.items() if k != SLIM_KEY}
+        check_layers(key, classic)
+        if SLIM_KEY in entry:
+            if not isinstance(entry[SLIM_KEY], dict):
+                errors.append(f"{key}.slim: must be an object")
+            else:
+                check_layers(f"{key}.slim", entry[SLIM_KEY])
     return errors
 
 
