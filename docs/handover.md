@@ -656,3 +656,10 @@ S0 quality/face detection (YuNet) → S1 colour measurement (white-balance + ban
   - `0/false/off/no/빈값`: job record/owner cookie를 만들지 않고, `/edit/{id}`·`/edit/lib/*`·`/api/v1/jobs/*`는 404, 응답 `data.job`은 null(프론트는 기존 미리보기 모달로 폴백). 생성/스킨은 정상.
   - `/api/v1/health`에 `job_editor: on|off` 표시. 기존 job record는 보존되어 다시 켜면 사용 가능.
   - 검증: `tests/test_features.py` 11 + `test_skin_jobs_api` flag-off/health 2; 관련 65 passed. `.env.example`/deployment/README/handover 갱신.
+
+- 2026-11-05 (daily conversion stats, `feat/daily-conversion-stats`): 일별 변환 시도/성공 카운터 추가.
+  - `backend/stats.py`: KST(UTC+9) 날짜별 `attempts`, `success`, `classic`, `slim`, `candidates`, `total_seconds`를 `backend/private/stats/daily.json`(0600, 비공개)에 원자적으로 기록. IP/쿠키/사진/사용자 식별자는 저장하지 않는다.
+  - `_pipeline`: rate-limit/content-type 가드를 통과한 요청을 attempt로 기록하고, 성공 return 직전에 success/model/candidates/total을 기록. 실패 수 = attempts − success (rate-limited 요청은 attempt가 아님).
+  - `scripts/daily_stats.py --days 30`: SSH에서 표로 조회. 파일은 14일 미디어 cleanup 대상이 아니라 합계가 유지된다.
+  - 배포 테스트가 프로덕션 카운터를 오염시키지 않도록 `tests/conftest.py` autouse fixture가 stats 경로를 tmp로 격리한다.
+  - 검증: `tests/test_stats.py` 4 + backend 통합 1; 관련 75 passed. README/deployment/handover 갱신.

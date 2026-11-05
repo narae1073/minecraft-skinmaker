@@ -677,3 +677,16 @@ def test_generate_skin_streams_progress():
     assert "event: progress" in text
     assert "event: result" in text
     assert "timings" in text
+
+
+def test_generation_records_daily_conversion_stats():
+    from backend import stats as STATS
+
+    with PHOTO.open("rb") as f:
+        r = client().post("/api/v1/generate-skin", files={"file": ("m.jpg", f, "image/jpeg")})
+    assert r.status_code == 200, r.text
+    row = STATS.load()["days"][STATS.today()]
+    assert row["attempts"] == 1
+    assert row["success"] == 1
+    assert row["classic"] == 1
+    assert row["candidates"] == 1

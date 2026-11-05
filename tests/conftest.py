@@ -11,6 +11,7 @@ import pytest
 
 from skinmaker import attribute_masks as AM
 from backend import app as backend_app
+from backend import stats as conversion_stats
 
 _REAL_LOAD_MASKS = AM.load_masks
 _HEAD_PREFIXES = ("hood.", "headwear.", "hood_fit.")
@@ -30,3 +31,10 @@ def _isolate_production_attribute_masks(monkeypatch):
         return {k: v for k, v in masks.items() if k.startswith(_HEAD_PREFIXES)}
 
     monkeypatch.setattr(AM, "load_masks", _load)
+
+
+@pytest.fixture(autouse=True)
+def _isolate_conversion_stats(tmp_path, monkeypatch):
+    """Deploy tests must never write fake conversions into production stats."""
+    monkeypatch.setattr(conversion_stats, "STATS_DIR", tmp_path / "stats")
+    monkeypatch.setattr(conversion_stats, "STATS_PATH", tmp_path / "stats" / "daily.json")

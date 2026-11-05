@@ -249,6 +249,25 @@ When off:
 Existing job records are kept and become available again when the flag is set
 back to `1` and the service is restarted.
 
+## Daily conversion counts
+
+`backend/private/stats/daily.json` records KST daily aggregates:
+
+- `attempts` — requests that passed the public rate-limit/content-type guards;
+- `success` — completed conversions (`failed = attempts - success`);
+- `classic` / `slim`, `candidates`, `total_seconds`.
+
+It stores no IP addresses, cookies, photos, or user identifiers. The file is
+private (0600) and is not part of the 14-day media cleanup, so daily totals
+survive. From the release clone:
+
+```bash
+.venv/bin/python scripts/daily_stats.py --days 30
+```
+
+The pytest suite isolates the stats path, so deploy tests never write fake
+counts into production.
+
 ## Troubleshooting
 
 | Symptom | Check |
