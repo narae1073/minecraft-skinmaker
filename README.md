@@ -75,7 +75,7 @@ cp .env.example .env && chmod 600 .env     # GEMINI_API_KEY 입력
 cd frontend && npm install && npm run dev   # http://localhost:5173/
 ```
 
-Vite 프록시가 8001을 바라봅니다. 포트를 바꾸려면 `VITE_API_TARGET=http://localhost:8002 npm run dev`와 `uvicorn --port 8002`를 함께 씁니다. `POST /api/v1/generate-skin`에 사진을 올리면 원본 옆에 후보 스킨을 3D 뷰어로 보여주고, 스킨 편집(투톤 신발), 분류 카테고리, 처리 과정 시트를 제공합니다.
+Vite 프록시가 8001을 바라봅니다. 포트를 바꾸려면 `VITE_API_TARGET=http://localhost:8002 npm run dev`와 `uvicorn --port 8002`를 함께 씁니다. `POST /api/v1/generate-skin`에 사진을 올리면 원본 옆에 후보 스킨을 3D 뷰어로 보여주고, 만든 브라우저에서만 여는 스킨 편집기(마스크·모자, `/edit/{id}`), 분류 카테고리, 처리 과정 시트를 제공합니다. 편집기는 기본 켜짐이며 `SKINMAKER_JOB_EDITOR=0`으로 끌 수 있습니다.
 
 백엔드는 `uvicorn`으로 실행할 때 저장소 루트의 `.env`를 자동으로 읽습니다. 이미 설정된 실제 환경변수가 우선하며, pytest 중에는 읽지 않습니다.
 

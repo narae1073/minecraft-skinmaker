@@ -227,6 +227,28 @@ If abuse appears: stop the tunnel (`sudo systemctl stop cloudflared-skinmaker`),
 rotate `GEMINI_API_KEY`, then re-enable. Adding Cloudflare Access later does not
 require code changes.
 
+## Feature flag: per-skin editor
+
+The website editor is on by default. To disable it without a code deploy,
+set this in the release `.env` and restart the service:
+
+```bash
+# /home/achi/Programming/skinmaker-release/.env
+SKINMAKER_JOB_EDITOR=0
+sudo systemctl restart skinmaker
+```
+
+When off:
+
+- generation still returns skins, but no owner cookie or job record is created;
+- `/edit/{id}`, `/edit/lib/*`, and `/api/v1/jobs/*` return 404;
+- the `data.job` field is `null`, so the result card falls back to the old
+  preview modal;
+- `/api/v1/health` reports `"job_editor": "off"`.
+
+Existing job records are kept and become available again when the flag is set
+back to `1` and the service is restarted.
+
 ## Troubleshooting
 
 | Symptom | Check |
