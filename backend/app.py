@@ -537,6 +537,11 @@ def job_editor_page(token: str, request: Request):
                             status_code=403)
     html = (EDITOR_DIR / "index.html").read_text(encoding="utf-8")
     html = html.replace("/static/", "/edit/lib/")
+    # Job mode saves to this skin's overlay, not the developer draft file.
+    html = html.replace(
+        "저장은 <code>out/mask_editor/attribute_masks.json</code>",
+        "저장은 이 스킨에만 적용됩니다",
+    )
     html = html.replace("<body>", f'<body data-job="{token}">', 1)
     html = html.replace('<script type="module"',
                         f'<style>{_EDITOR_CSS}</style>\n<script>window.MASK_EDITOR_JOB = "{token}";</script>\n<script type="module"', 1)
