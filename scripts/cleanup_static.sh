@@ -22,3 +22,13 @@ for sub in skins steps; do
   after="$(find "$dir" -type f | wc -l)"
   echo "$sub: removed $(( before - after )) file(s) older than ${DAYS}d (remaining $after)"
 done
+
+# Legacy source photos are no longer created, but remove any that remain
+# regardless of age (2026-11-05).
+skins_dir="$ROOT/backend/static/skins"
+if [ -d "$skins_dir" ]; then
+  before="$(find "$skins_dir" -maxdepth 1 -type f -name 'input_*' | wc -l)"
+  find "$skins_dir" -maxdepth 1 -type f -name 'input_*' -delete
+  after="$(find "$skins_dir" -maxdepth 1 -type f -name 'input_*' | wc -l)"
+  echo "input_*: removed $(( before - after )) legacy upload(s) (all ages)"
+fi
