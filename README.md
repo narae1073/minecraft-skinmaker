@@ -100,6 +100,7 @@ export SKINMAKER_PARSER=out/models/schp-atr-18-int8-static.onnx   # 경로 지�
 .venv/bin/python -m skinmaker.s4 --transport mock --photo <photo> --out out/s4
 .venv/bin/python -m skinmaker.eval out/s0_photos --show 200
 .venv/bin/python -m skinmaker.bottom_eval
+.venv/bin/python scripts/daily_stats.py --days 30      # 일별 변환 시도/성공 (KST)
 ```
 
 ## 개발 규범

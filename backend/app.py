@@ -23,6 +23,7 @@ from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, Streamin
 from fastapi.staticfiles import StaticFiles
 
 from backend import jobs as JOBS
+from backend import stats as STATS
 from skinmaker import job_codec as JC
 from backend.features import job_editor_on
 from backend.limits import RateLimiter, client_ip, max_upload_bytes
@@ -210,6 +211,9 @@ async def _pipeline(request: Request, file: UploadFile = File(...), noise_level:
         fail(429, "rate_limited", "요청이 너무 잦아요. 잠시 후 다시 시도해주세요.")
     if not (file.content_type or "").startswith("image/"):
         fail(400, "not_image", "이미지 파일을 올려주세요.")
+    # Count requests that passed the public guards. Rate-limited requests are
+    # not conversion attempts; later failures count as attempts without success.
+    STATS.record_attempt()
     # 노이즈 세기 (설계 §9): 부재=1.0, 가비지=400, 범위 밖 숫자는 [0,1] 클램프.
     level = 1.0
     if noise_level is not None:
@@ -349,6 +353,7 @@ async def _pipeline(request: Request, file: UploadFile = File(...), noise_level:
                            noise_level=level, degrade=tuple(photo.degrade))
     await stage("done", 100, "완료")
     timings["total"] = round(time.perf_counter() - t0, 3)
+    STATS.record_success(skin_model, len(candidates), timings["total"])
     return {
         "status": "success",
         "data": {
