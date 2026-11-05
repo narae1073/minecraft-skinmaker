@@ -197,6 +197,43 @@ def test_steps_sheets_stamp_note():
     assert full.tobytes() != full0.tobytes()
 
 
+def test_privacy_steps_skip_photo_panels(monkeypatch):
+    """The public sheet must never call the panels that render photo.image."""
+    def boom(*args, **kwargs):
+        raise AssertionError("photo panel used in privacy mode")
+
+    for name in ("panel_s0", "panel_s1", "panel_mask", "panel_reject"):
+        monkeypatch.setattr(DV, name, boom)
+
+    import numpy as np
+    from skinmaker import colors as C
+
+    photo = photo_input()
+    skin = build_placeholder("classic").image
+    observed = C.extract(photo)
+    seg = np.zeros(photo.image.size[::-1], np.uint8)
+    seg[200:400, 200:400] = 4
+
+    clean, full = DV.steps_sheets(photo, skin, "classic", observed=observed, seg=seg, privacy=True)
+    assert clean.width > 0 and full.width > 0
+
+
+def test_privacy_panel_set_has_no_photo_titles():
+    import numpy as np
+    from skinmaker import colors as C
+
+    photo = photo_input()
+    skin = build_placeholder("classic").image
+    observed = C.extract(photo)
+    seg = np.zeros(photo.image.size[::-1], np.uint8)
+    panels = DV.build_panels(
+        photo, skin, "classic", observed=observed, seg=seg,
+        which=DV.PANEL_STRIP_PRIVACY, privacy=True,
+    )
+    titles = [p.title for p in panels]
+    assert titles == ["S0 quality", "S1b parsing mask", "S1 observed colors", "S3 atlas 64x64"]
+
+
 def test_contact_sheet_columns_grid_is_compact():
     """columns>1: 세로 스택 대신 격자 — 인라인 썸네일이 6000px 벽이 되지 않게."""
     img = Image.new("RGB", (200, 300), (120, 100, 90))

@@ -297,6 +297,7 @@ async def _pipeline(request: Request, file: UploadFile = File(...), noise_level:
             photo, candidates[0].image, skin_model, observed, seg,
             # 스탬프는 요청이 아니라 실제 사용 모드 — 마스크 근거 실패면 rule로 기록 (진실 규칙)
             note="hair=" + ("mask+symmetrized" if observed.hair_stencil else "rule") + " overlay=" + hair_overlay,
+            privacy=True,  # public sheet: no source-photo pixels (2026-11-05)
         )
         clean_sheet.convert("RGB").save(STEPS_DIR / f"{token}_steps.png")
         full_sheet.convert("RGB").save(STEPS_DIR / f"{token}_steps_full.png")

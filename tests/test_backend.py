@@ -480,6 +480,28 @@ def test_generate_returns_steps_sheets():
         assert got.content[:8] == b"\x89PNG\r\n\x1a\n" and len(got.content) > 1000, url
 
 
+def test_generate_steps_use_privacy_panels(monkeypatch):
+    """The web steps sheet must not contain the source photo."""
+    from skinmaker import debugview as DV
+
+    seen = {}
+    real = DV.steps_sheets
+
+    def spy(*args, **kwargs):
+        seen.update(kwargs)
+        return real(*args, **kwargs)
+
+    monkeypatch.setattr(DV, "steps_sheets", spy)
+    with PHOTO.open("rb") as f:
+        r = client().post(
+            "/api/v1/generate-skin",
+            files={"file": ("m.jpg", f, "image/jpeg")},
+            data={"steps": "1"},
+        )
+    assert r.status_code == 200, r.text
+    assert seen.get("privacy") is True
+
+
 def test_generate_steps_flag_skips_sheets():
     """설정 체크박스 (기본 해제): steps=0 → 시트 미생성, 응답 steps=null.
     부재 → 기존 동작(생성). 진위 규칙은 parsing_on 관례와 동일."""
