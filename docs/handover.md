@@ -721,3 +721,7 @@ S0 quality/face detection (YuNet) → S1 colour measurement (white-balance + ban
   - 생성 pair에 `createdAt` 추가. 현재 결과 섹션은 세션 상태라 새로고침 시 비어 있고, 사이드바 목록만 복원된다.
   - 검증: CDP 1440/390에서 생성→새로고침 badge/list 1 유지, 썸네일 64×64 로드; 삭제→새로고침 0/빈 메시지; 150개+`javascript:`+15일 지난 항목 주입→100개만 남고 unsafe/expired 제거; 모바일 overflow 없음; console errors 0. lint/build green; `pytest -q` → **804 passed in 154.17s**.
   - 리스크: localStorage는 브라우저/오리진별. 14일 TTL은 서버 기본 보존기간과 동일(설정을 늘리면 오래된 항목이 일찍 사라짐).
+
+- 2026-11-21 (후보 카드 지형 배경 160%, `feat/terrain-bg-160`): `.candidate-viewer`의 `background-size`를 `auto 130%`→`auto 160%`로 더 확대했다.
+  - 3D 모델/카메라 크기는 불변; 배경 특징이 더 커져 캐릭터가 상대적으로 작아 보임. 편집기는 다크 배경 유지.
+  - 검증: CDP 1440/390에서 computed `auto 160%`, terrain 로드, 390 가로 스크롤 없음, console errors 0. lint/build green; `pytest -q` → **804 passed in 154.06s**.
