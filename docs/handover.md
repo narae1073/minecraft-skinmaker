@@ -682,3 +682,10 @@ S0 quality/face detection (YuNet) → S1 colour measurement (white-balance + ban
   - A/B: before/after `out/theme/` (desktop 1440×1000 initial/settings/result/sidebar/editor/lightbox, tablet 800/1024, mobile 390×844 initial/settings/result/editor/sidebar). 모든 폭에서 `scrollWidth == innerWidth`, console errors 0. README 스크린샷을 `docs/assets/screenshots/minecraft-theme.png`로 교체.
   - 검증: `npm run lint` exit 0, `npm run build` green(기존 chunk 경고), `pytest -q` → **804 passed in 165.52s**, `git diff --check` clean. `/fonts/NeoDunggeunmo.woff2`·`/dirt-dark.png` 200, `/wallpaper*.png` 404.
   - 리스크: pixel font는 16/32/48 배수에서만 선명; hover gold on #7f8a7f는 대비가 낮음(장식적 상태); 네이티브 range/checkbox/select는 브라우저별 차이; QR은 스캔성을 위해 흰 배경 유지; 3D/캔버스는 기존 nearest filter 유지.
+  - 잔여(2026-11-21): Cloudflare edge가 이전 `/wallpaper.png`를 아직 HIT로 서빙(모바일은 404). release `dist`에는 없고 HTML/CSS 참조 0; API 토큰이 없어 purge는 대시보드 수동.
+
+- 2026-11-21 (머리색 직접 지정 UX, `fix/hair-color-picker`): 체크 전에는 색상 선택기를 숨긴다.
+  - 원인: 라벨 `htmlFor`가 체크박스가 아니라 색상 input(`hair-color`)을 가리켜, 텍스트 클릭이 체크 대신 색상 선택기를 열었다. 색상 input도 `hairColorOn`과 무관하게 항상 렌더링됐다.
+  - 수정: `htmlFor="hair-color-on"`, `{hairColorOn && <input type="color" ...>}`. 체크 해제 시 숨김(값은 유지), 생성 요청은 기존처럼 `if (hairColorOn)`일 때만 `hair_color` 전송.
+  - 체크박스 18→22px (`input[type=checkbox]`, `.skin-checkbox`).
+  - 검증: lint/build green; CDP 1440/390에서 초기 `#hair-color` 없음 → 라벨 클릭 시 체크+표시 → 재클릭 시 숨김 → 직접 클릭 시 표시; 22×22; `scrollWidth == innerWidth`; console errors 0. `pytest -q` → **804 passed in 155.56s**.

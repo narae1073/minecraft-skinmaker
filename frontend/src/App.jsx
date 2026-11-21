@@ -441,7 +441,7 @@ function App() {
           </div>
           <p id="skin-model-help" className="config-help">클래식은 기본 체형, 슬림은 팔이 3px 얇은 체형이에요.</p>
           <div className="config-row">
-            <label htmlFor="hair-color">
+            <label htmlFor="hair-color-on">
               <input
                 id="hair-color-on"
                 type="checkbox"
@@ -450,13 +450,15 @@ function App() {
               />
               머리색 직접 지정
             </label>
-            <input
-              id="hair-color"
-              type="color"
-              value={hairColor}
-              onChange={(e) => setHairColor(e.target.value)}
-              aria-label="머리색"
-            />
+            {hairColorOn && (
+              <input
+                id="hair-color"
+                type="color"
+                value={hairColor}
+                onChange={(e) => setHairColor(e.target.value)}
+                aria-label="머리색"
+              />
+            )}
           </div>
           <p className="config-help">사진에서 금발을 못 읽는 경우(머리가 가려짐) 직접 지정해요.</p>
           <div className="config-row">
