@@ -139,7 +139,7 @@ codex app-server daemon version
 ```bash
 gh auth login                    # their own GitHub account
 cd /home/dev/workspace
-.venv/bin/python -m pytest -q    # 513 tests
+.venv/bin/python -m pytest -q    # full suite
 ```
 
 ## 3. VS Code Remote-SSH (optional)
