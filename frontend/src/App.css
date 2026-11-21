@@ -566,7 +566,7 @@ h1 {
   flex-direction: column;
   align-items: center;
   gap: 6px;
-  margin: 0 0 12px;
+  margin: 8px 0 0;
 }
 
 .official-skin-btn {

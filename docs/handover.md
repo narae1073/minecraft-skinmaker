@@ -752,3 +752,6 @@ S0 quality/face detection (YuNet) → S1 colour measurement (white-balance + ban
   - 카메라 모달 문구 `전신이 화면에 들어오도록 맞춘 뒤 촬영해주세요.` → `상반신만 나와도 됩니다.`.
   - 검증: CDP 1440/390에서 subtitle 0, config inside upload-section, 초기 order panels→settings→picker→convert, 사진 선택 후 settings→photo→picker→convert, convert center 720/195·width 360/342, disabled/hint 초기, camera dialog 문구, 생성 카드 1; overflow/콘솔 에러 0. lint/build green; `pytest -q` → **804 passed in 154.49s**.
   - 리스크: 파일 패널은 이제 파일 선택만 있어 비어 보일 수 있고, 모바일에서 변환 버튼은 전체 폭이 된다.
+
+- 2026-11-21 (공식 페이지 버튼 위치, `feat/official-link-position`): 결과 영역에서 `공식 스킨 관리 페이지 열기` 행을 후보 카드 아래·분류 결과 위로 이동했다. `.official-skin-row { margin: 8px 0 0; }`로 카드↔버튼 8px, 버튼↔분류 18px 간격.
+  - 검증: CDP 1440/390에서 `compare-grid.bottom < official.top`, `official.bottom < analysis.top`; 버튼 라벨/힌트 유지; overflow/콘솔 에러 0. lint/build green; `pytest -q` → **804 passed in 154.42s**.
