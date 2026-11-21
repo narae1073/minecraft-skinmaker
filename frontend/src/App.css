@@ -791,7 +791,17 @@ h1 {
   display: flex;
   gap: 6px;
   justify-content: center;
+  align-items: center;
   flex-wrap: wrap;
+}
+
+/* 결과 카드의 편집/다운로드 버튼은 같은 높이로 맞춘다. */
+.card-actions .edit-btn {
+  padding: 10px 16px;
+}
+
+.card-actions .download-btn {
+  margin-top: 0;
 }
 
 .editor-overlay {

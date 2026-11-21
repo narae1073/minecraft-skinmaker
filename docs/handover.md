@@ -689,3 +689,8 @@ S0 quality/face detection (YuNet) → S1 colour measurement (white-balance + ban
   - 수정: `htmlFor="hair-color-on"`, `{hairColorOn && <input type="color" ...>}`. 체크 해제 시 숨김(값은 유지), 생성 요청은 기존처럼 `if (hairColorOn)`일 때만 `hair_color` 전송.
   - 체크박스 18→22px (`input[type=checkbox]`, `.skin-checkbox`).
   - 검증: lint/build green; CDP 1440/390에서 초기 `#hair-color` 없음 → 라벨 클릭 시 체크+표시 → 재클릭 시 숨김 → 직접 클릭 시 표시; 22×22; `scrollWidth == innerWidth`; console errors 0. `pytest -q` → **804 passed in 155.56s**.
+
+- 2026-11-21 (결과 카드 버튼 높이 정렬, `fix/card-button-height`): 결과 카드의 `스킨 편집`과 `스킨 다운로드` 버튼 높이가 달랐다.
+  - 원인: `.edit-btn` padding 6/10 vs `.download-btn` 10/16 + `margin-top: 15px`.
+  - 수정: `.card-actions` `align-items:center`; `.card-actions .edit-btn` padding 10/16; `.card-actions .download-btn` margin-top 0. 결과 카드에만 적용, 사이드바/카메라/편집기 `.edit-btn`과 `.editor-download` 불변.
+  - 검증: CDP 1440/390에서 두 버튼 `height 43.1875`, `top` delta 0; 390 가로 스크롤 없음; console errors 0. `npm run lint`/`build` green; `pytest -q` → **804 passed in 155.90s**.
