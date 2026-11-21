@@ -495,7 +495,6 @@ function App() {
 
         {skins.length > 0 && (
           <div className="result-section" ref={resultRef}>
-            <h2>생성된 64×64 스킨 후보 {skins.length}종</h2>
             <p className="result-note">이 스킨들은 왼쪽 위 <strong>☰ 스킨 목록</strong>에도 저장돼요. 목록에서 다운로드하거나 삭제할 수 있어요.</p>
             <div className="compare-grid">
               {skins.map((skin, index) => (
