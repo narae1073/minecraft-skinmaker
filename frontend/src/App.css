@@ -852,6 +852,11 @@ h1 {
   margin-top: 0;
 }
 
+.card-actions .capture-btn {
+  padding: 10px 16px;
+  white-space: nowrap;
+}
+
 .editor-overlay {
   position: fixed;
   inset: 0;

@@ -734,3 +734,9 @@ S0 quality/face detection (YuNet) → S1 colour measurement (white-balance + ban
   - 배경은 `.candidate-viewer` `auto 160%` 유지. OAuth 직접 적용은 공개 데모 보안 부담 때문에 넣지 않았다.
   - 검증: CDP 1440/390에서 버튼 href/target/rel·힌트, 새 배경 `terrain_screenshot-DsTY2quu.webp` 로드(1376×768), 390 overflow/콘솔 에러 0. 공식 URL은 301→`msaprofile` 200. lint/build green; `pytest -q` → **804 passed in 157.33s**.
   - 리스크: 공식 페이지는 Microsoft 로그인 후 자바 에디션 스킨을 수동 업로드해야 한다. Bedrock은 웹에서 바로 적용할 수 없다.
+
+- 2026-11-21 (새 배경 + 미리보기 캡처, `feat/preview-capture-and-bg`): 사용자 제공 `terrain_screenshot.png`(1376×768, 1.6MB)를 WebP 99KB로 변환해 기존 `terrain_screenshot.webp` 경로에 연결했다. 결과 카드에 `캡처` 버튼을 추가해 현재 3D 카메라 뷰를 투명 PNG(`skin_preview_N.png`)로 다운로드한다.
+  - `Skin3DViewer`를 `forwardRef`로 바꾸고 `capture()` 노출; Canvas `alpha:true` + `preserveDrawingBuffer:true` + clear alpha 0, `toBlob('image/png')`. CSS 지형 배경은 canvas 밖이라 캡처에 포함되지 않는다.
+  - `App.jsx`: previewRefs, 캡처 버튼, 실패 시 inline notice, 파일명. `.capture-btn` 패딩은 카드 액션 높이에 맞춤.
+  - 검증: CDP 다운로드 `skin_preview_1.png` → 252×350 RGBA, alpha (0,255), transparent 58,735 / opaque 29,013; 1440/390 레이아웃·overflow·콘솔 에러 0; 새 배경 `terrain_screenshot-Bn278E7E.webp` 로드; lint/build green; `pytest -q` → **804 passed in 154.72s**.
+  - 리스크: 현재 보고 있는 카메라 각도로 캡처된다(정면 고정 아님). 다운로드 위치/동작은 브라우저 설정을 따르고, 투명 PNG는 뷰어에 따라 체커보드로 보일 수 있다.
