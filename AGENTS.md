@@ -68,6 +68,10 @@ as a **remote project over SSH**. See `docs/devbox.md`.
   ```
   GitHub merges when the required checks pass; the host's deploy workflow then
   deploys automatically.
+- **Owner-approved admin merge (2026-11-21).** When a merge is needed and the
+  normal approval is unavailable, the repo owner has authorized
+  `gh pr merge --admin --rebase`. Prefer the review path when it is available,
+  and only bypass the missing approval — CI must still be green.
 - Rebase on `origin/master` before opening/merging. Keep PRs small.
 - Same machine, two agents: use separate worktrees and ports.
   ```bash
