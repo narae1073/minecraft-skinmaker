@@ -700,3 +700,8 @@ S0 quality/face detection (YuNet) → S1 colour measurement (white-balance + ban
   - CSS: `.candidate-viewer`에만 `linear-gradient(180deg, rgba(0,0,0,.10), rgba(0,0,0,.42))` + `cover`, `center 60%`. `.skin-viewer`/`.editor-viewer`는 기존 다크 배경 유지(편집기 제외).
   - 검증: CDP 1440/390에서 후보 카드 background-image에 terrain 포함, 리소스 로드 200, 편집기 background-image `none`; 390 가로 스크롤 없음; console errors 0. lint/build green; `pytest -q` → **804 passed in 155.82s**.
   - 리스크: 가로 16:9 원본을 세로 뷰어에 cover로 잘라 왼쪽 나무 일부가 잘림; 93KB 추가.
+
+- 2026-11-21 (후보 카드 지형 배경 확대/오버레이 제거, `feat/terrain-bg-zoom`): 후보 카드 지형 배경에서 어두운 gradient를 제거하고 `background-size: auto 130%`로 확대했다.
+  - `.candidate-viewer`: `background-image: url('./assets/terrain_screenshot.webp')`, `auto 130%`, `center 60%`; `border`/`box-shadow` 유지.
+  - 의도: 지형 특징을 30% 키워 캐릭터가 상대적으로 작아 보이게. 3D 모델/카메라 자체 크기는 불변.
+  - 검증: CDP 1440/390에서 `backgroundImage`에 gradient 없음, `backgroundSize: auto 130%`, terrain 로드; 390 가로 스크롤 없음; console errors 0. lint/build green; `pytest -q` → **804 passed in 154.18s**.
