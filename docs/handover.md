@@ -746,3 +746,9 @@ S0 quality/face detection (YuNet) → S1 colour measurement (white-balance + ban
   - `skinModel` state/API 불변; 생성 시 선택한 `skin_model` 전송.
   - 검증: CDP 1440/390 초기 picker/2 icons/classic, `#skin-model` select 0, 사진 선택 후 picker top > photo bottom, slim 선택 생성→history `model=slim`, 390 overflow/콘솔 에러 0. lint/build green; `pytest -q` → **804 passed in 155.09s**.
   - 리스크: 사진 선택 전에도 표시(요청). 좁은 화면에서는 카드 2개가 2행으로 wrap될 수 있다.
+
+- 2026-11-21 (업로드 화면 순서/카메라 문구, `feat/upload-layout-order`): 제목 아래 `당신의 사진을 첨부해주세요!`를 삭제하고, 업로드 패널 → 설정 → 선택한 사진 → 체형 카드 → 스킨 변환하기 순서로 재배치했다.
+  - `config-section`을 `.upload-section` 전체 폭 grid item으로 이동(`margin:0`); `convert-group`을 체형 카드 뒤로 이동해 `width:min(360px,100%)`, `min-height:52px`, 중앙 정렬. 파일 패널은 파일 선택만 남기고 `.file-picker`를 두 행 span으로 세로 중앙.
+  - 카메라 모달 문구 `전신이 화면에 들어오도록 맞춘 뒤 촬영해주세요.` → `상반신만 나와도 됩니다.`.
+  - 검증: CDP 1440/390에서 subtitle 0, config inside upload-section, 초기 order panels→settings→picker→convert, 사진 선택 후 settings→photo→picker→convert, convert center 720/195·width 360/342, disabled/hint 초기, camera dialog 문구, 생성 카드 1; overflow/콘솔 에러 0. lint/build green; `pytest -q` → **804 passed in 154.49s**.
+  - 리스크: 파일 패널은 이제 파일 선택만 있어 비어 보일 수 있고, 모바일에서 변환 버튼은 전체 폭이 된다.

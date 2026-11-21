@@ -282,6 +282,7 @@ h1 {
   max-width: 100%;
   align-self: center;
   justify-self: center;
+  grid-row: 1 / -1;
 }
 
 .file-picker-btn {
@@ -437,6 +438,27 @@ h1 {
 }
 
 .convert-group { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+
+.upload-section > .convert-group {
+  grid-column: 1 / -1;
+  align-items: center;
+}
+
+.upload-section > .convert-group .generate-btn {
+  flex: 0 0 auto;
+  width: min(360px, 100%);
+  min-height: 52px;
+}
+
+.upload-section > .config-section {
+  grid-column: 1 / -1;
+  margin: 0;
+}
+
+.upload-section > .inline-notice {
+  grid-column: 1 / -1;
+}
+
 .upload-hint { margin: 0; font-size: 16px; color: var(--mc-ink-dim); text-align: center; }
 
 /* 카메라 및 변환하기 버튼: 변환은 초록 primary, 카메라는 회색 보조. */

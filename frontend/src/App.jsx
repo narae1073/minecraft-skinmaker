@@ -373,7 +373,6 @@ function App() {
             <span>모바일로 열기</span>
           </a>
         </div>
-        <p>당신의 사진을 첨부해주세요!</p>
         
         <div className="upload-section">
           <input
@@ -402,18 +401,71 @@ function App() {
               <button type="button" className="file-picker-btn" onClick={() => fileInputRef.current?.click()} disabled={isLoading}>파일 선택</button>
               <span className="file-picker-name" title={file?.name}>{file?.name || '선택된 파일 없음'}</span>
             </div>
-            <div className="convert-group">
-              <button
-                onClick={() => handleGenerate()}
-                disabled={isLoading || !file}
-                aria-describedby={file ? undefined : 'convert-hint'}
-                className="generate-btn"
-              >
-                {isLoading ? '생성 중...' : '스킨 변환하기'}
-              </button>
-              {!file && !isLoading && <p id="convert-hint" className="upload-hint">먼저 사진을 선택해 주세요.</p>}
-            </div>
           </div>
+          <details className="config-section">
+            <summary className="config-summary">설정</summary>
+            <div className="config-row">
+              <label htmlFor="noise-level">픽셀 질감</label>
+              <input
+                id="noise-level"
+                aria-describedby="noise-help"
+                type="range"
+                min="0"
+                max="100"
+                step="5"
+                value={noiseLevel}
+                onChange={(e) => setNoiseLevel(Number(e.target.value))}
+              />
+              <span className="noise-readout">{noiseLevel}%</span>
+            </div>
+            <p id="noise-help" className="config-help">높일수록 픽셀마다 밝기 차이를 더해 질감을 표현해요. 0%는 이 효과를 끕니다.</p>
+            <div className="config-row">
+              <label htmlFor="hair-color-on">
+                <input
+                  id="hair-color-on"
+                  type="checkbox"
+                  checked={hairColorOn}
+                  onChange={(e) => setHairColorOn(e.target.checked)}
+                />
+                머리색 직접 지정
+              </label>
+              {hairColorOn && (
+                <input
+                  id="hair-color"
+                  type="color"
+                  value={hairColor}
+                  onChange={(e) => setHairColor(e.target.value)}
+                  aria-label="머리색"
+                />
+              )}
+            </div>
+            <p className="config-help">사진에서 금발을 못 읽는 경우(머리가 가려짐) 직접 지정해요.</p>
+            <div className="config-row">
+              <label htmlFor="show-steps">
+                <input
+                  id="show-steps"
+                  type="checkbox"
+                  checked={showSteps}
+                  onChange={(e) => setShowSteps(e.target.checked)}
+                />
+                처리 과정 표시 <small>(끄면 단계 이미지를 만들지 않아요)</small>
+              </label>
+            </div>
+            <div className="config-row">
+              <label htmlFor="hair-overlay">머리카락 볼륨</label>
+              <select
+                id="hair-overlay"
+                aria-describedby="hair-overlay-help"
+                value={hairOverlay}
+                onChange={(e) => setHairOverlay(e.target.value)}
+              >
+                <option value="on">볼륨 더하기</option>
+                <option value="off">기본 두께</option>
+              </select>
+            </div>
+            <p id="hair-overlay-help" className="config-help">머리카락을 바깥쪽에 한 겹 더 그려 입체감을 줘요. 앞머리와 긴 머리도 더 도드라져 보여요.</p>
+          </details>
+
           {fileError && <p role="alert" className="inline-notice">이미지 파일(JPEG/PNG)만 첨부할 수 있어요.</p>}
           {file && (
             <SelectedPhoto
@@ -427,6 +479,17 @@ function App() {
             />
           )}
           <BodyTypePicker value={skinModel} onChange={setSkinModel} disabled={isLoading} />
+          <div className="convert-group">
+            <button
+              onClick={() => handleGenerate()}
+              disabled={isLoading || !file}
+              aria-describedby={file ? undefined : 'convert-hint'}
+              className="generate-btn"
+            >
+              {isLoading ? '생성 중...' : '스킨 변환하기'}
+            </button>
+            {!file && !isLoading && <p id="convert-hint" className="upload-hint">먼저 사진을 선택해 주세요.</p>}
+          </div>
         </div>
 
         {cameraOpen && (
@@ -437,69 +500,7 @@ function App() {
           />
         )}
 
-        <details className="config-section">
-          <summary className="config-summary">설정</summary>
-          <div className="config-row">
-            <label htmlFor="noise-level">픽셀 질감</label>
-            <input
-              id="noise-level"
-              aria-describedby="noise-help"
-              type="range"
-              min="0"
-              max="100"
-              step="5"
-              value={noiseLevel}
-              onChange={(e) => setNoiseLevel(Number(e.target.value))}
-            />
-            <span className="noise-readout">{noiseLevel}%</span>
-          </div>
-          <p id="noise-help" className="config-help">높일수록 픽셀마다 밝기 차이를 더해 질감을 표현해요. 0%는 이 효과를 끕니다.</p>
-          <div className="config-row">
-            <label htmlFor="hair-color-on">
-              <input
-                id="hair-color-on"
-                type="checkbox"
-                checked={hairColorOn}
-                onChange={(e) => setHairColorOn(e.target.checked)}
-              />
-              머리색 직접 지정
-            </label>
-            {hairColorOn && (
-              <input
-                id="hair-color"
-                type="color"
-                value={hairColor}
-                onChange={(e) => setHairColor(e.target.value)}
-                aria-label="머리색"
-              />
-            )}
-          </div>
-          <p className="config-help">사진에서 금발을 못 읽는 경우(머리가 가려짐) 직접 지정해요.</p>
-          <div className="config-row">
-            <label htmlFor="show-steps">
-              <input
-                id="show-steps"
-                type="checkbox"
-                checked={showSteps}
-                onChange={(e) => setShowSteps(e.target.checked)}
-              />
-              처리 과정 표시 <small>(끄면 단계 이미지를 만들지 않아요)</small>
-            </label>
-          </div>
-          <div className="config-row">
-            <label htmlFor="hair-overlay">머리카락 볼륨</label>
-            <select
-              id="hair-overlay"
-              aria-describedby="hair-overlay-help"
-              value={hairOverlay}
-              onChange={(e) => setHairOverlay(e.target.value)}
-            >
-              <option value="on">볼륨 더하기</option>
-              <option value="off">기본 두께</option>
-            </select>
-          </div>
-          <p id="hair-overlay-help" className="config-help">머리카락을 바깥쪽에 한 겹 더 그려 입체감을 줘요. 앞머리와 긴 머리도 더 도드라져 보여요.</p>
-        </details>
+
 
         {skins.length > 0 && (
           <div className="result-section" ref={resultRef}>

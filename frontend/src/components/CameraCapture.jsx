@@ -70,7 +70,7 @@ export default function CameraCapture({ onCapture, onClose, onChooseFile }) {
   return (
     <dialog ref={dialogRef} className="camera-dialog" aria-labelledby="camera-title" onCancel={onClose}>
       <h2 id="camera-title">카메라로 사진 찍기</h2>
-      <p>전신이 화면에 들어오도록 맞춘 뒤 촬영해주세요.</p>
+      <p>상반신만 나와도 됩니다.</p>
       {error ? <p role="alert">{error}</p> : (
         <>
           <video ref={videoRef} autoPlay playsInline muted onCanPlay={() => setReady(true)} />
