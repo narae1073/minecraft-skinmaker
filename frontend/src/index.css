@@ -27,6 +27,8 @@
   --mc-gold: #f5d442;
   --mc-danger: #a8433e;
   --mc-danger-dark: #7d2f2b;
+  --mc-purple: #7a3fb5;
+  --mc-purple-hover: #9250d0;
   --mc-bevel: inset 2px 2px 0 rgba(255, 255, 255, 0.18), inset -2px -2px 0 rgba(0, 0, 0, 0.55);
   --mc-bevel-pressed: inset -2px -2px 0 rgba(255, 255, 255, 0.18), inset 2px 2px 0 rgba(0, 0, 0, 0.55);
   --mc-font: 'NeoDunggeunmo', 'D2Coding', ui-monospace, monospace;
@@ -52,21 +54,14 @@ html, body, #root {
   max-width: none;
 }
 
-/* The dirt tile and its 64px block seams scroll with the page; the light and
-   vignette are fixed so a long page never fades to a flat colour. */
+/* Restored Minecraft wallpaper (mobile override at the bottom). */
 html:root {
-  background-color: var(--mc-bg);
-  background-image:
-    radial-gradient(1100px 680px at 50% -8%, rgba(120, 92, 60, 0.20), transparent 62%),
-    radial-gradient(ellipse at 50% 45%, transparent 25%, rgba(0, 0, 0, 0.50) 100%),
-    repeating-linear-gradient(0deg, rgba(0, 0, 0, 0.22) 0 2px, transparent 2px 64px),
-    repeating-linear-gradient(90deg, rgba(0, 0, 0, 0.22) 0 2px, transparent 2px 64px),
-    url('/dirt-dark.png');
-  background-attachment: fixed, fixed, scroll, scroll, scroll;
-  background-size: cover, cover, 64px 64px, 64px 64px, 64px 64px;
-  background-position: center top, center center, 0 0, 0 0, 0 0;
-  background-repeat: no-repeat, no-repeat, repeat, repeat, repeat;
-  image-rendering: pixelated;
+  background-color: #bfe3ff;
+  background-image: url('/wallpaper.png');
+  background-size: cover;
+  background-position: center top;
+  background-repeat: no-repeat;
+  background-attachment: scroll;
 }
 
 body {
@@ -155,4 +150,5 @@ code {
   :root { font-size: 16px; }
   h1 { font-size: 32px; margin: 18px 0; }
   h2 { font-size: 32px; }
+  html:root { background-image: url('/wallpaper-mobile.png'); }
 }

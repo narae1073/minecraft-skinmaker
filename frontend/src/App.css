@@ -391,13 +391,13 @@ h1 {
 
 .camera-btn {
   color: #fff;
-  background-color: var(--mc-gui);
+  background-color: var(--mc-purple);
   border: 2px solid #000;
 }
 
 .generate-btn.camera-btn:hover:not(:disabled) {
-  color: var(--mc-gold);
-  background-color: var(--mc-gui-hover);
+  color: #fff;
+  background-color: var(--mc-purple-hover);
 }
 
 .generate-btn:disabled {
