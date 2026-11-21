@@ -357,6 +357,85 @@ h1 {
 
 .selected-photo span { flex: 1 1 140px; min-width: 0; text-align: left; }
 .selected-photo-actions { display: flex; gap: 6px; flex-shrink: 0; }
+
+/* 체형 선택: 업로드 패널/선택한 사진 아래 전체 폭, 중앙 정렬 */
+.body-type-picker {
+  grid-column: 1 / -1;
+  min-width: 0;
+  margin: 6px 0 0;
+  padding: 0;
+  border: 0;
+  text-align: center;
+}
+
+.body-type-legend {
+  display: block;
+  margin: 0 0 8px;
+  color: var(--mc-ink-dim);
+  font-size: 16px;
+}
+
+.body-type-options {
+  display: flex;
+  align-items: stretch;
+  justify-content: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.body-type-option {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  min-width: 140px;
+  padding: 10px 12px 12px;
+  color: var(--mc-ink);
+  background: var(--mc-panel-2);
+  border: 2px solid var(--mc-edge);
+  border-radius: 0;
+  box-shadow: var(--mc-bevel);
+  cursor: pointer;
+  transition: color 0.08s steps(2, end), border-color 0.08s steps(2, end);
+}
+
+.body-type-option.is-selected {
+  color: var(--mc-gold);
+  background: var(--mc-panel-3);
+  border-color: var(--mc-gold);
+  box-shadow: var(--mc-bevel-pressed);
+}
+
+.body-type-option:focus-within {
+  outline: 2px solid var(--mc-gold);
+  outline-offset: 2px;
+}
+
+.body-type-option input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+}
+
+.body-type-option.is-disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.body-type-label {
+  font-size: 16px;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+
+.body-type-icon {
+  display: block;
+  width: 72px;
+  height: 96px;
+}
+
 .convert-group { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
 .upload-hint { margin: 0; font-size: 16px; color: var(--mc-ink-dim); text-align: center; }
 

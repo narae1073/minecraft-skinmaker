@@ -6,6 +6,7 @@ import CategoryPanel from './components/CategoryPanel';
 import StepsPanel from './components/StepsPanel';
 import CameraCapture from './components/CameraCapture';
 import SelectedPhoto from './components/SelectedPhoto';
+import BodyTypePicker from './components/BodyTypePicker';
 import CropModal from './components/CropModal';
 import useDialog from './useDialog';
 import { loadSkinHistory, saveSkinHistory } from './skinHistory';
@@ -425,6 +426,7 @@ function App() {
               }}
             />
           )}
+          <BodyTypePicker value={skinModel} onChange={setSkinModel} disabled={isLoading} />
         </div>
 
         {cameraOpen && (
@@ -452,19 +454,6 @@ function App() {
             <span className="noise-readout">{noiseLevel}%</span>
           </div>
           <p id="noise-help" className="config-help">높일수록 픽셀마다 밝기 차이를 더해 질감을 표현해요. 0%는 이 효과를 끕니다.</p>
-          <div className="config-row">
-            <label htmlFor="skin-model">스킨 모델</label>
-            <select
-              id="skin-model"
-              aria-describedby="skin-model-help"
-              value={skinModel}
-              onChange={(e) => setSkinModel(e.target.value)}
-            >
-              <option value="classic">클래식 (팔 4px)</option>
-              <option value="slim">슬림 (팔 3px)</option>
-            </select>
-          </div>
-          <p id="skin-model-help" className="config-help">클래식은 기본 체형, 슬림은 팔이 3px 얇은 체형이에요.</p>
           <div className="config-row">
             <label htmlFor="hair-color-on">
               <input
