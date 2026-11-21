@@ -740,3 +740,9 @@ S0 quality/face detection (YuNet) → S1 colour measurement (white-balance + ban
   - `App.jsx`: previewRefs, 캡처 버튼, 실패 시 inline notice, 파일명. `.capture-btn` 패딩은 카드 액션 높이에 맞춤.
   - 검증: CDP 다운로드 `skin_preview_1.png` → 252×350 RGBA, alpha (0,255), transparent 58,735 / opaque 29,013; 1440/390 레이아웃·overflow·콘솔 에러 0; 새 배경 `terrain_screenshot-Bn278E7E.webp` 로드; lint/build green; `pytest -q` → **804 passed in 154.72s**.
   - 리스크: 현재 보고 있는 카메라 각도로 캡처된다(정면 고정 아님). 다운로드 위치/동작은 브라우저 설정을 따르고, 투명 PNG는 뷰어에 따라 체커보드로 보일 수 있다.
+
+- 2026-11-21 (체형 선택 UI, `feat/body-type-picker`): 설정 패널의 `스킨 모델` select와 설명을 제거하고, 업로드 영역의 선택 사진(없으면 업로드 패널) 아래에 `BodyTypePicker` 카드 2개를 항상 표시·중앙 정렬로 추가했다.
+  - `BodyTypePicker.jsx`: fieldset/radio, `클래식 (팔 4px)`/`슬림 (팔 3px)` 텍스트 위 + 정면 선화 SVG(팔 8 vs 6 단위), 선택 시 금색 테두리/눌린 베벨, 키보드 포커스, 로딩 중 disabled.
+  - `skinModel` state/API 불변; 생성 시 선택한 `skin_model` 전송.
+  - 검증: CDP 1440/390 초기 picker/2 icons/classic, `#skin-model` select 0, 사진 선택 후 picker top > photo bottom, slim 선택 생성→history `model=slim`, 390 overflow/콘솔 에러 0. lint/build green; `pytest -q` → **804 passed in 155.09s**.
+  - 리스크: 사진 선택 전에도 표시(요청). 좁은 화면에서는 카드 2개가 2행으로 wrap될 수 있다.
