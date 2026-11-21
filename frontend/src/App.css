@@ -490,6 +490,13 @@ h1 {
 .candidate-viewer {
   width: 100%;
   aspect-ratio: 13 / 18;
+  background-color: #17130f;
+  background-image:
+    linear-gradient(180deg, rgba(0, 0, 0, 0.10), rgba(0, 0, 0, 0.42)),
+    url('./assets/terrain_screenshot.webp');
+  background-size: cover;
+  background-position: center 60%;
+  background-repeat: no-repeat;
 }
 
 @media (max-width: 720px) {

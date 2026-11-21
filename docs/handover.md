@@ -694,3 +694,9 @@ S0 quality/face detection (YuNet) → S1 colour measurement (white-balance + ban
   - 원인: `.edit-btn` padding 6/10 vs `.download-btn` 10/16 + `margin-top: 15px`.
   - 수정: `.card-actions` `align-items:center`; `.card-actions .edit-btn` padding 10/16; `.card-actions .download-btn` margin-top 0. 결과 카드에만 적용, 사이드바/카메라/편집기 `.edit-btn`과 `.editor-download` 불변.
   - 검증: CDP 1440/390에서 두 버튼 `height 43.1875`, `top` delta 0; 390 가로 스크롤 없음; console errors 0. `npm run lint`/`build` green; `pytest -q` → **804 passed in 155.90s**.
+
+- 2026-11-21 (결과 카드 지형 배경, `feat/candidate-terrain-bg`): 결과 카드의 3D 뷰어에 사용자 제공 `terrain_screenshot.webp`(1080×607, 93KB)를 배경으로 넣었다.
+  - 파일: 루트 `assets/`(모델/데이터, Vite 미포함)에서 `frontend/src/assets/terrain_screenshot.webp`로 이동; Vite가 `dist/assets/terrain_screenshot-<hash>.webp`로 해시.
+  - CSS: `.candidate-viewer`에만 `linear-gradient(180deg, rgba(0,0,0,.10), rgba(0,0,0,.42))` + `cover`, `center 60%`. `.skin-viewer`/`.editor-viewer`는 기존 다크 배경 유지(편집기 제외).
+  - 검증: CDP 1440/390에서 후보 카드 background-image에 terrain 포함, 리소스 로드 200, 편집기 background-image `none`; 390 가로 스크롤 없음; console errors 0. lint/build green; `pytest -q` → **804 passed in 155.82s**.
+  - 리스크: 가로 16:9 원본을 세로 뷰어에 cover로 잘라 왼쪽 나무 일부가 잘림; 93KB 추가.
