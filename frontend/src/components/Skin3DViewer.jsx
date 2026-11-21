@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { forwardRef, useImperativeHandle, useMemo, useRef } from 'react';
 import { Canvas, useLoader } from '@react-three/fiber';
 import { OrbitControls } from '@react-three/drei';
 import * as THREE from 'three';
@@ -41,15 +41,40 @@ function MinecraftCharacter({ skinUrl, model = 'classic' }) {
   );
 }
 
-export default function Skin3DViewer({ skinUrl, model = 'classic', width = 200, height = 300, className }) {
+const Skin3DViewer = forwardRef(function Skin3DViewer({ skinUrl, model = 'classic', width = 200, height = 300, className }, ref) {
   const classes = ['skin-viewer', className].filter(Boolean).join(' ');
   const size = className ? undefined : { width: `${width}px`, height: `${height}px` };
+  const glRef = useRef(null);
+  const glOptions = useMemo(() => ({ alpha: true, preserveDrawingBuffer: true, antialias: true }), []);
+
+  // Capture the current camera view as a transparent PNG. The CSS terrain
+  // background lives on the wrapper, so it is not part of the canvas.
+  useImperativeHandle(ref, () => ({
+    capture: () => new Promise((resolve) => {
+      const gl = glRef.current;
+      if (!gl) {
+        resolve(null);
+        return;
+      }
+      requestAnimationFrame(() => {
+        gl.domElement.toBlob((blob) => resolve(blob), 'image/png');
+      });
+    }),
+  }), []);
 
   if (!skinUrl) return <div className={classes} style={size} />;
 
   return (
     <div className={classes} style={size}>
-      <Canvas camera={{ position: [0, 2, 5], fov: 50 }}>
+      <Canvas
+        camera={{ position: [0, 2, 5], fov: 50 }}
+        gl={glOptions}
+        onCreated={({ gl }) => {
+          glRef.current = gl;
+          gl.setClearColor(0x000000, 0);
+          gl.setClearAlpha(0);
+        }}
+      >
         {/* 고정 조명: 자동 회전 없이 가장 밝은 상태를 유지한다 (조명 애니메이션 없음). */}
         <ambientLight intensity={1.1} />
         <directionalLight position={[4, 8, 6]} intensity={1.8} />
@@ -62,4 +87,6 @@ export default function Skin3DViewer({ skinUrl, model = 'classic', width = 200, 
       </Canvas>
     </div>
   );
-}
+});
+
+export default Skin3DViewer;

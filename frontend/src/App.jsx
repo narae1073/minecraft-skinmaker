@@ -58,6 +58,8 @@ function App() {
   const [serverError, setServerError] = useState('');
   const [historyNotice, setHistoryNotice] = useState(''); // 사이드바 인라인 안내
   const [skins, setSkins] = useState([]); // 현재 결과: {url, flatUrl} 쌍 배열
+  const [captureError, setCaptureError] = useState('');
+  const previewRefs = useRef([]);
   // 편집: 이 브라우저가 만든 스킨이면 마스크 편집기(새 탭), 아니면 기존 미리보기 모달.
   const openSkinEditor = (skin) => {
     if (skin.jobId) {
@@ -65,6 +67,22 @@ function App() {
     } else {
       setEditorItem(skin);
     }
+  };
+  const downloadPreview = async (index) => {
+    setCaptureError('');
+    const blob = await previewRefs.current[index]?.capture?.();
+    if (!blob) {
+      setCaptureError('미리보기 캡처를 만들지 못했어요. 잠시 후 다시 시도해주세요.');
+      return;
+    }
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `skin_preview_${index + 1}.png`;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
   };
   const [editorItem, setEditorItem] = useState(null); // SkinEditor 모달 대상 ({url, flatUrl, steps, model})
   const [noiseLevel, setNoiseLevel] = useState(50); // 노이즈 세기 % (기본 50 — 사용자 결정 2026-10-13)
@@ -140,6 +158,7 @@ function App() {
     setIsLoading(true);
     setSkins([]);
     setServerError('');
+    setCaptureError('');
     setCatInfo(null);
     setSteps(null);
 
@@ -508,6 +527,7 @@ function App() {
               </a>
               <p className="official-skin-hint">다운로드한 PNG를 자바 에디션 공식 페이지에서 업로드하세요.</p>
             </div>
+            {captureError && <p role="alert" className="inline-notice">{captureError}</p>}
             <div className="compare-grid">
               {skins.map((skin, index) => (
                 <div key={index} className="skin-card candidate-card">
@@ -515,7 +535,12 @@ function App() {
                   {skin.varied && skin.varied !== "as-answered" && (
                     <p className="varied-note">{skin.varied}</p>
                   )}
-                  <Skin3DViewer skinUrl={skin.url} model={skin.model} className="candidate-viewer" />
+                  <Skin3DViewer
+                    ref={(el) => { previewRefs.current[index] = el; }}
+                    skinUrl={skin.url}
+                    model={skin.model}
+                    className="candidate-viewer"
+                  />
                   <div className="card-actions">
                     <button className="edit-btn" onClick={() => openSkinEditor(skin)}>
                       스킨 편집
@@ -523,6 +548,15 @@ function App() {
                     <a href={skin.url} download={`skin_option_${index + 1}.png`} className="download-btn">
                       스킨 다운로드
                     </a>
+                    <button
+                      type="button"
+                      className="capture-btn"
+                      onClick={() => downloadPreview(index)}
+                      title="현재 3D 미리보기를 투명 PNG로 저장"
+                      aria-label={`후보 ${index + 1} 미리보기 캡처 다운로드`}
+                    >
+                      캡처
+                    </button>
                   </div>
                 </div>
               ))}
