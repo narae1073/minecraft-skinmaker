@@ -460,6 +460,48 @@ h1 {
   margin-top: 20px;
 }
 
+.official-skin-row {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  margin: 0 0 12px;
+}
+
+.official-skin-btn {
+  display: inline-block;
+  padding: 10px 16px;
+  color: #fff;
+  font-size: 16px;
+  background: var(--mc-gui);
+  border: 2px solid #000;
+  border-radius: 0;
+  box-shadow: var(--mc-bevel);
+  text-shadow: 2px 2px 0 rgba(0, 0, 0, 0.75);
+  text-decoration: none;
+}
+
+.official-skin-btn:hover {
+  color: var(--mc-gold);
+  background: var(--mc-gui-hover);
+}
+
+.official-skin-btn:active {
+  box-shadow: var(--mc-bevel-pressed);
+}
+
+.official-skin-btn:focus-visible {
+  outline: 2px solid var(--mc-gold);
+  outline-offset: 2px;
+}
+
+.official-skin-hint {
+  margin: 0;
+  color: var(--mc-ink-faint);
+  font-size: 16px;
+  line-height: 1.5;
+}
+
 .compare-grid {
   display: flex;
   gap: 20px;
