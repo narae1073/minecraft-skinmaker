@@ -669,5 +669,5 @@ S0 quality/face detection (YuNet) → S1 colour measurement (white-balance + ban
   - `docs/pipeline_overview_ko.md` 는 2026-11-02 스냅샷이라 본문 수치(675)를 유지하고, 상단과 §7.3 에 최신 수치는 README/§2(804)를 따르라는 안내만 추가했다. `docs/devbox.md` 실행 예시 주석과 `.github/pull_request_template.md` 예시는 특정 수치 대신 일반 표기로 바꿔 같은 드리프트가 재발하지 않게 했다.
   - 과거 세션 기록·`docs/ledger`·`docs/superpowers` 의 역사값(477/513/539/610/675/728/786 등)은 2026-10-27 감사 교훈대로 건드리지 않았다. 현재 수치의 단일 출처는 README 와 이 문서 §2 다.
   - README 저장소 구조의 `deploy/ ... (예정)` 표기를 실제 배포 상태에 맞게 고쳤다.
-  - 남은 위험(범위 밖): 미추적 `assets/yolov8n.pt`(6.3MB)는 `.gitignore` 에 `*.pt` 가 없어 실수 커밋 위험이 있다. `scripts/build_pack_review.py` 는 기존 방침대로 로컬 유지.
+  - 미추적 모델 가중치: `assets/yolov8n.pt`(6.3MB)를 실수 커밋하지 않도록 `.gitignore` 에 `*.pt` 를 추가했다(파일은 로컬에 유지). `scripts/build_pack_review.py` 는 기존 방침대로 로컬 유지.
   - 검증: `pytest -q` 804 passed (위), `npm run lint` exit 0, `npm run build` green (기존 chunk 경고), `git diff --check` clean.
