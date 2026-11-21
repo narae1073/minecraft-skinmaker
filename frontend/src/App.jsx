@@ -347,7 +347,7 @@ function App() {
             <span>모바일로 열기</span>
           </a>
         </div>
-        <p>당신의 전신 사진을 첨부해주세요!</p>
+        <p>당신의 사진을 첨부해주세요!</p>
         
         <div className="upload-section">
           <input

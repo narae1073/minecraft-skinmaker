@@ -705,3 +705,7 @@ S0 quality/face detection (YuNet) → S1 colour measurement (white-balance + ban
   - `.candidate-viewer`: `background-image: url('./assets/terrain_screenshot.webp')`, `auto 130%`, `center 60%`; `border`/`box-shadow` 유지.
   - 의도: 지형 특징을 30% 키워 캐릭터가 상대적으로 작아 보이게. 3D 모델/카메라 자체 크기는 불변.
   - 검증: CDP 1440/390에서 `backgroundImage`에 gradient 없음, `backgroundSize: auto 130%`, terrain 로드; 390 가로 스크롤 없음; console errors 0. lint/build green; `pytest -q` → **804 passed in 154.18s**.
+
+- 2026-11-21 (결과 카드 문구/여백, `feat/card-preview-spacing`): 메인 문구에서 '전신'을 빼고 `당신의 사진을 첨부해주세요!`로 바꿨다. 결과 카드 뷰어와 버튼 사이 여백을 16px로 넓혔다.
+  - `.card-actions { margin-top: 16px; }`; 편집기 모달의 뷰어↔옵션 간격(10px)은 불변.
+  - 검증: CDP 1440/390에서 뷰어 하단↔버튼 상단 gap 16px, 편집기 gap 10px, 390 가로 스크롤 없음, console errors 0. lint/build green; `pytest -q` → **804 passed in 154.12s**.
