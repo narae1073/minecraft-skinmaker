@@ -8,6 +8,7 @@ import CameraCapture from './components/CameraCapture';
 import SelectedPhoto from './components/SelectedPhoto';
 import CropModal from './components/CropModal';
 import useDialog from './useDialog';
+import { loadSkinHistory, saveSkinHistory } from './skinHistory';
 import './App.css';
 
 const MAX_UPLOAD_EDGE = 1600;
@@ -103,8 +104,12 @@ function App() {
 
   // 사이드바 및 스킨 기록 관련 상태
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-  const [skinHistory, setSkinHistory] = useState([]); // 누적 스킨 보관
+  const [skinHistory, setSkinHistory] = useState(loadSkinHistory); // 누적 스킨 보관 (localStorage)
   const [selectedSkins, setSelectedSkins] = useState([]); // 삭제를 위해 선택된 스킨의 인덱스 배열
+
+  useEffect(() => {
+    saveSkinHistory(skinHistory);
+  }, [skinHistory]);
 
   const handleFileChange = (e) => {
     const selectedFile = e.target.files[0];
@@ -214,6 +219,7 @@ function App() {
           steps: data.data.steps || null, // 이 생성의 처리 과정 시트 — 사이드바 편집이 자기 세대의 시트를 연다 (후속 검토 1)
           model: resultModel, // 3D 뷰어 체형 (classic | slim)
           jobId: data.data.job?.editable ? data.data.job.id : null, // 만든 브라우저만 편집 가능 (쿠키)
+          createdAt: Date.now(), // localStorage 보관·14일 자동 정리 기준
         }));
         setSkins(pairs);
         setCatInfo({
