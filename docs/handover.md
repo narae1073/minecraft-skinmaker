@@ -715,3 +715,9 @@ S0 quality/face detection (YuNet) → S1 colour measurement (white-balance + ban
   - 카메라: `--mc-purple:#7a3fb5`, `--mc-purple-hover:#9250d0`; `.camera-btn` base/hover 흰 글자; disabled는 기존 회색.
   - 검증: CDP 1440/390에서 wallpaper 1920×1080 / mobile 1080×1920 로드, camera base rgb(122,63,181), hover rgb(146,80,208), disabled rgb(63,63,63); 390 overflow 없음; console errors 0. lint/build green; `pytest -q` → **804 passed in 156.64s**.
   - 리스크: 페이지 전송량 +4.4MB; 밝은 배경 위 다크 패널 대비는 스크린샷 확인. README 스크린샷도 현재 랜딩 화면으로 교체.
+
+- 2026-11-21 (스킨 목록 새로고침 유지, `fix/persist-skin-history`): `skinHistory`가 메모리 상태뿐이라 새로고침 시 사이드바 목록이 초기화되던 문제.
+  - `frontend/src/skinHistory.js`: localStorage 키 `skinmaker.history.v1`; lazy initializer로 복원, `useEffect`로 생성/삭제 시 저장. 로드 시 URL(`/static/skins/*.png`), steps(`/static/steps/*.png`), model, 12-hex jobId 검증; 14일 지난 항목 제거; 최대 100개; JSON/quota 오류는 무시.
+  - 생성 pair에 `createdAt` 추가. 현재 결과 섹션은 세션 상태라 새로고침 시 비어 있고, 사이드바 목록만 복원된다.
+  - 검증: CDP 1440/390에서 생성→새로고침 badge/list 1 유지, 썸네일 64×64 로드; 삭제→새로고침 0/빈 메시지; 150개+`javascript:`+15일 지난 항목 주입→100개만 남고 unsafe/expired 제거; 모바일 overflow 없음; console errors 0. lint/build green; `pytest -q` → **804 passed in 154.17s**.
+  - 리스크: localStorage는 브라우저/오리진별. 14일 TTL은 서버 기본 보존기간과 동일(설정을 늘리면 오래된 항목이 일찍 사라짐).
