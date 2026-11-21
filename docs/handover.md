@@ -709,3 +709,9 @@ S0 quality/face detection (YuNet) → S1 colour measurement (white-balance + ban
 - 2026-11-21 (결과 카드 문구/여백, `feat/card-preview-spacing`): 메인 문구에서 '전신'을 빼고 `당신의 사진을 첨부해주세요!`로 바꿨다. 결과 카드 뷰어와 버튼 사이 여백을 16px로 넓혔다.
   - `.card-actions { margin-top: 16px; }`; 편집기 모달의 뷰어↔옵션 간격(10px)은 불변.
   - 검증: CDP 1440/390에서 뷰어 하단↔버튼 상단 gap 16px, 편집기 gap 10px, 390 가로 스크롤 없음, console errors 0. lint/build green; `pytest -q` → **804 passed in 154.12s**.
+
+- 2026-11-21 (배경 복원 + 카메라 버튼 보라색, `feat/wallpaper-purple-camera`): 배경을 흙 타일에서 예전 Minecraft wallpaper로 되돌리고 카메라 업로드 버튼을 보라색으로 바꿨다.
+  - 배경: `frontend/public/wallpaper.png`(2.6MB)·`wallpaper-mobile.png`(1.8MB)를 87e263d에서 복원. `index.css` html:root `url('/wallpaper.png')` cover/center top/no-repeat/scroll, ≤720px `wallpaper-mobile.png`; dirt layer/vignette/`image-rendering:pixelated` 제거. `dirt-dark.png`(692B)는 미참조로 유지.
+  - 카메라: `--mc-purple:#7a3fb5`, `--mc-purple-hover:#9250d0`; `.camera-btn` base/hover 흰 글자; disabled는 기존 회색.
+  - 검증: CDP 1440/390에서 wallpaper 1920×1080 / mobile 1080×1920 로드, camera base rgb(122,63,181), hover rgb(146,80,208), disabled rgb(63,63,63); 390 overflow 없음; console errors 0. lint/build green; `pytest -q` → **804 passed in 156.64s**.
+  - 리스크: 페이지 전송량 +4.4MB; 밝은 배경 위 다크 패널 대비는 스크린샷 확인. README 스크린샷도 현재 랜딩 화면으로 교체.
