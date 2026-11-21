@@ -88,8 +88,8 @@ select option {
 input[type="checkbox"] {
   position: relative;
   flex: 0 0 auto;
-  width: 18px;
-  height: 18px;
+  width: 22px;
+  height: 22px;
   padding: 0;
   background: #17130f;
   box-shadow: inset 2px 2px 0 rgba(0, 0, 0, 0.55);
@@ -737,8 +737,8 @@ h1 {
 .skin-list-item:hover { border-color: var(--mc-gold); }
 
 .skin-checkbox {
-  width: 18px;
-  height: 18px;
+  width: 22px;
+  height: 22px;
   cursor: pointer;
 }
 
