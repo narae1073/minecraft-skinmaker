@@ -670,4 +670,5 @@ S0 quality/face detection (YuNet) → S1 colour measurement (white-balance + ban
   - 과거 세션 기록·`docs/ledger`·`docs/superpowers` 의 역사값(477/513/539/610/675/728/786 등)은 2026-10-27 감사 교훈대로 건드리지 않았다. 현재 수치의 단일 출처는 README 와 이 문서 §2 다.
   - README 저장소 구조의 `deploy/ ... (예정)` 표기를 실제 배포 상태에 맞게 고쳤다.
   - 미추적 모델 가중치: `assets/yolov8n.pt`(6.3MB)를 실수 커밋하지 않도록 `.gitignore` 에 `*.pt` 를 추가했다(파일은 로컬에 유지). `scripts/build_pack_review.py` 는 기존 방침대로 로컬 유지.
+  - 저장소 소유자가 "머지가 필요할 때 admin bypass" 를 승인해 `AGENTS.md` 에 기록했다. 적용 범위는 승인 부재분만이며 CI green 은 유지한다.
   - 검증: `pytest -q` 804 passed (위), `npm run lint` exit 0, `npm run build` green (기존 chunk 경고), `git diff --check` clean.
