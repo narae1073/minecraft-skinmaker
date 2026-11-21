@@ -729,3 +729,8 @@ S0 quality/face detection (YuNet) → S1 colour measurement (white-balance + ban
 - 2026-11-21 (결과 제목 제거, `feat/remove-result-heading`): 결과 영역의 `생성된 64×64 스킨 후보 N종` h2를 삭제했다.
   - 제목이 주던 상단 여백은 `.result-section { margin-top: 20px; }`로 보완. 모바일에서 결과로 스크롤할 때 고정 `☰ 스킨 목록` 버튼이 첫 줄을 덮지 않도록 `scroll-margin-top: 80px` 추가.
   - 검증: CDP 1440/390에서 해당 문구/h2 0, result-note·카드 1 정상, config↔result gap 20px, 390 overflow/콘솔 에러 0. lint/build green; `pytest -q` → **804 passed in 154.96s**.
+
+- 2026-11-21 (새 미리보기 배경 + 공식 스킨 페이지 링크, `feat/official-skin-link`): 사용자 제공 `terrain_screenshot.png`(1376×768 RGBA, 1.7MB)를 WebP 104KB로 변환해 기존 `terrain_screenshot.webp` 경로에 연결했다(내용 교체). 결과 영역에 `공식 스킨 관리 페이지 열기` 버튼(`https://www.minecraft.net/en-us/profile/skin`, 새 탭, noopener/noreferrer)과 "다운로드한 PNG를 자바 에디션 공식 페이지에서 업로드하세요." 힌트를 추가했다.
+  - 배경은 `.candidate-viewer` `auto 160%` 유지. OAuth 직접 적용은 공개 데모 보안 부담 때문에 넣지 않았다.
+  - 검증: CDP 1440/390에서 버튼 href/target/rel·힌트, 새 배경 `terrain_screenshot-DsTY2quu.webp` 로드(1376×768), 390 overflow/콘솔 에러 0. 공식 URL은 301→`msaprofile` 200. lint/build green; `pytest -q` → **804 passed in 157.33s**.
+  - 리스크: 공식 페이지는 Microsoft 로그인 후 자바 에디션 스킨을 수동 업로드해야 한다. Bedrock은 웹에서 바로 적용할 수 없다.

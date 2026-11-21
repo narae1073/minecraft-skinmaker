@@ -496,6 +496,18 @@ function App() {
         {skins.length > 0 && (
           <div className="result-section" ref={resultRef}>
             <p className="result-note">이 스킨들은 왼쪽 위 <strong>☰ 스킨 목록</strong>에도 저장돼요. 목록에서 다운로드하거나 삭제할 수 있어요.</p>
+            <div className="official-skin-row">
+              <a
+                className="official-skin-btn"
+                href="https://www.minecraft.net/en-us/profile/skin"
+                target="_blank"
+                rel="noopener noreferrer"
+                aria-label="마인크래프트 공식 스킨 관리 페이지 열기 (새 탭)"
+              >
+                공식 스킨 관리 페이지 열기
+              </a>
+              <p className="official-skin-hint">다운로드한 PNG를 자바 에디션 공식 페이지에서 업로드하세요.</p>
+            </div>
             <div className="compare-grid">
               {skins.map((skin, index) => (
                 <div key={index} className="skin-card candidate-card">
