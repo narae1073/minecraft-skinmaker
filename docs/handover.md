@@ -1,27 +1,27 @@
-# handover — skinmaker (2026-10-26, master)
+# handover — skinmaker (2026-11-21, master)
 
 ## 1. Project in one paragraph
 
 Photo → Minecraft 64×64 skin pipeline.
-S0 quality/face detection (YuNet) → S1 colour measurement (white-balance + band/cascade) → SCHP human-parsing mask (colour localization for bottom/hair/shoes — default ON) → S2 classification (double query, uncertainty flags) → S3 parametric render (+ deterministic noise) → S4 candidates (1–3 variants from double-query disagreements) → web app (FastAPI + React 19 / three.js with 3D viewer and editor modal).
+S0 quality/face detection (YuNet) → S1 colour measurement (white-balance + band/cascade) → SCHP human-parsing mask (colour localization for bottom/hair/shoes — default ON) → S2 classification (double query, uncertainty flags) → S3 parametric render (+ deterministic noise) → S4 candidates (1–3 variants from double-query disagreements) → web app (FastAPI + React 19 / three.js with 3D viewer and an owner-only per-skin mask editor).
 
-## 2. Current state (verified 2026-11-04)
+## 2. Current state (verified 2026-11-21)
 
-- Tests: **728 passed** (`tests/fixtures/` committed; 124 s on 2026-11-04 with the local SCHP model; ~10 s without it). Tests no longer need the 66 MB SCHP model: the jeans-rule tests stub a zero mask and `test_parsing` uses a dummy model path with a fake session.
+- Tests: **804 passed** (`tests/fixtures/` committed; 155 s on 2026-11-21 with the local SCHP model; ~10 s without it). Tests no longer need the 66 MB SCHP model: the jeans-rule tests stub a zero mask and `test_parsing` uses a dummy model path with a fake session.
 - Frontend: `npm run lint` clean, `npm run build` green (Vite 8 / Node 24).
 - Python 3.12.3 venv at `.venv`; do **not** use `python` or `uv`.
 - Parsing model: `out/models/schp-atr-18-int8-static.onnx` (66 MB, gitignored). YuNet: `assets/face_detection_yunet_2023mar.onnx` (228 KB, gitignored). Both fetched by `scripts/fetch_assets.sh`.
 - `mediapipe` was removed from requirements: the pose model is `assets/pose_landmarker_lite.task.disabled`, so `detect_pose()` always returns `None` and pose bands/cover measurement are dormant (code and tests remain).
 - Deployment: **live** at `https://skin.achijaser.date` (public, no auth). Production runs from the **release clone** `/home/achi/Programming/skinmaker-release` (systemd `skinmaker`); dev checkouts are the DSH checkout and the Codex clone. Tunnel `skinmaker` UUID `866fd5b7-5046-4fd7-80a1-2f7b0ae30502`; `cloudflared-skinmaker` and `skinmaker-cleanup.timer` active + enabled.
 - CI/CD: self-hosted runner `skinmaker-home` (label `skinmaker-deploy`) runs `.github/workflows/deploy.yml` on every merge to `master`; auto-merge is enabled after 1 approval (`gh pr merge --auto --rebase`).
-- Codex devbox: Docker container `skinmaker-codex`, SSH on tailnet `100.110.156.108:2222`, separate workspace `/home/achi/Programming/skinmaker-codex`; verified 513 tests + app health. The GUI's remote-project mode requires the remote CLI, so the host runs with `INSTALL_CODEX=1` (`codex-cli 0.164.0`); auth is pending. Partner key/Tailscale invite and the GUI connection are pending user actions.
+- Codex devbox: Docker container `skinmaker-codex`, SSH on tailnet `100.110.156.108:2222`, separate workspace `/home/achi/Programming/skinmaker-codex`; verified 513 tests at the time + app health. The GUI's remote-project mode requires the remote CLI, so the host runs with `INSTALL_CODEX=1` (`codex-cli 0.164.0`); auth is pending. Partner key/Tailscale invite and the GUI connection are pending user actions.
 - 2026-10-27: 메인 화면 `<h1>` 은 `마인크래프트 스킨 메이커` (PR #13 에서 `환영합니다!` 로 바꿨다가 이후 커밋에서 대체됨). 로컬 프리뷰는 `uvicorn` 이 저장소 루트 `.env` 를 자동으로 읽으므로(실제 환경변수 우선, pytest 제외) `set -a` 없이 `.venv/bin/python -m uvicorn backend.app:app --host 0.0.0.0 --port 8002` (8001 은 프로덕션 릴리스 클론) 또는 `cd frontend && npm run dev -- --host` (5173, ufw 허용됨).
 - 2026-10-27: `SKINMAKER_TRANSPORT=mock` 만으로 로컬 생성이 끝까지 동작하도록 mock 기본 시나리오 추가 (PR #18, `skinmaker/vlm/mock.py` 의 `DEFAULT_SCENARIO` + `get_transport()` 주입; 테스트 주입 경로는 불변).
 - 2026-10-27: 요청 경로 견고성 (PR #19) — `TransportError`(키 누락)를 500 대신 503 `ai_unavailable` 로 구조화, health 는 네트워크 프로브 없이 `configured()` 만 사용, RateLimiter 가 창당 1회 sweep 으로 만료 키 제거, YuNet 안내 메시지의 `None`/mkdir 부작용 제거, `measure` 독스트링 오타 수정.
 - 2026-10-27: `.env` 자동 로드 + `frontend/dist` 상시 마운트 (PR #20) — `python-dotenv` 명시 의존성, 빌드 전에는 404·빌드 후 재시작 없이 서빙. `:8765` 수동 스모크에서 `set -a` 없이 health mock + 생성 200.
 - 2026-10-27: 웹 slim 체형 (PR #21) — `skin_model=classic|slim` 폼/응답, `build`·`steps_sheets`·3D 뷰어 지오메트리 배선, UI 선택. 잘못된 값은 400 `bad_model`. 포즈는 계속 휴면.
 - 2026-11-04: "스킨 변환하기" 버튼이 요청을 아예 보내지 않던 버그 수정 — `onClick={handleGenerate}` 가 클릭 이벤트를 `cropBox` 로 넘겨 `JSON.stringify` 가 try 밖에서 던졌고, 가짜 진행 타이머만 92% 를 향해 기어갔다. 이제 진행바는 SSE 실제 진행률만 쓰고, SSE 에러 객체 메시지·`no_face` 크롭 모달도 처리한다. 업로드 전 1600px 로 축소(`shrinkImage`).
-- Git: `master` has hygiene (PR #1), CI/agent workflow (PR #2), deployment hardening (PR #3), live docs (PR #4), Windows support (PR #5), Windows docs (PR #6), devbox (PR #7), no-CLI cleanup (PR #8), Codex CLI enabled (PR #9), persistent SSH host keys (PR #10), workspace move (PR #11), and auto-deploy (PR #12). Branch protection requires `test`, `test-windows`, `web`, 1 approval, linear history; admins can bypass for ops. `opencode.jsonc` is deleted and gitignored by the user.
+- Git: `master` includes the PR #1–#12 setup wave (hygiene, CI/agent workflow, deployment, Windows, devbox, auto-deploy) plus the later rendering, attribute-mask and editor work through PR #105 (owner-only per-skin editor; no-photo retention in #103; daily conversion stats). Branch protection requires `test`, `test-windows`, `web`, 1 approval, linear history; admins can bypass for ops. `opencode.jsonc` is deleted and gitignored by the user.
 
 ## 3. Repo hygiene that landed (PR #1)
 
@@ -46,7 +46,7 @@ S0 quality/face detection (YuNet) → S1 colour measurement (white-balance + ban
 
 ### Windows development (PR #5)
 
-- `test-windows` runs the same 657 tests on `windows-latest`; it is a required check.
+- `test-windows` runs the same suite on `windows-latest`; it is a required check.
 - Native Windows: `py -3.12 -m venv .venv`, `.venv\Scripts\python.exe`; `.sh` scripts require Git Bash (or WSL2, recommended).
 - Upload temp file now uses `mkstemp` + close before `inspect` (`NamedTemporaryFile` cannot be reopened on Windows); `test_render` reads JSX as UTF-8; `.gitattributes` forces LF.
 - For local UI without a Gemini key: `SKINMAKER_TRANSPORT=mock` in `.env`.
@@ -663,3 +663,11 @@ S0 quality/face detection (YuNet) → S1 colour measurement (white-balance + ban
   - `scripts/daily_stats.py --days 30`: SSH에서 표로 조회. 파일은 14일 미디어 cleanup 대상이 아니라 합계가 유지된다.
   - 배포 테스트가 프로덕션 카운터를 오염시키지 않도록 `tests/conftest.py` autouse fixture가 stats 경로를 tmp로 격리한다.
   - 검증: `tests/test_stats.py` 4 + backend 통합 1; 관련 75 passed. README/deployment/handover 갱신.
+
+- 2026-11-21 (문서/수치 정리, `docs/test-count-refresh`): 현재상태 수치를 실측값으로 갱신했다. 기준 `master` `10c56a9`.
+  - `pytest -q` → **804 passed in 155.27s** (로컬 SCHP 포함), `pytest --collect-only -q` → 804. README 의 721(3곳)과 이 문서 §2 의 728 을 **804** 로 바꿨다.
+  - `docs/pipeline_overview_ko.md` 는 2026-11-02 스냅샷이라 본문 수치(675)를 유지하고, 상단과 §7.3 에 최신 수치는 README/§2(804)를 따르라는 안내만 추가했다. `docs/devbox.md` 실행 예시 주석과 `.github/pull_request_template.md` 예시는 특정 수치 대신 일반 표기로 바꿔 같은 드리프트가 재발하지 않게 했다.
+  - 과거 세션 기록·`docs/ledger`·`docs/superpowers` 의 역사값(477/513/539/610/675/728/786 등)은 2026-10-27 감사 교훈대로 건드리지 않았다. 현재 수치의 단일 출처는 README 와 이 문서 §2 다.
+  - README 저장소 구조의 `deploy/ ... (예정)` 표기를 실제 배포 상태에 맞게 고쳤다.
+  - 남은 위험(범위 밖): 미추적 `assets/yolov8n.pt`(6.3MB)는 `.gitignore` 에 `*.pt` 가 없어 실수 커밋 위험이 있다. `scripts/build_pack_review.py` 는 기존 방침대로 로컬 유지.
+  - 검증: `pytest -q` 804 passed (위), `npm run lint` exit 0, `npm run build` green (기존 chunk 경고), `git diff --check` clean.
