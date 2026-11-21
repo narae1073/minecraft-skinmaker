@@ -1053,7 +1053,7 @@ h1 {
   color: var(--mc-gold);
 }
 
-.result-section { overflow-anchor: none; }
+.result-section { overflow-anchor: none; margin-top: 20px; scroll-margin-top: 80px; }
 
 /* ==========================================================================
    Steps / lightbox
