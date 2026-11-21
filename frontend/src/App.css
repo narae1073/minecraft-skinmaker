@@ -10,45 +10,186 @@ html, body, #root {
   max-width: none;
 }
 
-/* 배경을 body 높이(100vh)에 가두지 않는다. html 캔버스에 깔아야 긴 페이지의
-   맨 아래까지 덮인다 (모바일 fixed 배경 미지원 폴백 포함). */
-html:root {
-  background-color: #bfe3ff;
-  background-image: url('/wallpaper.png');
-  background-size: cover;
-  background-position: center top;
-  background-repeat: no-repeat;
-  /* fixed 는 뷰포트 높이에서만 칠해져 긴 페이지 하단이 배경색으로 남는다.
-     스크롤 배경으로 페이지 전체를 덮는다. */
-  background-attachment: scroll;
-}
-
-body {
-  min-height: 100vh;
-  background: transparent;
-}
-
+/* Background lives in index.css (dirt tile + seams + vignette). */
 #root {
   display: block;
   width: 100%;
 }
 
+/* ==========================================================================
+   Minecraft GUI primitives
+   ========================================================================== */
+
+button,
+.download-btn {
+  display: inline-block;
+  padding: 10px 14px;
+  font-family: var(--mc-font);
+  font-size: 16px;
+  font-weight: 400;
+  line-height: 1.2;
+  color: #fff;
+  text-decoration: none;
+  text-shadow: 2px 2px 0 rgba(0, 0, 0, 0.75);
+  background: var(--mc-gui);
+  border: 2px solid #000;
+  border-radius: 0;
+  box-shadow: var(--mc-bevel);
+  cursor: pointer;
+  transition: background-color 0.08s steps(2, end), color 0.08s steps(2, end);
+}
+
+button:hover:not(:disabled),
+.download-btn:hover {
+  color: var(--mc-gold);
+  background: var(--mc-gui-hover);
+}
+
+button:active:not(:disabled),
+.download-btn:active {
+  box-shadow: var(--mc-bevel-pressed);
+}
+
+button:disabled {
+  color: var(--mc-ink-faint);
+  background: var(--mc-gui-dark);
+  box-shadow: inset 2px 2px 0 rgba(0, 0, 0, 0.35);
+  cursor: not-allowed;
+}
+
+button:focus-visible,
+.download-btn:focus-visible {
+  outline: 2px solid var(--mc-gold);
+  outline-offset: 2px;
+}
+
+input,
+select,
+textarea {
+  font-family: var(--mc-font);
+  font-size: 16px;
+  color: var(--mc-ink);
+  background: #17130f;
+  border: 2px solid var(--mc-edge);
+  border-radius: 0;
+}
+
+select {
+  padding: 4px 8px;
+  box-shadow: var(--mc-bevel);
+  cursor: pointer;
+}
+
+select option {
+  color: var(--mc-ink);
+  background: var(--mc-panel-2);
+}
+
+input[type="checkbox"] {
+  position: relative;
+  flex: 0 0 auto;
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  background: #17130f;
+  box-shadow: inset 2px 2px 0 rgba(0, 0, 0, 0.55);
+  cursor: pointer;
+  appearance: none;
+}
+
+input[type="checkbox"]:checked {
+  background: var(--mc-emerald);
+  box-shadow: inset 0 0 0 3px var(--mc-emerald-dark);
+}
+
+input[type="checkbox"]:focus-visible {
+  outline: 2px solid var(--mc-gold);
+  outline-offset: 2px;
+}
+
+input[type="checkbox"]:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+input[type="range"] {
+  height: 16px;
+  background: #17130f;
+  box-shadow: inset 2px 2px 0 rgba(0, 0, 0, 0.55);
+  cursor: pointer;
+  appearance: none;
+}
+
+input[type="range"]::-webkit-slider-thumb {
+  width: 16px;
+  height: 24px;
+  background: var(--mc-gui);
+  border: 2px solid #000;
+  border-radius: 0;
+  box-shadow: inset 2px 2px 0 rgba(255, 255, 255, 0.35), inset -2px -2px 0 rgba(0, 0, 0, 0.55);
+  appearance: none;
+}
+
+input[type="range"]::-moz-range-track {
+  height: 12px;
+  background: #17130f;
+  border: 0;
+}
+
+input[type="range"]::-moz-range-thumb {
+  width: 16px;
+  height: 24px;
+  background: var(--mc-gui);
+  border: 2px solid #000;
+  border-radius: 0;
+  box-shadow: inset 2px 2px 0 rgba(255, 255, 255, 0.35), inset -2px -2px 0 rgba(0, 0, 0, 0.55);
+}
+
+input[type="color"] {
+  width: 44px;
+  height: 30px;
+  padding: 0;
+  cursor: pointer;
+}
+
+summary {
+  color: var(--mc-gold);
+  cursor: pointer;
+}
+
+summary::marker {
+  color: var(--mc-gold);
+}
+
+/* ==========================================================================
+   Layout / main container
+   ========================================================================== */
+
 .container {
   max-width: 800px;
   width: 90%;
   padding: 40px;
-  margin: 24px auto 40px; /* 가로: auto margin (스펙상 절대 음수 불가 — flex/grid 센터링 함정 회피, 사용자 결정 D) */
-  background: rgba(255, 255, 255, 0.85);
-  border-radius: 12px;
-  box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+  margin: 24px auto 40px;
+  color: var(--mc-ink);
   text-align: center;
-  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  background: rgba(36, 31, 26, 0.96);
+  border: 2px solid var(--mc-edge);
+  border-radius: 0;
+  box-shadow:
+    inset 2px 2px 0 rgba(255, 255, 255, 0.10),
+    inset -2px -2px 0 rgba(0, 0, 0, 0.55),
+    8px 8px 0 rgba(0, 0, 0, 0.35);
   z-index: 10;
+}
+
+.container > p {
+  color: var(--mc-ink-dim);
+  font-size: 16px;
 }
 
 h1 {
   margin-top: 0;
-  line-height: 1.4;
+  line-height: 1.15;
   word-break: keep-all;
 }
 
@@ -67,25 +208,28 @@ h1 {
   flex-direction: column;
   align-items: center;
   flex-shrink: 0;
-  padding: 4px 6px 8px;
-  background: #fff;
-  border: 1px solid #cbd5e1;
-  border-radius: 8px;
-  color: #334155;
+  padding: 6px 6px 8px;
+  color: var(--mc-ink-dim);
   text-decoration: none;
-  font-size: 12px;
+  font-size: 16px;
+  background: var(--mc-panel-2);
+  border: 2px solid var(--mc-edge);
+  border-radius: 0;
+  box-shadow: var(--mc-bevel);
 }
 
-.mobile-site-qr:focus-visible { outline: 3px solid #2563eb; outline-offset: 3px; }
+.mobile-site-qr:hover { color: var(--mc-gold); }
+.mobile-site-qr:focus-visible { outline: 2px solid var(--mc-gold); outline-offset: 2px; }
+
+@media (max-width: 1000px) {
+  /* Keep the fixed skin-list button clear of the container/title on tablets. */
+  .container { margin-top: 80px; }
+}
 
 @media (max-width: 720px) {
-  html:root {
-    background-image: url('/wallpaper-mobile.png');
-  }
   .mobile-site-qr { display: none; }
-  /* 두 업로드 패널을 세로로 쌓아 버튼 높이/폭을 맞춘다.
-     base .upload-section/.upload-panel 규칙보다 specificity 를 높여야
-     뒤에 정의된 2열 규칙에 덮이지 않는다. */
+  .container { width: calc(100% - 20px); padding: 20px 12px; }
+  /* 두 업로드 패널을 세로로 쌓아 버튼 높이/폭을 맞춘다. */
   .container .upload-section { grid-template-columns: 1fr; }
   .container .upload-panel {
     grid-row: auto;
@@ -95,6 +239,10 @@ h1 {
   .upload-panel .file-picker { flex-direction: column; }
   .upload-panel .file-picker-name { max-width: 100%; }
 }
+
+/* ==========================================================================
+   Upload
+   ========================================================================== */
 
 .upload-section {
   margin: 20px 0;
@@ -106,9 +254,10 @@ h1 {
 .upload-panel {
   min-width: 0;
   padding: 18px 20px;
-  border: 2px dashed #cbd5e1;
-  border-radius: 8px;
-  background: rgba(248, 250, 252, 0.8);
+  background: var(--mc-panel-2);
+  border: 2px solid var(--mc-edge);
+  border-radius: 0;
+  box-shadow: var(--mc-bevel);
   display: grid;
   grid-template-rows: subgrid;
   grid-template-columns: minmax(0, 1fr);
@@ -138,25 +287,27 @@ h1 {
 .file-picker-btn {
   flex-shrink: 0;
   padding: 6px 10px;
-  border: 1px solid #94a3b8;
-  border-radius: 4px;
-  background: #f8fafc;
-  color: #334155;
-  font: inherit;
-  font-size: 13px;
-  cursor: pointer;
+  font-size: 16px;
 }
 
-.file-picker-btn:hover { background: #e2e8f0; }
-.file-picker-btn:disabled { cursor: not-allowed; opacity: 0.6; }
+.file-picker-btn:hover:not(:disabled) {
+  color: var(--mc-gold);
+  background: var(--mc-gui-hover);
+}
+
+.file-picker-btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
 .file-picker-name {
   min-width: 0;
   max-width: 150px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  color: #334155;
-  font-size: 13px;
+  color: var(--mc-ink-dim);
+  font-size: 16px;
 }
 
 .upload-panel .generate-btn {
@@ -168,8 +319,8 @@ h1 {
 .camera-hint {
   margin: 0;
   align-self: center;
-  color: #475569;
-  font-size: 13px;
+  color: var(--mc-ink-dim);
+  font-size: 16px;
   line-height: 1.5;
   word-break: keep-all;
 }
@@ -190,8 +341,8 @@ h1 {
   margin: 0;
   max-width: 100%;
   overflow-wrap: anywhere;
-  font-size: 14px;
-  color: #334155;
+  font-size: 16px;
+  color: var(--mc-ink-dim);
 }
 
 .selected-photo img {
@@ -199,53 +350,65 @@ h1 {
   height: 56px;
   flex-shrink: 0;
   object-fit: contain;
-  background: #f1f5f9;
-  border: 1px solid #cbd5e1;
-  border-radius: 6px;
+  background: var(--mc-panel-3);
+  border: 2px solid var(--mc-edge);
+  border-radius: 0;
 }
 
 .selected-photo span { flex: 1 1 140px; min-width: 0; text-align: left; }
 .selected-photo-actions { display: flex; gap: 6px; flex-shrink: 0; }
 .convert-group { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
-.upload-hint { margin: 0; font-size: 13px; color: #475569; text-align: center; }
+.upload-hint { margin: 0; font-size: 16px; color: var(--mc-ink-dim); text-align: center; }
 
-/* 카메라 및 변환하기 버튼 */
+/* 카메라 및 변환하기 버튼: 변환은 초록 primary, 카메라는 회색 보조. */
 .generate-btn {
   display: block;
   flex: 1;
   min-width: 0;
   margin: 0;
   padding: 12px 24px;
-  background-color: #22c55e;
-  color: white;
-  border: none;
-  border-radius: 6px;
-  font-weight: bold;
+  color: #fff;
+  background-color: var(--mc-emerald-dark);
+  border: 2px solid #000;
+  border-radius: 0;
+  box-shadow: var(--mc-bevel);
+  font-weight: 400;
   font-size: 16px;
+  text-shadow: 2px 2px 0 rgba(0, 0, 0, 0.75);
   cursor: pointer;
-  transition: background-color 0.2s;
+  transition: background-color 0.08s steps(2, end), color 0.08s steps(2, end);
   word-break: keep-all;
 }
 
-/* 카메라 버튼은 보조 동작: 아웃라인 스타일로 낮추고, 변환 버튼만 채움 */
-.camera-btn {
-  background-color: #fff;
-  color: #2563eb;
-  border: 2px solid #2563eb;
+.generate-btn:hover:not(:disabled) {
+  color: #fff;
+  background-color: #3a9c62;
 }
-.generate-btn.camera-btn:hover:not(:disabled) { background-color: #eff6ff; }
 
-.generate-btn:hover {
-  background-color: #16a34a;
+.generate-btn:active:not(:disabled) {
+  box-shadow: var(--mc-bevel-pressed);
+}
+
+.camera-btn {
+  color: #fff;
+  background-color: var(--mc-gui);
+  border: 2px solid #000;
+}
+
+.generate-btn.camera-btn:hover:not(:disabled) {
+  color: var(--mc-gold);
+  background-color: var(--mc-gui-hover);
 }
 
 .generate-btn:disabled {
-  background-color: #cbd5e1;
-  color: #334155;
+  color: var(--mc-ink-faint);
+  background-color: var(--mc-gui-dark);
+  box-shadow: inset 2px 2px 0 rgba(0, 0, 0, 0.35);
   cursor: not-allowed;
 }
 
 @media (max-width: 720px) {
+  .upload-panel { padding: 14px 12px; }
   .upload-panel .generate-btn {
     display: flex;
     align-items: center;
@@ -257,21 +420,37 @@ h1 {
   }
 }
 
+/* ==========================================================================
+   Camera dialog
+   ========================================================================== */
+
 .camera-dialog {
   width: min(640px, 92vw);
   max-height: 90vh;
   overflow: auto;
   padding: 24px;
-  border: none;
-  border-radius: 12px;
-  background: #fff;
-  color: #334155;
+  color: var(--mc-ink);
+  background: var(--mc-panel);
+  border: 2px solid var(--mc-edge);
+  border-radius: 0;
+  box-shadow: var(--mc-bevel), 8px 8px 0 rgba(0, 0, 0, 0.4);
 }
 
-.camera-dialog::backdrop { background: rgba(15, 23, 42, 0.7); }
+.camera-dialog::backdrop { background: rgba(8, 6, 4, 0.82); }
 .camera-dialog h2 { margin-top: 0; }
-.camera-dialog video { display: block; width: 100%; max-height: 55vh; background: #0f172a; }
+.camera-dialog video {
+  display: block;
+  width: 100%;
+  max-height: 55vh;
+  background: #0b0907;
+  border: 2px solid var(--mc-edge);
+  border-radius: 0;
+}
 .camera-actions { display: flex; gap: 12px; margin-top: 16px; }
+
+/* ==========================================================================
+   Result cards / analysis
+   ========================================================================== */
 
 .viewer-grid {
   display: flex;
@@ -281,7 +460,6 @@ h1 {
   margin-top: 20px;
 }
 
-/* 스킨 후보 카드 나란히 배치 */
 .compare-grid {
   display: flex;
   gap: 20px;
@@ -292,18 +470,20 @@ h1 {
 }
 
 .skin-card {
-  background: rgba(248, 250, 252, 0.9);
   padding: 20px;
-  border-radius: 10px;
-  border: 1px solid #e2e8f0;
+  background: var(--mc-panel-2);
+  border: 2px solid var(--mc-edge);
+  border-radius: 0;
+  box-shadow: var(--mc-bevel);
 }
 
 .skin-viewer {
-  background: #e2e8f0;
-  border-radius: 8px;
+  background: #17130f;
+  border: 2px solid var(--mc-edge);
+  border-radius: 0;
+  box-shadow: inset 2px 2px 0 rgba(0, 0, 0, 0.55);
 }
 
-/* 후보 카드는 원본 사진보다 크게 — 300px 카드 안에 13:18 뷰어(약 258×357). */
 .compare-grid .candidate-card {
   width: min(300px, 100%);
 }
@@ -313,157 +493,215 @@ h1 {
 }
 
 @media (max-width: 720px) {
-  .compare-grid .candidate-card {
-    padding: 10px;
-  }
+  .compare-grid .candidate-card { padding: 10px; }
 }
 
 .download-btn {
-  display: inline-block;
   margin-top: 15px;
   padding: 10px 16px;
-  background-color: #10b981;
-  color: white;
-  text-decoration: none;
-  border-radius: 6px;
-  font-size: 14px;
-  font-weight: bold;
+  color: #fff;
+  font-size: 16px;
+  background-color: var(--mc-emerald-dark);
+  border: 2px solid #000;
+  border-radius: 0;
+  box-shadow: var(--mc-bevel);
+}
+
+.download-btn:hover {
+  color: #fff;
+  background-color: #3a9c62;
 }
 
 .footer {
   margin-top: 40px;
   padding-top: 20px;
-  border-top: 1px solid #cbd5e1;
-  font-size: 13px;
-  color: #64748b;
+  border-top: 2px solid var(--mc-edge);
+  font-size: 16px;
+  color: var(--mc-ink-faint);
   text-align: center;
 }
 
-/* =======================================
-   전체 화면 로딩 오버레이
-======================================== */
+.footer small { font-size: 16px; }
+
+/* ==========================================================================
+   Loading overlay
+   ========================================================================== */
+
 .loading-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.75);
+  background: rgba(8, 6, 4, 0.86);
   display: flex;
   flex-direction: column;
   justify-content: center;
   align-items: center;
-  color: white;
+  color: var(--mc-ink);
   z-index: 9999;
   text-align: center;
 }
 
 .loading-overlay h2 {
   margin-bottom: 10px;
-  color: #4ade80;
+  color: var(--mc-emerald);
+}
+
+.loading-card {
+  width: min(420px, 86vw);
+  padding: 24px;
+  text-align: center;
+  background: var(--mc-panel);
+  border: 2px solid var(--mc-edge);
+  border-radius: 0;
+  box-shadow: var(--mc-bevel), 8px 8px 0 rgba(0, 0, 0, 0.4);
 }
 
 .spinner {
-  width: 60px;
-  height: 60px;
-  border: 6px solid rgba(255, 255, 255, 0.2);
-  border-top: 6px solid #22c55e;
-  border-radius: 50%;
-  animation: spin 1s linear infinite;
-  margin-bottom: 30px;
+  width: 56px;
+  height: 56px;
+  border: 4px solid var(--mc-gui-dark);
+  border-top-color: var(--mc-emerald);
+  border-radius: 0;
+  animation: spin 1s steps(8, end) infinite;
+  margin: 0 auto 24px;
 }
 
 @keyframes spin {
-  0% { transform: rotate(0deg); }
-  100% { transform: rotate(360deg); }
+  to { transform: rotate(360deg); }
 }
 
-/* =======================================
-   왼쪽 사이드바 (스킨 기록 목록)
-======================================== */
+.loading-bar {
+  width: 100%;
+  height: 16px;
+  margin: 18px 0 14px;
+  background: #17130f;
+  border: 2px solid var(--mc-edge);
+  border-radius: 0;
+  box-shadow: inset 2px 2px 0 rgba(0, 0, 0, 0.55);
+  overflow: hidden;
+}
+
+.loading-bar-fill {
+  height: 100%;
+  background: repeating-linear-gradient(90deg, var(--mc-emerald) 0 12px, var(--mc-emerald-dark) 12px 16px);
+  border-radius: 0;
+  transition: width 0.25s steps(4, end);
+}
+
+.loading-stage { color: var(--mc-ink-dim); font-size: 16px; margin: 0 0 6px; min-height: 24px; }
+.loading-hint { color: var(--mc-ink-faint); font-size: 16px; margin: 0; }
+
+.inline-notice { color: #ff8a80; font-size: 16px; margin: 8px 0 0; }
+.error-actions { display: flex; gap: 10px; justify-content: center; margin-top: 16px; }
+
+/* ==========================================================================
+   Sidebar
+   ========================================================================== */
+
 .sidebar-toggle-btn {
   position: fixed;
   top: 20px;
   left: 20px;
   z-index: 1000;
-  background: rgba(255, 255, 255, 0.95);
-  color: #333;
   padding: 10px 16px;
-  border: 1px solid #cbd5e1;
-  border-radius: 8px;
-  font-size: 15px;
-  font-weight: bold;
+  color: #fff;
+  background: var(--mc-gui);
+  border: 2px solid #000;
+  border-radius: 0;
+  box-shadow: var(--mc-bevel);
+  font-size: 16px;
+  text-shadow: 2px 2px 0 rgba(0, 0, 0, 0.75);
   cursor: pointer;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
 }
 
 .sidebar-toggle-btn:hover {
-  background: #f8fafc;
+  color: var(--mc-gold);
+  background: var(--mc-gui-hover);
 }
-.toggle-count { display: inline-block; min-width: 22px; margin-left: 6px; padding: 0 6px; border-radius: 999px; background: #2563eb; color: #fff; font-size: 12px; line-height: 20px; text-align: center; }
-.result-note { margin: 4px 0 12px; font-size: 14px; color: #475569; text-align: center; }
+
+.sidebar-toggle-btn:active {
+  box-shadow: var(--mc-bevel-pressed);
+}
+
+.toggle-count {
+  display: inline-block;
+  min-width: 24px;
+  margin-left: 6px;
+  padding: 0 6px;
+  color: #fff;
+  background: var(--mc-emerald-dark);
+  border: 2px solid #000;
+  border-radius: 0;
+  font-size: 16px;
+  line-height: 22px;
+  text-align: center;
+}
+
+.result-note { margin: 4px 0 12px; font-size: 16px; color: var(--mc-ink-dim); text-align: center; }
 
 .sidebar {
   position: fixed;
   top: 0;
-  left: -320px; /* 기본 상태에서는 화면 왼쪽에 숨어있음 */
+  left: -340px;
   width: 320px;
   height: 100vh;
-  background: rgba(255, 255, 255, 0.98);
-  box-shadow: 2px 0 15px rgba(0,0,0,0.2);
-  transition: left 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  padding: 20px;
+  background: rgba(36, 31, 26, 0.99);
+  border-right: 2px solid var(--mc-edge);
+  box-shadow: 6px 0 0 rgba(0, 0, 0, 0.35);
+  transition: left 0.18s steps(4, end);
   z-index: 1001;
   display: flex;
   flex-direction: column;
-  padding: 20px;
 }
 
-.sidebar.open {
-  left: 0; /* 버튼 클릭 시 화면으로 튀어나옴 */
-}
+.sidebar.open { left: 0; }
 
 .sidebar-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  border-bottom: 2px solid #e2e8f0;
+  border-bottom: 2px solid var(--mc-edge);
   padding-bottom: 12px;
   margin-bottom: 15px;
 }
 
 .sidebar-header h3 {
   margin: 0;
-  font-size: 18px;
-  color: #1e293b;
+  font-size: 16px;
+  color: var(--mc-ink);
 }
 
 .close-btn {
-  background: transparent;
-  color: #64748b;
-  border: none;
-  font-size: 20px;
-  font-weight: bold;
-  cursor: pointer;
   padding: 0;
-  transition: color 0.2s;
+  color: var(--mc-ink-dim);
+  background: transparent;
+  border: 0;
+  box-shadow: none;
+  font-size: 24px;
+  text-shadow: none;
+  cursor: pointer;
+  transition: color 0.08s steps(2, end);
 }
 
-.close-btn:hover {
-  color: #ef4444;
-}
+.close-btn:hover { color: var(--mc-danger); background: transparent; }
+.close-btn:active { box-shadow: none; }
 
 .delete-btn {
   width: 100%;
   padding: 10px;
-  background-color: #ef4444;
-  color: white;
-  border: none;
-  border-radius: 6px;
-  font-weight: bold;
+  color: #fff;
+  background-color: var(--mc-danger);
+  border: 2px solid #000;
+  border-radius: 0;
+  box-shadow: var(--mc-bevel);
+  font-size: 16px;
+  text-shadow: 2px 2px 0 rgba(0, 0, 0, 0.75);
   cursor: pointer;
-  transition: background-color 0.2s;
+  transition: background-color 0.08s steps(2, end);
 }
 
-.delete-btn:hover {
-  background-color: #dc2626;
-}
+.delete-btn:hover { background-color: var(--mc-danger-dark); }
+.delete-btn:active { box-shadow: var(--mc-bevel-pressed); }
 
 .sidebar-content {
   flex: 1;
@@ -471,10 +709,10 @@ h1 {
 }
 
 .empty-msg {
-  color: #64748b;
+  color: var(--mc-ink-faint);
   text-align: center;
   margin-top: 40px;
-  font-size: 14px;
+  font-size: 16px;
 }
 
 .skin-list {
@@ -486,18 +724,17 @@ h1 {
 .skin-list-item {
   display: flex;
   align-items: center;
-  gap: 15px;
+  gap: 10px;
   padding: 12px;
-  border: 1px solid #e2e8f0;
-  border-radius: 8px;
   margin-bottom: 10px;
-  background: #f8fafc;
-  transition: transform 0.1s;
+  background: var(--mc-panel-2);
+  border: 2px solid var(--mc-edge);
+  border-radius: 0;
+  box-shadow: var(--mc-bevel);
+  transition: border-color 0.08s steps(2, end);
 }
 
-.skin-list-item:hover {
-  border-color: #cbd5e1;
-}
+.skin-list-item:hover { border-color: var(--mc-gold); }
 
 .skin-checkbox {
   width: 18px;
@@ -508,34 +745,47 @@ h1 {
 .skin-thumbnail {
   width: 48px;
   height: 48px;
-  /* 마인크래프트 스킨 특성상 확대를 해도 픽셀이 흐려지지 않게 유지해주는 속성 */
-  image-rendering: pixelated; 
-  background: #e2e8f0;
-  border-radius: 4px;
-  border: 1px solid #cbd5e1;
+  image-rendering: pixelated;
+  background: var(--mc-panel-3);
+  border: 2px solid var(--mc-edge);
+  border-radius: 0;
 }
 
 .sidebar-download-link {
-  color: #2563eb;
-  font-weight: bold;
+  flex: 1;
+  min-width: 0;
+  color: var(--mc-gold);
+  font-size: 16px;
   text-decoration: none;
-  font-size: 14px;
 }
 
 .sidebar-download-link:hover {
+  color: var(--mc-emerald);
   text-decoration: underline;
 }
-/* --- 스킨 편집기 모달 (설계 §5) --- */
+
+/* ==========================================================================
+   Skin editor modal
+   ========================================================================== */
+
 .edit-btn {
   padding: 6px 10px;
-  border: 1px solid #93c5fd;
-  background: #eff6ff;
-  color: #1d4ed8;
-  border-radius: 6px;
+  color: #fff;
+  font-size: 16px;
+  background: var(--mc-gui);
+  border: 2px solid #000;
+  border-radius: 0;
+  box-shadow: var(--mc-bevel);
+  text-shadow: 2px 2px 0 rgba(0, 0, 0, 0.75);
   cursor: pointer;
-  font-size: 14px;
 }
-.edit-btn:hover { background: #dbeafe; }
+
+.edit-btn:hover {
+  color: var(--mc-gold);
+  background: var(--mc-gui-hover);
+}
+
+.edit-btn:active { box-shadow: var(--mc-bevel-pressed); }
 
 .card-actions {
   display: flex;
@@ -547,7 +797,7 @@ h1 {
 .editor-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(15, 23, 42, 0.6);
+  background: rgba(8, 6, 4, 0.82);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -555,12 +805,19 @@ h1 {
 }
 
 .editor-modal {
-  background: #ffffff;
-  border-radius: 12px;
   padding: 16px 20px;
+  max-width: calc(100vw - 16px);
   max-height: 90vh;
   overflow: auto;
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+  background: var(--mc-panel);
+  border: 2px solid var(--mc-edge);
+  border-radius: 0;
+  box-shadow: var(--mc-bevel), 8px 8px 0 rgba(0, 0, 0, 0.4);
+}
+
+.editor-viewer {
+  width: min(360px, 100%);
+  aspect-ratio: 3 / 4;
 }
 
 .editor-header {
@@ -576,37 +833,108 @@ h1 {
   justify-content: center;
 }
 
-.editor-options {
-  margin-top: 10px;
-}
+.editor-options { margin-top: 10px; }
 
 .option-row {
   display: flex;
   align-items: center;
   gap: 10px;
-  font-size: 15px;
+  font-size: 16px;
   cursor: pointer;
 }
 
 .editor-download { display: block; margin-top: 12px; text-align: center; }
 
-/* --- 노이즈 세기 슬라이더 (설계 §9) --- */
+/* ==========================================================================
+   Settings
+   ========================================================================== */
+
 .noise-slider-row {
   display: flex;
   align-items: center;
   gap: 8px;
   margin: 0;
 }
-.noise-slider-row label { font-size: 14px; color: #334155; }
-.noise-slider-row input[type="range"] { width: 160px; accent-color: #2563eb; }
+.noise-slider-row label { font-size: 16px; color: var(--mc-ink-dim); }
+.noise-slider-row input[type="range"] { width: 160px; }
 .noise-readout {
   min-width: 48px;
   font-variant-numeric: tabular-nums;
-  font-weight: bold;
-  color: #1d4ed8;
+  font-weight: 400;
+  color: var(--mc-gold);
 }
 
-/* --- 분석 정보 (정리: 분류 칩 + 처리 과정 썸네일을 한 줄에, 설계 §11·§12) --- */
+.config-section {
+  margin: 14px 0 0;
+  padding: 14px 18px;
+  text-align: left;
+  background: var(--mc-panel-2);
+  border: 2px solid var(--mc-edge);
+  border-radius: 0;
+  box-shadow: var(--mc-bevel);
+}
+
+.config-section h3 { margin: 0 0 10px; font-size: 16px; color: var(--mc-ink); }
+
+.config-summary {
+  cursor: pointer;
+  font-size: 16px;
+  font-weight: 400;
+  color: var(--mc-ink);
+  list-style-position: inside;
+}
+
+.config-section[open] > .config-summary { margin-bottom: 10px; }
+
+.config-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 4px 0;
+  font-size: 16px;
+  color: var(--mc-ink);
+}
+
+.config-row input[type="range"] { flex: 1; max-width: 260px; }
+.config-row small { color: var(--mc-ink-faint); font-size: 16px; }
+.config-row label { display: flex; align-items: center; gap: 8px; cursor: pointer; }
+.config-row label { font-weight: 400; }
+.config-row label small { font-weight: 400; }
+
+.config-row select {
+  min-width: 0;
+  max-width: 100%;
+  padding: 4px 8px;
+  font-size: 16px;
+  color: var(--mc-ink);
+  background: #17130f;
+  border: 2px solid var(--mc-edge);
+  border-radius: 0;
+  box-shadow: var(--mc-bevel);
+}
+
+.config-row select:focus {
+  outline: 2px solid var(--mc-gold);
+  outline-offset: 0;
+  border-color: var(--mc-edge);
+}
+
+.config-help {
+  margin: 2px 0 12px;
+  color: var(--mc-ink-dim);
+  font-size: 16px;
+  line-height: 1.6;
+  word-break: keep-all;
+  overflow-wrap: anywhere;
+}
+
+.config-help:last-child { margin-bottom: 0; }
+.config-row { flex-wrap: wrap; }
+
+/* ==========================================================================
+   Classification chips / JSON
+   ========================================================================== */
+
 .analysis-row {
   display: grid;
   grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
@@ -616,93 +944,120 @@ h1 {
   margin: 18px auto 6px;
   text-align: left;
 }
-/* 처리 과정이 없으면(체크박스 off) 단일 열 — 빈 열이 분류 칩을 눌러놓지 않게 */
+
 .analysis-row.analysis-single { grid-template-columns: minmax(0, 1fr); }
+
 @media (max-width: 720px) {
   .analysis-row { grid-template-columns: 1fr; }
 }
 
 .category-panel {
-  background: #f8fafc;
-  border: 1px solid #e2e8f0;
-  border-radius: 10px;
   padding: 10px 14px;
+  background: var(--mc-panel-2);
+  border: 2px solid var(--mc-edge);
+  border-radius: 0;
+  box-shadow: var(--mc-bevel);
 }
+
 .category-panel h3 { margin: 0 0 8px; font-size: 16px; }
 
 .chips { display: flex; flex-wrap: wrap; gap: 6px; }
+
 .chip {
-  background: #eff6ff;
-  color: #1e3a8a;
-  border: 1px solid #bfdbfe;
-  border-radius: 999px;
   padding: 3px 10px;
-  font-size: 13px;
+  color: var(--mc-ink);
+  background: #17130f;
+  border: 2px solid var(--mc-edge);
+  border-radius: 0;
+  font-size: 16px;
 }
+
 .chip-uncertain {
-  background: #fef9c3;
-  color: #854d0e;
-  border-color: #fde68a;
+  color: var(--mc-gold);
+  background: #3a3016;
+  border-color: #6b5a1f;
 }
-.chip em { font-style: normal; color: #b45309; }
+
+.chip em { font-style: normal; color: var(--mc-gold); }
 
 .json-details { margin-top: 8px; }
+
 .json-details summary {
   cursor: pointer;
-  color: #2563eb;
-  font-weight: bold;
+  color: var(--mc-gold);
+  font-weight: 400;
   user-select: none;
-  font-size: 14px;
+  font-size: 16px;
 }
+
 .copy-json-btn {
   margin: 6px 0;
   padding: 3px 10px;
-  border: 1px solid #cbd5e1;
-  background: #fff;
-  border-radius: 6px;
+  color: #fff;
+  font-size: 16px;
+  background: var(--mc-gui);
+  border: 2px solid #000;
+  border-radius: 0;
+  box-shadow: var(--mc-bevel);
+  text-shadow: 2px 2px 0 rgba(0, 0, 0, 0.75);
   cursor: pointer;
-  font-size: 12px;
 }
-.copy-json-btn:hover { background: #f1f5f9; }
+
+.copy-json-btn:hover {
+  color: var(--mc-gold);
+  background: var(--mc-gui-hover);
+}
+
+.copy-json-btn:active { box-shadow: var(--mc-bevel-pressed); }
 
 .json-table {
-  border-collapse: collapse;
   width: 100%;
-  font-family: ui-monospace, 'D2Coding', monospace;
-  font-size: 12px;
+  border-collapse: collapse;
+  font-family: var(--mc-font);
+  font-size: 16px;
+  color: var(--mc-ink-dim);
 }
+
 .json-table th, .json-table td {
-  border: 1px solid #e2e8f0;
+  border: 2px solid var(--mc-edge);
   padding: 3px 8px;
   text-align: left;
 }
-.json-table th { background: #f1f5f9; }
-.row-uncertain td { background: #fffbeb; }
+
+.json-table th {
+  color: var(--mc-ink);
+  background: var(--mc-panel-3);
+}
+
+.row-uncertain td { background: #3a3016; }
 
 .varied-note {
   margin: 2px 0 4px;
-  font-size: 12px;
-  color: #b45309;
+  font-size: 16px;
+  color: var(--mc-gold);
 }
 
-/* 결과 영역은 스크롤 앵커링에 붙잡히지 않는다 (이미지 로드 중 위로 못 올라가던 문제) */
 .result-section { overflow-anchor: none; }
 
-/* --- 처리 과정 (설계 §12 개정: 썸네일 + 라이트박스) --- */
+/* ==========================================================================
+   Steps / lightbox
+   ========================================================================== */
+
 .steps-block { text-align: left; }
 
 .steps-thumb-btn {
   display: block;
   width: 100%;
   padding: 0;
-  border: 1px solid #e2e8f0;
-  border-radius: 10px;
-  background: #f8fafc;
+  background: var(--mc-panel-2);
+  border: 2px solid var(--mc-edge);
+  border-radius: 0;
+  box-shadow: var(--mc-bevel);
   cursor: zoom-in;
   overflow: hidden;
   position: relative;
 }
-/* 썸네일은 높이 고정 + 위쪽 잘라 보기 — 레이아웃 흔들림 없음 (설계 §12 정리) */
+
 .steps-thumb {
   display: block;
   width: 100%;
@@ -711,141 +1066,141 @@ h1 {
   object-position: top center;
   image-rendering: pixelated;
 }
+
 .steps-thumb-label {
   display: block;
   padding: 4px 0;
-  font-size: 13px;
-  color: #2563eb;
-  background: #eff6ff;
-  border-top: 1px solid #dbeafe;
+  font-size: 16px;
+  color: var(--mc-gold);
+  background: var(--mc-panel-3);
+  border-top: 2px solid var(--mc-edge);
 }
+
 .steps-compact .steps-thumb { height: 110px; }
 
-/* 라이트박스: 자체 스크롤 — 페이지 스크롤을 잡지 않는다 */
 .lightbox-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(15, 23, 42, 0.7);
+  background: rgba(8, 6, 4, 0.86);
   display: flex;
   align-items: center;
   justify-content: center;
   z-index: 1100;
 }
+
 .lightbox {
-  background: #fff;
-  border-radius: 12px;
   width: min(1000px, 94vw);
   max-height: 90vh;
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  background: var(--mc-panel);
+  border: 2px solid var(--mc-edge);
+  border-radius: 0;
+  box-shadow: var(--mc-bevel), 8px 8px 0 rgba(0, 0, 0, 0.4);
 }
+
 .lightbox-head {
   display: flex;
   align-items: center;
   gap: 10px;
   padding: 10px 14px;
-  border-bottom: 1px solid #e2e8f0;
+  border-bottom: 2px solid var(--mc-edge);
 }
-.lightbox-head h3 { margin: 0; font-size: 17px; }
+
+.lightbox-head h3 { margin: 0; font-size: 16px; }
 .lightbox-modes { display: flex; gap: 6px; margin-left: auto; }
+
 .lightbox-close {
-  border: none;
+  padding: 0 4px;
+  color: var(--mc-ink-dim);
   background: none;
-  font-size: 18px;
+  border: 0;
+  box-shadow: none;
+  font-size: 24px;
+  text-shadow: none;
   cursor: pointer;
-  color: #64748b;
 }
+
+.lightbox-close:hover { color: var(--mc-danger); background: transparent; }
+.lightbox-close:active { box-shadow: none; }
+
 .lightbox-body { overflow: auto; padding: 10px 14px 16px; }
+
 .steps-image {
   display: block;
   width: 100%;
-  border: 1px solid #e2e8f0;
-  border-radius: 6px;
+  border: 2px solid var(--mc-edge);
+  border-radius: 0;
   image-rendering: pixelated;
 }
+
 .steps-mode-btn {
   padding: 4px 12px;
-  border: 1px solid #cbd5e1;
-  background: #fff;
-  border-radius: 6px;
+  color: #fff;
+  font-size: 16px;
+  background: var(--mc-gui);
+  border: 2px solid #000;
+  border-radius: 0;
+  box-shadow: var(--mc-bevel);
+  text-shadow: 2px 2px 0 rgba(0, 0, 0, 0.75);
   cursor: pointer;
-  font-size: 13px;
-}
-.steps-mode-btn.active {
-  background: #dbeafe;
-  border-color: #93c5fd;
-  color: #1d4ed8;
-  font-weight: bold;
 }
 
-/* --- 설정 상자 (생성 전 조정이 모이는 곳, 사용자 지시 2026-10-13) --- */
-.config-section {
-  margin: 14px 0 0;
-  padding: 14px 18px;
-  border: 1px solid #e2e8f0;
-  border-radius: 10px;
-  background: rgba(248, 250, 252, 0.9);
-  text-align: left;
+.steps-mode-btn.active {
+  color: #fff;
+  background: var(--mc-emerald-dark);
+  border-color: #000;
+  box-shadow: var(--mc-bevel-pressed);
 }
-.config-section h3 { margin: 0 0 10px; font-size: 16px; color: #334155; }
-.config-summary { cursor: pointer; font-size: 16px; font-weight: 600; color: #334155; list-style-position: inside; }
-.config-section[open] > .config-summary { margin-bottom: 10px; }
-.config-row {
+
+/* ==========================================================================
+   Crop modal
+   ========================================================================== */
+
+.crop-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  padding: 16px;
+  background: rgba(8, 6, 4, 0.86);
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 4px 0;
-  font-size: 15px;
-  color: #334155;
-}
-.config-row input[type="range"] { flex: 1; max-width: 260px; accent-color: #2563eb; }
-.config-row small { color: #64748b; font-size: 12px; }
-.config-row label { display: flex; align-items: center; gap: 8px; cursor: pointer; }
-.config-row label { font-weight: 700; }
-.config-row label small { font-weight: 400; }
-.config-row input[type="checkbox"] { width: 16px; height: 16px; accent-color: #2563eb; }
-.config-row select {
-  font-size: 15px;
-  color: #334155;
-  background: #fff;
-  border: 1px solid #cbd5e1;
-  border-radius: 6px;
-  padding: 2px 6px;
-}
-.config-row select:focus { outline: 2px solid #2563eb33; border-color: #2563eb; }
-
-.config-help {
-  margin: 2px 0 12px;
-  color: #475569;
-  font-size: 13px;
-  line-height: 1.6;
-  word-break: keep-all;
-  overflow-wrap: anywhere;
+  justify-content: center;
 }
 
-.config-help:last-child { margin-bottom: 0; }
-.config-row select { min-width: 0; max-width: 100%; }
-.config-row { flex-wrap: wrap; }
+.crop-modal {
+  width: min(560px, 96vw);
+  max-height: 92vh;
+  overflow: auto;
+  padding: 14px;
+  background: var(--mc-panel);
+  border: 2px solid var(--mc-edge);
+  border-radius: 0;
+  box-shadow: var(--mc-bevel), 8px 8px 0 rgba(0, 0, 0, 0.4);
+}
 
-.crop-backdrop { position: fixed; inset: 0; z-index: 80; background: rgba(15,18,24,.72); display: flex; align-items: center; justify-content: center; padding: 16px; }
-.crop-modal { background: #fff; border-radius: 14px; padding: 14px; width: min(560px, 96vw); max-height: 92vh; overflow: auto; }
-.crop-title { font-size: 13px; color: #374151; margin-bottom: 10px; }
+.crop-title { font-size: 16px; color: var(--mc-ink-dim); margin-bottom: 10px; }
 .crop-frame { position: relative; width: 100%; user-select: none; touch-action: none; }
-.crop-frame img { width: 100%; height: auto; display: block; border-radius: 8px; }
-.crop-box { position: absolute; border: 2px solid #2563eb; box-shadow: 0 0 0 9999px rgba(0,0,0,.35); cursor: move; }
-.crop-handle { position: absolute; width: 14px; height: 14px; background: #2563eb; border: 2px solid #fff; border-radius: 3px; }
+.crop-frame img { width: 100%; height: auto; display: block; border-radius: 0; }
+.crop-box { position: absolute; border: 2px solid var(--mc-gold); box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.55); cursor: move; }
+.crop-handle { position: absolute; width: 14px; height: 14px; background: var(--mc-gold); border: 2px solid #000; border-radius: 0; }
 .crop-handle.nw { left: -8px; top: -8px; cursor: nwse-resize; }
 .crop-handle.ne { right: -8px; top: -8px; cursor: nesw-resize; }
 .crop-handle.sw { left: -8px; bottom: -8px; cursor: nesw-resize; }
 .crop-handle.se { right: -8px; bottom: -8px; cursor: nwse-resize; }
 .crop-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 12px; }
 
-.loading-card { width: min(420px, 86vw); text-align: center; }
-.loading-bar { width: 100%; height: 10px; border-radius: 999px; background: rgba(255,255,255,.18); overflow: hidden; margin: 18px 0 14px; }
-.loading-bar-fill { height: 100%; border-radius: 999px; background: linear-gradient(90deg,#22c55e,#4ade80); transition: width .25s ease; }
-.loading-stage { color: #e5e7eb; font-size: 14px; margin: 0 0 6px; min-height: 20px; }
-.loading-hint { color: #9ca3af; font-size: 12px; margin: 0; }
+@media (prefers-reduced-motion: reduce) {
+  .sidebar { transition: none; }
+  .spinner { animation-duration: 2s; }
+}
 
-.inline-notice { color: #b91c1c; font-size: 14px; margin: 8px 0 0; }
-.error-actions { display: flex; gap: 10px; justify-content: center; margin-top: 16px; }
+/* Dialog containers receive programmatic focus; keep the gold ring for controls only. */
+.editor-modal:focus,
+.crop-modal:focus,
+.camera-dialog:focus,
+.lightbox:focus,
+.loading-overlay:focus {
+  outline: none;
+}

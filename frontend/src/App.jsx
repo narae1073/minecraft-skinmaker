@@ -499,7 +499,7 @@ function App() {
                   <Skin3DViewer skinUrl={skin.url} model={skin.model} className="candidate-viewer" />
                   <div className="card-actions">
                     <button className="edit-btn" onClick={() => openSkinEditor(skin)}>
-                      스킨 편집 ✏️
+                      스킨 편집
                     </button>
                     <a href={skin.url} download={`skin_option_${index + 1}.png`} className="download-btn">
                       스킨 다운로드

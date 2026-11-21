@@ -8,7 +8,7 @@ S0 quality/face detection (YuNet) → S1 colour measurement (white-balance + ban
 ## 2. Current state (verified 2026-11-21)
 
 - Tests: **804 passed** (`tests/fixtures/` committed; 155 s on 2026-11-21 with the local SCHP model; ~10 s without it). Tests no longer need the 66 MB SCHP model: the jeans-rule tests stub a zero mask and `test_parsing` uses a dummy model path with a fake session.
-- Frontend: `npm run lint` clean, `npm run build` green (Vite 8 / Node 24).
+- Frontend: `npm run lint` clean, `npm run build` green (Vite 8 / Node 24). UI: Minecraft GUI theme — self-hosted NeoDunggeunmo (SIL OFL 1.1), dark dirt tile, gray bevel buttons, green primary, emerald/gold accents.
 - Python 3.12.3 venv at `.venv`; do **not** use `python` or `uv`.
 - Parsing model: `out/models/schp-atr-18-int8-static.onnx` (66 MB, gitignored). YuNet: `assets/face_detection_yunet_2023mar.onnx` (228 KB, gitignored). Both fetched by `scripts/fetch_assets.sh`.
 - `mediapipe` was removed from requirements: the pose model is `assets/pose_landmarker_lite.task.disabled`, so `detect_pose()` always returns `None` and pose bands/cover measurement are dormant (code and tests remain).
@@ -672,3 +672,13 @@ S0 quality/face detection (YuNet) → S1 colour measurement (white-balance + ban
   - 미추적 모델 가중치: `assets/yolov8n.pt`(6.3MB)를 실수 커밋하지 않도록 `.gitignore` 에 `*.pt` 를 추가했다(파일은 로컬에 유지). `scripts/build_pack_review.py` 는 기존 방침대로 로컬 유지.
   - 저장소 소유자가 "머지가 필요할 때 admin bypass" 를 승인해 `AGENTS.md` 에 기록했다. 적용 범위는 승인 부재분만이며 CI green 은 유지한다.
   - 검증: `pytest -q` 804 passed (위), `npm run lint` exit 0, `npm run build` green (기존 chunk 경고), `git diff --check` clean.
+
+- 2026-11-21 (Minecraft GUI theme, `feat/minecraft-theme`): 공개 페이지를 마인크래프트 GUI 스타일로 바꿨다.
+  - 배경: `wallpaper.png`(2.6MB)·`wallpaper-mobile.png`(1.8MB) 삭제 → 64×64 dark dirt tile(692B)을 64px 반복 + 64px 블록 seam + fixed vignette. 모바일도 같은 패턴(별도 이미지 없음).
+  - 폰트: NeoDunggeunmo(SIL OFL 1.1, 44KB woff2)를 `frontend/public/fonts/`에 자체 호스팅하고 OFL 파일 + `preload`. 16/32/48px 그리드, `font-synthesis:none`, no antialias.
+  - UI: `index.css`에 palette/bevel token, `App.css` 전체를 MC 패널/버튼/입력으로 교체. 반경 0, 2px 검정 테두리, inset bevel. primary(변환/다운로드/촬영/크롭)=#2f7d4f 초록, secondary=#6b6b6b 회색, danger=#a8433e 빨강, accent emerald/gold, focus 2px gold.
+  - 범위: container, upload, result card, analysis/chips/table, settings, steps/lightbox, sidebar, editor, crop, camera, loading, footer, QR.
+  - QA 수정: ≤1000px에서 고정 `☰ 스킨 목록`이 container/title을 덮지 않게 margin-top 80px; 모바일 편집기 360px 고정 폭 → `editor-viewer` width min(360px,100%) + aspect 3/4 + modal max-width; 후보 카드 `스킨 편집 ✏️`의 컬러 이모지 제거; dialog programmatic focus의 gold outline 제거; 크롭 primary green.
+  - A/B: before/after `out/theme/` (desktop 1440×1000 initial/settings/result/sidebar/editor/lightbox, tablet 800/1024, mobile 390×844 initial/settings/result/editor/sidebar). 모든 폭에서 `scrollWidth == innerWidth`, console errors 0. README 스크린샷을 `docs/assets/screenshots/minecraft-theme.png`로 교체.
+  - 검증: `npm run lint` exit 0, `npm run build` green(기존 chunk 경고), `pytest -q` → **804 passed in 165.52s**, `git diff --check` clean. `/fonts/NeoDunggeunmo.woff2`·`/dirt-dark.png` 200, `/wallpaper*.png` 404.
+  - 리스크: pixel font는 16/32/48 배수에서만 선명; hover gold on #7f8a7f는 대비가 낮음(장식적 상태); 네이티브 range/checkbox/select는 브라우저별 차이; QR은 스캔성을 위해 흰 배경 유지; 3D/캔버스는 기존 nearest filter 유지.
