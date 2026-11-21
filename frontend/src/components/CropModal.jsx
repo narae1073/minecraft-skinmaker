@@ -66,8 +66,8 @@ export default function CropModal({ file, imageSize, onApply, onClose }) {
           </div>
         </div>
         <div className="crop-actions">
-          <button type="button" onClick={() => onApply(box)}>이 크롭으로 다시 시도</button>
-          <button type="button" onClick={onClose}>취소</button>
+          <button type="button" className="generate-btn" onClick={() => onApply(box)}>이 크롭으로 다시 시도</button>
+          <button type="button" className="file-picker-btn" onClick={onClose}>취소</button>
         </div>
       </div>
     </div>

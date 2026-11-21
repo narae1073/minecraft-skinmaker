@@ -32,7 +32,7 @@ export default function SkinEditor({ skin, steps, onClose }) {
           <button className="close-btn" aria-label="편집 창 닫기" onClick={onClose}>✕</button>
         </div>
         <div className="editor-body">
-          <Skin3DViewer skinUrl={texture} model={skin.model || 'classic'} width={360} height={480} />
+          <Skin3DViewer skinUrl={texture} model={skin.model || 'classic'} className="editor-viewer" />
         </div>
         <div className="editor-options">
           <label className="option-row">
