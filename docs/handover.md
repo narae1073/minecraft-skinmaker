@@ -5,10 +5,10 @@
 Photo → Minecraft 64×64 skin pipeline.
 S0 quality/face detection (YuNet) → S1 colour measurement (white-balance + band/cascade) → SCHP human-parsing mask (colour localization for bottom/hair/shoes — default ON) → S2 classification (double query, uncertainty flags) → S3 parametric render (+ deterministic noise) → S4 candidates (1–3 variants from double-query disagreements) → web app (FastAPI + React 19 / three.js with 3D viewer and an owner-only per-skin mask editor).
 
-## 2. Current state (verified 2026-11-21)
+## 2. Current state (verified 2026-11-22)
 
 - Tests: **804 passed** (`tests/fixtures/` committed; 155 s on 2026-11-21 with the local SCHP model; ~10 s without it). Tests no longer need the 66 MB SCHP model: the jeans-rule tests stub a zero mask and `test_parsing` uses a dummy model path with a fake session.
-- Frontend: `npm run lint` clean, `npm run build` green (Vite 8 / Node 24). UI: Minecraft GUI theme — self-hosted NeoDunggeunmo (SIL OFL 1.1), dark dirt tile, gray bevel buttons, green primary, emerald/gold accents.
+- Frontend: `npm run lint` clean, `npm test` → **20 passed** (Vitest 5), `npm run build` green (Vite 8 / Node 24). UI: Minecraft GUI theme — self-hosted NeoDunggeunmo (SIL OFL 1.1), dark dirt tile, gray bevel buttons, green primary, emerald/gold accents. The 3D viewer/editor are lazy chunks; initial JS ~271 kB (three 924 kB loads on demand).
 - Python 3.12.3 venv at `.venv`; do **not** use `python` or `uv`.
 - Parsing model: `out/models/schp-atr-18-int8-static.onnx` (66 MB, gitignored). YuNet: `assets/face_detection_yunet_2023mar.onnx` (228 KB, gitignored). Both fetched by `scripts/fetch_assets.sh`.
 - `mediapipe` was removed from requirements: the pose model is `assets/pose_landmarker_lite.task.disabled`, so `detect_pose()` always returns `None` and pose bands/cover measurement are dormant (code and tests remain).
@@ -806,3 +806,7 @@ S0 quality/face detection (YuNet) → S1 colour measurement (white-balance + ban
   - `prefers-reduced-motion: reduce`에서 모든 animation/transition을 0.01ms로 (3D 자동 회전은 원래 없음).
   - 대비 점검: `--mc-ink-faint` #a2957f on #241f1a = 5.55:1, on #2b2520 = 5.14:1; dim 8.19, gold 11.18 — 모두 AA 이상.
   - 검증: CDP 키보드 — 첫 Tab = 건너뛰기 링크(가시), Enter로 `#main-content` 포커스; 결과 생성 후 live region 문구; 편집기 다이얼로그 Tab 12회·Shift+Tab 12회 모두 내부 유지, Escape 닫힘 후 `edit-btn`으로 포커스 복귀; reduced-motion에서 transition 0.00001s. axe-core 4.10.2: 초기 화면 0 violations, 결과+사이드바 0 violations. 390px overflow 0, 콘솔 에러 0. lint/test(20)/build green.
+
+- 2026-11-22 (로컬 전용 파일 정리, `chore/housekeeping`): 저장소에 계속 untracked로 남아 있던 로컬 QA 산출물을 `.gitignore`로 명시했다 — `docs/assets/qa/qa-overview.png`(284KB), `docs/assets/qa/qa-explainer.png`(540KB), `scripts/build_pack_review.py`. 셋 다 문서/코드에서 참조되지 않고(스크립트는 `out/production_benchmark/pack_review` 리뷰용, 이전 세션 방침도 "로컬 유지"), 파일은 디스크에 그대로 둔다.
+  - `docs/handover.md` 상단 현재 상태를 2026-11-22 기준으로 갱신: Vitest 20 passed, lazy 3D 청크(초기 JS ~271 kB / three 924 kB 지연).
+  - 검증: `git status --short` clean (세 파일 ignored), 문서 링크 grep에 참조 0.
