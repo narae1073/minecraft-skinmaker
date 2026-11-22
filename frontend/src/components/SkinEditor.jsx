@@ -28,7 +28,7 @@ export default function SkinEditor({ skin, steps, onClose }) {
         onClick={(e) => e.stopPropagation()}
       >
         <div className="editor-header">
-          <h3 id="skin-editor-title">스킨 편집</h3>
+          <h2 id="skin-editor-title">스킨 편집</h2>
           <button className="close-btn" aria-label="편집 창 닫기" onClick={onClose}>✕</button>
         </div>
         <div className="editor-body">

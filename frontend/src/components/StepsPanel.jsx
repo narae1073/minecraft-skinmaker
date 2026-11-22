@@ -29,7 +29,7 @@ export default function StepsPanel({ steps, compact = false }) {
         <div className="lightbox-overlay" onClick={() => setOpen(false)}>
           <div className="lightbox" onClick={(e) => e.stopPropagation()}>
             <div className="lightbox-head">
-              <h3>처리 과정</h3>
+              <h2>처리 과정</h2>
               <div className="lightbox-modes">
                 <button
                   type="button"

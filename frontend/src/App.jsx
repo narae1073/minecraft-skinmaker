@@ -302,15 +302,16 @@ function App() {
 
   return (
     <>
+      <a className="skip-link" href="#main-content">본문으로 건너뛰기</a>
       {/* 화면 왼쪽 상단: 목록 열기 버튼 */}
       <button className="sidebar-toggle-btn" aria-label={`스킨 목록 열기, 저장된 스킨 ${skinHistory.length}개`} onClick={() => setIsSidebarOpen(true)}>
         ☰ 스킨 목록{skinHistory.length > 0 && <span className="toggle-count">{skinHistory.length}</span>}
       </button>
 
       {/* 왼쪽 사이드바 (목록 창) */}
-      <div className={`sidebar ${isSidebarOpen ? 'open' : ''}`}>
+      <aside className={`sidebar ${isSidebarOpen ? 'open' : ''}`} aria-label="저장된 스킨 목록">
         <div className="sidebar-header">
-          <h3>생성된 스킨 목록{skinHistory.length > 0 && ` (${skinHistory.length})`}</h3>
+          <h2>생성된 스킨 목록{skinHistory.length > 0 && ` (${skinHistory.length})`}</h2>
           <button className="close-btn" aria-label="목록 닫기" onClick={() => setIsSidebarOpen(false)}>✕</button>
         </div>
         
@@ -376,7 +377,7 @@ function App() {
             </ul>
           )}
         </div>
-      </div>
+      </aside>
 
       {/* 에러 및 로딩 오버레이 */}
       {serverError && (
@@ -412,7 +413,10 @@ function App() {
       )}
 
       {/* 메인 화면 컨테이너 */}
-      <div className="container">
+      <main className="container" id="main-content" tabIndex={-1}>
+        <p className="sr-only" role="status">
+          {skins.length > 0 ? `스킨 후보 ${skins.length}개가 생성되었습니다.` : ''}
+        </p>
         <div className="site-header">
           <h1>마인크래프트 스킨 메이커</h1>
           <a className="mobile-site-qr" href={mobileSiteUrl} aria-label="모바일로 사이트 열기">
@@ -556,7 +560,7 @@ function App() {
             <div className="compare-grid">
               {skins.map((skin, index) => (
                 <div key={index} className="skin-card candidate-card">
-                  <h3>후보 {index + 1}</h3>
+                  <h2>후보 {index + 1}</h2>
                   {skin.varied && skin.varied !== "as-answered" && (
                     <p className="varied-note">{skin.varied}</p>
                   )}
@@ -651,7 +655,7 @@ function App() {
           <br />
           <small>공개 데모입니다. 민감한 사진은 올리지 마세요. 업로드한 사진은 서버에 저장되지 않습니다.</small>
         </footer>
-      </div>
+      </main>
     </>
   );
 }

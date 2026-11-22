@@ -639,6 +639,12 @@ h1 {
 .compare-grid .candidate-card {
   width: min(300px, 100%);
 }
+
+.skin-card h2,
+.skin-card .candidate-title {
+  margin: 1em 0;
+  font-size: 1.17em;
+}
 .candidate-viewer {
   width: 100%;
   aspect-ratio: 13 / 18;
@@ -694,6 +700,51 @@ h1 {
   font-size: 16px;
   color: var(--mc-ink-faint);
   text-align: center;
+}
+
+/* 키보드 사용자용 건너뛰기 링크 — 포커스 전에는 화면 밖 */
+.skip-link {
+  position: fixed;
+  top: 8px;
+  left: 8px;
+  z-index: 2000;
+  padding: 10px 14px;
+  color: #fff;
+  background: var(--mc-emerald-dark);
+  border: 2px solid #000;
+  box-shadow: var(--mc-bevel);
+  font-size: 16px;
+  text-decoration: none;
+  transform: translateY(-200%);
+}
+
+.skip-link:focus {
+  transform: translateY(0);
+  outline: 2px solid var(--mc-gold);
+  outline-offset: 2px;
+}
+
+/* 화면에는 보이지 않고 스크린리더에만 읽히는 안내 */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
 }
 
 .footer small { font-size: 16px; }
@@ -840,7 +891,7 @@ h1 {
   margin-bottom: 15px;
 }
 
-.sidebar-header h3 {
+.sidebar-header h2 {
   margin: 0;
   font-size: 16px;
   color: var(--mc-ink);
@@ -1086,7 +1137,7 @@ h1 {
   justify-content: space-between;
   margin-bottom: 8px;
 }
-.editor-header h3 { margin: 0; }
+.editor-header h2 { margin: 0; }
 
 .editor-body {
   display: flex;
@@ -1219,7 +1270,7 @@ h1 {
   box-shadow: var(--mc-bevel);
 }
 
-.category-panel h3 { margin: 0 0 8px; font-size: 16px; }
+.category-panel h2 { margin: 0 0 8px; font-size: 16px; }
 
 .chips { display: flex; flex-wrap: wrap; gap: 6px; }
 
@@ -1368,7 +1419,7 @@ h1 {
   border-bottom: 2px solid var(--mc-edge);
 }
 
-.lightbox-head h3 { margin: 0; font-size: 16px; }
+.lightbox-head h2 { margin: 0; font-size: 16px; }
 .lightbox-modes { display: flex; gap: 6px; margin-left: auto; }
 
 .lightbox-close {

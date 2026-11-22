@@ -63,7 +63,7 @@ export default function CategoryPanel({ attributes, noiseLevel }) {
 
   return (
     <div className="category-panel">
-      <h3>분류 결과</h3>
+      <h2>분류 결과</h2>
       <div className="chips">
         {FIELDS.map((f) => (
           <span key={f} className={`chip ${uncertain.has(f) ? "chip-uncertain" : ""}`}>
