@@ -145,6 +145,30 @@ main {
 .jobAttrRow input[type="color"] { width: 80px; }
 
 .jobAttrStatus { margin: 0; min-height: 18px; }
+.jobAttrHead { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.jobAttrChanged { min-height: 0; }
+.jobAttrChanged.changed { color: var(--mc-gold); }
+.attrGroup { border: 2px solid var(--mc-edge); background: var(--mc-panel-2); box-shadow: var(--mc-bevel); padding: 6px 8px; }
+.attrGroup > summary { cursor: pointer; display: flex; justify-content: space-between; gap: 8px; font-size: 16px; color: var(--mc-ink); }
+.attrGroup > summary::marker { color: var(--mc-ink-faint); }
+.attrGroupCount { color: var(--mc-ink-faint); }
+.attrGroupCount.changed { color: var(--mc-gold); }
+.jobAttrName { font-size: 15px; color: var(--mc-ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.jobAttrDiff { display: block; font-size: 12px; color: var(--mc-gold); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.jobAttrLabel { flex: 0 0 118px; min-width: 0; }
+.jobAttrControls { flex: 1; min-width: 0; }
+.jobAttrControls select { min-width: 0; }
+.attrMaskBtn { flex: 0 0 auto; white-space: nowrap; }
+.jobAttrRow.changed { border-left: 3px solid var(--mc-gold); padding-left: 6px; }
+.jobAttrControls { display: flex; gap: 6px; align-items: center; }
+.jobAttrControls select { flex: 1; min-width: 120px; }
+.attrMaskBtn { padding: 6px 8px; font-size: 12px; }
+.jobAttrColorRow { padding-top: 2px; }
+.jobMaskTarget { flex-direction: column; align-items: stretch; gap: 6px; }
+.jobMaskTarget > summary { cursor: pointer; color: var(--mc-ink-dim); }
+.jobMaskTargetRow { display: flex; gap: 8px; }
+.jobMaskTargetRow select { flex: 1; min-width: 0; }
+.jobMaskTargetHint { margin: 0; }
 .jobAttrStatus.warn { color: var(--mc-gold); }
 
 .jobAttrActions { display: flex; gap: 8px; }
@@ -548,7 +572,7 @@ input:focus-visible {
       <div class="row" id="comboPresets"></div>
       <div id="comboWarn"></div>
     </div>
-    <div class="sectionTitle">마스크 편집 대상 (14 keys)</div>
+    <div class="sectionTitle" id="maskTargetTitle">마스크 편집 대상 (14 keys)</div>
     <div class="row" id="kindTabs"></div>
     <div class="row" id="valueTabs"></div>
     <div class="sectionTitle">현재 면 (atlas에서 선택된 박스)</div>
@@ -600,6 +624,6 @@ input:focus-visible {
     </dl>
   </div>
 </div>
-<script type="module" src="/static/app.js?v=23"></script>
+<script type="module" src="/static/app.js?v=27"></script>
 </body>
 </html>

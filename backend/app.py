@@ -589,7 +589,7 @@ EDITOR_DIR = REPO_ROOT / "tools" / "mask_editor"
 EDITOR_LIB_FILES = {"app.js", "viewer.js", "atlas.js"}
 EDITOR_VENDOR_FILES = {"three.core.js", "three.module.js", "OrbitControls.js"}
 _EDITOR_CSS = """
-body[data-job] #comboTitle, body[data-job] #comboPanel, body[data-job] #srcBtn, body[data-job] .group:has(#photoInput) { display: none !important; }
+body[data-job] #comboTitle, body[data-job] #comboPanel, body[data-job] #srcBtn, body[data-job] .group:has(#photoInput), body[data-job] #maskTargetTitle, body[data-job] #kindTabs, body[data-job] #valueTabs { display: none !important; }
 """
 
 

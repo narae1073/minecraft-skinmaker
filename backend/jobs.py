@@ -41,8 +41,16 @@ ATTRIBUTE_CHOICES = {
     "sleeve_len": A.ENUMS["sleeve_len"],
     "hair_style": A.ENUMS["hair_style"],
     "hair_length": A.ENUMS["hair_length"],
+    "inner_top": A.ENUMS["inner_top"],
+    "closure_type": A.ENUMS["closure_type"],
+    "collar_type": A.ENUMS["collar_type"],
+    "pocket_type": A.ENUMS["pocket_type"],
+    "neckwear": A.ENUMS["neckwear"],
+    "beard": A.ENUMS["beard"],
+    "hood": A.ENUMS["hood"],
+    "hood_fit": A.ENUMS["hood_fit"],
 }
-MAX_ATTRIBUTE_CHANGES = 8
+MAX_ATTRIBUTE_CHANGES = len(ATTRIBUTE_CHOICES) + 1  # every editable field + headwear
 # Per-candidate mask saves kept for the editor's revision menu. Each entry is a
 # diff against the baseline, so ten snapshots stay small.
 OVERLAY_HISTORY_MAX = 10
@@ -166,6 +174,14 @@ def candidate_attributes(record: dict, index: int) -> A.Attributes:
     values = dict(attrs.values)
     values.update(overrides)
     return dataclasses.replace(attrs, values=values)
+
+
+def photo_attributes(record: dict, index: int) -> A.Attributes:
+    """The candidate's photo-derived attributes, ignoring this skin's overrides."""
+    cand = candidate(record, index)
+    if cand is None:
+        raise KeyError(index)
+    return JC.load_dataclass(cand["attributes"], A.Attributes)
 
 
 def hat_draft_entry(value: str) -> dict:
@@ -377,6 +393,8 @@ def editor_payload(record: dict, index: int) -> dict:
         "faces": AS.FACES, "dims": {k: list(v) for k, v in AS.DIMS.items()}, "layers": AS.LAYERS,
         "enums": {name: list(A.ENUMS[name]) for name in A.FIELD_ORDER},
         "defaults": dict(attrs.values), "combo": {name: attrs.get(name) for name in A.FIELD_ORDER},
+        "photo_combo": {name: photo_attributes(record, index).get(name) for name in A.FIELD_ORDER},
+        "attribute_overrides": dict(record.get("attr_overrides") or {}),
         "models": [record["model"]],
         "atlas": {"size": 64, "rects": _rects(layout)},
         "slim": {"sub_faces": sorted(AS.SLIM_FACES),

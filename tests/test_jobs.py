@@ -90,7 +90,7 @@ def test_set_attributes_merges_and_keeps_other_overrides():
 def test_set_attributes_rejects_unknown_keys_values_and_too_many_changes():
     record, _observed, _attrs = _record()
     with pytest.raises(ValueError):
-        jobs.set_attributes(record, {"beard": "full"})   # not an editable field
+        jobs.set_attributes(record, {"pattern": "check"})   # not an editable field
     with pytest.raises(ValueError):
         jobs.set_attributes(record, {"top_garment": "spacesuit"})
     with pytest.raises(ValueError):
@@ -196,3 +196,21 @@ def test_hair_style_and_length_are_editable_and_resettable():
     restored = jobs.candidate_attributes(record, 1)
     assert restored.get("hair_style") == base.get("hair_style")
     assert restored.get("hair_length") == base.get("hair_length")
+
+
+def test_extra_attributes_are_editable_and_photo_values_stay_separate():
+    record, _observed, _attrs = _record()
+    base = jobs.photo_attributes(record, 1)
+    jobs.set_attributes(record, {"inner_top": "shirt", "neckwear": "tie", "beard": "full",
+                                 "hood": "up", "closure_type": "open", "collar_type": "v_neck",
+                                 "pocket_type": "patch", "hood_fit": "shallow"})
+    attrs = jobs.candidate_attributes(record, 1)
+    assert attrs.get("inner_top") == "shirt"
+    assert attrs.get("neckwear") == "tie"
+    assert attrs.get("beard") == "full"
+    assert attrs.get("hood") == "up"
+    photo = jobs.photo_attributes(record, 1)
+    assert photo.get("inner_top") == base.get("inner_top")
+    assert photo.get("neckwear") == base.get("neckwear")
+    assert photo.get("beard") == base.get("beard")
+    assert photo.get("hood") == base.get("hood")
