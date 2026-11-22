@@ -8,6 +8,7 @@ import BodyTypePicker from './components/BodyTypePicker';
 import CropModal from './components/CropModal';
 import useDialog from './useDialog';
 import { loadSkinHistory, saveSkinHistory } from './skinHistory';
+import { historyMeta } from './historyView';
 import './App.css';
 
 // three.js 는 첫 화면에 필요 없으므로 결과 카드/편집기가 열릴 때 받는다.
@@ -129,6 +130,7 @@ function App() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [skinHistory, setSkinHistory] = useState(loadSkinHistory); // 누적 스킨 보관 (localStorage)
   const [selectedSkins, setSelectedSkins] = useState([]); // 삭제를 위해 선택된 스킨의 인덱스 배열
+  const [confirmClearHistory, setConfirmClearHistory] = useState(false); // 전체 삭제 2단계 확인
 
   useEffect(() => {
     saveSkinHistory(skinHistory);
@@ -286,6 +288,16 @@ function App() {
     // 선택되지 않은 인덱스의 스킨들만 남김
     setSkinHistory(prev => prev.filter((_, idx) => !selectedSkins.includes(idx)));
     setSelectedSkins([]); // 선택 상태 초기화
+    setConfirmClearHistory(false);
+  };
+
+  // 전체 삭제 (2단계 확인 후)
+  const handleClearHistory = () => {
+    setSkinHistory([]);
+    setSelectedSkins([]);
+    setConfirmClearHistory(false);
+    setHistoryNotice('스킨 기록을 모두 지웠어요.');
+    setTimeout(() => setHistoryNotice(''), 3000);
   };
 
   return (
@@ -298,12 +310,33 @@ function App() {
       {/* 왼쪽 사이드바 (목록 창) */}
       <div className={`sidebar ${isSidebarOpen ? 'open' : ''}`}>
         <div className="sidebar-header">
-          <h3>생성된 스킨 목록</h3>
+          <h3>생성된 스킨 목록{skinHistory.length > 0 && ` (${skinHistory.length})`}</h3>
           <button className="close-btn" aria-label="목록 닫기" onClick={() => setIsSidebarOpen(false)}>✕</button>
         </div>
         
         <div className="sidebar-actions">
-          <button className="delete-btn" onClick={handleDeleteSelected}>선택 파일 지우기</button>
+          <div className="sidebar-action-row">
+            <button className="delete-btn" onClick={handleDeleteSelected} disabled={skinHistory.length === 0}>
+              선택 파일 지우기
+            </button>
+            <button
+              className="clear-all-btn"
+              onClick={() => setConfirmClearHistory(true)}
+              disabled={skinHistory.length === 0}
+              aria-expanded={confirmClearHistory}
+            >
+              전체 삭제
+            </button>
+          </div>
+          {confirmClearHistory && (
+            <div className="confirm-clear" role="alertdialog" aria-label="스킨 기록 전체 삭제 확인">
+              <p>저장된 스킨 {skinHistory.length}개를 모두 지울까요?</p>
+              <div className="confirm-clear-actions">
+                <button className="delete-btn" onClick={handleClearHistory}>삭제</button>
+                <button onClick={() => setConfirmClearHistory(false)}>취소</button>
+              </div>
+            </div>
+          )}
           {historyNotice && <p role="status" className="inline-notice">{historyNotice}</p>}
         </div>
 
@@ -312,24 +345,34 @@ function App() {
             <p className="empty-msg">아직 생성된 스킨이 없습니다.</p>
           ) : (
             <ul className="skin-list">
-              {skinHistory.map((skin, index) => (
-                <li key={index} className="skin-list-item">
-                  <input
-                    type="checkbox"
-                    className="skin-checkbox"
-                    checked={selectedSkins.includes(index)}
-                    onChange={() => handleToggleSelect(index)}
-                  />
-                  {/* 스킨 썸네일 (64x64 이미지를 픽셀 깨짐 없이 보여줌) */}
-                  <img src={skin.url} alt={`스킨 ${index + 1}`} className="skin-thumbnail" />
-                  <a href={skin.url} download={`skin_${index + 1}.png`} className="sidebar-download-link">
-                    스킨 {index + 1}
-                  </a>
-                  <button className="edit-btn" onClick={() => { openSkinEditor(skin); setIsSidebarOpen(false); }}>
-                    편집
-                  </button>
-                </li>
-              ))}
+              {skinHistory.map((skin, index) => {
+                const meta = historyMeta(skin.createdAt);
+                return (
+                  <li key={index} className={`skin-list-item${meta.expiring ? ' expiring' : ''}`}>
+                    <input
+                      type="checkbox"
+                      className="skin-checkbox"
+                      checked={selectedSkins.includes(index)}
+                      onChange={() => handleToggleSelect(index)}
+                      aria-label={`스킨 ${index + 1} 선택`}
+                    />
+                    {/* 스킨 썸네일 (64x64 이미지를 픽셀 깨짐 없이 보여줌) */}
+                    <img src={skin.url} alt={`스킨 ${index + 1}`} className="skin-thumbnail" />
+                    <div className="skin-item-main">
+                      <a href={skin.url} download={`skin_${index + 1}.png`} className="sidebar-download-link">
+                        스킨 {index + 1}
+                      </a>
+                      <span className="skin-item-meta">
+                        <span>{meta.created}</span>
+                        <span className={meta.expiring ? 'skin-expiry expiring' : 'skin-expiry'}>{meta.expiry}</span>
+                      </span>
+                    </div>
+                    <button className="edit-btn" onClick={() => { openSkinEditor(skin); setIsSidebarOpen(false); }}>
+                      편집
+                    </button>
+                  </li>
+                );
+              })}
             </ul>
           )}
         </div>
