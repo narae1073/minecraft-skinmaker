@@ -755,3 +755,7 @@ S0 quality/face detection (YuNet) → S1 colour measurement (white-balance + ban
 
 - 2026-11-21 (공식 페이지 버튼 위치, `feat/official-link-position`): 결과 영역에서 `공식 스킨 관리 페이지 열기` 행을 후보 카드 아래·분류 결과 위로 이동했다. `.official-skin-row { margin: 8px 0 0; }`로 카드↔버튼 8px, 버튼↔분류 18px 간격.
   - 검증: CDP 1440/390에서 `compare-grid.bottom < official.top`, `official.bottom < analysis.top`; 버튼 라벨/힌트 유지; overflow/콘솔 에러 0. lint/build green; `pytest -q` → **804 passed in 154.42s**.
+
+- 2026-11-22 (새 결과창 배경 + 잔디 파비콘, `feat/grass-favicon`): 사용자 제공 `terrain_screenshot.png`(1376×768, 1.8MB)를 WebP 114KB로 변환해 기존 `terrain_screenshot.webp` 경로에 연결(160% 유지). Vite 기본 `favicon.svg`를 삭제하고, 16×16 잔디 블록 `favicon-minecraft.svg`를 추가해 `index.html`에서 `sizes=any`로 링크했다. description의 `전신`도 제거.
+  - 검증: favicon 링크/200, 기존 `favicon.svg` 404; 16/32/128px 렌더 확인; 배경 `terrain_screenshot-DUC_lzYO.webp` 로드; 1440/390 overflow/콘솔 에러 0. lint/build green; `pytest -q` → **804 passed in 155.02s**.
+  - 리스크: 브라우저 favicon 캐시는 새 파일명으로 회피했지만 hard refresh가 필요할 수 있다. 배경 PNG는 WebP로 최적화했다.
