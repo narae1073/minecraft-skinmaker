@@ -67,9 +67,9 @@ function App() {
   // lazy 3D 뷰어가 실제로 마운트된 카드 — 그 전에는 캡처 버튼을 잠근다.
   const [readyViewers, setReadyViewers] = useState({});
   // 편집: 이 브라우저가 만든 스킨이면 마스크 편집기(새 탭), 아니면 기존 미리보기 모달.
-  const openSkinEditor = (skin) => {
+  const openSkinEditor = (skin, index = 1) => {
     if (skin.jobId) {
-      window.open(`/edit/${encodeURIComponent(skin.jobId)}`, "_blank", "noopener");
+      window.open(`/edit/${encodeURIComponent(skin.jobId)}?index=${index}`, "_blank", "noopener");
     } else {
       setEditorItem(skin);
     }
@@ -576,7 +576,7 @@ function App() {
                     />
                   </Suspense>
                   <div className="card-actions">
-                    <button className="edit-btn" onClick={() => openSkinEditor(skin)}>
+                    <button className="edit-btn" onClick={() => openSkinEditor(skin, index + 1)}>
                       스킨 편집
                     </button>
                     <a href={skin.url} download={`skin_option_${index + 1}.png`} className="download-btn">

@@ -319,3 +319,78 @@ def test_clothing_change_rerenders_the_skin_without_touching_the_original(_isola
     masks = owner.get(f"/api/v1/jobs/{token}/editor").json()["masks"]
     preview = owner.post(f"/api/v1/jobs/{token}/preview", json={"masks": masks, "index": 1})
     assert preview.status_code == 200 and preview.json()["skin"].startswith("data:image/png;base64,")
+
+
+def _flip_first_cell(masks):
+    """Toggle one baseline texel so the overlay differs."""
+    import copy
+    masks = copy.deepcopy(masks)
+    for name, entry in masks.items():
+        for layer in ("L1", "L2"):
+            for grid in (entry.get(layer) or {}).values():
+                if grid and grid[0]:
+                    grid[0][0] = 1 - grid[0][0]
+                    return masks, name
+    raise AssertionError("no mask cell to flip")
+
+
+def _two_candidate_job(client):
+    import copy
+    token = _generate(client).json()["data"]["job"]["id"]
+    record = JOBS.load_record(token)
+    second = copy.deepcopy(record["candidates"][0])
+    second["index"] = 2
+    second["seed"] = int(second["seed"]) + 1
+    record["candidates"].append(second)
+    JOBS.save_record(record)
+    return token
+
+
+def test_overlays_are_per_candidate_and_restore_works(_isolated):
+    owner = TestClient(A.app)
+    token = _two_candidate_job(owner)
+    base = owner.get(f"/api/v1/jobs/{token}/editor?index=1").json()
+    assert base["index"] == 1 and base["candidates"] == [1, 2]
+    assert base["history"] == []
+    masks, name = _flip_first_cell(base["masks"])
+
+    first = owner.put(f"/api/v1/jobs/{token}/overlay", json={"masks": masks, "index": 1})
+    assert first.status_code == 200, first.text
+    body = first.json()
+    assert body["index"] == 1 and name in body["override_names"]
+    assert body["history"][0]["revision"] == body["revision"]
+
+    # The other candidate keeps its own baseline.
+    other = owner.get(f"/api/v1/jobs/{token}/editor?index=2").json()
+    assert name not in other["override_names"]
+    assert owner.get(f"/api/v1/jobs/{token}/overlay?index=2").json()["masks"] == {}
+    assert owner.get(f"/api/v1/jobs/{token}/overlay?index=9").status_code == 404
+
+    # Saving the baseline again clears the override but keeps both revisions.
+    second = owner.put(f"/api/v1/jobs/{token}/overlay", json={"masks": base["masks"], "index": 1})
+    assert second.status_code == 200
+    assert second.json()["override_names"] == []
+    assert [h["revision"] for h in second.json()["history"]] == [second.json()["revision"], body["revision"]]
+
+    # Restoring rev 1 brings the texel back as a new revision.
+    restored = owner.post(f"/api/v1/jobs/{token}/restore", json={"index": 1, "revision": body["revision"]})
+    assert restored.status_code == 200, restored.text
+    assert restored.json()["revision"] != body["revision"]
+    editor = owner.get(f"/api/v1/jobs/{token}/editor?index=1").json()
+    assert name in editor["override_names"]
+    assert editor["history"][0]["revision"] == restored.json()["revision"]
+
+    assert owner.post(f"/api/v1/jobs/{token}/restore", json={"index": 1, "revision": 999}).status_code == 404
+    assert owner.post(f"/api/v1/jobs/{token}/restore", json={"index": 9, "revision": 1}).status_code == 404
+    assert owner.post(f"/api/v1/jobs/{token}/restore", json={"index": 1, "revision": "x"}).status_code == 400
+
+
+def test_editor_page_opens_each_candidate_by_index(_isolated):
+    owner = TestClient(A.app)
+    token = _two_candidate_job(owner)
+    page = owner.get(f"/edit/{token}?index=2")
+    assert page.status_code == 200
+    html = page.text
+    assert "MASK_EDITOR_INDEX = 2" in html and 'data-index="2"' in html
+    assert "MASK_EDITOR_JOB" in html
+    assert owner.get(f"/edit/{token}?index=9").status_code == 404

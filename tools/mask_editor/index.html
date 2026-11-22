@@ -149,6 +149,35 @@ main {
 .jobAttrActions { display: flex; gap: 8px; }
 .jobAttrActions button { flex: 1; }
 
+.saveState { margin-left: auto; white-space: nowrap; }
+.saveState.dirty { color: var(--mc-gold); }
+.saveHint { margin: 0 0 6px; font-size: 14px; }
+
+.jobStack { display: flex; flex-direction: column; gap: 8px; margin-bottom: 10px; }
+.jobCandidates { gap: 6px; }
+.candidateTab {
+  padding: 8px 10px;
+  color: #fff;
+  background: var(--mc-gui);
+  border: 2px solid #000;
+  box-shadow: var(--mc-bevel);
+  font-size: 16px;
+  text-decoration: none;
+  text-shadow: 2px 2px 0 rgba(0, 0, 0, 0.75);
+}
+.candidateTab:hover { background: var(--mc-gui-hover); color: var(--mc-gold); }
+.candidateTab.active { background: var(--mc-panel-3); border-color: var(--mc-gold); color: var(--mc-gold); box-shadow: var(--mc-bevel-pressed); }
+
+.jobOverrides { flex-direction: column; align-items: stretch; gap: 6px; }
+.jobOverrideList { display: flex; flex-direction: column; gap: 6px; max-height: 180px; overflow: auto; }
+.jobOverrideRow { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.jobOverrideRow code { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 14px; }
+.jobOverrideRow button { padding: 6px 10px; font-size: 14px; }
+.jobHistory { flex-direction: column; align-items: stretch; gap: 6px; }
+.jobHistoryRow { display: flex; gap: 8px; }
+.jobHistoryRow select { flex: 1; }
+.jobHistoryRow button { white-space: nowrap; }
+
 .shortcutOverlay {
   position: fixed;
   inset: 0;
@@ -528,9 +557,11 @@ input:focus-visible {
     </div>
     <div class="sectionTitle">파일</div>
     <div class="row">
-      <button id="saveBtn" class="primary">저장</button>
+      <button id="saveBtn" class="primary" title="마스크만 저장합니다 (PNG 생성이 아님)">저장</button>
       <button id="seedBtn" title="현재 key/value 만 seed로">이 값만 seed로</button>
+      <span id="saveState" class="hint saveState" role="status">저장됨</span>
     </div>
+    <p class="hint saveHint">저장 = 마스크만 저장 · 스킨 만들기 = PNG 생성 (변경 후 4초 뒤 자동 저장)</p>
     <div class="status" id="status">불러오는 중…</div>
     <div class="meta"><img id="skin" class="skin" alt="64x64 skin" /><span class="hint">L1은 어두운 원단, L2는 밝은 원단으로 합성된다.</span></div>
   </aside>
@@ -563,11 +594,11 @@ input:focus-visible {
       <dt>3D: 우클릭 드래그</dt><dd>회전</dd>
       <dt>Ctrl+Z</dt><dd>되돌리기</dd>
       <dt>Ctrl+Y · Ctrl+Shift+Z</dt><dd>다시 실행</dd>
-      <dt>Ctrl+S</dt><dd>저장</dd>
+      <dt>Ctrl+S</dt><dd>지금 저장 (변경 후 4초 뒤 자동 저장)</dd>
       <dt>?</dt><dd>이 도움말 열기 / 닫기</dd>
     </dl>
   </div>
 </div>
-<script type="module" src="/static/app.js?v=20"></script>
+<script type="module" src="/static/app.js?v=22"></script>
 </body>
 </html>

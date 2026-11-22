@@ -9,6 +9,7 @@ secret sent as an HttpOnly cookie; the job keeps only its SHA-256.
 from __future__ import annotations
 
 import dataclasses
+import datetime
 import hashlib
 import hmac
 import json
@@ -40,6 +41,10 @@ ATTRIBUTE_CHOICES = {
     "sleeve_len": A.ENUMS["sleeve_len"],
 }
 MAX_ATTRIBUTE_CHANGES = 8
+# Per-candidate mask saves kept for the editor's revision menu. Each entry is a
+# diff against the baseline, so ten snapshots stay small.
+OVERLAY_HISTORY_MAX = 10
+OVERLAY_HISTORY_MAX_BYTES = 2 * 1024 * 1024
 HAT_DRAFT_PATHS = {
     "cap": ROOT.parent / "assets" / "headwear_cap.draft.json",
     "beanie": ROOT.parent / "assets" / "headwear_beanie.draft.json",
@@ -224,7 +229,7 @@ def render_candidate(record: dict, index: int, overlay: dict | None = None):
     observed = JC.load_dataclass(record["observed"], C.ObservedColors)
     attrs = candidate_attributes(record, index)
     masks = dict(AM.load_masks())
-    masks.update(record.get("overlay", {}) if overlay is None else overlay)
+    masks.update(effective_overlay(record, index) if overlay is None else overlay)
     degrade = tuple(record.get("degrade") or ())
     # A skin whose headwear was chosen by the user draws the hat over the hair.
     # Clothing overrides must not change that ordering.
@@ -278,13 +283,75 @@ def baseline_masks(record: dict, index: int) -> dict:
     return merged
 
 
+def candidate_indices(record: dict) -> list[int]:
+    return [c["index"] for c in record.get("candidates") or []]
+
+
+def effective_overlay(record: dict, index: int) -> dict:
+    """Shared overlay (hat drafts, legacy edits) plus this candidate's own edits."""
+    shared = record.get("overlay") or {}
+    own = (record.get("overlays") or {}).get(str(index)) or {}
+    if not shared:
+        return dict(own)
+    out = dict(shared)
+    out.update(own)
+    return out
+
+
 def effective_masks(record: dict, index: int) -> dict:
     """Baseline with this job's overlay on top: what the editor shows and renders."""
     base = baseline_masks(record, index)
     out = dict(base)
-    for name, entry in record.get("overlay", {}).items():
+    for name, entry in effective_overlay(record, index).items():
         out[name] = _normalized(entry)
     return out
+
+
+def overlay_history(record: dict, index: int) -> list[dict]:
+    """Saved revisions for one candidate, newest first (metadata only)."""
+    entries = (record.get("overlay_history") or {}).get(str(index)) or []
+    return [{"revision": e["revision"], "saved_at": e.get("saved_at", ""),
+             "changed": len(e.get("overlay") or {})}
+            for e in reversed(entries)]
+
+
+def save_candidate_overlay(record: dict, index: int, overlay: dict) -> int:
+    """Store one candidate's overlay, bump the revision and keep a history entry."""
+    overlays = dict(record.get("overlays") or {})
+    overlays[str(index)] = overlay
+    record["overlays"] = overlays
+    revision = int(record.get("revision", 0)) + 1
+    record["revision"] = revision
+    history = dict(record.get("overlay_history") or {})
+    entries = list(history.get(str(index)) or [])
+    entries.append({
+        "revision": revision,
+        "overlay": overlay,
+        "saved_at": datetime.datetime.now(datetime.timezone.utc).isoformat(timespec="seconds"),
+    })
+    del entries[:-OVERLAY_HISTORY_MAX]
+    while len(entries) > 1 and len(json.dumps(entries)) > OVERLAY_HISTORY_MAX_BYTES:
+        entries.pop(0)
+    history[str(index)] = entries
+    record["overlay_history"] = history
+    return revision
+
+
+def restore_candidate_overlay(record: dict, index: int, revision: int) -> int:
+    """Restore a saved candidate overlay as a new revision (keeps the old history)."""
+    entries = (record.get("overlay_history") or {}).get(str(index)) or []
+    for entry in entries:
+        if int(entry.get("revision", -1)) == int(revision):
+            return save_candidate_overlay(record, index, dict(entry.get("overlay") or {}))
+    raise KeyError(revision)
+
+
+def override_names(record: dict, index: int) -> list[str]:
+    """Masks in this candidate that differ from its baseline (shared or own)."""
+    base = baseline_masks(record, index)
+    current = effective_masks(record, index)
+    return sorted(name for name, entry in current.items()
+                  if name not in base or entry != base[name])
 
 
 def diff_against_baseline(masks: dict, record: dict, index: int) -> dict:
@@ -316,6 +383,10 @@ def editor_payload(record: dict, index: int) -> dict:
         "maskable": AS.MASKABLE,
         "masks": effective_masks(record, index),
         "candidate": {"index": index, "varied": cand["varied"]},
+        "candidates": candidate_indices(record),
+        "index": index,
+        "override_names": override_names(record, index),
+        "history": overlay_history(record, index),
         "hat_color": record.get("hat_color"),
         "revision": record["revision"],
     }
