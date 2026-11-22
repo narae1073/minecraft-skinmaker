@@ -864,3 +864,6 @@ S0 quality/face detection (YuNet) → S1 colour measurement (white-balance + ban
   - `app.js?v=30`.
   - 검증: CDP 390px — 기본 atlas만 보임(tabs flex), 3D 탭에서 `.editor` block·canvas 520×620 표시, 속성 탭에서 `.controls` block, 새로고침 후 attrs 유지, ArrowLeft로 attrs→preview 이동·포커스 이동, 데스크톱 1440px에서 탭 hidden·세 패널 모두 block, 390px overflow 0, 콘솔 에러 0. `pytest -q` → **823 passed**, atlas 9 passed. 스크린샷 `out/theme/111-mobile-tab-atlas.png`, `112-mobile-tab-3d.png`, `113-mobile-tab-attrs.png`, `114-mobile-tabs-desktop.png`.
   - 리스크: 모바일에서는 한 번에 한 패널만 보이므로 3D와 아틀라스를 동시에 보며 칠할 수 없다(탭 전환 필요). 데스크톱 동작은 그대로.
+
+- 2026-11-22 (버튼 문구, `feat/editor-download-label`): 헤더의 `저장하고 스킨 만들기`를 **`저장하고 스킨 다운로드`**로 변경했다. 동작(저장 후 `/render`, `스킨 PNG 다운로드` 링크 표시)은 그대로며 툴팁도 `…PNG를 내려받습니다`로 맞췄다. `app.js?v=31`.
+  - 검증: CDP job 모드 — 헤더 버튼이 `저장` / `저장하고 스킨 다운로드` 두 개이고 옛 문구 없음, 클릭 후 `/static/skins/{token}_e{rev}_c1.png` + download 링크 표시, 콘솔 에러 0. 스크린샷 `out/theme/115-download-label.png`. `pytest -q` → **823 passed**.

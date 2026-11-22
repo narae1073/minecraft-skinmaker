@@ -952,8 +952,8 @@ function addJobRenderButton() {
   if (!bar) return;
   const btn = document.createElement('button');
   btn.className = 'primary';
-  btn.textContent = '저장하고 스킨 만들기';
-  btn.title = '지금 마스크를 저장한 뒤 이 후보의 스킨 PNG를 만듭니다';
+  btn.textContent = '저장하고 스킨 다운로드';
+  btn.title = '지금 마스크를 저장한 뒤 이 후보의 스킨 PNG를 내려받습니다';
   const link = document.createElement('a');
   link.rel = 'noopener';
   link.style.fontSize = '16px';
