@@ -48,22 +48,27 @@ body {
 }
 
 header {
-  padding: 12px 18px;
+  padding: 10px 14px;
   border-bottom: 2px solid var(--mc-edge);
   background: var(--mc-panel);
   display: flex;
   gap: 14px;
-  align-items: baseline;
+  align-items: center;
+  justify-content: space-between;
   flex-wrap: wrap;
 }
 
-header h1 {
-  font-size: 32px;
-  font-weight: 400;
-  margin: 0;
-  color: var(--mc-ink);
-  text-shadow: 2px 2px 0 #000;
+.header-actions {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  flex-wrap: wrap;
+  flex: 1;
 }
+
+.header-actions .group { margin: 0; }
+.header-actions .saveState { margin-left: 0; }
+.header-help { margin-left: auto; }
 
 header .hint { color: var(--mc-ink-dim); font-size: 16px; }
 
@@ -159,6 +164,14 @@ main {
 .jobAttrControls { flex: 1; min-width: 0; }
 .jobAttrControls select { min-width: 0; }
 .attrMaskBtn { flex: 0 0 auto; white-space: nowrap; }
+.attrResetBtn { flex: 0 0 auto; padding: 6px 8px; font-size: 14px; line-height: 1; }
+.jobOverrides,
+.jobHistory { display: block; }
+.jobOverrides > summary,
+.jobHistory > summary { cursor: pointer; color: var(--mc-ink-dim); margin-bottom: 6px; }
+.jobOverrides[open] > summary,
+.jobHistory[open] > summary { color: var(--mc-ink); }
+.jobHistoryRow { margin-top: 6px; }
 .jobAttrRow.changed { border-left: 3px solid var(--mc-gold); padding-left: 6px; }
 .jobAttrControls { display: flex; gap: 6px; align-items: center; }
 .jobAttrControls select { flex: 1; min-width: 120px; }
@@ -503,9 +516,12 @@ input:focus-visible {
 </style>
 </head>
 <body>
-<header>
-  <h1>skinmaker 3D attribute mask editor</h1>
-  <span class="hint">2D atlas에서 좌클릭/드래그 = 칠하기 · 우클릭/Shift = 지우개 · 휠 = 줌 · Ctrl+Z / Ctrl+Y = Undo/Redo · 3D에서도 좌클릭 칠하기 · 저장은 <code>out/mask_editor/attribute_masks.json</code></span>
+<header class="editorHeader">
+  <div class="header-actions" id="headerActions">
+    <button id="saveBtn" class="primary" title="마스크만 저장합니다 (PNG 생성이 아님)">저장</button>
+    <span id="saveState" class="hint saveState" role="status">저장됨</span>
+  </div>
+  <button id="shortcutBtn" class="header-help" title="단축키 (?)" aria-label="단축키 도움말">?</button>
 </header>
 <main>
   <section class="panel atlasPanel">
@@ -546,7 +562,6 @@ input:focus-visible {
         <button id="undoBtn" disabled title="Ctrl+Z">Undo</button>
         <button id="redoBtn" disabled title="Ctrl+Y / Ctrl+Shift+Z">Redo</button>
         <button id="resetBtn" title="모든 마스크를 절차적 seed(초기 상태)로 — 조합 설정은 유지">초기 상태로</button>
-        <button id="shortcutBtn" title="단축키 (?)" aria-label="단축키 도움말">?</button>
       </div>
     </div>
     <div id="atlasWrap"><canvas id="atlasCanvas" width="512" height="512"></canvas></div>
@@ -575,18 +590,20 @@ input:focus-visible {
     <div class="sectionTitle" id="maskTargetTitle">마스크 편집 대상 (14 keys)</div>
     <div class="row" id="kindTabs"></div>
     <div class="row" id="valueTabs"></div>
-    <div class="sectionTitle">현재 면 (atlas에서 선택된 박스)</div>
-    <div class="row">
-      <button id="clearBtn">이 면 지우기</button>
-      <button id="fillBtn">이 면 채우기</button>
+    <div id="faceActions">
+      <div class="sectionTitle">현재 면 (atlas에서 선택된 박스)</div>
+      <div class="row">
+        <button id="clearBtn">이 면 지우기</button>
+        <button id="fillBtn">이 면 채우기</button>
+      </div>
     </div>
-    <div class="sectionTitle">파일</div>
-    <div class="row">
-      <button id="saveBtn" class="primary" title="마스크만 저장합니다 (PNG 생성이 아님)">저장</button>
-      <button id="seedBtn" title="현재 key/value 만 seed로">이 값만 seed로</button>
-      <span id="saveState" class="hint saveState" role="status">저장됨</span>
+    <div id="fileSection">
+      <div class="sectionTitle">파일</div>
+      <div class="row">
+        <button id="seedBtn" title="현재 key/value 만 seed로">이 값만 seed로</button>
+      </div>
+      <p class="hint saveHint">저장 = 마스크만 저장 · 스킨 만들기 = PNG 생성 (변경 후 4초 뒤 자동 저장)</p>
     </div>
-    <p class="hint saveHint">저장 = 마스크만 저장 · 스킨 만들기 = PNG 생성 (변경 후 4초 뒤 자동 저장)</p>
     <div class="status" id="status">불러오는 중…</div>
     <div class="meta"><img id="skin" class="skin" alt="64x64 skin" /><span class="hint">L1은 어두운 원단, L2는 밝은 원단으로 합성된다.</span></div>
   </aside>
@@ -624,6 +641,6 @@ input:focus-visible {
     </dl>
   </div>
 </div>
-<script type="module" src="/static/app.js?v=28"></script>
+<script type="module" src="/static/app.js?v=29"></script>
 </body>
 </html>

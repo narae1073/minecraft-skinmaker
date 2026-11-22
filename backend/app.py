@@ -495,6 +495,16 @@ async def job_attributes(token: str, request: Request):
         fail(404, "not_found", "그 후보가 없어요.")
     if body.get("reset"):
         JOBS.reset_attributes(record)
+    elif isinstance(body.get("reset_attributes"), list):
+        keys = body["reset_attributes"]
+        if not keys:
+            fail(400, "bad_attributes", "초기화할 속성이 없어요.")
+        if len(keys) > JOBS.MAX_ATTRIBUTE_CHANGES:
+            fail(400, "bad_attributes", "한 번에 너무 많은 속성을 초기화해요.")
+        try:
+            JOBS.reset_attributes(record, keys)
+        except ValueError as exc:
+            fail(400, "bad_attributes", f"지원하지 않는 속성: {exc}")
     else:
         changes = body.get("attributes")
         changes = dict(changes) if isinstance(changes, dict) else {}
@@ -621,10 +631,6 @@ def job_editor_page(token: str, request: Request, index: int = 1):
     html = (EDITOR_DIR / "index.html").read_text(encoding="utf-8")
     html = html.replace("/static/", "/edit/lib/")
     # Job mode saves to this skin's overlay, not the developer draft file.
-    html = html.replace(
-        "저장은 <code>out/mask_editor/attribute_masks.json</code>",
-        "저장은 이 스킨에만 적용됩니다",
-    )
     html = html.replace("<body>", f'<body data-job="{token}" data-index="{index}">', 1)
     html = html.replace('<script type="module"',
                         f'<style>{_EDITOR_CSS}</style>\n<script>window.MASK_EDITOR_JOB = "{token}";'

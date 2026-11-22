@@ -848,3 +848,11 @@ S0 quality/face detection (YuNet) → S1 colour measurement (white-balance + ban
   - `POST /api/v1/jobs/{token}/attributes`가 `skin`(base64 PNG), `hat_mask`, `override_names`까지 한 번에 반환: 기존 3회 직렬 왕복(`POST /attributes` → `GET /editor` 673KB → `POST /preview` 673KB)과 ~1.35MB 전송을 **1회 왕복(~5KB)**으로 축소.
   - 프론트엔드(`app.js?v=28`): `select` 변경 즉시 아틀라스 마스크 타겟을 로컬에서 0ms 전환(`setKey`/`setValue`가 job 모드에서 불필요한 `/preview`를 부르지 않게 수정)하고, `/attributes` 응답의 `skin`으로 3D 뷰어와 `baseImg`를 바로 갱신.
   - 검증: CDP 실측 — `top_garment -> dress` 타겟 전환 **5.8ms** / 스킨 갱신 **110ms** (API 호출 1회), `hair_style -> bun` **3.9ms / 130ms** (API 1회), `headwear -> cap` **2.6ms / 136ms** (`headwear.cap` 마스크 병합 + `직접 칠한 마스크 (1)`, API 1회), 콘솔 에러 0. `pytest -q` → **821 passed**.
+
+- 2026-11-22 (편집기 레이아웃 정리, `feat/editor-layout`): 상단 배너를 액션 바로 바꾸고 속성별 되돌리기를 추가했다.
+  - 헤더: 제목 `skinmaker 3D attribute mask editor`와 튜토리얼 문구 삭제. 남는 것은 `저장`(#saveBtn), `저장됨 · rev N` 배지(#saveState), job 모드의 `저장하고 스킨 만들기`(+`스킨 PNG 다운로드`), 오른쪽 `?`(단축키). 기존 툴바 `저장`·`저장하고 스킨 만들기`는 헤더로 이동.
+  - 현재 면 `이 면 지우기/채우기`와 `이 값만 seed로`는 job 모드에서 `고급 · 마스크 직접 편집` 안으로 이동(`#faceActions`, `#seedBtn`), `#fileSection`은 숨김. standalone 개발 편집기는 기존 배치 유지.
+  - 속성 행마다 `↩` 버튼: 그 속성만 사진 추정값으로 되돌림. 변경되지 않은 행은 비활성. `POST /attributes`에 `{"reset_attributes": [key], "index": N}` 추가, `reset_attributes(record, keys)`가 해당 override만 제거(`headwear`면 `hat_color`도). 허용되지 않은 key는 400, 잘못된 index는 404.
+  - `직접 칠한 마스크 (N)`과 `저장 기록`은 `<details>`로 접힘(비어 있으면 기본 접힘).
+  - 검증: CDP — 헤더 버튼 3개 + 배지 + `?`만 존재, 제목 없음, 튜토리얼 문구 없음, 툴바에 저장 없음, `이 면 지우기`가 고급 섹션 안, `fileSection` hidden, 행 `↩` 14개 초기 비활성; `hair_style=bun`과 `top_garment=dress`를 바꾼 뒤 상의 `↩`만 누르면 상의는 `tee`, 머리는 `bun` 유지, 스킨 갱신·`상의 되돌림 저장됨 · revision 3`, 390px 가로 스크롤 0, 콘솔 에러 0. 단위/API 테스트 2개 추가. `pytest -q` → **823 passed in 167.15s**. 스크린샷 `out/theme/108-layout-header.png`, `109-layout-row-reset.png`, `110-layout-mobile.png`.
+  - 리스크: `↩`는 속성 값만 되돌리며 칠한 마스크(`직접 칠한 마스크`)는 그대로 둔다. 되돌리기는 기존 `/attributes` 경로를 쓰므로 마스크 기준선 새로고침과 Undo 초기화가 함께 일어난다(속성 변경과 동일).
