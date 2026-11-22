@@ -877,6 +877,54 @@ h1 {
 
 .delete-btn:hover { background-color: var(--mc-danger-dark); }
 .delete-btn:active { box-shadow: var(--mc-bevel-pressed); }
+.delete-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.sidebar-action-row {
+  display: flex;
+  gap: 8px;
+}
+
+.sidebar-action-row .delete-btn { flex: 1; }
+
+.clear-all-btn {
+  flex: 0 0 auto;
+  padding: 10px 12px;
+  color: var(--mc-danger);
+  background: var(--mc-panel-3);
+  border: 2px solid var(--mc-edge);
+  border-radius: 0;
+  box-shadow: var(--mc-bevel);
+  font-size: 16px;
+  text-shadow: 2px 2px 0 rgba(0, 0, 0, 0.75);
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.clear-all-btn:hover:not(:disabled) { color: #fff; background: var(--mc-danger-dark); }
+.clear-all-btn:active:not(:disabled) { box-shadow: var(--mc-bevel-pressed); }
+.clear-all-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.confirm-clear {
+  margin-top: 8px;
+  padding: 10px;
+  background: var(--mc-panel-2);
+  border: 2px solid var(--mc-danger);
+  box-shadow: var(--mc-bevel);
+}
+
+.confirm-clear p {
+  margin: 0 0 8px;
+  color: var(--mc-ink);
+  font-size: 16px;
+}
+
+.confirm-clear-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.confirm-clear-actions .delete-btn { flex: 1; }
+.confirm-clear-actions button:not(.delete-btn) { flex: 1; }
 
 .sidebar-content {
   flex: 1;
@@ -910,6 +958,27 @@ h1 {
 }
 
 .skin-list-item:hover { border-color: var(--mc-gold); }
+
+.skin-list-item.expiring { border-color: var(--mc-gold); }
+
+.skin-item-main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.skin-item-meta {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  color: var(--mc-ink-faint);
+  font-size: 14px;
+}
+
+.skin-item-meta .skin-expiry { color: var(--mc-ink-faint); }
+.skin-item-meta .skin-expiry.expiring { color: var(--mc-gold); }
 
 .skin-checkbox {
   width: 22px;

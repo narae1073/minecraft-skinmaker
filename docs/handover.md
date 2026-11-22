@@ -782,3 +782,10 @@ S0 quality/face detection (YuNet) → S1 colour measurement (white-balance + ban
   - `frontend/src/skinHistory.test.js` 12개: 유효 항목 정규화, URL 화이트리스트(`/static/skins/*.png`만), 잘못된/미래/만료 timestamp, 14일 경계(정확히 14일 통과·+1ms 탈락), flatUrl/steps/model/jobId 정리, 200자 절단, 100개 cap(최신 유지), JSON 손상/storage 예외, 저장 시 sanitise.
   - CI `web` 잡에 `npm test` 단계를 추가했고 `AGENTS.md` 커맨드에도 넣었다. 이후 프론트 PR은 lint/test/build를 모두 통과해야 한다.
   - 검증: `npm test` → **12 passed** (188ms), `npm run lint` clean, `npm run build` green.
+
+- 2026-11-22 (스킨 기록 UI, `feat/history-ui`): 사이드바 기록에 생성 시점과 만료까지 남은 일수를 표시하고, 전체 삭제를 2단계 확인으로 추가했다.
+  - `historyView.js`(신규): `daysLeft`(14일 TTL 기준 올림, 0 클램프), `createdAtLabel`(오늘/어제/n일 전), `isExpiringSoon`(2일 이하), `historyMeta`. TTL 상수는 `skinHistory.js`에서만 가져와 sanitiser와 UI가 어긋나지 않는다.
+  - 사이드바 헤더에 개수 표시, 각 항목에 `오늘 · 14일 남음` 형태 메타. 2일 이하 항목은 금색 테두리 + 금색 만료 문구. `전체 삭제`는 `role="alertdialog"` 확인 패널을 거치고, 취소하면 유지, 삭제하면 localStorage까지 비우고 `스킨 기록을 모두 지웠어요.` 안내.
+  - `historyView.test.js` 8개 추가 (vitest 총 20개): 14/13/1/0일 계산, 부분 일수 올림, 음수 클램프, 오늘/어제/n일 전, 미래 시각(clock skew), 2일 이하 경고, 만료 문구.
+  - 검증: CDP에서 0·3·12·13·15일 전 항목을 seed → 15일 항목은 로드 시 sanitise로 제거(4개), `오늘 14일 남음`/`3일 전 11일 남음`/`12일 전 2일 남음`(금색)/`13일 전 1일 남음`(금색), 헤더 `(4)`, 확인 취소 후 4개 유지, 삭제 후 0개·빈 상태·안내·storage 0, 390px overflow 0, 콘솔 에러 0. lint/test/build green.
+  - 리스크: 14일이 지난 항목은 이미 로드 시 사라지므로 `만료됨` 문구는 같은 세션에서 시간이 지난 경우에만 보인다.
