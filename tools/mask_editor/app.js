@@ -1558,6 +1558,45 @@ window.addEventListener('keydown', (e) => {
   else if (!mod && (e.key === '-' || e.key === '_')) setZoom(state.zoom - 1);
 });
 
+// Phones get one pane at a time: atlas / 3D / attributes.
+const MOBILE_TAB_STORAGE = 'skinmaker.editorTab.v1';
+const MOBILE_TABS = ['atlas', 'preview', 'attrs'];
+
+function setMobileTab(tab, { persist = true } = {}) {
+  const next = MOBILE_TABS.includes(tab) ? tab : 'atlas';
+  document.body.dataset.mobileTab = next;
+  for (const b of document.querySelectorAll('.mobileTab')) {
+    const on = b.dataset.mobileTab === next;
+    b.classList.toggle('active', on);
+    b.setAttribute('aria-selected', on ? 'true' : 'false');
+  }
+  if (persist) {
+    try { localStorage.setItem(MOBILE_TAB_STORAGE, next); } catch { /* private mode */ }
+  }
+  if (next === 'preview') requestAnimationFrame(() => viewer?.resize?.());
+}
+
+function initMobileTabs() {
+  const nav = document.querySelector('#mobileTabs');
+  if (!nav) return;
+  let saved = 'atlas';
+  try { saved = localStorage.getItem(MOBILE_TAB_STORAGE) || 'atlas'; } catch { /* private mode */ }
+  setMobileTab(saved, { persist: false });
+  for (const b of nav.querySelectorAll('.mobileTab')) {
+    b.onclick = () => setMobileTab(b.dataset.mobileTab);
+  }
+  nav.addEventListener('keydown', (e) => {
+    if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
+    const tabs = [...nav.querySelectorAll('.mobileTab')];
+    const i = tabs.indexOf(document.activeElement);
+    if (i < 0) return;
+    e.preventDefault();
+    const next = (i + (e.key === 'ArrowRight' ? 1 : tabs.length - 1)) % tabs.length;
+    tabs[next].focus();
+    setMobileTab(tabs[next].dataset.mobileTab);
+  });
+}
+
 async function boot() {
   const r = await apiFetch('/api/defaults?t=' + Date.now(), { cache: 'no-store' });
   if (!r.ok) {
@@ -1608,8 +1647,9 @@ async function boot() {
     console.error(e);
     $('#status').textContent = '3D 뷰어 초기화 실패(WebGL): ' + e.message + ' — 2D atlas로 편집 가능';
   }
+  initMobileTabs();
   schedulePreview(0);
 }
 
-window.maskEditor = { state, viewer: null, setCombo, saveCombo, loadCombo, renderCombo, paintTexel, drawAtlasNow, undo, redo };
+window.maskEditor = { state, viewer: null, setCombo, saveCombo, loadCombo, renderCombo, paintTexel, drawAtlasNow, undo, redo, setMobileTab };
 boot();

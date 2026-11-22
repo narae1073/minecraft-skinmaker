@@ -856,3 +856,11 @@ S0 quality/face detection (YuNet) → S1 colour measurement (white-balance + ban
   - `직접 칠한 마스크 (N)`과 `저장 기록`은 `<details>`로 접힘(비어 있으면 기본 접힘).
   - 검증: CDP — 헤더 버튼 3개 + 배지 + `?`만 존재, 제목 없음, 튜토리얼 문구 없음, 툴바에 저장 없음, `이 면 지우기`가 고급 섹션 안, `fileSection` hidden, 행 `↩` 14개 초기 비활성; `hair_style=bun`과 `top_garment=dress`를 바꾼 뒤 상의 `↩`만 누르면 상의는 `tee`, 머리는 `bun` 유지, 스킨 갱신·`상의 되돌림 저장됨 · revision 3`, 390px 가로 스크롤 0, 콘솔 에러 0. 단위/API 테스트 2개 추가. `pytest -q` → **823 passed in 167.15s**. 스크린샷 `out/theme/108-layout-header.png`, `109-layout-row-reset.png`, `110-layout-mobile.png`.
   - 리스크: `↩`는 속성 값만 되돌리며 칠한 마스크(`직접 칠한 마스크`)는 그대로 둔다. 되돌리기는 기존 `/attributes` 경로를 쓰므로 마스크 기준선 새로고침과 Undo 초기화가 함께 일어난다(속성 변경과 동일).
+
+- 2026-11-22 (모바일 편집기 탭, `feat/editor-mobile-tabs`): 980px 이하에서 아틀라스/3D/속성을 한 번에 하나씩 보는 탭을 추가했다.
+  - `main` 맨 위 `nav#mobileTabs`(`role=tablist`, 아틀라스/3D/속성). 데스크톱에서는 `display:none`, 모바일에서만 flex.
+  - `body[data-mobile-tab]`에 따라 `.atlasPanel`/`.editor`/`.controls`를 하나만 표시(기본 atlas). 선택은 `localStorage('skinmaker.editorTab.v1')`에 저장되어 새로고침 후에도 유지.
+  - `setMobileTab`/`initMobileTabs` (`window.maskEditor.setMobileTab` 노출): 클릭과 ArrowLeft/Right로 전환, 3D 탭으로 갈 때 `requestAnimationFrame` 뒤 `viewer.resize()` 호출로 숨겨져 있던 canvas 크기 보정.
+  - `app.js?v=30`.
+  - 검증: CDP 390px — 기본 atlas만 보임(tabs flex), 3D 탭에서 `.editor` block·canvas 520×620 표시, 속성 탭에서 `.controls` block, 새로고침 후 attrs 유지, ArrowLeft로 attrs→preview 이동·포커스 이동, 데스크톱 1440px에서 탭 hidden·세 패널 모두 block, 390px overflow 0, 콘솔 에러 0. `pytest -q` → **823 passed**, atlas 9 passed. 스크린샷 `out/theme/111-mobile-tab-atlas.png`, `112-mobile-tab-3d.png`, `113-mobile-tab-attrs.png`, `114-mobile-tabs-desktop.png`.
+  - 리스크: 모바일에서는 한 번에 한 패널만 보이므로 3D와 아틀라스를 동시에 보며 칠할 수 없다(탭 전환 필요). 데스크톱 동작은 그대로.
