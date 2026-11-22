@@ -649,6 +649,24 @@ h1 {
   background-repeat: no-repeat;
 }
 
+/* lazy 3D 뷰어가 로드되는 동안 같은 지형 배경 위에 표시 */
+.viewer-skeleton {
+  display: grid;
+  place-items: center;
+  color: var(--mc-ink-dim, #c2b6a6);
+  font-size: 14px;
+  text-shadow: 2px 2px 0 rgba(0, 0, 0, 0.8);
+  animation: viewer-skeleton-pulse 1.4s ease-in-out infinite;
+}
+
+@keyframes viewer-skeleton-pulse {
+  50% { opacity: 0.72; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .viewer-skeleton { animation: none; }
+}
+
 @media (max-width: 720px) {
   .compare-grid .candidate-card { padding: 10px; }
 }

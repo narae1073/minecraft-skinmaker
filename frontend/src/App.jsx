@@ -1,7 +1,5 @@
-import { useEffect, useRef, useState } from 'react';
+import { lazy, Suspense, useEffect, useRef, useState } from 'react';
 import { QRCodeSVG } from 'qrcode.react';
-import Skin3DViewer from './components/Skin3DViewer';
-import SkinEditor from './components/SkinEditor';
 import CategoryPanel from './components/CategoryPanel';
 import StepsPanel from './components/StepsPanel';
 import CameraCapture from './components/CameraCapture';
@@ -11,6 +9,10 @@ import CropModal from './components/CropModal';
 import useDialog from './useDialog';
 import { loadSkinHistory, saveSkinHistory } from './skinHistory';
 import './App.css';
+
+// three.js 는 첫 화면에 필요 없으므로 결과 카드/편집기가 열릴 때 받는다.
+const Skin3DViewer = lazy(() => import('./components/Skin3DViewer'));
+const SkinEditor = lazy(() => import('./components/SkinEditor'));
 
 const MAX_UPLOAD_EDGE = 1600;
 
@@ -61,6 +63,8 @@ function App() {
   const [skins, setSkins] = useState([]); // 현재 결과: {url, flatUrl} 쌍 배열
   const [captureError, setCaptureError] = useState('');
   const previewRefs = useRef([]);
+  // lazy 3D 뷰어가 실제로 마운트된 카드 — 그 전에는 캡처 버튼을 잠근다.
+  const [readyViewers, setReadyViewers] = useState({});
   // 편집: 이 브라우저가 만든 스킨이면 마스크 편집기(새 탭), 아니면 기존 미리보기 모달.
   const openSkinEditor = (skin) => {
     if (skin.jobId) {
@@ -513,12 +517,17 @@ function App() {
                   {skin.varied && skin.varied !== "as-answered" && (
                     <p className="varied-note">{skin.varied}</p>
                   )}
-                  <Skin3DViewer
-                    ref={(el) => { previewRefs.current[index] = el; }}
-                    skinUrl={skin.url}
-                    model={skin.model}
-                    className="candidate-viewer"
-                  />
+                  <Suspense fallback={<div className="candidate-viewer viewer-skeleton" aria-hidden="true"><span>3D 불러오는 중…</span></div>}>
+                    <Skin3DViewer
+                      ref={(el) => {
+                        previewRefs.current[index] = el;
+                        if (el) setReadyViewers((prev) => (prev[index] ? prev : { ...prev, [index]: true }));
+                      }}
+                      skinUrl={skin.url}
+                      model={skin.model}
+                      className="candidate-viewer"
+                    />
+                  </Suspense>
                   <div className="card-actions">
                     <button className="edit-btn" onClick={() => openSkinEditor(skin)}>
                       스킨 편집
@@ -530,6 +539,7 @@ function App() {
                       type="button"
                       className="capture-btn"
                       onClick={() => downloadPreview(index)}
+                      disabled={!readyViewers[index]}
                       title="현재 3D 미리보기를 투명 PNG로 저장"
                       aria-label={`후보 ${index + 1} 미리보기 캡처 다운로드`}
                     >
@@ -579,7 +589,9 @@ function App() {
         )}
 
         {editorItem && (
-          <SkinEditor skin={editorItem} steps={editorItem.steps} onClose={() => setEditorItem(null)} />
+          <Suspense fallback={null}>
+            <SkinEditor skin={editorItem} steps={editorItem.steps} onClose={() => setEditorItem(null)} />
+          </Suspense>
         )}
 
         {cropOpen && cropSize && file && (
