@@ -548,6 +548,25 @@ function App() {
                 aria-label="마인크래프트 공식 스킨 관리 페이지 열기 (새 탭)"
               >
                 공식 스킨 관리 페이지 열기
+                <svg
+                  className="official-skin-external"
+                  viewBox="0 0 16 16"
+                  aria-hidden="true"
+                  focusable="false"
+                  shapeRendering="crispEdges"
+                >
+                  <g
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="square"
+                    strokeLinejoin="miter"
+                  >
+                    <path d="M6 3H3v10h10v-3" />
+                    <path d="M9 2h5v5" />
+                    <path d="M14 2 7 9" />
+                  </g>
+                </svg>
               </a>
               <p className="official-skin-hint">다운로드한 PNG를 자바 에디션 공식 페이지에서 업로드하세요.</p>
             </div>
