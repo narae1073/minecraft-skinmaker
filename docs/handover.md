@@ -797,3 +797,12 @@ S0 quality/face detection (YuNet) → S1 colour measurement (white-balance + ban
   - `atlas.test.mjs` 2개 추가(총 9): 센터/짝수 앵커/모서리·상자보다 큰 브러시 클리핑, 모든 셀이 상자 안이며 이상한 size는 1px로 폴백.
   - 검증: job 모드 CDP — 초기 1px active/`aria-pressed=true`/status `1px`, 4px 클릭 후 storage `4`·active 1개·status `4px`, 4px 스탬프 `changes` 16셀·`Undo (1)`, undo 후 `Undo` 비활성·`Redo (1)`, 키 `2` → storage `2`, `?` 오버레이 10항목·포커스 `shortcutClose`·Escape 닫힘, 리로드 후 2px 복원, 390px overflow 0·툴바 `sticky`/`top:0`, 콘솔 에러 0. `node --check` 3종 + `atlas.test.mjs` 9 passed.
   - 리스크: 4px 브러시는 8×8 얼굴에서 16셀을 한 번에 칠하므로 미세 조정은 1px로 해야 한다. `1`/`2`/`4` 키는 입력 필드 밖에서만 동작.
+
+- 2026-11-22 (접근성, `feat/a11y`): 키보드/스크린리더 경로를 정리하고 axe 스캔을 통과시켰다.
+  - `useDialog`: Tab/Shift+Tab을 대화상자 안에서 순환(포커스 트랩), 포커스가 밖에 있으면 첫 요소로, Escape/복귀 동작 유지. CropModal·SkinEditor·서버 에러 오버레이에 적용된다.
+  - 첫 탭 스톱에 `본문으로 건너뛰기` 링크(포커스 전에는 화면 밖, 금색 포커스 링), `.container`를 `<main id="main-content">`로, 사이드바를 `<aside aria-label="저장된 스킨 목록">`로 승격.
+  - 결과 생성 시 `.sr-only role="status"`로 `스킨 후보 N개가 생성되었습니다.` 안내. CropModal alt를 한국어로.
+  - 제목 레벨 정리: 카드/분류/목록/편집기/라이트박스 h3 → h2 (h1 다음 h3로 건너뛰던 문제). `.skin-card h2`는 기존 h3 크기(1.17em) 유지.
+  - `prefers-reduced-motion: reduce`에서 모든 animation/transition을 0.01ms로 (3D 자동 회전은 원래 없음).
+  - 대비 점검: `--mc-ink-faint` #a2957f on #241f1a = 5.55:1, on #2b2520 = 5.14:1; dim 8.19, gold 11.18 — 모두 AA 이상.
+  - 검증: CDP 키보드 — 첫 Tab = 건너뛰기 링크(가시), Enter로 `#main-content` 포커스; 결과 생성 후 live region 문구; 편집기 다이얼로그 Tab 12회·Shift+Tab 12회 모두 내부 유지, Escape 닫힘 후 `edit-btn`으로 포커스 복귀; reduced-motion에서 transition 0.00001s. axe-core 4.10.2: 초기 화면 0 violations, 결과+사이드바 0 violations. 390px overflow 0, 콘솔 에러 0. lint/test(20)/build green.

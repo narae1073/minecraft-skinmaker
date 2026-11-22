@@ -51,7 +51,7 @@ export default function CropModal({ file, imageSize, onApply, onClose }) {
       <div ref={dialogRef} tabIndex={-1} role="dialog" aria-modal="true" aria-labelledby="crop-title" className="crop-modal">
         <div id="crop-title" className="crop-title">얼굴을 찾기 어려워요. 인물이 전신에 들어오게 크롭해 주세요.</div>
         <div className="crop-frame" ref={frameRef}>
-          <img src={url} alt="crop source" draggable={false} />
+          <img src={url} alt="자를 원본 사진" draggable={false} />
           <div
             className="crop-box"
             style={{
