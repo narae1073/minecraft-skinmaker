@@ -903,42 +903,154 @@ function addJobRenderButton() {
       btn.disabled = false;
     }
   };
-  // Headwear for this skin only: none, a cap, or a beanie, with a colour for a hat.
-  const hat = document.createElement('label');
-  hat.style.fontSize = '16px';
-  hat.append('모자 ');
-  const sel = document.createElement('select');
-  for (const [v, t] of [['none', '없음'], ['cap', 'cap'], ['beanie', 'beanie']]) {
-    const o = document.createElement('option'); o.value = v; o.textContent = t; sel.append(o);
+  wrap.append(btn, link);
+  bar.prepend(wrap);
+}
+
+// Job mode: clothing/headwear edits that re-render without another VLM call.
+const JOB_ATTR_LABELS = { top_garment: '상의', bottom_garment: '하의', sleeve_len: '소매', headwear: '모자' };
+const JOB_ATTR_TEXT = {
+  tee: '티셔츠', hoodie: '후디', jacket: '재킷', shirt: '셔츠', sweater: '스웨터',
+  vest: '조끼', uniform: '교복', apron: '앞치마', overalls: '멜빵', dress: '원피스',
+  jeans: '청바지', pants: '바지', shorts: '반바지', skirt: '스커트',
+  short: '반팔', three_quarter: '7부', long: '긴팔',
+  none: '없음', cap: 'cap', beanie: 'beanie',
+};
+const JOB_ATTR_FIELDS = [
+  ['top_garment', ['tee', 'hoodie', 'jacket', 'shirt', 'sweater', 'vest', 'uniform', 'apron', 'overalls', 'dress', 'none']],
+  ['bottom_garment', ['jeans', 'pants', 'shorts', 'skirt', 'none']],
+  ['sleeve_len', ['none', 'short', 'three_quarter', 'long']],
+  ['headwear', ['none', 'cap', 'beanie']],
+];
+const HAT_DEFAULT = { cap: '#e9eef3', beanie: '#1f1f1f' };
+
+function addJobAttributesPanel() {
+  const controls = document.querySelector('.controls');
+  if (!controls || !JOB) return;
+  const panel = document.createElement('div');
+  panel.className = 'group jobAttrs';
+  panel.id = 'jobAttrPanel';
+  const title = document.createElement('span');
+  title.className = 'gtitle';
+  title.textContent = '스킨 속성';
+  panel.append(title);
+
+  const selects = {};
+  for (const [key, allowed] of JOB_ATTR_FIELDS) {
+    const row = document.createElement('label');
+    row.className = 'jobAttrRow';
+    const name = document.createElement('span');
+    name.textContent = JOB_ATTR_LABELS[key];
+    const sel = document.createElement('select');
+    sel.dataset.attr = key;
+    const enums = (state.enums && state.enums[key]) || [];
+    for (const v of allowed) {
+      if (enums.length && !enums.includes(v)) continue;
+      const o = document.createElement('option');
+      o.value = v;
+      o.textContent = JOB_ATTR_TEXT[v] || v;
+      sel.append(o);
+    }
+    sel.value = (state.combo && state.combo[key]) || 'none';
+    selects[key] = sel;
+    row.append(name, sel);
+    panel.append(row);
   }
-  sel.value = (state.combo && state.combo.headwear) || 'none';
+
+  const colorRow = document.createElement('label');
+  colorRow.className = 'jobAttrRow';
+  const colorName = document.createElement('span');
+  colorName.textContent = '모자색';
   const color = document.createElement('input');
   color.type = 'color';
-  color.value = state.jobHatColor || ((state.combo && state.combo.headwear) === 'beanie' ? '#1f1f1f' : '#e9eef3');
-  color.style.marginLeft = '6px';
-  color.style.display = sel.value === 'none' ? 'none' : 'inline-block';
-  const save = async (headwear) => {
-    sel.disabled = true; color.disabled = true;
-    const body = { headwear };
-    if (headwear !== 'none') body.hat_color = color.value;
-    const r = await apiFetch(`${JOB_API}/attributes`, {
-      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
-    });
-    if (r.ok) window.location.reload();
-    else { sel.disabled = false; color.disabled = false; state.notice = '모자 변경 실패'; updateStatus(); }
+  color.id = 'jobHatColor';
+  color.value = state.jobHatColor || HAT_DEFAULT[selects.headwear.value] || '#e9eef3';
+  color.disabled = selects.headwear.value === 'none';
+  colorRow.append(colorName, color);
+  panel.append(colorRow);
+
+  const status = document.createElement('p');
+  status.className = 'hint jobAttrStatus';
+  status.id = 'jobAttrStatus';
+  status.setAttribute('role', 'status');
+  status.textContent = '사진에서 추정한 값 · 바꾸면 이 스킨에만 저장됩니다';
+  panel.append(status);
+
+  const actions = document.createElement('div');
+  actions.className = 'jobAttrActions';
+  const reset = document.createElement('button');
+  reset.type = 'button';
+  reset.id = 'jobAttrReset';
+  reset.textContent = '사진 추정값으로';
+  actions.append(reset);
+  panel.append(actions);
+
+  const syncFrom = (attrs) => {
+    if (!attrs || !state.combo) return;
+    for (const [key] of JOB_ATTR_FIELDS) {
+      if (attrs[key] && selects[key] && [...selects[key].options].some((o) => o.value === attrs[key])) {
+        selects[key].value = attrs[key];
+        state.combo[key] = attrs[key];
+      }
+    }
+    color.disabled = selects.headwear.value === 'none';
   };
-  // Each hat starts from its own colour; a colour the user picked is kept.
-  let colorTouched = false;
-  const HAT_DEFAULT = { cap: '#e9eef3', beanie: '#1f1f1f' };
-  sel.onchange = () => {
-    if (!colorTouched && HAT_DEFAULT[sel.value]) color.value = HAT_DEFAULT[sel.value];
-    color.style.display = sel.value === 'none' ? 'none' : 'inline-block';
-    save(sel.value);
+
+  let busy = false;
+
+  const apply = async (body, label) => {
+    if (busy) return;
+    busy = true;
+    reset.disabled = true;
+    for (const sel of Object.values(selects)) sel.disabled = true;
+    try {
+      const r = await apiFetch(`${JOB_API}/attributes`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
+      });
+      const j = await r.json();
+      if (!r.ok) throw new Error(j.message || r.status);
+      syncFrom(j.attributes);
+      if (j.hat_color) { color.value = j.hat_color; state.jobHatColor = j.hat_color; }
+      status.textContent = `${label} 저장됨 · revision ${j.revision}`;
+      state.notice = '속성 저장됨';
+      schedulePreview(0);
+    } catch (e) {
+      status.textContent = '저장 실패: ' + e.message;
+      state.notice = '속성 저장 실패';
+      syncFrom(state.combo);   // put the selects back to what the record still has
+    } finally {
+      reset.disabled = false;
+      for (const sel of Object.values(selects)) sel.disabled = false;
+      busy = false;
+      updateStatus();
+    }
   };
-  color.onchange = () => { colorTouched = true; if (sel.value !== 'none') save(sel.value); };
-  hat.append(sel, color);
-  wrap.append(btn, link, hat);
-  bar.prepend(wrap);
+
+  const currentBody = () => {
+    const attributes = {};
+    for (const [key] of JOB_ATTR_FIELDS) attributes[key] = selects[key].value;
+    const body = { attributes };
+    if (selects.headwear.value !== 'none') body.hat_color = color.value;
+    return body;
+  };
+
+  for (const [key, sel] of Object.entries(selects)) {
+    sel.onchange = () => {
+      if (key === 'headwear') {
+        color.disabled = sel.value === 'none';
+        if (HAT_DEFAULT[sel.value] && !state.jobHatColor) color.value = HAT_DEFAULT[sel.value];
+      }
+      apply(currentBody(), JOB_ATTR_LABELS[key]);
+    };
+  }
+  color.onchange = () => apply(currentBody(), '모자색');
+
+  reset.onclick = () => {
+    state.jobHatColor = null;
+    apply({ reset: true }, '사진 추정값');
+  };
+
+  controls.prepend(panel);
 }
 
 window.addEventListener('pointerup', endStroke);
@@ -985,7 +1097,7 @@ async function boot() {
   setShowBase(true);
   historyChanged();
   if (!JOB) apiFetch('/api/photo', { cache: 'no-store' }).then((r) => r.json()).then(showPhoto).catch(() => {});
-  if (JOB) addJobRenderButton();
+  if (JOB) { addJobRenderButton(); addJobAttributesPanel(); }
   fitZoom();
   scheduleDraw();
   try {

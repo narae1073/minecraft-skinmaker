@@ -31,6 +31,15 @@ JOBS_DIR = PRIVATE_DIR / "jobs"
 OWNER_COOKIE = "skinmaker_owner"
 # Per-skin headwear choices. The hat shapes are drafts (not in the production asset).
 HEADWEAR_CHOICES = ("none", "cap", "beanie")
+# Clothing a user may change in the per-skin editor without re-running the VLM.
+# Only values whose render path is attribute-driven (no per-photo masks) belong
+# here; hair styles need their seeded stencils and stay out of v1.
+ATTRIBUTE_CHOICES = {
+    "top_garment": A.ENUMS["top_garment"],
+    "bottom_garment": A.ENUMS["bottom_garment"],
+    "sleeve_len": A.ENUMS["sleeve_len"],
+}
+MAX_ATTRIBUTE_CHANGES = 8
 HAT_DRAFT_PATHS = {
     "cap": ROOT.parent / "assets" / "headwear_cap.draft.json",
     "beanie": ROOT.parent / "assets" / "headwear_beanie.draft.json",
@@ -161,17 +170,48 @@ def hat_draft_entry(value: str) -> dict:
 def set_headwear(record: dict, value: str, color: str | None = None) -> dict:
     """Change this skin's headwear and, for a hat, its colour. Choosing a hat puts its
     draft into this skin's overlay (unless the user already has a mask for it)."""
-    if value not in HEADWEAR_CHOICES:
-        raise ValueError(value)
-    if color is not None and not HAT_COLOR_RE.match(color):
-        raise ValueError(color)
-    record["attr_overrides"] = {"headwear": value}
-    if color is not None:
-        record["hat_color"] = color.lower()
-    if value in HAT_DRAFT_PATHS:
+    return set_attributes(record, {"headwear": value}, hat_color=color)
+
+
+def set_attributes(record: dict, changes: dict, hat_color: str | None = None) -> dict:
+    """Merge clothing/headwear choices into this skin's overrides.
+
+    Only ``ATTRIBUTE_CHOICES`` and ``headwear`` are accepted, so a client cannot
+    inject arbitrary renderer fields. Other overrides are kept (changing the top
+    must not reset a chosen hat). Raising ``ValueError`` carries the bad key.
+    """
+    if not isinstance(changes, dict):
+        raise ValueError("attributes")
+    if len(changes) > MAX_ATTRIBUTE_CHANGES:
+        raise ValueError("too many attributes")
+    for name, value in changes.items():
+        if name == "headwear":
+            if value not in HEADWEAR_CHOICES:
+                raise ValueError(name)
+            continue
+        choices = ATTRIBUTE_CHOICES.get(name)
+        if choices is None or value not in choices:
+            raise ValueError(name)
+    if hat_color is not None and not HAT_COLOR_RE.match(hat_color):
+        raise ValueError("hat_color")
+
+    overrides = dict(record.get("attr_overrides") or {})
+    overrides.update(changes)
+    record["attr_overrides"] = {k: v for k, v in overrides.items() if v is not None}
+    if hat_color is not None:
+        record["hat_color"] = hat_color.lower()
+    headwear = overrides.get("headwear")
+    if headwear in HAT_DRAFT_PATHS:
         overlay = dict(record.get("overlay", {}))
-        overlay.setdefault(f"headwear.{value}", _normalized(hat_draft_entry(value)))
+        overlay.setdefault(f"headwear.{headwear}", _normalized(hat_draft_entry(headwear)))
         record["overlay"] = overlay
+    return record
+
+
+def reset_attributes(record: dict) -> dict:
+    """Drop every per-skin attribute choice (headwear draft masks stay editable)."""
+    record.pop("attr_overrides", None)
+    record.pop("hat_color", None)
     return record
 
 
@@ -187,7 +227,9 @@ def render_candidate(record: dict, index: int, overlay: dict | None = None):
     masks.update(record.get("overlay", {}) if overlay is None else overlay)
     degrade = tuple(record.get("degrade") or ())
     # A skin whose headwear was chosen by the user draws the hat over the hair.
-    hat_on_top = bool(record.get("attr_overrides"))
+    # Clothing overrides must not change that ordering.
+    headwear = (record.get("attr_overrides") or {}).get("headwear")
+    hat_on_top = headwear in HAT_DRAFT_PATHS
     common = dict(noise_seed=cand["seed"], noise_level=record["noise_level"], mask_override=masks,
                   hat_on_top=hat_on_top, hat_color=record.get("hat_color"))
     canvas = R.render(observed, attrs, degrade, record["model"], **common)
