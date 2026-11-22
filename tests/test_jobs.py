@@ -90,7 +90,7 @@ def test_set_attributes_merges_and_keeps_other_overrides():
 def test_set_attributes_rejects_unknown_keys_values_and_too_many_changes():
     record, _observed, _attrs = _record()
     with pytest.raises(ValueError):
-        jobs.set_attributes(record, {"hair_style": "curly"})   # v1 is clothing/headwear only
+        jobs.set_attributes(record, {"beard": "full"})   # not an editable field
     with pytest.raises(ValueError):
         jobs.set_attributes(record, {"top_garment": "spacesuit"})
     with pytest.raises(ValueError):
@@ -180,3 +180,19 @@ def test_restore_brings_back_an_older_overlay_as_a_new_revision():
     assert [h["revision"] for h in jobs.overlay_history(record, 1)] == [3, 2, 1]
     with pytest.raises(KeyError):
         jobs.restore_candidate_overlay(record, 1, 99)
+
+
+def test_hair_style_and_length_are_editable_and_resettable():
+    record, _observed, _attrs = _record()
+    base = jobs.candidate_attributes(record, 1)
+    jobs.set_attributes(record, {"hair_style": "bob", "hair_length": "medium"})
+    attrs = jobs.candidate_attributes(record, 1)
+    assert attrs.get("hair_style") == "bob" and attrs.get("hair_length") == "medium"
+    # Hair masks are seeded for every value, so an attribute change adds no fake overrides.
+    assert jobs.override_names(record, 1) == []
+    with pytest.raises(ValueError):
+        jobs.set_attributes(record, {"hair_length": "floor"})
+    jobs.reset_attributes(record)
+    restored = jobs.candidate_attributes(record, 1)
+    assert restored.get("hair_style") == base.get("hair_style")
+    assert restored.get("hair_length") == base.get("hair_length")

@@ -39,6 +39,8 @@ ATTRIBUTE_CHOICES = {
     "top_garment": A.ENUMS["top_garment"],
     "bottom_garment": A.ENUMS["bottom_garment"],
     "sleeve_len": A.ENUMS["sleeve_len"],
+    "hair_style": A.ENUMS["hair_style"],
+    "hair_length": A.ENUMS["hair_length"],
 }
 MAX_ATTRIBUTE_CHANGES = 8
 # Per-candidate mask saves kept for the editor's revision menu. Each entry is a

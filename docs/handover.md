@@ -827,3 +827,9 @@ S0 quality/face detection (YuNet) → S1 colour measurement (white-balance + ban
   - 저장 기록: 후보별 최근 10개(총 2MB cap) `overlay_history`에 revision·시각·changed 저장. `POST /restore {index, revision}`로 새 리비전 생성하며 복원(이전 기록 유지), UI는 복원 후 새로고침.
   - 테스트: `test_jobs.py` 3개(후보별/공유 병합/복원·cap) + `test_skin_jobs_api.py` 2개(후보별·restore·404, `?index` 페이지 주입). CDP: dirty→beforeunload true→4초 자동 저장 rev1, 수동 저장 중복 없음(rev1→2), override 되돌리기 0개, rev4에서 rev1 복원→rev5, 후보2 편집 후 후보1 override 유지, `_c2.png` 다운로드 링크, 390px overflow 0, 콘솔 에러 0. `pytest -q` → **815 passed in 164.07s**, lint/test(20)/build green, atlas 9 passed.
   - 리스크: 자동 저장은 4초 idle 기준이라 즉시 탭을 닫으면 경고가 뜬다. 후보별 override는 각 후보의 baseline 기준이라 같은 마스크 이름이어도 후보마다 별도 저장된다. 저장 기록은 후보당 10개·2MB까지만 유지.
+
+- 2026-11-22 (편집기 머리 스타일/길이, `feat/editor-hair`): `스킨 속성` 패널에 머리 스타일 8종과 길이 4종을 추가했다. VLM 호출 없이 `/attributes` → `/preview`로 재렌더된다.
+  - `backend/jobs.py` `ATTRIBUTE_CHOICES`에 `hair_style`/`hair_length` 추가(값은 `A.ENUMS`). `seed_masks()`가 모든 hair 값의 마스크를 이미 만들고 스타일/길이와 무관하게 시드되므로, 속성만 바꿔도 baseline이 그대로 유효하다(변경 후 `override_names`가 늘지 않는 것을 테스트로 고정).
+  - 편집기: `머리 스타일`(숏/픽시/보브/롱 스트레이트/롱 웨이브/컬리/포니테일/번)와 `머리 길이`(숏/미디엄/롱/베리 롱) 선택. 라벨은 필드별 텍스트 맵으로 분리(소매 `short`와 머리 `short` 충돌 제거). `jobHairWarning`으로 `short+pixie` ↔ `long/very_long` 모순 조합에 금색 경고(`⚠ 머리 스타일과 길이가 맞지 않아 머리가 잘릴 수 있어요`)를 표시하되 저장은 허용. `app.js?v=23`.
+  - 테스트: `test_jobs` 1개(편집/초기화/잘못된 길이/override 불변), API 1개(재렌더·combo·override 불변·400·reset). CDP: bob/medium → bun/very_long 변경 시 3D 뷰어 픽셀 변화, `머리 길이 저장됨 · revision 2`, 리로드 유지, `(0)` override 유지, 모순 조합 경고, reset으로 bob/medium 복원·경고 제거, 390px overflow 0, 콘솔 에러 0. `pytest -q` → **817 passed**.
+  - 리스크: 스타일·길이 조합이 어색하면 경고만 하고 저장은 허용한다(마스크가 서로 잘릴 수 있음). 머리 마스크 자체를 수정한 뒤 속성을 바꾸면 해당 값의 수정 마스크는 유지되고, 새 값은 그 값의 시드/수정 마스크를 쓴다.
