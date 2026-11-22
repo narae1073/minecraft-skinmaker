@@ -8,15 +8,16 @@ const $ = (s) => document.querySelector(s);
 // Job mode: this page is the per-skin editor on the website. The developer
 // endpoints map onto the owner's job API; there is no token or photo step.
 const JOB = window.MASK_EDITOR_JOB || null;
+const JOB_INDEX = Number(window.MASK_EDITOR_INDEX || 1) || 1;
 const JOB_API = JOB ? `/api/v1/jobs/${JOB}` : null;
 
 async function jobFetch(url, opts = {}) {
   const path = url.split('?')[0];
   const query = url.includes('?') ? url.slice(url.indexOf('?') + 1) : '';
   const send = (u, o = {}) => fetch(u, { cache: 'no-store', credentials: 'same-origin', ...o });
-  if (path === '/api/defaults') return send(`${JOB_API}/editor?index=1`);
-  if (path === '/api/seed-all') return send(`${JOB_API}/editor?index=1&baseline=1`);
-  if (path === '/api/seed') return send(`${JOB_API}/seed?index=1&${query}`);
+  if (path === '/api/defaults') return send(`${JOB_API}/editor?index=${JOB_INDEX}`);
+  if (path === '/api/seed-all') return send(`${JOB_API}/editor?index=${JOB_INDEX}&baseline=1`);
+  if (path === '/api/seed') return send(`${JOB_API}/seed?index=${JOB_INDEX}&${query}`);
   if (path === '/api/preview') return send(`${JOB_API}/preview`, opts);
   if (path === '/api/save') return send(`${JOB_API}/overlay`, { ...opts, method: 'PUT' });
   if (path === '/api/photo') return new Response('null', { headers: { 'Content-Type': 'application/json' } });
@@ -61,6 +62,8 @@ const state = {
   zoom: 8, hover: null,
   painting: false, painting3d: false, stroke: 0, last: null, baseImg: null,
   history: { undo: [], redo: [] }, showBase: true,
+  dirty: false, saving: false, savePromise: null, savedRevision: null, autosaveTimer: null,
+  jobCandidates: [], jobOverrideNames: [], jobHistory: [],
 };
 let viewer = null;
 const COMBO_STORAGE = 'skinmaker.combo.v1';
@@ -351,6 +354,7 @@ function pushCommand(cmd) {
   state.history.undo.push(cmd);
   if (state.history.undo.length > HISTORY_MAX) state.history.undo.shift();
   state.history.redo = [];
+  markDirty();
   historyChanged();
 }
 
@@ -371,6 +375,7 @@ function undo() {
   if (!cmd) return;
   applyCommand(cmd, false);
   state.history.redo.push(cmd);
+  markDirty();
   historyChanged();
 }
 
@@ -379,6 +384,7 @@ function redo() {
   if (!cmd) return;
   applyCommand(cmd, true);
   state.history.undo.push(cmd);
+  markDirty();
   historyChanged();
 }
 
@@ -556,7 +562,8 @@ async function preview() {
   const r = await apiFetch('/api/preview', {
     method: 'POST', headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ combo: state.combo, model: state.model, key: state.key, value: state.value,
-                           masks: state.masks, mode: state.viewMode, source: state.source }),
+                           masks: state.masks, mode: state.viewMode, source: state.source,
+                           index: JOB_INDEX }),
   });
   const j = await r.json();
   if (seq !== previewSeq) return;
@@ -807,14 +814,71 @@ function actOnActiveBox(fn) {
   historyChanged();
 }
 
-async function save() {
-  $('#status').textContent = '저장 중…';
-  const r = await apiFetch('/api/save', {
-    method: 'POST', headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ masks: state.masks }),
-  });
-  const j = await r.json();
-  $('#status').textContent = j.ok ? (j.path ? `저장됨: ${j.path}` : `저장됨 (rev ${j.revision ?? '?'})`) : '저장 실패';
+const AUTOSAVE_MS = 4000;
+let updateJobMeta = () => {};
+
+function saveBadge(text = null) {
+  const el = $('#saveState');
+  if (!el) return;
+  let label = text;
+  if (label === null) {
+    if (state.dirty) label = '저장되지 않음';
+    else if (state.savedRevision != null) label = `저장됨 · rev ${state.savedRevision}`;
+    else label = '저장됨';
+  }
+  el.textContent = label;
+  el.classList.toggle('dirty', state.dirty);
+}
+
+function scheduleAutosave() {
+  clearTimeout(state.autosaveTimer);
+  state.autosaveTimer = setTimeout(() => {
+    state.autosaveTimer = null;
+    if (state.dirty) save({ auto: true }).catch(() => {});
+  }, AUTOSAVE_MS);
+}
+
+// Any mask change arms the 4 s autosave and the leave warning.
+function markDirty() {
+  state.dirty = true;
+  saveBadge();
+  scheduleAutosave();
+}
+
+async function save(opts = {}) {
+  const auto = Boolean(opts.auto);
+  if (state.saving) return state.savePromise;
+  clearTimeout(state.autosaveTimer);
+  state.autosaveTimer = null;
+  state.saving = true;
+  $('#status').textContent = auto ? '자동 저장 중…' : '저장 중…';
+  saveBadge(auto ? '자동 저장 중…' : '저장 중…');
+  state.savePromise = (async () => {
+    try {
+      const r = await apiFetch('/api/save', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ masks: state.masks, index: JOB_INDEX }),
+      });
+      const j = await r.json();
+      if (!r.ok || !j.ok) throw new Error(j.message || j.error || r.status);
+      state.dirty = false;
+      state.savedRevision = j.revision ?? null;
+      updateJobMeta(j);
+      const where = j.path ? j.path : `rev ${j.revision ?? '?'}`;
+      $('#status').textContent = `${auto ? '자동 ' : ''}저장됨: ${where}`;
+      saveBadge(`${auto ? '자동 저장됨' : '저장됨'} · ${where}`);
+      return j;
+    } catch (e) {
+      $('#status').textContent = '저장 실패: ' + e.message;
+      saveBadge('저장 실패 — 변경 사항이 남아 있어요');
+      throw e;
+    } finally {
+      state.saving = false;
+      state.savePromise = null;
+      if (state.dirty) scheduleAutosave();
+    }
+  })();
+  return state.savePromise;
 }
 
 // Reset every mask to the procedural seed. Combo settings are not touched.
@@ -860,7 +924,7 @@ function bindButtons() {
   $('#fillBtn').onclick = () => actOnActiveBox((box) => {
     for (let v = 0; v < box.h; v++) for (let u = 0; u < box.w; u++) setCell(box, u, v, 1);
   });
-  $('#saveBtn').onclick = save;
+  $('#saveBtn').onclick = () => save().catch(() => {});
   $('#seedBtn').onclick = async () => {
     const r = await apiFetch(`/api/seed?key=${encodeURIComponent(state.key)}&value=${encodeURIComponent(state.value)}`);
     const j = await r.json();
@@ -879,9 +943,9 @@ function addJobRenderButton() {
   wrap.className = 'group';
   const btn = document.createElement('button');
   btn.className = 'primary';
-  btn.textContent = '이 편집으로 스킨 만들기';
+  btn.textContent = '저장하고 스킨 만들기';
+  btn.title = '지금 마스크를 저장한 뒤 이 후보의 스킨 PNG를 만듭니다';
   const link = document.createElement('a');
-  link.target = '_blank';
   link.rel = 'noopener';
   link.style.fontSize = '16px';
   btn.onclick = async () => {
@@ -889,12 +953,13 @@ function addJobRenderButton() {
     try {
       await save();
       const r = await apiFetch(`${JOB_API}/render`, {
-        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ index: 1 }),
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ index: JOB_INDEX }),
       });
       const j = await r.json();
       if (!r.ok) throw new Error(j.message || r.status);
       link.href = j.skin;
-      link.textContent = '결과 보기';
+      link.download = j.skin.split('/').pop();
+      link.textContent = '스킨 PNG 다운로드';
       state.notice = '스킨을 만들었어요';
     } catch (e) {
       state.notice = '생성 실패: ' + e.message;
@@ -924,9 +989,7 @@ const JOB_ATTR_FIELDS = [
 ];
 const HAT_DEFAULT = { cap: '#e9eef3', beanie: '#1f1f1f' };
 
-function addJobAttributesPanel() {
-  const controls = document.querySelector('.controls');
-  if (!controls || !JOB) return;
+function buildJobAttributesPanel() {
   const panel = document.createElement('div');
   panel.className = 'group jobAttrs';
   panel.id = 'jobAttrPanel';
@@ -1011,6 +1074,7 @@ function addJobAttributesPanel() {
       if (!r.ok) throw new Error(j.message || r.status);
       syncFrom(j.attributes);
       if (j.hat_color) { color.value = j.hat_color; state.jobHatColor = j.hat_color; }
+      if (j.revision != null) { state.savedRevision = j.revision; saveBadge(); }
       status.textContent = `${label} 저장됨 · revision ${j.revision}`;
       state.notice = '속성 저장됨';
       schedulePreview(0);
@@ -1050,18 +1114,177 @@ function addJobAttributesPanel() {
     apply({ reset: true }, '사진 추정값');
   };
 
-  controls.prepend(panel);
+  return panel;
+}
+
+// Candidate tabs, saved-mask overrides and revision history (job mode only).
+function addJobPanels() {
+  const controls = document.querySelector('.controls');
+  if (!controls || !JOB) return;
+  const stack = document.createElement('div');
+  stack.className = 'jobStack';
+
+  // 1. Candidate tabs: the same skin, one URL per candidate.
+  if (state.jobCandidates.length > 1) {
+    const nav = document.createElement('div');
+    nav.className = 'group jobCandidates';
+    nav.setAttribute('role', 'tablist');
+    nav.setAttribute('aria-label', '스킨 후보 선택');
+    for (const n of state.jobCandidates) {
+      const a = document.createElement('a');
+      a.className = `candidateTab${n === JOB_INDEX ? ' active' : ''}`;
+      a.href = `${location.pathname}?index=${n}`;
+      a.textContent = `후보 ${n}`;
+      a.setAttribute('role', 'tab');
+      a.setAttribute('aria-selected', n === JOB_INDEX ? 'true' : 'false');
+      nav.append(a);
+    }
+    stack.append(nav);
+  }
+
+  // 2. Clothing/headwear.
+  stack.append(buildJobAttributesPanel());
+
+  // 3. Masks that differ from this candidate's baseline.
+  const overrides = document.createElement('div');
+  overrides.className = 'group jobOverrides';
+  const ovTitle = document.createElement('span');
+  ovTitle.className = 'gtitle';
+  const ovList = document.createElement('div');
+  ovList.className = 'jobOverrideList';
+  overrides.append(ovTitle, ovList);
+  const renderOverrides = () => {
+    const names = state.jobOverrideNames || [];
+    ovTitle.textContent = `초기값과 다른 마스크 (${names.length})`;
+    ovList.innerHTML = '';
+    if (!names.length) {
+      const empty = document.createElement('p');
+      empty.className = 'hint';
+      empty.textContent = '없음 — 모두 사진 기준입니다';
+      ovList.append(empty);
+      return;
+    }
+    for (const name of names) {
+      const row = document.createElement('div');
+      row.className = 'jobOverrideRow';
+      const label = document.createElement('code');
+      label.textContent = name;
+      const back = document.createElement('button');
+      back.type = 'button';
+      back.textContent = '되돌리기';
+      back.onclick = async () => {
+        const dot = name.indexOf('.');
+        if (dot < 0) return;
+        const key = name.slice(0, dot);
+        const value = name.slice(dot + 1);
+        back.disabled = true;
+        try {
+          const r = await apiFetch(`/api/seed?key=${encodeURIComponent(key)}&value=${encodeURIComponent(value)}`);
+          const j = await r.json();
+          if (!r.ok || !j.mask) throw new Error(j.message || j.error || r.status);
+          snapshotChange({ ...state.masks, [name]: j.mask }, 'revert ' + name);
+          $('#status').textContent = `${name} 되돌림 — 4초 뒤 자동 저장`;
+        } catch (e) {
+          back.disabled = false;
+          $('#status').textContent = '되돌리기 실패: ' + e.message;
+        }
+      };
+      row.append(label, back);
+      ovList.append(row);
+    }
+  };
+  renderOverrides();
+  stack.append(overrides);
+
+  // 4. Saved revision history (newest first).
+  const history = document.createElement('div');
+  history.className = 'group jobHistory';
+  const hTitle = document.createElement('span');
+  hTitle.className = 'gtitle';
+  hTitle.textContent = '저장 기록';
+  const hRow = document.createElement('div');
+  hRow.className = 'jobHistoryRow';
+  const hSelect = document.createElement('select');
+  hSelect.id = 'jobHistorySelect';
+  hSelect.setAttribute('aria-label', '복원할 저장 리비전');
+  const hBtn = document.createElement('button');
+  hBtn.type = 'button';
+  hBtn.textContent = '이 리비전으로';
+  const renderHistory = () => {
+    const entries = state.jobHistory || [];
+    hSelect.innerHTML = '';
+    if (!entries.length) {
+      const o = document.createElement('option');
+      o.textContent = '저장 기록 없음';
+      o.value = '';
+      hSelect.append(o);
+      hBtn.disabled = true;
+      return;
+    }
+    hBtn.disabled = false;
+    for (const e of entries) {
+      const o = document.createElement('option');
+      o.value = String(e.revision);
+      const when = e.saved_at ? new Date(e.saved_at).toLocaleString('ko-KR', {
+        month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit',
+      }) : '';
+      o.textContent = `rev ${e.revision}${when ? ' · ' + when : ''}`;
+      hSelect.append(o);
+    }
+  };
+  hBtn.onclick = async () => {
+    const revision = Number(hSelect.value);
+    if (!revision) return;
+    if (!window.confirm(`rev ${revision} 상태로 되돌릴까요? 지금 편집은 새 리비전으로 남습니다.`)) return;
+    hBtn.disabled = true;
+    try {
+      const r = await apiFetch(`${JOB_API}/restore`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ index: JOB_INDEX, revision }),
+      });
+      const j = await r.json();
+      if (!r.ok) throw new Error(j.message || r.status);
+      state.dirty = false;
+      window.location.reload();
+    } catch (e) {
+      hBtn.disabled = false;
+      $('#status').textContent = '복원 실패: ' + e.message;
+    }
+  };
+  hRow.append(hSelect, hBtn);
+  history.append(hTitle, hRow);
+  renderHistory();
+  stack.append(history);
+
+  updateJobMeta = (j) => {
+    if (Array.isArray(j.override_names)) {
+      state.jobOverrideNames = j.override_names;
+      renderOverrides();
+    }
+    if (Array.isArray(j.history)) {
+      state.jobHistory = j.history;
+      renderHistory();
+    }
+  };
+
+  controls.prepend(stack);
 }
 
 window.addEventListener('pointerup', endStroke);
 window.addEventListener('mouseup', endStroke);
+// Unsaved mask edits block a silent tab close; autosave normally clears this in 4 s.
+window.addEventListener('beforeunload', (e) => {
+  if (!state.dirty) return;
+  e.preventDefault();
+  e.returnValue = '';
+});
 window.addEventListener('keydown', (e) => {
   if (e.target && /INPUT|SELECT|TEXTAREA/.test(e.target.tagName)) return;
   const mod = e.ctrlKey || e.metaKey;
   const k = e.key.toLowerCase();
   if (mod && k === 'z' && !e.shiftKey) { e.preventDefault(); undo(); }
   else if (mod && (k === 'y' || (k === 'z' && e.shiftKey))) { e.preventDefault(); redo(); }
-  else if (mod && k === 's') { e.preventDefault(); save(); }
+  else if (mod && k === 's') { e.preventDefault(); save().catch(() => {}); }
   else if (!mod && BRUSH_SIZES.map(String).includes(e.key)) { setBrush(Number(e.key)); }
   else if (!mod && e.key === '?') { e.preventDefault(); setShortcuts(true); }
   else if (e.key === 'Escape') { setShortcuts(false); }
@@ -1087,6 +1310,12 @@ async function boot() {
   const loaded = JOB ? { combo: sanitizeCombo(j.combo), model: j.models[0] } : loadCombo();
   state.combo = loaded.combo; state.model = loaded.model;
   if (JOB) state.jobHatColor = j.hat_color || null;
+  if (JOB) {
+    state.jobCandidates = Array.isArray(j.candidates) ? j.candidates : [1];
+    state.jobOverrideNames = Array.isArray(j.override_names) ? j.override_names : [];
+    state.jobHistory = Array.isArray(j.history) ? j.history : [];
+    state.savedRevision = j.revision ?? null;
+  }
   setModelView(state.model);
   state.key = Object.keys(state.maskable)[0];
   state.value = state.maskable[state.key][0];
@@ -1096,8 +1325,9 @@ async function boot() {
   renderCombo(); renderKeyTabs(); bind2d(); bindButtons();
   setShowBase(true);
   historyChanged();
+  saveBadge();
   if (!JOB) apiFetch('/api/photo', { cache: 'no-store' }).then((r) => r.json()).then(showPhoto).catch(() => {});
-  if (JOB) { addJobRenderButton(); addJobAttributesPanel(); }
+  if (JOB) { addJobRenderButton(); addJobPanels(); }
   fitZoom();
   scheduleDraw();
   try {

@@ -412,9 +412,13 @@ def job_info(token: str, request: Request):
 
 
 @app.get("/api/v1/jobs/{token}/overlay")
-def job_overlay(token: str, request: Request):
+def job_overlay(token: str, request: Request, index: int = 1):
     record = _job_for_owner(request, token)
-    return JSONResponse({"masks": record.get("overlay", {}), "revision": record["revision"]},
+    if JOBS.candidate(record, index) is None:
+        fail(404, "not_found", "그 후보가 없어요.")
+    return JSONResponse({"masks": JOBS.effective_overlay(record, index),
+                         "override_names": JOBS.override_names(record, index),
+                         "index": index, "revision": record["revision"]},
                         headers={"Cache-Control": "no-store"})
 
 
@@ -427,7 +431,7 @@ def _candidate_index(value) -> int:
 
 @app.put("/api/v1/jobs/{token}/overlay")
 async def job_overlay_put(token: str, request: Request):
-    """Save the editor's masks. Only entries that differ from the baseline are stored."""
+    """Save one candidate's masks. Only entries that differ from the baseline are stored."""
     _require_json(request)
     record = _job_for_owner(request, token)
     body = await request.json()
@@ -438,10 +442,37 @@ async def job_overlay_put(token: str, request: Request):
     index = _candidate_index(body.get("index") if isinstance(body, dict) else None)
     if JOBS.candidate(record, index) is None:
         fail(404, "not_found", "그 후보가 없어요.")
-    record["overlay"] = JOBS.diff_against_baseline(masks, record, index)
-    record["revision"] = int(record.get("revision", 0)) + 1
+    overlay = JOBS.diff_against_baseline(masks, record, index)
+    revision = JOBS.save_candidate_overlay(record, index, overlay)
     JOBS.save_record(record)
-    return {"ok": True, "revision": record["revision"], "changed": sorted(record["overlay"])}
+    return {"ok": True, "revision": revision, "index": index, "changed": sorted(overlay),
+            "override_names": JOBS.override_names(record, index),
+            "history": JOBS.overlay_history(record, index)}
+
+
+@app.post("/api/v1/jobs/{token}/restore")
+async def job_restore(token: str, request: Request):
+    """Restore one candidate overlay from its saved revision history."""
+    _require_json(request)
+    record = _job_for_owner(request, token)
+    body = await request.json()
+    if not isinstance(body, dict):
+        fail(400, "bad_restore", "JSON 객체가 필요해요.")
+    index = _candidate_index(body.get("index"))
+    if JOBS.candidate(record, index) is None:
+        fail(404, "not_found", "그 후보가 없어요.")
+    try:
+        revision_in = int(body.get("revision"))
+    except (TypeError, ValueError):
+        fail(400, "bad_restore", "revision 은 정수여야 해요.")
+    try:
+        revision = JOBS.restore_candidate_overlay(record, index, revision_in)
+    except KeyError:
+        fail(404, "not_found", "그 리비전이 없어요.")
+    JOBS.save_record(record)
+    return {"ok": True, "revision": revision, "index": index,
+            "override_names": JOBS.override_names(record, index),
+            "history": JOBS.overlay_history(record, index)}
 
 
 @app.post("/api/v1/jobs/{token}/attributes")
@@ -563,7 +594,7 @@ body[data-job] #comboTitle, body[data-job] #comboPanel, body[data-job] #srcBtn, 
 
 
 @app.get("/edit/{token}")
-def job_editor_page(token: str, request: Request):
+def job_editor_page(token: str, request: Request, index: int = 1):
     if not job_editor_on():
         return HTMLResponse("<!doctype html><meta charset=utf-8><p>스킨 편집 기능이 현재 꺼져 있어요.</p>",
                             status_code=404)
@@ -571,6 +602,8 @@ def job_editor_page(token: str, request: Request):
     if record is None or not JOBS.is_owner(record, request):
         return HTMLResponse("<!doctype html><meta charset=utf-8><p>이 스킨은 만든 브라우저에서만 편집할 수 있어요.</p>",
                             status_code=403)
+    if JOBS.candidate(record, index) is None:
+        return HTMLResponse("<!doctype html><meta charset=utf-8><p>그 후보가 없어요.</p>", status_code=404)
     html = (EDITOR_DIR / "index.html").read_text(encoding="utf-8")
     html = html.replace("/static/", "/edit/lib/")
     # Job mode saves to this skin's overlay, not the developer draft file.
@@ -578,9 +611,10 @@ def job_editor_page(token: str, request: Request):
         "저장은 <code>out/mask_editor/attribute_masks.json</code>",
         "저장은 이 스킨에만 적용됩니다",
     )
-    html = html.replace("<body>", f'<body data-job="{token}">', 1)
+    html = html.replace("<body>", f'<body data-job="{token}" data-index="{index}">', 1)
     html = html.replace('<script type="module"',
-                        f'<style>{_EDITOR_CSS}</style>\n<script>window.MASK_EDITOR_JOB = "{token}";</script>\n<script type="module"', 1)
+                        f'<style>{_EDITOR_CSS}</style>\n<script>window.MASK_EDITOR_JOB = "{token}";'
+                        f' window.MASK_EDITOR_INDEX = {index};</script>\n<script type="module"', 1)
     return HTMLResponse(html, headers={"Cache-Control": "no-store"})
 
 

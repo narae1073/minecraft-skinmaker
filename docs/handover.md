@@ -818,3 +818,12 @@ S0 quality/face detection (YuNet) → S1 colour measurement (white-balance + ban
   - v1 범위: 머리 스타일/길이는 시드 마스크가 원래 속성 기준이라 제외(별도 PR). override는 그 스킨의 모든 후보에 공통 적용.
   - 테스트: `tests/test_jobs.py` 4개(병합/거부/초기화/hat_on_top) + `tests/test_skin_jobs_api.py` 2개(스킨별·검증·reset, 원본 불변 + render/preview 변화).
   - 검증: CDP job 모드 — 초기 `tee/shorts/short/none`, 상의 dress 변경 → `상의 저장됨 · revision 1` 후 `/preview` 재요청, 하의 skirt 리로드 유지, 모자 cap + `#ff0000` 후 상의 변경에도 4개 override 병합 유지, reset → `tee/shorts/short/none`·모자색 비활성, 390px overflow 0, 콘솔 에러 0. `pytest -q` → **810 passed**.
+
+- 2026-11-22 (편집기 저장 안전장치·후보별 편집, `feat/editor-autosave`): 편집기 저장 흐름을 정리하고 후보 2/3도 편집할 수 있게 했다.
+  - 저장 안전장치: 마스크 변경 시 `#saveState`가 `저장되지 않음`(금색)으로 바뀌고 4초 뒤 자동 저장. 수동 저장 시 대기 중인 자동 저장을 취소해 중복 저장 없음. 저장 안 된 변경이 있으면 `beforeunload` 경고. 저장 배지는 `저장됨 · rev N`.
+  - 버튼 의미 정리: 툴바를 `저장하고 스킨 만들기`로 바꾸고(저장→`/render`), 결과 링크를 `스킨 PNG 다운로드`(download 속성)로. 파일 영역에 `저장 = 마스크만 · 스킨 만들기 = PNG 생성 (변경 후 4초 뒤 자동 저장)` 힌트와 `저장` 툴팁 추가.
+  - 후보별 편집: `/edit/{token}?index=N`, 페이지에 `window.MASK_EDITOR_INDEX` 주입, 편집기 상단 `후보 1/2/3` 탭. 공유 `record["overlay"]`(모자 draft·legacy) + 후보별 `record["overlays"][index]`로 분리(`effective_overlay`), PUT 존재 index·preview/render/seed 모두 index 사용. 결과 카드의 `스킨 편집`이 `?index=`로 해당 후보를 연다. 잘못된 index는 404.
+  - override 목록: `override_names`(baseline과 다른 마스크)와 항목별 `되돌리기`(기존 `/seed` baseline 사용, Undo 가능). 저장 응답이 목록·히스토리를 갱신.
+  - 저장 기록: 후보별 최근 10개(총 2MB cap) `overlay_history`에 revision·시각·changed 저장. `POST /restore {index, revision}`로 새 리비전 생성하며 복원(이전 기록 유지), UI는 복원 후 새로고침.
+  - 테스트: `test_jobs.py` 3개(후보별/공유 병합/복원·cap) + `test_skin_jobs_api.py` 2개(후보별·restore·404, `?index` 페이지 주입). CDP: dirty→beforeunload true→4초 자동 저장 rev1, 수동 저장 중복 없음(rev1→2), override 되돌리기 0개, rev4에서 rev1 복원→rev5, 후보2 편집 후 후보1 override 유지, `_c2.png` 다운로드 링크, 390px overflow 0, 콘솔 에러 0. `pytest -q` → **815 passed in 164.07s**, lint/test(20)/build green, atlas 9 passed.
+  - 리스크: 자동 저장은 4초 idle 기준이라 즉시 탭을 닫으면 경고가 뜬다. 후보별 override는 각 후보의 baseline 기준이라 같은 마스크 이름이어도 후보마다 별도 저장된다. 저장 기록은 후보당 10개·2MB까지만 유지.

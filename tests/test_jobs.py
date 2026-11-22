@@ -135,3 +135,48 @@ def test_hat_on_top_is_set_only_when_a_hat_was_chosen(monkeypatch):
     jobs.render_candidate(record, 1)
     # render_candidate renders the skin and the flat variant each time.
     assert seen == [False, False, False, False, True, True, False, False]
+
+
+def _add_second_candidate(record):
+    import copy
+    second = copy.deepcopy(record["candidates"][0])
+    second["index"] = 2
+    second["seed"] = int(second["seed"]) + 1
+    record["candidates"].append(second)
+    return record
+
+
+def test_overlays_are_per_candidate_and_history_is_capped():
+    record, _observed, _attrs = _record()
+    _add_second_candidate(record)
+    entry = {"L1": {"head.front": [[1] * 8 for _ in range(8)]}, "L2": {}}
+    jobs.save_candidate_overlay(record, 1, {"top_garment.tee": entry})
+    jobs.save_candidate_overlay(record, 2, {"bottom_garment.jeans": entry})
+    assert jobs.effective_overlay(record, 1) == {"top_garment.tee": entry}
+    assert jobs.effective_overlay(record, 2) == {"bottom_garment.jeans": entry}
+    assert [h["revision"] for h in jobs.overlay_history(record, 1)] == [1]
+    assert [h["revision"] for h in jobs.overlay_history(record, 2)] == [2]
+    for _ in range(12):
+        jobs.save_candidate_overlay(record, 1, {"top_garment.tee": entry})
+    assert len(jobs.overlay_history(record, 1)) == jobs.OVERLAY_HISTORY_MAX
+
+
+def test_shared_overlay_merges_with_candidate_overlay():
+    record, _observed, _attrs = _record()
+    record["overlay"] = {"headwear.cap": {"L1": {"head.top": [[1] * 8]}, "L2": {}}}
+    jobs.save_candidate_overlay(record, 1, {"top_garment.tee": {"L1": {}, "L2": {}}})
+    merged = jobs.effective_overlay(record, 1)
+    assert set(merged) == {"headwear.cap", "top_garment.tee"}
+
+
+def test_restore_brings_back_an_older_overlay_as_a_new_revision():
+    record, _observed, _attrs = _record()
+    entry = {"L1": {"head.front": [[1] * 8 for _ in range(8)]}, "L2": {}}
+    jobs.save_candidate_overlay(record, 1, {"top_garment.tee": entry})
+    jobs.save_candidate_overlay(record, 1, {})
+    revision = jobs.restore_candidate_overlay(record, 1, 1)
+    assert revision == 3
+    assert jobs.effective_overlay(record, 1) == {"top_garment.tee": entry}
+    assert [h["revision"] for h in jobs.overlay_history(record, 1)] == [3, 2, 1]
+    with pytest.raises(KeyError):
+        jobs.restore_candidate_overlay(record, 1, 99)
