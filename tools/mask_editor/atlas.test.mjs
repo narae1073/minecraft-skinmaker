@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { buildBoxes, boxAt, gridHasMask, boxAlpha, bresenham, DIM_ALPHA, texelAt } from './atlas.js';
+import { buildBoxes, boxAt, gridHasMask, boxAlpha, bresenham, brushCells, DIM_ALPHA, texelAt } from './atlas.js';
 
 const rects = {
   L1: { 'head.front': [8, 8, 8, 8], 'body.front': [20, 20, 8, 12] },
@@ -63,4 +63,31 @@ test('buildBoxes marks slim sub-faces so they read and write the slim grid', () 
   assert.equal(boxes.find((b) => b.face === 'r_arm.front').sub, 'slim');
   assert.equal(boxes.find((b) => b.face === 'r_arm.right').sub, undefined);
   assert.equal(buildBoxes(rects)[0].sub, undefined);
+});
+
+test('brushCells returns the centred square and clips it to the box', () => {
+  assert.deepEqual(brushCells(3, 3, 1, 8, 8), [[3, 3]]);
+  // Even sizes anchor toward the bottom-right so the hovered texel is painted.
+  assert.deepEqual(brushCells(3, 3, 2, 8, 8), [[3, 3], [4, 3], [3, 4], [4, 4]]);
+  assert.deepEqual(brushCells(4, 4, 4, 8, 8), [
+    [3, 3], [4, 3], [5, 3], [6, 3],
+    [3, 4], [4, 4], [5, 4], [6, 4],
+    [3, 5], [4, 5], [5, 5], [6, 5],
+    [3, 6], [4, 6], [5, 6], [6, 6],
+  ]);
+  // Clipped at the top-left and bottom-right corners.
+  assert.deepEqual(brushCells(0, 0, 4, 8, 8), [[0, 0], [1, 0], [2, 0], [0, 1], [1, 1], [2, 1], [0, 2], [1, 2], [2, 2]]);
+  assert.deepEqual(brushCells(7, 7, 4, 8, 8), [[6, 6], [7, 6], [6, 7], [7, 7]]);
+  // A brush bigger than the box is fully clipped.
+  assert.deepEqual(brushCells(0, 0, 9, 2, 2), [[0, 0], [1, 0], [0, 1], [1, 1]]);
+});
+
+test('brushCells never leaves the box and tolerates junk sizes', () => {
+  for (const size of [1, 2, 4, 0, -3, 1.7, 'x', undefined]) {
+    for (const [u, v] of brushCells(5, 5, size, 8, 8)) {
+      assert.ok(u >= 0 && u < 8 && v >= 0 && v < 8, `out of box: ${u},${v} for size ${size}`);
+    }
+  }
+  assert.deepEqual(brushCells(2, 2, 0, 8, 8), [[2, 2]]);
+  assert.deepEqual(brushCells(2, 2, undefined, 8, 8), [[2, 2]]);
 });

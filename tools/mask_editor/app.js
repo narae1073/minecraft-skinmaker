@@ -1,5 +1,5 @@
 import { initViewer } from './viewer.js';
-import { ATLAS, LAYER_STYLE, buildBoxes, boxAt, gridHasMask, bresenham, texelAt, drawAtlas } from './atlas.js';
+import { ATLAS, LAYER_STYLE, buildBoxes, boxAt, gridHasMask, bresenham, brushCells, texelAt, drawAtlas } from './atlas.js';
 
 const $ = (s) => document.querySelector(s);
 
@@ -40,12 +40,24 @@ async function apiFetch(url, opts = {}) {
   return send();
 }
 const dimsFor = (face) => (state.dims && state.dims[face]) || [8, 8];
+const BRUSH_STORAGE = 'skinmaker.brush.v1';
+const BRUSH_SIZES = [1, 2, 4];
+// Brush size survives reloads; anything unexpected falls back to 1px.
+function loadBrush() {
+  try {
+    const n = Number(localStorage.getItem(BRUSH_STORAGE));
+    return BRUSH_SIZES.includes(n) ? n : 1;
+  } catch {
+    return 1;
+  }
+}
 const state = {
   faces: null, dims: null, layers: null, maskable: null, masks: null,
   enums: null, defaults: null, models: null, combo: null, comboKeys: [], model: 'classic', defaultsCombo: null,
   effective: null, warnings: [], notice: '',
   boxes: [], atlasRects: null, slimRects: null, slimSubFaces: [], key: null, value: null, layer: 'L1', face: null,
   mode: 'paint', viewMode: 'final', source: 'draft', mirror: false,
+  brush: loadBrush(),
   zoom: 8, hover: null,
   painting: false, painting3d: false, stroke: 0, last: null, baseImg: null,
   history: { undo: [], redo: [] }, showBase: true,
@@ -275,7 +287,7 @@ function drawAtlasNow() {
   atlasCtx.imageSmoothingEnabled = false;
   drawAtlas(atlasCtx, {
     boxes: state.boxes, zoom: z, cellOn, hasMaskFor,
-    activeBox: activeBox(), hover: state.hover,
+    activeBox: activeBox(), hover: state.hover, brush: state.brush,
     base: state.showBase && state.baseImg ? state.baseImg : null,
   });
   const zl = document.querySelector('#zoomLabel');
@@ -319,7 +331,7 @@ function updateStatus() {
     where += ` · atlas (${state.hover.u}, ${state.hover.v})`;
   }
   const notice = state.notice ? ` · ${state.notice}` : '';
-  cell.textContent = `${maskName()} · ${where} — ${state.mode === 'paint' ? '칠하기' : '지우개'} (우클릭·Shift = 지우개) · model=${state.model}${notice}`;
+  cell.textContent = `${maskName()} · ${where} — ${state.mode === 'paint' ? '칠하기' : '지우개'} · ${state.brush}px (우클릭·Shift = 지우개) · model=${state.model}${notice}`;
 }
 
 // ---- history ---------------------------------------------------------------
@@ -371,8 +383,12 @@ function redo() {
 }
 
 function historyChanged() {
-  $('#undoBtn').disabled = !state.history.undo.length;
-  $('#redoBtn').disabled = !state.history.redo.length;
+  const undoBtn = $('#undoBtn');
+  const redoBtn = $('#redoBtn');
+  undoBtn.disabled = !state.history.undo.length;
+  redoBtn.disabled = !state.history.redo.length;
+  undoBtn.textContent = state.history.undo.length ? `Undo (${state.history.undo.length})` : 'Undo';
+  redoBtn.textContent = state.history.redo.length ? `Redo (${state.history.redo.length})` : 'Redo';
   scheduleDraw(); overlayPreview(); schedulePreview(0); updateStatus();
 }
 
@@ -430,12 +446,18 @@ function setLocal(box, u, v, value) {
 }
 
 // Paint one atlas texel. The box under the texel decides the layer and face.
+// The brush stamps a centered square clipped to that box, so it never spills
+// onto the neighbouring face.
 function paintTexel(U, V, value) {
   const box = boxAt(state.boxes, U, V);
   if (!box) return false;
   state.layer = box.layer;
   state.face = box.face;
-  return setLocal(box, U - box.x, V - box.y, value);
+  let changed = false;
+  for (const [u, v] of brushCells(U - box.x, V - box.y, state.brush, box.w, box.h)) {
+    changed = setLocal(box, u, v, value) || changed;
+  }
+  return changed;
 }
 
 // 3D hits are face-local already.
@@ -444,7 +466,11 @@ function paintFaceCell(face, layer, u, v, value) {
   if (!box) return false;
   state.layer = layer;
   state.face = face;
-  return setLocal(box, u, v, value);
+  let changed = false;
+  for (const [cu, cv] of brushCells(u, v, state.brush, box.w, box.h)) {
+    changed = setLocal(box, cu, cv, value) || changed;
+  }
+  return changed;
 }
 
 function beginStroke(U, V, erase) {
@@ -617,6 +643,27 @@ function setMode(m) {
   $('#paintBtn').className = m === 'paint' ? 'active' : '';
   $('#eraseBtn').className = m === 'erase' ? 'active' : '';
   updateStatus();
+}
+
+function setBrush(size) {
+  const n = Number(size);
+  state.brush = BRUSH_SIZES.includes(n) ? n : 1;
+  try { localStorage.setItem(BRUSH_STORAGE, String(state.brush)); } catch { /* private mode */ }
+  for (const b of document.querySelectorAll('.brushBtn')) {
+    const on = Number(b.dataset.brush) === state.brush;
+    b.classList.toggle('active', on);
+    b.setAttribute('aria-pressed', on ? 'true' : 'false');
+  }
+  scheduleDraw();
+  updateStatus();
+}
+
+function setShortcuts(open) {
+  const overlay = $('#shortcutOverlay');
+  if (!overlay) return;
+  overlay.hidden = !open;
+  if (open) $('#shortcutClose')?.focus();
+  else $('#shortcutBtn')?.focus();
 }
 
 function setViewMode(m) {
@@ -792,6 +839,15 @@ function bindButtons() {
   $('#photoClear').onclick = clearPhoto;
   $('#paintBtn').onclick = () => setMode('paint');
   $('#eraseBtn').onclick = () => setMode('erase');
+  for (const b of document.querySelectorAll('.brushBtn')) {
+    b.onclick = () => setBrush(Number(b.dataset.brush));
+  }
+  setBrush(state.brush);
+  $('#shortcutBtn').onclick = () => setShortcuts(true);
+  $('#shortcutClose').onclick = () => setShortcuts(false);
+  $('#shortcutOverlay').onclick = (e) => {
+    if (e.target === e.currentTarget) setShortcuts(false);
+  };
   $('#hoodModeBtn').onclick = () => setViewMode('final');
   $('#maskModeBtn').onclick = () => setViewMode('mask');
   $('#mirror').onchange = (e) => { state.mirror = e.target.checked; };
@@ -894,6 +950,9 @@ window.addEventListener('keydown', (e) => {
   if (mod && k === 'z' && !e.shiftKey) { e.preventDefault(); undo(); }
   else if (mod && (k === 'y' || (k === 'z' && e.shiftKey))) { e.preventDefault(); redo(); }
   else if (mod && k === 's') { e.preventDefault(); save(); }
+  else if (!mod && BRUSH_SIZES.map(String).includes(e.key)) { setBrush(Number(e.key)); }
+  else if (!mod && e.key === '?') { e.preventDefault(); setShortcuts(true); }
+  else if (e.key === 'Escape') { setShortcuts(false); }
   else if (!mod && (e.key === '+' || e.key === '=')) setZoom(state.zoom + 1);
   else if (!mod && (e.key === '-' || e.key === '_')) setZoom(state.zoom - 1);
 });
