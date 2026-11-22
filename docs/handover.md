@@ -810,3 +810,11 @@ S0 quality/face detection (YuNet) → S1 colour measurement (white-balance + ban
 - 2026-11-22 (로컬 전용 파일 정리, `chore/housekeeping`): 저장소에 계속 untracked로 남아 있던 로컬 QA 산출물을 `.gitignore`로 명시했다 — `docs/assets/qa/qa-overview.png`(284KB), `docs/assets/qa/qa-explainer.png`(540KB), `scripts/build_pack_review.py`. 셋 다 문서/코드에서 참조되지 않고(스크립트는 `out/production_benchmark/pack_review` 리뷰용, 이전 세션 방침도 "로컬 유지"), 파일은 디스크에 그대로 둔다.
   - `docs/handover.md` 상단 현재 상태를 2026-11-22 기준으로 갱신: Vitest 20 passed, lazy 3D 청크(초기 JS ~271 kB / three 924 kB 지연).
   - 검증: `git status --short` clean (세 파일 ignored), 문서 링크 grep에 참조 0.
+
+- 2026-11-22 (편집기 옷/모자 속성 변경, `feat/editor-attributes`): 사진을 다시 올리거나 VLM을 다시 부르지 않고 `/edit/{id}`에서 상의·하의·소매·모자를 바꿀 수 있게 했다. `jobs` 레코드의 `observed`/attributes로 `R.render()`만 다시 돌린다.
+  - `backend/jobs.py`: `ATTRIBUTE_CHOICES`(top_garment/bottom_garment/sleeve_len, 값은 `A.ENUMS`)와 `set_attributes`(병합·화이트리스트·최대 8개), `reset_attributes`, `MAX_ATTRIBUTE_CHANGES`. `set_headwear`는 `set_attributes` 위임으로 바꿔 다른 override를 지우던 동작을 수정. `hat_on_top`은 실제 모자(cap/beanie)를 고른 경우에만 true.
+  - `backend/app.py` `POST /api/v1/jobs/{token}/attributes`: 새 `{"attributes": {...}, "hat_color": ...}`, 기존 `{"headwear": ...}`, `{"reset": true}` 지원. 응답에 effective `attributes`/`overrides`/`revision` 포함. 잘못된 key·값·빈 요청은 400, 소유자 검사는 기존과 동일.
+  - 편집기 job 모드: 오른쪽 `스킨 속성` 패널(상의 11·하의 5·소매 4·모자 3 선택, 모자색). 변경 시 `/attributes` 저장 후 기존 `/preview`로 3D 즉시 갱신, 상태에 `저장됨 · revision N`, `사진 추정값으로` 초기화. 툴바에 있던 모자 컨트롤은 패널로 통합, `app.js?v=20`.
+  - v1 범위: 머리 스타일/길이는 시드 마스크가 원래 속성 기준이라 제외(별도 PR). override는 그 스킨의 모든 후보에 공통 적용.
+  - 테스트: `tests/test_jobs.py` 4개(병합/거부/초기화/hat_on_top) + `tests/test_skin_jobs_api.py` 2개(스킨별·검증·reset, 원본 불변 + render/preview 변화).
+  - 검증: CDP job 모드 — 초기 `tee/shorts/short/none`, 상의 dress 변경 → `상의 저장됨 · revision 1` 후 `/preview` 재요청, 하의 skirt 리로드 유지, 모자 cap + `#ff0000` 후 상의 변경에도 4개 override 병합 유지, reset → `tee/shorts/short/none`·모자색 비활성, 390px overflow 0, 콘솔 에러 0. `pytest -q` → **810 passed**.

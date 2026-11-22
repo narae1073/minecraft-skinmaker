@@ -71,3 +71,67 @@ def test_records_are_private_and_not_under_static():
     assert path.exists()
     assert jobs.load_record(record["id"])["owner_hash"] == "ownerhash"
     assert jobs.load_record("../etc") is None
+
+
+def test_set_attributes_merges_and_keeps_other_overrides():
+    record, _observed, _attrs = _record()
+    jobs.set_attributes(record, {"top_garment": "hoodie", "sleeve_len": "long"})
+    assert record["attr_overrides"] == {"top_garment": "hoodie", "sleeve_len": "long"}
+    jobs.set_headwear(record, "cap", "#ff0000")
+    assert record["attr_overrides"]["top_garment"] == "hoodie"
+    assert record["attr_overrides"]["headwear"] == "cap"
+    assert record["hat_color"] == "#ff0000"
+    assert "headwear.cap" in record["overlay"]
+    attrs = jobs.candidate_attributes(record, 1)
+    assert attrs.get("top_garment") == "hoodie"
+    assert attrs.get("headwear") == "cap"
+
+
+def test_set_attributes_rejects_unknown_keys_values_and_too_many_changes():
+    record, _observed, _attrs = _record()
+    with pytest.raises(ValueError):
+        jobs.set_attributes(record, {"hair_style": "curly"})   # v1 is clothing/headwear only
+    with pytest.raises(ValueError):
+        jobs.set_attributes(record, {"top_garment": "spacesuit"})
+    with pytest.raises(ValueError):
+        jobs.set_attributes(record, {"headwear": "fedora"})
+    with pytest.raises(ValueError):
+        jobs.set_attributes(record, {"top_garment": "hoodie"}, hat_color="red")
+    with pytest.raises(ValueError):
+        jobs.set_attributes(record, {f"top_garment": "tee"} | {f"k{i}": "x" for i in range(8)})
+    assert not record.get("attr_overrides")
+
+
+def test_reset_attributes_restores_the_photo_values():
+    record, _observed, _attrs = _record()
+    base_top = jobs.candidate_attributes(record, 1).get("top_garment")
+    jobs.set_attributes(record, {"top_garment": "hoodie"})
+    jobs.set_headwear(record, "beanie", "#123456")
+    jobs.reset_attributes(record)
+    assert "attr_overrides" not in record
+    assert "hat_color" not in record
+    assert jobs.candidate_attributes(record, 1).get("top_garment") == base_top
+
+
+def test_hat_on_top_is_set_only_when_a_hat_was_chosen(monkeypatch):
+    from PIL import Image
+    from types import SimpleNamespace
+    seen = []
+
+    def fake_render(observed, attrs, degrade, model, **kwargs):
+        seen.append(kwargs.get("hat_on_top"))
+        return SimpleNamespace(image=Image.new("RGBA", (64, 64)))
+
+    monkeypatch.setattr(jobs.R, "render", fake_render)
+    monkeypatch.setattr("skinmaker.validate.validate_image", lambda image, model: [])
+
+    record, _observed, _attrs = _record()
+    jobs.render_candidate(record, 1)
+    jobs.set_attributes(record, {"top_garment": "hoodie"})
+    jobs.render_candidate(record, 1)
+    jobs.set_headwear(record, "cap")
+    jobs.render_candidate(record, 1)
+    jobs.set_headwear(record, "none")
+    jobs.render_candidate(record, 1)
+    # render_candidate renders the skin and the flat variant each time.
+    assert seen == [False, False, False, False, True, True, False, False]

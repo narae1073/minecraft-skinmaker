@@ -446,21 +446,40 @@ async def job_overlay_put(token: str, request: Request):
 
 @app.post("/api/v1/jobs/{token}/attributes")
 async def job_attributes(token: str, request: Request):
-    """Change this skin's headwear (none / cap). Only this skin is affected."""
+    """Change this skin's clothing/headwear. Only this skin is affected.
+
+    Body: ``{"attributes": {"top_garment": "hoodie"}, "hat_color": "#rrggbb"}``,
+    the legacy ``{"headwear": "cap", "hat_color": ...}``, or ``{"reset": true}``
+    to drop every override and go back to the photo's values.
+    """
     _require_json(request)
     record = _job_for_owner(request, token)
     body = await request.json()
-    value = body.get("headwear") if isinstance(body, dict) else None
-    color = body.get("hat_color") if isinstance(body, dict) else None
-    if value not in JOBS.HEADWEAR_CHOICES:
-        fail(400, "bad_headwear", "headwear 는 none, cap, beanie 중 하나여야 해요.")
-    try:
-        JOBS.set_headwear(record, value, color)
-    except ValueError:
-        fail(400, "bad_hat_color", "hat_color 는 #rrggbb 형식이어야 해요.")
+    if not isinstance(body, dict):
+        fail(400, "bad_attributes", "JSON 객체가 필요해요.")
+    if body.get("reset"):
+        JOBS.reset_attributes(record)
+    else:
+        changes = body.get("attributes")
+        changes = dict(changes) if isinstance(changes, dict) else {}
+        if "headwear" in body:
+            changes["headwear"] = body.get("headwear")
+        if not changes:
+            fail(400, "bad_attributes", "바꿀 속성이 없어요.")
+        color = body.get("hat_color")
+        try:
+            JOBS.set_attributes(record, changes, hat_color=color if isinstance(color, str) else None)
+        except ValueError as exc:
+            fail(400, "bad_attributes", f"지원하지 않는 속성 또는 값: {exc}")
     record["revision"] = int(record.get("revision", 0)) + 1
     JOBS.save_record(record)
-    return {"ok": True, "headwear": value, "revision": record["revision"]}
+    try:
+        effective = dict(JOBS.candidate_attributes(record, 1).values)
+    except KeyError:
+        effective = {}
+    return {"ok": True, "overrides": record.get("attr_overrides") or {},
+            "attributes": effective, "hat_color": record.get("hat_color"),
+            "revision": record["revision"]}
 
 
 @app.get("/api/v1/jobs/{token}/editor")

@@ -267,3 +267,55 @@ def test_health_reports_job_editor_flag(monkeypatch):
     monkeypatch.setenv("SKINMAKER_JOB_EDITOR", "0")
     body = TestClient(A.app).get("/api/v1/health").json()
     assert body["job_editor"] == "off"
+
+
+def test_clothing_attributes_are_per_skin_and_validated(_isolated):
+    owner = TestClient(A.app)
+    token = _generate(owner).json()["data"]["job"]["id"]
+    other = _generate(owner).json()["data"]["job"]["id"]
+    base = owner.get(f"/api/v1/jobs/{token}/editor").json()["combo"]
+    other_base = owner.get(f"/api/v1/jobs/{other}/editor").json()["combo"]
+
+    r = owner.post(f"/api/v1/jobs/{token}/attributes", json={
+        "attributes": {"top_garment": "hoodie", "bottom_garment": "jeans", "sleeve_len": "long"},
+    })
+    assert r.status_code == 200, r.text
+    body = r.json()
+    assert body["overrides"] == {"top_garment": "hoodie", "bottom_garment": "jeans", "sleeve_len": "long"}
+    assert body["attributes"]["top_garment"] == "hoodie"
+    combo = owner.get(f"/api/v1/jobs/{token}/editor").json()["combo"]
+    assert (combo["top_garment"], combo["bottom_garment"], combo["sleeve_len"]) == ("hoodie", "jeans", "long")
+    # A different skin keeps its own photo values.
+    assert owner.get(f"/api/v1/jobs/{other}/editor").json()["combo"]["top_garment"] == other_base["top_garment"]
+
+    # Unknown value, out-of-scope field, and too many changes are rejected.
+    assert owner.post(f"/api/v1/jobs/{token}/attributes",
+                      json={"attributes": {"top_garment": "spacesuit"}}).status_code == 400
+    assert owner.post(f"/api/v1/jobs/{token}/attributes",
+                      json={"attributes": {"hair_style": "curly"}}).status_code == 400
+    assert owner.post(f"/api/v1/jobs/{token}/attributes",
+                      json={"attributes": {f"k{i}": "x" for i in range(9)}}).status_code == 400
+    assert owner.post(f"/api/v1/jobs/{token}/attributes", json={}).status_code == 400
+
+    # Reset drops the overrides and returns the photo's values.
+    r = owner.post(f"/api/v1/jobs/{token}/attributes", json={"reset": True})
+    assert r.status_code == 200, r.text
+    assert r.json()["overrides"] == {}
+    combo = owner.get(f"/api/v1/jobs/{token}/editor").json()["combo"]
+    for key in ("top_garment", "bottom_garment", "sleeve_len"):
+        assert combo[key] == base[key]
+
+
+def test_clothing_change_rerenders_the_skin_without_touching_the_original(_isolated):
+    owner = TestClient(A.app)
+    token = _generate(owner).json()["data"]["job"]["id"]
+    original = (_isolated / f"{token}_c1.png").read_bytes()
+    assert owner.post(f"/api/v1/jobs/{token}/attributes",
+                      json={"attributes": {"top_garment": "dress"}}).status_code == 200
+    assert owner.post(f"/api/v1/jobs/{token}/render", json={"index": 1}).status_code == 200
+    assert (_isolated / f"{token}_e1_c1.png").read_bytes() != original
+    assert (_isolated / f"{token}_c1.png").read_bytes() == original
+    # The editor preview shows the new clothes too.
+    masks = owner.get(f"/api/v1/jobs/{token}/editor").json()["masks"]
+    preview = owner.post(f"/api/v1/jobs/{token}/preview", json={"masks": masks, "index": 1})
+    assert preview.status_code == 200 and preview.json()["skin"].startswith("data:image/png;base64,")
