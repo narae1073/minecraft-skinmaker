@@ -6,15 +6,15 @@ export const ATLAS = 64;
 // L1 = base layer, L2 = overlay layer. Distinct hatch direction AND colour so
 // the layer you are painting on is obvious even at a glance.
 export const LAYER_STYLE = {
-  L1: { base: '#c9d6e6', line: '#1d4ed8', tint: 'rgba(29, 78, 216, 0.22)', hatch: 'backslash' },
-  L2: { base: '#f2dcc0', line: '#c2410c', tint: 'rgba(194, 65, 12, 0.22)', hatch: 'slash' },
+  L1: { base: '#1d2a44', line: '#1d4ed8', tint: 'rgba(29, 78, 216, 0.22)', hatch: 'backslash' },
+  L2: { base: '#3a2414', line: '#c2410c', tint: 'rgba(194, 65, 12, 0.22)', hatch: 'slash' },
 };
 
 // Dimmed boxes (no mask pixels) are drawn at this alpha; masked boxes at 1.
 export const DIM_ALPHA = 0.35;
 
 // Over the base skin, empty boxes are veiled with this so masked boxes stand out.
-export const EMPTY_VEIL = 'rgba(241, 243, 245, 0.62)';
+export const EMPTY_VEIL = 'rgba(23, 19, 15, 0.62)';
 
 // One box per (layer, face): the face rectangle inside the 64x64 atlas.
 // `subFaces` lists faces that have a per-model (slim) grid; those boxes carry
@@ -79,7 +79,7 @@ export function drawAtlas(ctx, opts) {
   const { boxes, zoom, cellOn, hasMaskFor, activeBox, hover, base } = opts;
   const size = ATLAS * zoom;
   ctx.clearRect(0, 0, size, size);
-  ctx.fillStyle = '#f1f3f5';
+  ctx.fillStyle = '#17130f';
   ctx.fillRect(0, 0, size, size);
 
   // 1. Background. With a base skin: the real output pixels, with empty boxes
@@ -125,7 +125,7 @@ export function drawAtlas(ctx, opts) {
 
   // 3. Texel grid (only when zoomed in enough to be useful).
   if (zoom >= 6) {
-    ctx.strokeStyle = 'rgba(15, 23, 42, 0.10)';
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.12)';
     ctx.lineWidth = 1;
     ctx.beginPath();
     for (const b of boxes) {
@@ -142,19 +142,19 @@ export function drawAtlas(ctx, opts) {
   }
 
   // 4. Box outlines, then the active box on top.
-  ctx.strokeStyle = 'rgba(15, 23, 42, 0.45)';
+  ctx.strokeStyle = 'rgba(244, 240, 232, 0.35)';
   ctx.lineWidth = 1;
   for (const b of boxes) ctx.strokeRect(b.x * zoom + 0.5, b.y * zoom + 0.5, b.w * zoom - 1, b.h * zoom - 1);
   if (activeBox) {
-    ctx.strokeStyle = '#f59e0b';
+    ctx.strokeStyle = '#f5d442';
     ctx.lineWidth = 2;
     ctx.strokeRect(activeBox.x * zoom + 1, activeBox.y * zoom + 1, activeBox.w * zoom - 2, activeBox.h * zoom - 2);
   }
 
   // 5. Labels when zoomed in enough to read them.
   if (zoom >= 7) {
-    ctx.fillStyle = '#111827';
-    ctx.font = `${Math.min(11, Math.max(8, zoom))}px system-ui, sans-serif`;
+    ctx.fillStyle = '#f4f0e8';
+    ctx.font = `${Math.min(11, Math.max(8, zoom))}px "NeoDunggeunmo", system-ui, sans-serif`;
     ctx.textBaseline = 'top';
     for (const b of boxes) {
       const label = b.face.split('.', 2)[1];
@@ -164,10 +164,10 @@ export function drawAtlas(ctx, opts) {
 
   // 6. Hover cursor.
   if (hover) {
-    ctx.strokeStyle = '#ffffff';
+    ctx.strokeStyle = '#f5d442';
     ctx.lineWidth = 2;
     ctx.strokeRect(hover.u * zoom + 1, hover.v * zoom + 1, zoom - 2, zoom - 2);
-    ctx.strokeStyle = '#111827';
+    ctx.strokeStyle = '#0b0907';
     ctx.lineWidth = 1;
     ctx.strokeRect(hover.u * zoom + 0.5, hover.v * zoom + 0.5, zoom - 1, zoom - 1);
   }

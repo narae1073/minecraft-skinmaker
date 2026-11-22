@@ -61,7 +61,7 @@ export function initViewer(container) {
   container.appendChild(renderer.domElement);
 
   const scene = new THREE.Scene();
-  scene.background = new THREE.Color('#eef1f4');
+  scene.background = new THREE.Color('#17130f');
   const camera = new THREE.PerspectiveCamera(50, 1, 0.1, 100);
   camera.position.set(0, 2.2, 6.5);
   const controls = new OrbitControls(camera, renderer.domElement);
