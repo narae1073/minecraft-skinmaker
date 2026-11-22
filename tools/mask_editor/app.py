@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import dataclasses
 import json
+import os
 import sys
 from pathlib import Path
 
@@ -21,6 +22,7 @@ sys.path.insert(0, str(REPO))
 from skinmaker import attribute_masks as AM  # noqa: E402
 from skinmaker import attributes as A  # noqa: E402
 from skinmaker import colors as C, parsing as P, quality as QU  # noqa: E402
+from skinmaker import mask_publish as MP  # noqa: E402
 from skinmaker import production_qa as Q, render as R  # noqa: E402
 from skinmaker.canvas import SkinCanvas  # noqa: E402
 from skinmaker.format import get_layout  # noqa: E402
@@ -31,6 +33,14 @@ load_env_file()
 
 OUT = REPO / "out" / "mask_editor"
 OUT.mkdir(parents=True, exist_ok=True)
+# Publish targets are overridable for tests; production promotion is opt-in.
+MASK_ASSET = Path(os.environ.get("SKINMAKER_MASKS_ASSET", str(AM.ASSET_PATH)))
+MASK_APPROVAL = Path(os.environ.get("SKINMAKER_MASKS_APPROVAL", str(AM.APPROVAL_PATH)))
+PUBLISH_ENV = "SKINMAKER_EDITOR_ALLOW_PUBLISH"
+
+
+def publish_enabled() -> bool:
+    return os.environ.get(PUBLISH_ENV) == "1"
 from skinmaker import attribute_seeds as AS  # noqa: E402
 from skinmaker.attribute_seeds import (  # noqa: E402,F401
     COMBO_ENUMS, COMBO_KEYS, DEFAULT_COMBO, DIMS, FACES, LAYERS, LAYOUT, LENGTH_STYLE, MASKABLE,
@@ -342,6 +352,52 @@ def _atlas_rects() -> dict:
             r = LAYOUT.face(part, short, index).rect
             rects[layer][face] = list(r)
     return rects
+
+
+@app.get("/api/publish/diff")
+def publish_diff():
+    """Compare the editor draft with the production asset (selection UI)."""
+    if not publish_enabled():
+        return JSONResponse({"error": f"publishing is off (set {PUBLISH_ENV}=1)"}, status_code=403)
+    draft = OUT / "attribute_masks.json"
+    if not draft.is_file():
+        return JSONResponse({"error": "저장된 draft가 없어요"}, status_code=404)
+    try:
+        draft_masks = MP.load_masks_file(draft)
+        prod_masks = MP.load_masks_file(MASK_ASSET) if MASK_ASSET.is_file() else {}
+    except (OSError, ValueError) as exc:
+        return JSONResponse({"error": str(exc)}, status_code=400)
+    diff = MP.diff_masks(draft_masks, prod_masks)
+    return JSONResponse({
+        "draft": str(draft), "asset": str(MASK_ASSET),
+        "draft_keys": len(draft_masks), "prod_keys": len(prod_masks),
+        "counts": {key: len(value) for key, value in diff.items()},
+        "diff": diff,
+    }, headers={"Cache-Control": "no-store"})
+
+
+@app.post("/api/publish")
+async def publish_masks(request: Request):
+    """Merge selected draft keys into the production asset (explicit opt-in)."""
+    if not publish_enabled():
+        return JSONResponse({"error": f"publishing is off (set {PUBLISH_ENV}=1)"}, status_code=403)
+    body = await request.json() if request.headers.get("content-type", "").startswith("application/json") else {}
+    keys = body.get("keys") if isinstance(body, dict) else None
+    if not isinstance(keys, list) or not keys:
+        return JSONResponse({"error": "반영할 마스크 키를 선택해주세요"}, status_code=400)
+    draft = OUT / "attribute_masks.json"
+    if not draft.is_file():
+        return JSONResponse({"error": "저장된 draft가 없어요"}, status_code=404)
+    try:
+        summary = MP.merge_masks(
+            MASK_ASSET, MASK_APPROVAL, draft, keys,
+            backup_dir=OUT / "backup", approved_by="editor",
+        )
+    except (OSError, ValueError) as exc:
+        return JSONResponse({"error": str(exc)}, status_code=400)
+    summary["ok"] = True
+    summary["deploy_hint"] = "asset이 갱신됐어요. 테스트 후 커밋/PR/배포하면 프로덕션에 적용됩니다."
+    return JSONResponse(summary)
 
 
 @app.get("/api/defaults")

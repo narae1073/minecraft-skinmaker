@@ -491,6 +491,46 @@ input:focus-visible {
 ::-webkit-scrollbar-thumb { background: var(--mc-gui); border: 2px solid var(--mc-edge); }
 ::-webkit-scrollbar-thumb:hover { background: var(--mc-gui-hover); }
 
+.publishOverlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1300;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  background: rgba(10, 8, 6, 0.82);
+}
+
+.publishOverlay[hidden] { display: none; }
+
+.publishPanel {
+  width: min(660px, 100%);
+  max-height: 85vh;
+  overflow: auto;
+  padding: 18px;
+  background: var(--mc-panel);
+  border: 2px solid var(--mc-edge);
+  box-shadow: var(--mc-bevel);
+}
+
+.publishPanel h2 {
+  margin: 0 0 8px;
+  font-size: 24px;
+  font-weight: 400;
+  text-shadow: 2px 2px 0 #000;
+}
+
+.publishSummary { margin: 0 0 8px; color: var(--mc-ink-dim); font-size: 15px; }
+.publishNotice { margin: 0 0 10px; color: var(--mc-ink-faint); font-size: 14px; }
+.publishList { display: flex; flex-direction: column; gap: 4px; max-height: 40vh; overflow: auto; margin-bottom: 10px; }
+.publishRow { display: flex; align-items: center; gap: 8px; font-size: 14px; }
+.publishRow code { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.publishTag { color: var(--mc-ink-faint); font-size: 12px; }
+.publishTag.add { color: var(--mc-emerald); }
+.publishTag.change { color: var(--mc-gold); }
+.publishActions { display: flex; gap: 8px; justify-content: flex-end; }
+.publishStatus { min-height: 18px; margin: 8px 0 0; color: var(--mc-gold); font-size: 14px; }
+
 .mobileTabs { display: none; }
 
 @media (max-width: 980px) {
@@ -551,6 +591,7 @@ input:focus-visible {
 <body>
 <header class="editorHeader">
   <div class="header-actions" id="headerActions">
+    <button id="publishBtn" hidden title="선택한 마스크만 프로덕션 asset에 반영">프로덕션에 반영</button>
     <button id="saveBtn" class="primary" title="마스크만 저장합니다 (PNG 생성이 아님)">저장</button>
     <span id="saveState" class="hint saveState" role="status">저장됨</span>
   </div>
@@ -679,6 +720,6 @@ input:focus-visible {
     </dl>
   </div>
 </div>
-<script type="module" src="/static/app.js?v=31"></script>
+<script type="module" src="/static/app.js?v=32"></script>
 </body>
 </html>

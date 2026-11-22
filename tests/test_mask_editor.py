@@ -574,3 +574,45 @@ def test_editor_token_gates_api_and_rendered_output_when_configured(monkeypatch)
 def test_no_token_configured_means_no_gate(monkeypatch):
     monkeypatch.delenv("SKINMAKER_EDITOR_TOKEN", raising=False)
     assert TestClient(mod.app).get("/api/defaults").status_code == 200
+
+
+def _mask_entry(bit=1):
+    return {"L1": {"head.front": [[bit]]}, "L2": {}}
+
+
+def test_publish_is_opt_in_diffs_and_merges_selected_keys(tmp_path, monkeypatch):
+    import json
+    asset = tmp_path / "asset.json"
+    approval = tmp_path / "approval.json"
+    asset.write_text(json.dumps({"version": 1, "masks": {"hood.up": _mask_entry(1)}}), encoding="utf-8")
+    draft = tmp_path / "attribute_masks.json"
+    draft.write_text(json.dumps({"version": 1, "masks": {
+        "hood.up": _mask_entry(1),
+        "headwear.cap": _mask_entry(1),
+    }}), encoding="utf-8")
+    monkeypatch.setattr(mod, "MASK_ASSET", asset)
+    monkeypatch.setattr(mod, "MASK_APPROVAL", approval)
+    c = TestClient(mod.app)
+
+    monkeypatch.delenv(mod.PUBLISH_ENV, raising=False)
+    assert c.get("/api/publish/diff").status_code == 403
+    assert c.post("/api/publish", json={"keys": ["headwear.cap"]}).status_code == 403
+
+    monkeypatch.setenv(mod.PUBLISH_ENV, "1")
+    diff = c.get("/api/publish/diff")
+    assert diff.status_code == 200, diff.text
+    payload = diff.json()
+    assert payload["diff"]["added"] == ["headwear.cap"]
+    assert payload["diff"]["same"] == ["hood.up"]
+    assert payload["draft_keys"] == 2 and payload["prod_keys"] == 1
+
+    r = c.post("/api/publish", json={"keys": ["headwear.cap"]})
+    assert r.status_code == 200, r.text
+    body = r.json()
+    assert body["added"] == ["headwear.cap"] and body["entries"] == 2
+    merged = json.loads(asset.read_text(encoding="utf-8"))["masks"]
+    assert set(merged) == {"hood.up", "headwear.cap"}
+    record = json.loads(approval.read_text(encoding="utf-8"))
+    assert record["sha256"] == body["sha256"]
+    assert Path(body["backup"]).is_file()
+    assert c.post("/api/publish", json={"keys": ["nope.x"]}).status_code == 400

@@ -1558,6 +1558,129 @@ window.addEventListener('keydown', (e) => {
   else if (!mod && (e.key === '-' || e.key === '_')) setZoom(state.zoom - 1);
 });
 
+// Developer editor only: publish selected draft masks into the production asset.
+function initPublish() {
+  const btn = $('#publishBtn');
+  if (!btn) return;
+  if (JOB) { btn.remove(); return; }
+  btn.hidden = false;
+  btn.onclick = openPublishDialog;
+}
+
+function publishDialog(payload) {
+  const diff = payload.diff || {};
+  const added = diff.added || [];
+  const changed = diff.changed || [];
+  const candidates = [...new Set([...changed, ...added])].sort();
+  const overlay = document.createElement('div');
+  overlay.className = 'publishOverlay';
+  const panel = document.createElement('div');
+  panel.className = 'publishPanel';
+  panel.setAttribute('role', 'dialog');
+  panel.setAttribute('aria-modal', 'true');
+  panel.setAttribute('aria-labelledby', 'publishTitle');
+
+  const title = document.createElement('h2');
+  title.id = 'publishTitle';
+  title.textContent = '프로덕션에 반영';
+  const summary = document.createElement('p');
+  summary.className = 'publishSummary';
+  summary.textContent = `초안 키 ${payload.draft_keys ?? '?'} · 프로덕션 키 ${payload.prod_keys ?? '?'} · 변경 ${changed.length} · 새 키 ${added.length}`;
+  const notice = document.createElement('p');
+  notice.className = 'publishNotice';
+  notice.textContent = '변경된 키만 기본 선택됩니다. 새 키는 직접 선택해야 하며, 반영 후 커밋/PR/배포가 필요합니다.';
+  const list = document.createElement('div');
+  list.className = 'publishList';
+
+  for (const key of candidates) {
+    const row = document.createElement('label');
+    row.className = 'publishRow';
+    const box = document.createElement('input');
+    box.type = 'checkbox';
+    box.value = key;
+    box.checked = changed.includes(key);
+    const code = document.createElement('code');
+    code.textContent = key;
+    const tag = document.createElement('span');
+    tag.className = `publishTag ${added.includes(key) ? 'add' : 'change'}`;
+    tag.textContent = added.includes(key) ? '새 키' : '변경';
+    row.append(box, code, tag);
+    list.append(row);
+  }
+  if (!candidates.length) {
+    const empty = document.createElement('p');
+    empty.className = 'hint';
+    empty.textContent = '반영할 변경이 없어요.';
+    list.append(empty);
+  }
+
+  const actions = document.createElement('div');
+  actions.className = 'publishActions';
+  const cancel = document.createElement('button');
+  cancel.type = 'button';
+  cancel.textContent = '닫기';
+  const confirm = document.createElement('button');
+  confirm.type = 'button';
+  confirm.className = 'primary';
+  confirm.textContent = '선택 반영';
+  confirm.disabled = !candidates.length;
+  actions.append(cancel, confirm);
+
+  const status = document.createElement('p');
+  status.className = 'publishStatus';
+  status.setAttribute('role', 'status');
+
+  const close = () => {
+    overlay.remove();
+    document.removeEventListener('keydown', onKey);
+  };
+  const onKey = (e) => { if (e.key === 'Escape') close(); };
+  cancel.onclick = close;
+  overlay.onclick = (e) => { if (e.target === overlay) close(); };
+  document.addEventListener('keydown', onKey);
+
+  confirm.onclick = async () => {
+    const keys = [...list.querySelectorAll('input:checked')].map((box) => box.value);
+    if (!keys.length) { status.textContent = '반영할 키를 선택해주세요.'; return; }
+    confirm.disabled = true;
+    status.textContent = '반영 중…';
+    try {
+      const r = await apiFetch('/api/publish', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ keys }),
+      });
+      const j = await r.json();
+      if (!r.ok) throw new Error(j.error || r.status);
+      status.textContent = `반영됨: ${j.keys.length}개 키 · asset ${j.entries}개 · SHA ${String(j.sha256).slice(0, 12)}…${j.backup ? ' · 백업 ' + j.backup : ''}`;
+      for (const box of list.querySelectorAll('input')) box.disabled = true;
+      $('#status').textContent = `프로덕션 asset 갱신됨 (${j.keys.length} keys) — 테스트 후 커밋/PR/배포하세요`;
+    } catch (e) {
+      confirm.disabled = false;
+      status.textContent = '반영 실패: ' + e.message;
+    }
+  };
+
+  panel.append(title, summary, notice, list, actions, status);
+  overlay.append(panel);
+  document.body.append(overlay);
+  const first = list.querySelector('input');
+  (first || cancel).focus();
+}
+
+async function openPublishDialog() {
+  const btn = $('#publishBtn');
+  if (btn) btn.disabled = true;
+  try {
+    const r = await apiFetch('/api/publish/diff', { cache: 'no-store' });
+    const j = await r.json();
+    if (!r.ok) throw new Error(j.error || r.status);
+    publishDialog(j);
+  } catch (e) {
+    $('#status').textContent = '프로덕션 반영 불가: ' + e.message;
+  } finally {
+    if (btn) btn.disabled = false;
+  }
+}
+
 // Phones get one pane at a time: atlas / 3D / attributes.
 const MOBILE_TAB_STORAGE = 'skinmaker.editorTab.v1';
 const MOBILE_TABS = ['atlas', 'preview', 'attrs'];
@@ -1648,6 +1771,7 @@ async function boot() {
     $('#status').textContent = '3D 뷰어 초기화 실패(WebGL): ' + e.message + ' — 2D atlas로 편집 가능';
   }
   initMobileTabs();
+  initPublish();
   schedulePreview(0);
 }
 
