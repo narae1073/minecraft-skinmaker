@@ -491,6 +491,8 @@ input:focus-visible {
 ::-webkit-scrollbar-thumb { background: var(--mc-gui); border: 2px solid var(--mc-edge); }
 ::-webkit-scrollbar-thumb:hover { background: var(--mc-gui-hover); }
 
+.mobileTabs { display: none; }
+
 @media (max-width: 980px) {
   main { grid-template-columns: minmax(0, 1fr); }
   .atlasPanel, .editor, .controls { min-width: 0; }
@@ -506,6 +508,37 @@ input:focus-visible {
     background: var(--mc-bg);
     border-bottom: 2px solid var(--mc-edge);
   }
+
+  .mobileTabs {
+    display: flex;
+    grid-column: 1 / -1;
+    gap: 6px;
+    padding: 0 2px 2px;
+  }
+
+  .mobileTab {
+    flex: 1;
+    padding: 9px 10px;
+    font-size: 15px;
+    color: var(--mc-ink-dim);
+    background: var(--mc-panel-2);
+    border: 2px solid var(--mc-edge);
+    box-shadow: var(--mc-bevel);
+  }
+
+  .mobileTab.active {
+    color: var(--mc-gold);
+    border-color: var(--mc-gold);
+    box-shadow: var(--mc-bevel-pressed);
+  }
+
+  /* One pane at a time on phones; JS sets body[data-mobile-tab]. */
+  .atlasPanel { display: block; }
+  .editor, .controls { display: none; }
+  body[data-mobile-tab="preview"] .atlasPanel { display: none; }
+  body[data-mobile-tab="preview"] .editor { display: block; }
+  body[data-mobile-tab="attrs"] .atlasPanel { display: none; }
+  body[data-mobile-tab="attrs"] .controls { display: block; }
 }
 
 @media (max-width: 480px) {
@@ -524,6 +557,11 @@ input:focus-visible {
   <button id="shortcutBtn" class="header-help" title="단축키 (?)" aria-label="단축키 도움말">?</button>
 </header>
 <main>
+  <nav class="mobileTabs" id="mobileTabs" role="tablist" aria-label="모바일 편집기 보기">
+    <button type="button" class="mobileTab active" data-mobile-tab="atlas" role="tab" aria-selected="true">아틀라스</button>
+    <button type="button" class="mobileTab" data-mobile-tab="preview" role="tab" aria-selected="false">3D</button>
+    <button type="button" class="mobileTab" data-mobile-tab="attrs" role="tab" aria-selected="false">속성</button>
+  </nav>
   <section class="panel atlasPanel">
     <div class="toolbar">
       <div class="group">
@@ -641,6 +679,6 @@ input:focus-visible {
     </dl>
   </div>
 </div>
-<script type="module" src="/static/app.js?v=29"></script>
+<script type="module" src="/static/app.js?v=30"></script>
 </body>
 </html>
