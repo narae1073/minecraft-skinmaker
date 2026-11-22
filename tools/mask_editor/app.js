@@ -620,6 +620,7 @@ function renderValueTabs() {
 }
 
 function syncTabs() {
+  if (typeof syncMaskTargetUI === 'function') syncMaskTargetUI();
   for (const b of document.querySelectorAll('#kindTabs button')) b.classList.toggle('active', b.dataset.key === state.key);
   for (const b of document.querySelectorAll('#valueTabs button')) b.classList.toggle('active', b.dataset.value === state.value);
 }
@@ -816,6 +817,7 @@ function actOnActiveBox(fn) {
 
 const AUTOSAVE_MS = 4000;
 let updateJobMeta = () => {};
+let syncMaskTargetUI = () => {};
 
 function saveBadge(text = null) {
   const el = $('#saveState');
@@ -972,10 +974,12 @@ function addJobRenderButton() {
   bar.prepend(wrap);
 }
 
-// Job mode: clothing/hair/headwear edits that re-render without another VLM call.
+// Job mode: attribute editing grouped by body area, plus mask targeting.
 const JOB_ATTR_LABELS = {
-  top_garment: '상의', bottom_garment: '하의', sleeve_len: '소매',
-  hair_style: '머리 스타일', hair_length: '머리 길이', headwear: '모자',
+  top_garment: '상의', inner_top: '속셔츠', sleeve_len: '소매', closure_type: '여밈',
+  collar_type: '칼라', pocket_type: '주머니', hood: '후드', hood_fit: '후드 핏',
+  bottom_garment: '하의', hair_style: '머리 스타일', hair_length: '머리 길이',
+  headwear: '모자', neckwear: '넥웨어', beard: '수염',
 };
 const JOB_ATTR_TEXT = {
   top_garment: {
@@ -983,23 +987,32 @@ const JOB_ATTR_TEXT = {
     vest: '조끼', uniform: '교복', apron: '앞치마', overalls: '멜빵', dress: '원피스',
     none: '없음',
   },
-  bottom_garment: { jeans: '청바지', pants: '바지', shorts: '반바지', skirt: '스커트', none: '없음' },
+  inner_top: { none: '없음', shirt: '셔츠', tee: '티', knit: '니트' },
   sleeve_len: { none: '없음', short: '반팔', three_quarter: '7부', long: '긴팔' },
+  closure_type: { none: '없음', zipper: '지퍼', buttons: '단추', open: '오픈' },
+  collar_type: { none: '없음', crew: '크루', v_neck: '브이넥', shirt: '셔츠', hood: '후드' },
+  pocket_type: { none: '없음', patch: '패치' },
+  hood: { none: '없음', up: '올림', down: '내림' },
+  hood_fit: { normal: '보통', shallow: '얕게', deep: '깊게' },
+  bottom_garment: { jeans: '청바지', pants: '바지', shorts: '반바지', skirt: '스커트', none: '없음' },
   hair_style: {
     short: '숏', pixie: '픽시', bob: '보브', long_straight: '롱 스트레이트',
     long_wavy: '롱 웨이브', curly: '컬리', ponytail: '포니테일', bun: '번',
   },
   hair_length: { short: '숏', medium: '미디엄', long: '롱', very_long: '베리 롱' },
   headwear: { none: '없음', cap: 'cap', beanie: 'beanie' },
+  neckwear: { none: '없음', tie: '타이' },
+  beard: { none: '없음', stubble: '수염자국', full: '풀수염' },
 };
-const JOB_ATTR_FIELDS = [
-  ['top_garment', ['tee', 'hoodie', 'jacket', 'shirt', 'sweater', 'vest', 'uniform', 'apron', 'overalls', 'dress', 'none']],
-  ['bottom_garment', ['jeans', 'pants', 'shorts', 'skirt', 'none']],
-  ['sleeve_len', ['none', 'short', 'three_quarter', 'long']],
-  ['hair_style', ['short', 'pixie', 'bob', 'long_straight', 'long_wavy', 'curly', 'ponytail', 'bun']],
-  ['hair_length', ['short', 'medium', 'long', 'very_long']],
-  ['headwear', ['none', 'cap', 'beanie']],
+const JOB_ATTR_GROUPS = [
+  { title: '상의', fields: ['top_garment', 'inner_top', 'sleeve_len', 'closure_type', 'collar_type', 'pocket_type', 'hood', 'hood_fit'] },
+  { title: '하의', fields: ['bottom_garment'] },
+  { title: '머리', fields: ['hair_style', 'hair_length'] },
+  { title: '액세서리', fields: ['headwear', 'neckwear'] },
+  { title: '얼굴', fields: ['beard'] },
 ];
+const JOB_ATTR_FIELDS = JOB_ATTR_GROUPS.flatMap((g) => g.fields);
+const attrText = (key, value) => (JOB_ATTR_TEXT[key] && JOB_ATTR_TEXT[key][value]) || value;
 const HAT_DEFAULT = { cap: '#e9eef3', beanie: '#1f1f1f' };
 const HAIR_SHORT_STYLES = new Set(['short', 'pixie']);
 const HAIR_LONG_STYLES = new Set(['long_straight', 'long_wavy', 'ponytail', 'bun']);
@@ -1012,48 +1025,124 @@ function jobHairWarning(style, length) {
   return '';
 }
 
+// Make one attribute's mask the paint target (used by the row buttons and auto-sync).
+function setMaskTarget(key, preferred, open = false) {
+  if (!state.maskable || !state.maskable[key]) return;
+  if (state.key !== key) setKey(key);
+  const values = state.maskable[key];
+  const value = values.includes(preferred) ? preferred : values[0];
+  if (state.value !== value) setValue(value);
+  syncMaskTargetUI();
+  const adv = document.getElementById('jobMaskTarget');
+  if (adv && open) adv.open = true;
+}
+
 function buildJobAttributesPanel() {
   const panel = document.createElement('div');
   panel.className = 'group jobAttrs';
   panel.id = 'jobAttrPanel';
+
+  const head = document.createElement('div');
+  head.className = 'jobAttrHead';
   const title = document.createElement('span');
   title.className = 'gtitle';
   title.textContent = '스킨 속성';
-  panel.append(title);
+  const changedLabel = document.createElement('span');
+  changedLabel.className = 'hint jobAttrChanged';
+  changedLabel.id = 'jobAttrChanged';
+  changedLabel.setAttribute('role', 'status');
+  head.append(title, changedLabel);
+  panel.append(head);
 
   const selects = {};
-  for (const [key, allowed] of JOB_ATTR_FIELDS) {
-    const row = document.createElement('label');
-    row.className = 'jobAttrRow';
-    const name = document.createElement('span');
-    name.textContent = JOB_ATTR_LABELS[key];
+  const rows = {};
+  const groups = [];
+
+  const makeSelect = (key) => {
     const sel = document.createElement('select');
     sel.dataset.attr = key;
     const enums = (state.enums && state.enums[key]) || [];
-    for (const v of allowed) {
-      if (enums.length && !enums.includes(v)) continue;
+    for (const v of enums) {
       const o = document.createElement('option');
       o.value = v;
-      o.textContent = (JOB_ATTR_TEXT[key] && JOB_ATTR_TEXT[key][v]) || v;
+      o.textContent = attrText(key, v);
       sel.append(o);
     }
-    sel.value = (state.combo && state.combo[key]) || 'none';
+    sel.value = (state.combo && state.combo[key]) || enums[0] || 'none';
+    return sel;
+  };
+
+  const makeRow = (key) => {
+    const row = document.createElement('div');
+    row.className = 'jobAttrRow';
+    const label = document.createElement('div');
+    label.className = 'jobAttrLabel';
+    const name = document.createElement('span');
+    name.className = 'jobAttrName';
+    name.textContent = JOB_ATTR_LABELS[key] || key;
+    const diff = document.createElement('span');
+    diff.className = 'jobAttrDiff';
+    label.append(name, diff);
+    const controls = document.createElement('div');
+    controls.className = 'jobAttrControls';
+    const sel = makeSelect(key);
+    const maskBtn = document.createElement('button');
+    maskBtn.type = 'button';
+    maskBtn.className = 'attrMaskBtn';
+    maskBtn.textContent = '마스크';
+    maskBtn.title = '이 값의 마스크를 칠합니다 (고급 섹션 열기)';
+    maskBtn.onclick = () => setMaskTarget(key, sel.value, true);
+    controls.append(sel, maskBtn);
+    row.append(label, controls);
     selects[key] = sel;
-    row.append(name, sel);
-    panel.append(row);
+    rows[key] = { row, diff, sel };
+    return row;
+  };
+
+  for (const group of JOB_ATTR_GROUPS) {
+    const details = document.createElement('details');
+    details.className = 'attrGroup';
+    details.open = true;
+    const summary = document.createElement('summary');
+    const summaryTitle = document.createElement('span');
+    summaryTitle.textContent = group.title;
+    const summaryCount = document.createElement('span');
+    summaryCount.className = 'attrGroupCount';
+    summary.append(summaryTitle, summaryCount);
+    details.append(summary);
+    for (const key of group.fields) {
+      if (!(state.enums && state.enums[key])) continue;
+      details.append(makeRow(key));
+      if (key === 'headwear') {
+        const colorRow = document.createElement('div');
+        colorRow.className = 'jobAttrRow jobAttrColorRow';
+        const colorLabel = document.createElement('div');
+        colorLabel.className = 'jobAttrLabel';
+        const colorName = document.createElement('span');
+        colorName.className = 'jobAttrName';
+        colorName.textContent = '모자색';
+        const colorDiff = document.createElement('span');
+        colorDiff.className = 'jobAttrDiff';
+        colorDiff.id = 'jobHatColorDiff';
+        colorLabel.append(colorName, colorDiff);
+        const colorControls = document.createElement('div');
+        colorControls.className = 'jobAttrControls';
+        const color = document.createElement('input');
+        color.type = 'color';
+        color.id = 'jobHatColor';
+        color.value = state.jobHatColor || HAT_DEFAULT[selects.headwear.value] || '#e9eef3';
+        color.disabled = selects.headwear.value === 'none';
+        colorControls.append(color);
+        colorRow.append(colorLabel, colorControls);
+        details.append(colorRow);
+      }
+    }
+    groups.push({ ...group, details, count: summaryCount });
+    panel.append(details);
   }
 
-  const colorRow = document.createElement('label');
-  colorRow.className = 'jobAttrRow';
-  const colorName = document.createElement('span');
-  colorName.textContent = '모자색';
-  const color = document.createElement('input');
-  color.type = 'color';
-  color.id = 'jobHatColor';
-  color.value = state.jobHatColor || HAT_DEFAULT[selects.headwear.value] || '#e9eef3';
-  color.disabled = selects.headwear.value === 'none';
-  colorRow.append(colorName, color);
-  panel.append(colorRow);
+  const color = panel.querySelector('#jobHatColor');
+  const colorDiff = panel.querySelector('#jobHatColorDiff');
 
   const status = document.createElement('p');
   status.className = 'hint jobAttrStatus';
@@ -1071,15 +1160,45 @@ function buildJobAttributesPanel() {
   actions.append(reset);
   panel.append(actions);
 
+  const updateDiff = () => {
+    const photo = state.jobPhotoCombo || {};
+    let total = 0;
+    for (const group of groups) {
+      let count = 0;
+      for (const key of group.fields) {
+        const row = rows[key];
+        if (!row) continue;
+        const base = photo[key];
+        const changed = Boolean(base) && row.sel.value !== base;
+        row.row.classList.toggle('changed', changed);
+        const photoText = attrText(key, base);
+        row.diff.textContent = changed ? `사진: ${photoText}` : '';
+        row.diff.title = changed ? `변경됨 · 사진 추정값: ${photoText}` : '';
+        if (changed) count++;
+      }
+      group.count.textContent = count ? `${count} 변경` : '';
+      group.count.classList.toggle('changed', count > 0);
+      total += count;
+    }
+    if (colorDiff) {
+      const overrides = state.jobAttrOverrides || {};
+      const changedColor = Object.prototype.hasOwnProperty.call(overrides, 'hat_color');
+      colorDiff.textContent = changedColor ? '변경됨' : '';
+    }
+    changedLabel.textContent = total ? `사진과 다른 속성 ${total}개` : '사진 추정값 그대로';
+    changedLabel.classList.toggle('changed', total > 0);
+  };
+
   const syncFrom = (attrs) => {
     if (!attrs || !state.combo) return;
-    for (const [key] of JOB_ATTR_FIELDS) {
+    for (const key of JOB_ATTR_FIELDS) {
       if (attrs[key] && selects[key] && [...selects[key].options].some((o) => o.value === attrs[key])) {
         selects[key].value = attrs[key];
         state.combo[key] = attrs[key];
       }
     }
-    color.disabled = selects.headwear.value === 'none';
+    if (typeof color !== 'undefined' && color) color.disabled = selects.headwear.value === 'none';
+    updateDiff();
   };
 
   let busy = false;
@@ -1089,12 +1208,15 @@ function buildJobAttributesPanel() {
     busy = true;
     reset.disabled = true;
     for (const sel of Object.values(selects)) sel.disabled = true;
+    if (color) color.disabled = true;
     try {
+      if (state.dirty) await save();
       const r = await apiFetch(`${JOB_API}/attributes`, {
         method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
       });
       const j = await r.json();
-      if (!r.ok) throw new Error(j.message || r.status);
+      if (!r.ok) throw new Error(j.detail?.message || j.message || j.error || r.status);
+      state.jobAttrOverrides = j.overrides || {};
       syncFrom(j.attributes);
       if (j.hat_color) { color.value = j.hat_color; state.jobHatColor = j.hat_color; }
       if (j.revision != null) { state.savedRevision = j.revision; saveBadge(); }
@@ -1102,6 +1224,31 @@ function buildJobAttributesPanel() {
       status.textContent = `${label} 저장됨 · revision ${j.revision}${hairWarn ? ' ⚠ ' + hairWarn : ''}`;
       status.classList.toggle('warn', Boolean(hairWarn));
       state.notice = '속성 저장됨';
+      const photo = state.jobPhotoCombo || {};
+      const changedKeys = Object.keys(body.attributes || {}).filter((k) => photo[k] !== body.attributes[k]);
+      // Attribute changes move the procedural baseline. Reload the masks from the
+      // server so the old baseline's seeds are not mistaken for user overrides.
+      try {
+        const er = await apiFetch('/api/defaults', { cache: 'no-store' });
+        if (er.ok) {
+          const ej = await er.json();
+          state.masks = ej.masks || state.masks;
+          state.combo = sanitizeCombo(ej.combo);
+          state.jobPhotoCombo = ej.photo_combo || state.jobPhotoCombo;
+          state.jobOverrideNames = Array.isArray(ej.override_names) ? ej.override_names : [];
+          state.jobHistory = Array.isArray(ej.history) ? ej.history : [];
+          state.history.undo = [];
+          state.history.redo = [];
+          historyChanged();
+          updateJobMeta(ej);
+          syncFrom(ej.combo);
+        }
+      } catch { /* keep the current masks if the refresh fails */ }
+      if (body.reset) setMaskTarget(state.key, selects[state.key]?.value || state.value);
+      else if (changedKeys.length === 1 && (state.maskable[changedKeys[0]] || []).includes(body.attributes[changedKeys[0]])) {
+        setMaskTarget(changedKeys[0], body.attributes[changedKeys[0]]);
+      }
+      updateDiff();
       schedulePreview(0);
     } catch (e) {
       status.textContent = '저장 실패: ' + e.message;
@@ -1110,6 +1257,7 @@ function buildJobAttributesPanel() {
     } finally {
       reset.disabled = false;
       for (const sel of Object.values(selects)) sel.disabled = false;
+      if (color) color.disabled = selects.headwear.value === 'none';
       busy = false;
       updateStatus();
     }
@@ -1117,29 +1265,97 @@ function buildJobAttributesPanel() {
 
   const currentBody = () => {
     const attributes = {};
-    for (const [key] of JOB_ATTR_FIELDS) attributes[key] = selects[key].value;
+    for (const key of JOB_ATTR_FIELDS) attributes[key] = selects[key].value;
     const body = { attributes };
     if (selects.headwear.value !== 'none') body.hat_color = color.value;
     return body;
   };
 
-  for (const [key, sel] of Object.entries(selects)) {
+  for (const key of JOB_ATTR_FIELDS) {
+    const sel = selects[key];
+    if (!sel) continue;
     sel.onchange = () => {
       if (key === 'headwear') {
         color.disabled = sel.value === 'none';
         if (HAT_DEFAULT[sel.value] && !state.jobHatColor) color.value = HAT_DEFAULT[sel.value];
       }
+      updateDiff();
       apply(currentBody(), JOB_ATTR_LABELS[key]);
     };
   }
-  color.onchange = () => apply(currentBody(), '모자색');
+  if (color) color.onchange = () => apply(currentBody(), '모자색');
 
   reset.onclick = () => {
     state.jobHatColor = null;
     apply({ reset: true }, '사진 추정값');
   };
 
+  updateDiff();
   return panel;
+}
+
+// One compact target picker replaces the old 19-key grid in job mode.
+function buildJobMaskTargetPanel() {
+  const adv = document.createElement('details');
+  adv.className = 'group jobMaskTarget';
+  adv.id = 'jobMaskTarget';
+  const summary = document.createElement('summary');
+  summary.textContent = '고급 · 마스크 직접 편집';
+
+  const row = document.createElement('div');
+  row.className = 'jobMaskTargetRow';
+  const keySel = document.createElement('select');
+  keySel.id = 'jobMaskKey';
+  keySel.setAttribute('aria-label', '마스크 속성');
+  const valueSel = document.createElement('select');
+  valueSel.id = 'jobMaskValue';
+  valueSel.setAttribute('aria-label', '마스크 값');
+  for (const key of Object.keys(state.maskable || {})) {
+    const o = document.createElement('option');
+    o.value = key;
+    o.textContent = JOB_ATTR_LABELS[key] || key;
+    keySel.append(o);
+  }
+  row.append(keySel, valueSel);
+
+  const hint = document.createElement('p');
+  hint.className = 'hint jobMaskTargetHint';
+  hint.innerHTML = '지금 칠하는 마스크: <code id="jobMaskName"></code> · 면은 아틀라스에서 클릭';
+
+  const fillValues = () => {
+    valueSel.innerHTML = '';
+    const values = (state.maskable && state.maskable[keySel.value]) || [];
+    for (const v of values) {
+      const o = document.createElement('option');
+      o.value = v;
+      o.textContent = attrText(keySel.value, v);
+      valueSel.append(o);
+    }
+    valueSel.value = values.includes(state.value) ? state.value : values[0];
+  };
+
+  keySel.onchange = () => {
+    setKey(keySel.value);
+    fillValues();
+    syncMaskTargetUI();
+  };
+  valueSel.onchange = () => {
+    setValue(valueSel.value);
+    syncMaskTargetUI();
+  };
+
+  syncMaskTargetUI = () => {
+    if (!keySel) return;
+    keySel.value = state.key;
+    fillValues();
+    valueSel.value = state.value;
+    const code = document.getElementById('jobMaskName');
+    if (code) code.textContent = `${state.key}.${state.value} (${state.layer || '—'} · ${state.face || '—'})`;
+  };
+
+  adv.append(summary, row, hint);
+  syncMaskTargetUI();
+  return adv;
 }
 
 // Candidate tabs, saved-mask overrides and revision history (job mode only).
@@ -1180,7 +1396,7 @@ function addJobPanels() {
   overrides.append(ovTitle, ovList);
   const renderOverrides = () => {
     const names = state.jobOverrideNames || [];
-    ovTitle.textContent = `초기값과 다른 마스크 (${names.length})`;
+    ovTitle.textContent = `직접 칠한 마스크 (${names.length})`;
     ovList.innerHTML = '';
     if (!names.length) {
       const empty = document.createElement('p');
@@ -1280,6 +1496,7 @@ function addJobPanels() {
   history.append(hTitle, hRow);
   renderHistory();
   stack.append(history);
+  stack.append(buildJobMaskTargetPanel());
 
   updateJobMeta = (j) => {
     if (Array.isArray(j.override_names)) {
@@ -1340,6 +1557,8 @@ async function boot() {
     state.jobOverrideNames = Array.isArray(j.override_names) ? j.override_names : [];
     state.jobHistory = Array.isArray(j.history) ? j.history : [];
     state.savedRevision = j.revision ?? null;
+    state.jobPhotoCombo = j.photo_combo || {};
+    state.jobAttrOverrides = j.attribute_overrides || {};
   }
   setModelView(state.model);
   state.key = Object.keys(state.maskable)[0];

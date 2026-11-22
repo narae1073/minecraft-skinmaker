@@ -292,9 +292,9 @@ def test_clothing_attributes_are_per_skin_and_validated(_isolated):
     assert owner.post(f"/api/v1/jobs/{token}/attributes",
                       json={"attributes": {"top_garment": "spacesuit"}}).status_code == 400
     assert owner.post(f"/api/v1/jobs/{token}/attributes",
-                      json={"attributes": {"beard": "full"}}).status_code == 400
+                      json={"attributes": {"pattern": "check"}}).status_code == 400
     assert owner.post(f"/api/v1/jobs/{token}/attributes",
-                      json={"attributes": {f"k{i}": "x" for i in range(9)}}).status_code == 400
+                      json={"attributes": {f"k{i}": "x" for i in range(20)}}).status_code == 400
     assert owner.post(f"/api/v1/jobs/{token}/attributes", json={}).status_code == 400
 
     # Reset drops the overrides and returns the photo's values.
@@ -420,3 +420,29 @@ def test_hair_style_and_length_rerender_without_new_overrides(_isolated):
     reset = owner.post(f"/api/v1/jobs/{token}/attributes", json={"reset": True})
     assert reset.status_code == 200
     assert reset.json()["attributes"]["hair_style"] == base["combo"]["hair_style"]
+
+
+def test_editor_payload_exposes_photo_values_and_attribute_overrides(_isolated):
+    owner = TestClient(A.app)
+    token = _generate(owner).json()["data"]["job"]["id"]
+    base = owner.get(f"/api/v1/jobs/{token}/editor?index=1").json()
+    assert "photo_combo" in base and "attribute_overrides" in base
+    assert base["attribute_overrides"] == {}
+    assert base["photo_combo"]["neckwear"] == base["combo"]["neckwear"]
+    r = owner.post(f"/api/v1/jobs/{token}/attributes",
+                   json={"attributes": {"neckwear": "tie", "beard": "full"}})
+    assert r.status_code == 200, r.text
+    assert r.json()["overrides"] == {"neckwear": "tie", "beard": "full"}
+    edited = owner.get(f"/api/v1/jobs/{token}/editor?index=1").json()
+    assert edited["combo"]["neckwear"] == "tie"
+    assert edited["combo"]["beard"] == "full"
+    # The photo comparison never changes when the user edits.
+    assert edited["photo_combo"]["neckwear"] == base["photo_combo"]["neckwear"]
+    assert edited["photo_combo"]["beard"] == base["photo_combo"]["beard"]
+    assert edited["attribute_overrides"] == {"neckwear": "tie", "beard": "full"}
+    assert owner.post(f"/api/v1/jobs/{token}/attributes",
+                      json={"attributes": {"pattern": "check"}}).status_code == 400
+    owner.post(f"/api/v1/jobs/{token}/attributes", json={"reset": True})
+    reset = owner.get(f"/api/v1/jobs/{token}/editor?index=1").json()
+    assert reset["attribute_overrides"] == {}
+    assert reset["combo"]["neckwear"] == base["photo_combo"]["neckwear"]

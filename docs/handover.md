@@ -833,3 +833,11 @@ S0 quality/face detection (YuNet) → S1 colour measurement (white-balance + ban
   - 편집기: `머리 스타일`(숏/픽시/보브/롱 스트레이트/롱 웨이브/컬리/포니테일/번)와 `머리 길이`(숏/미디엄/롱/베리 롱) 선택. 라벨은 필드별 텍스트 맵으로 분리(소매 `short`와 머리 `short` 충돌 제거). `jobHairWarning`으로 `short+pixie` ↔ `long/very_long` 모순 조합에 금색 경고(`⚠ 머리 스타일과 길이가 맞지 않아 머리가 잘릴 수 있어요`)를 표시하되 저장은 허용. `app.js?v=23`.
   - 테스트: `test_jobs` 1개(편집/초기화/잘못된 길이/override 불변), API 1개(재렌더·combo·override 불변·400·reset). CDP: bob/medium → bun/very_long 변경 시 3D 뷰어 픽셀 변화, `머리 길이 저장됨 · revision 2`, 리로드 유지, `(0)` override 유지, 모순 조합 경고, reset으로 bob/medium 복원·경고 제거, 390px overflow 0, 콘솔 에러 0. `pytest -q` → **817 passed**.
   - 리스크: 스타일·길이 조합이 어색하면 경고만 하고 저장은 허용한다(마스크가 서로 잘릴 수 있음). 머리 마스크 자체를 수정한 뒤 속성을 바꾸면 해당 값의 수정 마스크는 유지되고, 새 값은 그 값의 시드/수정 마스크를 쓴다.
+
+- 2026-11-22 (스킨 속성 카테고리·사진값 비교·마스크 대상 통합, `feat/editor-attr-groups`): 편집기 오른쪽을 `스킨 속성` 중심으로 재구성했다.
+  - 카테고리(접이식): 상의(top_garment, inner_top, sleeve_len, closure_type, collar_type, pocket_type, hood, hood_fit), 하의, 머리, 액세서리(headwear+색, neckwear), 얼굴(beard). 14개 마스크 속성 전부 편집 가능하도록 `ATTRIBUTE_CHOICES` 확장, `MAX_ATTRIBUTE_CHANGES`는 필드 수+1로 자동.
+  - 속성별 사진 비교: `editor_payload`에 `photo_combo`(override 제외)와 `attribute_overrides` 추가. 각 행에 `사진: 티셔츠` 금색 배지+툴팁, 카테고리 `N 변경`, 헤더 `사진과 다른 속성 N개`, 모자색 변경 표시. `사진 추정값으로`로 전체 초기화.
+  - 마스크 대상 통합: 기존 `마스크 편집 대상` 2단 그리드는 job 모드에서 숨김(`#maskTargetTitle/#kindTabs/#valueTabs`). 대신 접힌 `고급 · 마스크 직접 편집`에 key/value select와 현재 대상 라벨. 각 속성 행의 `마스크` 버튼이 그 값의 마스크를 대상으로 잡고 섹션을 열며, 속성 저장 후 대상도 그 key/value로 자동 동기화. `직접 칠한 마스크 (N)`으로 이름 변경(속성 변경과 구분).
+  - 기준선 드리프트 수정: 속성 변경 시 `/editor`를 다시 받아 `state.masks`/`override_names`/history를 갱신하고 Undo를 비운다. 이전 baseline 시드가 가짜 override로 저장되던 문제(변경 후 5개 override) 해결, 이제 실제로 칠한 1개만 남는다. 저장 전 dirty 마스크는 속성 변경 전에 자동 저장.
+  - 검증: CDP — 카테고리 5개/14 select/14 마스크 버튼, 초기 `사진 추정값 그대로`, dress 변경 → `사진: 티셔츠`·`1 변경`·헤더 1개·대상 `top_garment.dress`, 머리 행 `마스크` → 고급 열림·`hair_style.bob`, 헤어 텍셀 지우기 → `직접 칠한 마스크 (1)`·자동 저장 rev2, 고급에서 `neckwear.tie`로 이동, reset → `tee`·배지 0(칠한 마스크는 유지), 390px overflow 0, 콘솔 에러 0. `pytest -q` → **819 passed**.
+  - 리스크: 속성 변경 시 마스크/Undo가 서버 기준으로 새로고침된다(속성 변경 전 dirty는 저장). `hood_fit`처럼 마스크 값이 일부뿐인 속성은 `마스크` 버튼이 유효한 첫 값(shallow)으로 폴백한다.
