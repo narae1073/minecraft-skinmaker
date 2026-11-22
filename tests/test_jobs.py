@@ -234,3 +234,20 @@ def test_baseline_masks_stay_cached_across_attribute_changes_and_preview_skips_f
     fast_png, _ = jobs.preview_png(record, 1, None)
     full_png, _ = jobs.preview_png(record, 1, jobs.effective_masks(record, 1))
     assert fast_png == full_png
+
+
+def test_reset_attributes_can_reset_one_key_without_touching_the_rest():
+    record, _observed, _attrs = _record()
+    jobs.set_attributes(record, {"top_garment": "dress", "hair_style": "bun"})
+    jobs.set_headwear(record, "cap", "#ff0000")
+    jobs.reset_attributes(record, ["top_garment"])
+    assert "top_garment" not in record["attr_overrides"]
+    assert record["attr_overrides"]["hair_style"] == "bun"
+    assert record["attr_overrides"]["headwear"] == "cap"
+    assert record["hat_color"] == "#ff0000"
+    jobs.reset_attributes(record, ["headwear"])
+    assert "headwear" not in record["attr_overrides"]
+    assert "hat_color" not in record
+    assert record["attr_overrides"]["hair_style"] == "bun"
+    with pytest.raises(ValueError):
+        jobs.reset_attributes(record, ["pattern"])

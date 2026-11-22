@@ -231,10 +231,23 @@ def set_attributes(record: dict, changes: dict, hat_color: str | None = None) ->
     return record
 
 
-def reset_attributes(record: dict) -> dict:
-    """Drop every per-skin attribute choice (headwear draft masks stay editable)."""
-    record.pop("attr_overrides", None)
-    record.pop("hat_color", None)
+def reset_attributes(record: dict, keys: list[str] | None = None) -> dict:
+    """Drop per-skin attribute choices (headwear draft masks stay editable).
+
+    ``keys`` resets only those attributes; without it, every choice is cleared.
+    Resetting headwear also drops the per-skin hat colour."""
+    if keys is None:
+        record.pop("attr_overrides", None)
+        record.pop("hat_color", None)
+        return record
+    overrides = dict(record.get("attr_overrides") or {})
+    for key in keys:
+        if key != "headwear" and key not in ATTRIBUTE_CHOICES:
+            raise ValueError(key)
+        overrides.pop(key, None)
+    if "headwear" in keys:
+        record.pop("hat_color", None)
+    record["attr_overrides"] = {k: v for k, v in overrides.items() if v is not None}
     return record
 
 

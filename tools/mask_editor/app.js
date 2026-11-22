@@ -948,10 +948,8 @@ function bindButtons() {
 
 // Job mode: save the edit, then render the skin from it (a new file the owner gets).
 function addJobRenderButton() {
-  const bar = document.querySelector('.toolbar');
+  const bar = document.querySelector('#headerActions');
   if (!bar) return;
-  const wrap = document.createElement('div');
-  wrap.className = 'group';
   const btn = document.createElement('button');
   btn.className = 'primary';
   btn.textContent = '저장하고 스킨 만들기';
@@ -979,8 +977,7 @@ function addJobRenderButton() {
       btn.disabled = false;
     }
   };
-  wrap.append(btn, link);
-  bar.prepend(wrap);
+  bar.append(btn, link);
 }
 
 // Job mode: attribute editing grouped by body area, plus mask targeting.
@@ -1101,10 +1098,21 @@ function buildJobAttributesPanel() {
     maskBtn.textContent = '마스크';
     maskBtn.title = '이 값의 마스크를 칠합니다 (고급 섹션 열기)';
     maskBtn.onclick = () => setMaskTarget(key, sel.value, true);
-    controls.append(sel, maskBtn);
+    const resetBtn = document.createElement('button');
+    resetBtn.type = 'button';
+    resetBtn.className = 'attrResetBtn';
+    resetBtn.textContent = '↩';
+    resetBtn.title = '사진 추정값으로 되돌리기';
+    resetBtn.setAttribute('aria-label', `${JOB_ATTR_LABELS[key] || key} 사진 추정값으로 되돌리기`);
+    resetBtn.disabled = true;
+    resetBtn.onclick = () => {
+      if (key === 'headwear') state.jobHatColor = null;
+      apply({ reset_attributes: [key], index: JOB_INDEX }, `${JOB_ATTR_LABELS[key] || key} 되돌림`);
+    };
+    controls.append(sel, maskBtn, resetBtn);
     row.append(label, controls);
     selects[key] = sel;
-    rows[key] = { row, diff, sel };
+    rows[key] = { row, diff, sel, resetBtn };
     return row;
   };
 
@@ -1180,6 +1188,7 @@ function buildJobAttributesPanel() {
         const base = photo[key];
         const changed = Boolean(base) && row.sel.value !== base;
         row.row.classList.toggle('changed', changed);
+        if (row.resetBtn) row.resetBtn.disabled = !changed;
         const photoText = attrText(key, base);
         row.diff.textContent = changed ? `사진: ${photoText}` : '';
         row.diff.title = changed ? `변경됨 · 사진 추정값: ${photoText}` : '';
@@ -1217,6 +1226,7 @@ function buildJobAttributesPanel() {
     busy = true;
     reset.disabled = true;
     for (const sel of Object.values(selects)) sel.disabled = true;
+    for (const row of Object.values(rows)) if (row.resetBtn) row.resetBtn.disabled = true;
     if (color) color.disabled = true;
     try {
       if (state.dirty) await save();
@@ -1256,6 +1266,7 @@ function buildJobAttributesPanel() {
       reset.disabled = false;
       for (const sel of Object.values(selects)) sel.disabled = false;
       if (color) color.disabled = selects.headwear.value === 'none';
+      updateDiff();
       busy = false;
       updateStatus();
     }
@@ -1388,13 +1399,16 @@ function addJobPanels() {
   stack.append(buildJobAttributesPanel());
 
   // 3. Masks that differ from this candidate's baseline.
-  const overrides = document.createElement('div');
+  const overrides = document.createElement('details');
   overrides.className = 'group jobOverrides';
   const ovTitle = document.createElement('span');
   ovTitle.className = 'gtitle';
   const ovList = document.createElement('div');
   ovList.className = 'jobOverrideList';
-  overrides.append(ovTitle, ovList);
+  const ovSummary = document.createElement('summary');
+  ovSummary.append(ovTitle);
+  overrides.open = (state.jobOverrideNames || []).length > 0;
+  overrides.append(ovSummary, ovList);
   const renderOverrides = () => {
     const names = state.jobOverrideNames || [];
     ovTitle.textContent = `직접 칠한 마스크 (${names.length})`;
@@ -1439,7 +1453,7 @@ function addJobPanels() {
   stack.append(overrides);
 
   // 4. Saved revision history (newest first).
-  const history = document.createElement('div');
+  const history = document.createElement('details');
   history.className = 'group jobHistory';
   const hTitle = document.createElement('span');
   hTitle.className = 'gtitle';
@@ -1494,10 +1508,19 @@ function addJobPanels() {
     }
   };
   hRow.append(hSelect, hBtn);
-  history.append(hTitle, hRow);
+  const hSummary = document.createElement('summary');
+  hSummary.append(hTitle);
+  history.append(hSummary, hRow);
   renderHistory();
   stack.append(history);
-  stack.append(buildJobMaskTargetPanel());
+  const advanced = buildJobMaskTargetPanel();
+  const faceActions = document.getElementById('faceActions');
+  if (faceActions) advanced.append(faceActions);
+  const seedBtn = document.getElementById('seedBtn');
+  if (seedBtn) advanced.append(seedBtn);
+  const fileSection = document.getElementById('fileSection');
+  if (fileSection) fileSection.hidden = true;
+  stack.append(advanced);
 
   updateJobMeta = (j) => {
     if (Array.isArray(j.override_names)) {

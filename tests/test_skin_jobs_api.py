@@ -180,7 +180,8 @@ def test_editor_page_is_owner_only_and_only_serves_editor_assets(_isolated):
     assert "/edit/lib/app.js" in page.text and "/static/" not in page.text
     # Job mode saves to this skin's overlay, not the developer draft file.
     assert "out/mask_editor/attribute_masks.json" not in page.text
-    assert "저장은 이 스킨에만 적용됩니다" in page.text
+    # The compact header still carries the save action.
+    assert 'id="saveBtn"' in page.text
     assert TestClient(A.app).get(f"/edit/{token}").status_code == 403
     assert owner.get("/edit/lib/app.js").status_code == 200
     assert owner.get("/edit/lib/vendor/three.module.js").status_code == 200
@@ -470,3 +471,30 @@ def test_attributes_post_returns_preview_skin_and_hat_mask_in_one_round_trip(_is
     assert "headwear.cap" in second_body["override_names"]
     assert owner.post(f"/api/v1/jobs/{token}/attributes",
                       json={"attributes": {"top_garment": "tee"}, "index": 9}).status_code == 404
+
+
+def test_reset_attributes_list_resets_only_the_requested_attributes(_isolated):
+    owner = TestClient(A.app)
+    token = _generate(owner).json()["data"]["job"]["id"]
+    r = owner.post(f"/api/v1/jobs/{token}/attributes",
+                   json={"attributes": {"top_garment": "dress", "hair_style": "bun", "headwear": "cap"},
+                         "hat_color": "#ff0000"})
+    assert r.status_code == 200, r.text
+    partial = owner.post(f"/api/v1/jobs/{token}/attributes",
+                         json={"reset_attributes": ["top_garment"], "index": 1})
+    assert partial.status_code == 200, partial.text
+    body = partial.json()
+    assert "top_garment" not in body["overrides"]
+    assert body["overrides"]["hair_style"] == "bun"
+    assert body["overrides"]["headwear"] == "cap"
+    assert body["attributes"]["hair_style"] == "bun"
+    assert body["skin"].startswith("data:image/png;base64,")
+    hat = owner.post(f"/api/v1/jobs/{token}/attributes",
+                     json={"reset_attributes": ["headwear"], "index": 1})
+    assert hat.status_code == 200, hat.text
+    assert "headwear" not in hat.json()["overrides"]
+    assert hat.json()["hat_color"] is None
+    assert owner.post(f"/api/v1/jobs/{token}/attributes",
+                      json={"reset_attributes": ["pattern"]}).status_code == 400
+    assert owner.post(f"/api/v1/jobs/{token}/attributes",
+                      json={"reset_attributes": ["top_garment"], "index": 9}).status_code == 404
