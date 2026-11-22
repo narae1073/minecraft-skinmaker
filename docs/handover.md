@@ -777,3 +777,8 @@ S0 quality/face detection (YuNet) → S1 colour measurement (white-balance + ban
   - 크기(빌드 기준): 이전 단일 엔트리 `1,197.34 kB` (gzip `331.59 kB`) → 엔트리 `30.93` + react `239.10` + runtime `0.71` = **270.74 kB** (gzip **87.09 kB**), three `923.54 kB` (gzip 244.97)는 결과/편집기에서만 로드. 초기 JS raw -77%, gzip -74%. `index.html`에 three modulepreload 없음.
   - 검증: 로컬 프로덕션 빌드 CDP — 초기 로드에 three 요청 0·canvas 0, 생성 후 `three-*.js` 1회 요청·canvas 1·캡처 버튼 활성, 캡처 다운로드 `skin_preview_1.png`(PNG 시그니처) 생성, 사이드바 편집 모달(`SkinEditor` lazy) 정상. Slow 3G(60KB/s)에서 fallback 문구/비활성 캡처 확인, 390px 가로 스크롤 0, 콘솔 에러 0. lint/build green.
   - 리스크: 결과 카드에 짧은 스켈레톤이 보일 수 있다(로컬 즉시, 느린 회선에서 1~2초). 첫 생성 직후 캡처 버튼은 뷰어 마운트 전까지 비활성.
+
+- 2026-11-22 (프론트 단위 테스트, `feat/frontend-tests`): `vitest` 5.1.1을 devDependency로 추가하고 `npm test`(`vitest run`)를 도입했다. `vite.config.js`는 `vitest/config`의 `defineConfig`로 바꾸고 `test.environment=node`, `src/**/*.test.{js,jsx}`를 수집한다.
+  - `frontend/src/skinHistory.test.js` 12개: 유효 항목 정규화, URL 화이트리스트(`/static/skins/*.png`만), 잘못된/미래/만료 timestamp, 14일 경계(정확히 14일 통과·+1ms 탈락), flatUrl/steps/model/jobId 정리, 200자 절단, 100개 cap(최신 유지), JSON 손상/storage 예외, 저장 시 sanitise.
+  - CI `web` 잡에 `npm test` 단계를 추가했고 `AGENTS.md` 커맨드에도 넣었다. 이후 프론트 PR은 lint/test/build를 모두 통과해야 한다.
+  - 검증: `npm test` → **12 passed** (188ms), `npm run lint` clean, `npm run build` green.

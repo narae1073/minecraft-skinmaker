@@ -8,6 +8,7 @@ this file is the shared contract.
 ```bash
 .venv/bin/python -m pytest -q          # full suite (~3 min). Never pipe to tail.
 cd frontend && npm run lint            # required before frontend commits
+cd frontend && npm test                # vitest (vitest run), required before frontend commits
 cd frontend && npm run build           # production build (backend serves dist/)
 .venv/bin/python -m uvicorn backend.app:app --host 127.0.0.1 --port 8001
 ```
