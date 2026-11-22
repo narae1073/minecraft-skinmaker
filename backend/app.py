@@ -481,13 +481,18 @@ async def job_attributes(token: str, request: Request):
 
     Body: ``{"attributes": {"top_garment": "hoodie"}, "hat_color": "#rrggbb"}``,
     the legacy ``{"headwear": "cap", "hat_color": ...}``, or ``{"reset": true}``
-    to drop every override and go back to the photo's values.
+    to drop every override and go back to the photo's values. Also returns the
+    re-rendered preview PNG so the editor can update in a single round-trip.
     """
+    import base64
     _require_json(request)
     record = _job_for_owner(request, token)
     body = await request.json()
     if not isinstance(body, dict):
         fail(400, "bad_attributes", "JSON 객체가 필요해요.")
+    index = _candidate_index(body.get("index"))
+    if JOBS.candidate(record, index) is None:
+        fail(404, "not_found", "그 후보가 없어요.")
     if body.get("reset"):
         JOBS.reset_attributes(record)
     else:
@@ -504,13 +509,22 @@ async def job_attributes(token: str, request: Request):
             fail(400, "bad_attributes", f"지원하지 않는 속성 또는 값: {exc}")
     record["revision"] = int(record.get("revision", 0)) + 1
     JOBS.save_record(record)
-    try:
-        effective = dict(JOBS.candidate_attributes(record, 1).values)
-    except KeyError:
-        effective = {}
+    effective = dict(JOBS.candidate_attributes(record, index).values)
+    png, problems = await asyncio.to_thread(JOBS.preview_png, record, index, None)
+    headwear = (record.get("attr_overrides") or {}).get("headwear")
+    shared = record.get("overlay") or {}
+    hat_key = f"headwear.{headwear}"
+    hat_mask = {hat_key: shared[hat_key]} if headwear in JOBS.HAT_DRAFT_PATHS and hat_key in shared else None
+    override_names = (JOBS.override_names(record, index)
+                      if (record["id"], index) in JOBS._BASELINE_CACHE
+                      else sorted(JOBS.effective_overlay(record, index)))
     return {"ok": True, "overrides": record.get("attr_overrides") or {},
             "attributes": effective, "hat_color": record.get("hat_color"),
-            "revision": record["revision"]}
+            "revision": record["revision"],
+            "skin": "data:image/png;base64," + base64.b64encode(png).decode("ascii"),
+            "problems": problems,
+            "hat_mask": hat_mask,
+            "override_names": override_names}
 
 
 @app.get("/api/v1/jobs/{token}/editor")

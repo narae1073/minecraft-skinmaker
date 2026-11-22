@@ -214,3 +214,23 @@ def test_extra_attributes_are_editable_and_photo_values_stay_separate():
     assert photo.get("neckwear") == base.get("neckwear")
     assert photo.get("beard") == base.get("beard")
     assert photo.get("hood") == base.get("hood")
+
+
+def test_baseline_masks_stay_cached_across_attribute_changes_and_preview_skips_flat(monkeypatch):
+    record, _observed, _attrs = _record()
+    jobs._BASELINE_CACHE.clear()
+    first = jobs.baseline_masks(record, 1)
+
+    def fail_if_reseeded():
+        raise AssertionError("seed_masks should not run when attributes change")
+
+    monkeypatch.setattr(jobs.AS, "seed_masks", fail_if_reseeded)
+    jobs.set_attributes(record, {"top_garment": "dress", "bottom_garment": "skirt"})
+    second = jobs.baseline_masks(record, 1)
+    assert second is first
+    assert jobs.override_names(record, 1) == []
+
+    # preview_png(None) renders directly from the saved overlay and skips the flat pass.
+    fast_png, _ = jobs.preview_png(record, 1, None)
+    full_png, _ = jobs.preview_png(record, 1, jobs.effective_masks(record, 1))
+    assert fast_png == full_png
