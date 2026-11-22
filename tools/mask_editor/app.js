@@ -972,22 +972,45 @@ function addJobRenderButton() {
   bar.prepend(wrap);
 }
 
-// Job mode: clothing/headwear edits that re-render without another VLM call.
-const JOB_ATTR_LABELS = { top_garment: '상의', bottom_garment: '하의', sleeve_len: '소매', headwear: '모자' };
+// Job mode: clothing/hair/headwear edits that re-render without another VLM call.
+const JOB_ATTR_LABELS = {
+  top_garment: '상의', bottom_garment: '하의', sleeve_len: '소매',
+  hair_style: '머리 스타일', hair_length: '머리 길이', headwear: '모자',
+};
 const JOB_ATTR_TEXT = {
-  tee: '티셔츠', hoodie: '후디', jacket: '재킷', shirt: '셔츠', sweater: '스웨터',
-  vest: '조끼', uniform: '교복', apron: '앞치마', overalls: '멜빵', dress: '원피스',
-  jeans: '청바지', pants: '바지', shorts: '반바지', skirt: '스커트',
-  short: '반팔', three_quarter: '7부', long: '긴팔',
-  none: '없음', cap: 'cap', beanie: 'beanie',
+  top_garment: {
+    tee: '티셔츠', hoodie: '후디', jacket: '재킷', shirt: '셔츠', sweater: '스웨터',
+    vest: '조끼', uniform: '교복', apron: '앞치마', overalls: '멜빵', dress: '원피스',
+    none: '없음',
+  },
+  bottom_garment: { jeans: '청바지', pants: '바지', shorts: '반바지', skirt: '스커트', none: '없음' },
+  sleeve_len: { none: '없음', short: '반팔', three_quarter: '7부', long: '긴팔' },
+  hair_style: {
+    short: '숏', pixie: '픽시', bob: '보브', long_straight: '롱 스트레이트',
+    long_wavy: '롱 웨이브', curly: '컬리', ponytail: '포니테일', bun: '번',
+  },
+  hair_length: { short: '숏', medium: '미디엄', long: '롱', very_long: '베리 롱' },
+  headwear: { none: '없음', cap: 'cap', beanie: 'beanie' },
 };
 const JOB_ATTR_FIELDS = [
   ['top_garment', ['tee', 'hoodie', 'jacket', 'shirt', 'sweater', 'vest', 'uniform', 'apron', 'overalls', 'dress', 'none']],
   ['bottom_garment', ['jeans', 'pants', 'shorts', 'skirt', 'none']],
   ['sleeve_len', ['none', 'short', 'three_quarter', 'long']],
+  ['hair_style', ['short', 'pixie', 'bob', 'long_straight', 'long_wavy', 'curly', 'ponytail', 'bun']],
+  ['hair_length', ['short', 'medium', 'long', 'very_long']],
   ['headwear', ['none', 'cap', 'beanie']],
 ];
 const HAT_DEFAULT = { cap: '#e9eef3', beanie: '#1f1f1f' };
+const HAIR_SHORT_STYLES = new Set(['short', 'pixie']);
+const HAIR_LONG_STYLES = new Set(['long_straight', 'long_wavy', 'ponytail', 'bun']);
+// Same advisory as the standalone editor: contradictory pairs clip each other.
+function jobHairWarning(style, length) {
+  if ((HAIR_SHORT_STYLES.has(style) && (length === 'long' || length === 'very_long'))
+      || (HAIR_LONG_STYLES.has(style) && length === 'short')) {
+    return '머리 스타일과 길이가 맞지 않아 머리가 잘릴 수 있어요';
+  }
+  return '';
+}
 
 function buildJobAttributesPanel() {
   const panel = document.createElement('div');
@@ -1011,7 +1034,7 @@ function buildJobAttributesPanel() {
       if (enums.length && !enums.includes(v)) continue;
       const o = document.createElement('option');
       o.value = v;
-      o.textContent = JOB_ATTR_TEXT[v] || v;
+      o.textContent = (JOB_ATTR_TEXT[key] && JOB_ATTR_TEXT[key][v]) || v;
       sel.append(o);
     }
     sel.value = (state.combo && state.combo[key]) || 'none';
@@ -1075,7 +1098,9 @@ function buildJobAttributesPanel() {
       syncFrom(j.attributes);
       if (j.hat_color) { color.value = j.hat_color; state.jobHatColor = j.hat_color; }
       if (j.revision != null) { state.savedRevision = j.revision; saveBadge(); }
-      status.textContent = `${label} 저장됨 · revision ${j.revision}`;
+      const hairWarn = jobHairWarning(selects.hair_style.value, selects.hair_length.value);
+      status.textContent = `${label} 저장됨 · revision ${j.revision}${hairWarn ? ' ⚠ ' + hairWarn : ''}`;
+      status.classList.toggle('warn', Boolean(hairWarn));
       state.notice = '속성 저장됨';
       schedulePreview(0);
     } catch (e) {

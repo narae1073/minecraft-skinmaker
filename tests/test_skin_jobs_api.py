@@ -292,7 +292,7 @@ def test_clothing_attributes_are_per_skin_and_validated(_isolated):
     assert owner.post(f"/api/v1/jobs/{token}/attributes",
                       json={"attributes": {"top_garment": "spacesuit"}}).status_code == 400
     assert owner.post(f"/api/v1/jobs/{token}/attributes",
-                      json={"attributes": {"hair_style": "curly"}}).status_code == 400
+                      json={"attributes": {"beard": "full"}}).status_code == 400
     assert owner.post(f"/api/v1/jobs/{token}/attributes",
                       json={"attributes": {f"k{i}": "x" for i in range(9)}}).status_code == 400
     assert owner.post(f"/api/v1/jobs/{token}/attributes", json={}).status_code == 400
@@ -394,3 +394,29 @@ def test_editor_page_opens_each_candidate_by_index(_isolated):
     assert "MASK_EDITOR_INDEX = 2" in html and 'data-index="2"' in html
     assert "MASK_EDITOR_JOB" in html
     assert owner.get(f"/edit/{token}?index=9").status_code == 404
+
+
+def test_hair_style_and_length_rerender_without_new_overrides(_isolated):
+    owner = TestClient(A.app)
+    token = _generate(owner).json()["data"]["job"]["id"]
+    base = owner.get(f"/api/v1/jobs/{token}/editor?index=1").json()
+    original = (_isolated / f"{token}_c1.png").read_bytes()
+    style = "bun" if base["combo"]["hair_style"] != "bun" else "long_straight"
+    length = "very_long" if base["combo"]["hair_length"] != "very_long" else "short"
+    r = owner.post(f"/api/v1/jobs/{token}/attributes",
+                   json={"attributes": {"hair_style": style, "hair_length": length}})
+    assert r.status_code == 200, r.text
+    assert r.json()["attributes"]["hair_style"] == style
+    assert r.json()["attributes"]["hair_length"] == length
+    editor = owner.get(f"/api/v1/jobs/{token}/editor?index=1").json()
+    assert editor["combo"]["hair_style"] == style
+    assert editor["combo"]["hair_length"] == length
+    # Changing hair must not turn every seeded hair mask into a stored override.
+    assert editor["override_names"] == base["override_names"]
+    assert owner.post(f"/api/v1/jobs/{token}/render", json={"index": 1}).status_code == 200
+    assert (_isolated / f"{token}_e1_c1.png").read_bytes() != original
+    assert owner.post(f"/api/v1/jobs/{token}/attributes",
+                      json={"attributes": {"hair_length": "floor"}}).status_code == 400
+    reset = owner.post(f"/api/v1/jobs/{token}/attributes", json={"reset": True})
+    assert reset.status_code == 200
+    assert reset.json()["attributes"]["hair_style"] == base["combo"]["hair_style"]
