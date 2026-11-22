@@ -771,3 +771,9 @@ S0 quality/face detection (YuNet) → S1 colour measurement (white-balance + ban
   - job 모드에서 내용이 없는 `조합 미리보기` 제목을 숨기고(`#comboTitle`), 모바일 grid를 `minmax(0, 1fr)`로 바꿔 390px에서 가로 스크롤을 없앴다. `tools/mask_editor/app.py`에 `/fonts` mount와 잔디 파비콘 라우트를 추가해 standalone dev 에디터도 같은 폰트/아이콘을 쓴다.
   - 검증: mock 생성 → `/edit/{id}` job 모드 CDP에서 body `rgb(20,16,12)`, NeoDunggeunmo 로드, panel `rgb(36,31,26)`, viewer/atlas `rgb(23,19,15)`, 저장 버튼 `rgb(47,125,79)`, 일반 버튼 `rgb(107,107,107)`, active 금색; `#comboPanel`/`#comboTitle`/`#srcBtn` hidden; 390px layout viewport 390·overflow 0·콘솔 에러 0. `node --check` 3종 + `atlas.test.mjs` 7 passed; `pytest -q` → **804 passed in 157.14s**.
   - 리스크: 시각 변경만이라 편집 동작/마스크 색은 불변. `/edit/lib` 스크립트는 1시간 캐시되므로 배포 후 열려 있던 탭은 hard refresh가 필요할 수 있다.
+
+- 2026-11-22 (3D 뷰어 지연 로딩, `feat/lazy-viewer`): 첫 화면 번들에서 three.js를 분리했다. `Skin3DViewer`와 `SkinEditor`를 `React.lazy` + `Suspense`로 바꾸고, `vite.config.js` `manualChunks`로 three/react 벤더 청크를 나눴다.
+  - 결과 카드의 lazy fallback은 같은 지형 배경의 `.viewer-skeleton`(텍스트 `3D 불러오는 중…`, 1.4s pulse, `prefers-reduced-motion`에서 정지). 뷰어가 마운트되기 전에는 캡처 버튼을 `disabled`로 잠근다.
+  - 크기(빌드 기준): 이전 단일 엔트리 `1,197.34 kB` (gzip `331.59 kB`) → 엔트리 `30.93` + react `239.10` + runtime `0.71` = **270.74 kB** (gzip **87.09 kB**), three `923.54 kB` (gzip 244.97)는 결과/편집기에서만 로드. 초기 JS raw -77%, gzip -74%. `index.html`에 three modulepreload 없음.
+  - 검증: 로컬 프로덕션 빌드 CDP — 초기 로드에 three 요청 0·canvas 0, 생성 후 `three-*.js` 1회 요청·canvas 1·캡처 버튼 활성, 캡처 다운로드 `skin_preview_1.png`(PNG 시그니처) 생성, 사이드바 편집 모달(`SkinEditor` lazy) 정상. Slow 3G(60KB/s)에서 fallback 문구/비활성 캡처 확인, 390px 가로 스크롤 0, 콘솔 에러 0. lint/build green.
+  - 리스크: 결과 카드에 짧은 스켈레톤이 보일 수 있다(로컬 즉시, 느린 회선에서 1~2초). 첫 생성 직후 캡처 버튼은 뷰어 마운트 전까지 비활성.

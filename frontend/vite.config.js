@@ -6,6 +6,20 @@ const apiTarget = globalThis.process?.env?.VITE_API_TARGET || 'http://localhost:
 
 export default defineConfig({
   plugins: [react()],
+  build: {
+    rollupOptions: {
+      output: {
+        // three.js is only needed once a result card/editor opens; keep it out of
+        // the entry chunk so the first paint stays small.
+        manualChunks(id) {
+          if (!id.includes('node_modules')) return undefined
+          if (id.includes('three') || id.includes('@react-three')) return 'three'
+          if (id.includes('react') || id.includes('scheduler')) return 'react'
+          return undefined
+        },
+      },
+    },
+  },
   server: {
     proxy: {
       '/api': {
