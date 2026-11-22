@@ -73,10 +73,29 @@ export function texelAt(clientX, clientY, rect, zoom) {
   return { u, v };
 }
 
+// Cells covered by a square brush of `size` centred on (u, v), clipped to the
+// box's w×h. Even sizes anchor at (u, v) toward the bottom-right so the texel
+// under the cursor is always painted. Returned in row-major order.
+export function brushCells(u, v, size, w, h) {
+  const n = Math.max(1, Math.floor(Number(size) || 1));
+  const start = -Math.floor((n - 1) / 2);
+  const end = start + n - 1;
+  const cells = [];
+  for (let dv = start; dv <= end; dv++) {
+    for (let du = start; du <= end; du++) {
+      const x = u + du;
+      const y = v + dv;
+      if (x < 0 || y < 0 || x >= w || y >= h) continue;
+      cells.push([x, y]);
+    }
+  }
+  return cells;
+}
+
 // Draw the atlas. `cellOn(box, u, v)` and `hasMaskFor(box)` read the current
 // mask; `opts.activeBox`, `opts.hover` and `opts.base` are optional.
 export function drawAtlas(ctx, opts) {
-  const { boxes, zoom, cellOn, hasMaskFor, activeBox, hover, base } = opts;
+  const { boxes, zoom, cellOn, hasMaskFor, activeBox, hover, base, brush } = opts;
   const size = ATLAS * zoom;
   ctx.clearRect(0, 0, size, size);
   ctx.fillStyle = '#17130f';
@@ -162,13 +181,18 @@ export function drawAtlas(ctx, opts) {
     }
   }
 
-  // 6. Hover cursor.
+  // 6. Hover cursor. With a larger brush, outline the whole footprint.
   if (hover) {
+    const hoverBox = boxAt(boxes, hover.u, hover.v);
+    const cells = hoverBox
+      ? brushCells(hover.u - hoverBox.x, hover.v - hoverBox.y, brush || 1, hoverBox.w, hoverBox.h)
+          .map(([u, v]) => [u + hoverBox.x, v + hoverBox.y])
+      : [[hover.u, hover.v]];
     ctx.strokeStyle = '#f5d442';
     ctx.lineWidth = 2;
-    ctx.strokeRect(hover.u * zoom + 1, hover.v * zoom + 1, zoom - 2, zoom - 2);
+    for (const [u, v] of cells) ctx.strokeRect(u * zoom + 1, v * zoom + 1, zoom - 2, zoom - 2);
     ctx.strokeStyle = '#0b0907';
     ctx.lineWidth = 1;
-    ctx.strokeRect(hover.u * zoom + 0.5, hover.v * zoom + 0.5, zoom - 1, zoom - 1);
+    for (const [u, v] of cells) ctx.strokeRect(u * zoom + 0.5, v * zoom + 0.5, zoom - 1, zoom - 1);
   }
 }

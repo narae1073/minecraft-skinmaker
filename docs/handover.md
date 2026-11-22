@@ -789,3 +789,11 @@ S0 quality/face detection (YuNet) → S1 colour measurement (white-balance + ban
   - `historyView.test.js` 8개 추가 (vitest 총 20개): 14/13/1/0일 계산, 부분 일수 올림, 음수 클램프, 오늘/어제/n일 전, 미래 시각(clock skew), 2일 이하 경고, 만료 문구.
   - 검증: CDP에서 0·3·12·13·15일 전 항목을 seed → 15일 항목은 로드 시 sanitise로 제거(4개), `오늘 14일 남음`/`3일 전 11일 남음`/`12일 전 2일 남음`(금색)/`13일 전 1일 남음`(금색), 헤더 `(4)`, 확인 취소 후 4개 유지, 삭제 후 0개·빈 상태·안내·storage 0, 390px overflow 0, 콘솔 에러 0. lint/test/build green.
   - 리스크: 14일이 지난 항목은 이미 로드 시 사라지므로 `만료됨` 문구는 같은 세션에서 시간이 지난 경우에만 보인다.
+
+- 2026-11-22 (편집기 브러시/단축키/모바일 툴바, `feat/editor-ux`): 마스크 편집기에 브러시 크기 1/2/4px, undo 깊이 표시, 단축키 도움말, 모바일 sticky 툴바를 추가했다.
+  - `atlas.js` `brushCells(u, v, size, w, h)`(신규): 상자 안으로 클리핑된 정사각 브러시 셀. 짝수 크기는 오른쪽·아래로 앵커링해 커서 텍셀이 항상 칠해진다. hover 표시도 브러시 footprint 전체를 금색으로 외곽선 표시.
+  - `app.js`: `paintTexel`/`paintFaceCell`이 `brushCells`로 스탬프(면 밖으로 새지 않음), `state.brush`는 localStorage(`skinmaker.brush.v1`, 1/2/4만 허용)에 저장, `1`/`2`/`4` 키로 변경. Undo/Redo 버튼이 `Undo (N)`/`Redo (N)`로 깊이 표시. `?` 키나 툴바 `?` 버튼으로 단축키 오버레이(role=dialog, Escape 닫기, 열 때 닫기 버튼 포커스).
+  - `index.html`: 도구 그룹에 1px/2px/4px 버튼(`aria-pressed`), 기록 그룹에 `?`, 단축키 dl 오버레이, 980px 이하 툴바 `position: sticky`, 범례에 `1·2·4` 안내. `app.js` 캐시버스터 v=19.
+  - `atlas.test.mjs` 2개 추가(총 9): 센터/짝수 앵커/모서리·상자보다 큰 브러시 클리핑, 모든 셀이 상자 안이며 이상한 size는 1px로 폴백.
+  - 검증: job 모드 CDP — 초기 1px active/`aria-pressed=true`/status `1px`, 4px 클릭 후 storage `4`·active 1개·status `4px`, 4px 스탬프 `changes` 16셀·`Undo (1)`, undo 후 `Undo` 비활성·`Redo (1)`, 키 `2` → storage `2`, `?` 오버레이 10항목·포커스 `shortcutClose`·Escape 닫힘, 리로드 후 2px 복원, 390px overflow 0·툴바 `sticky`/`top:0`, 콘솔 에러 0. `node --check` 3종 + `atlas.test.mjs` 9 passed.
+  - 리스크: 4px 브러시는 8×8 얼굴에서 16셀을 한 번에 칠하므로 미세 조정은 1px로 해야 한다. `1`/`2`/`4` 키는 입력 필드 밖에서만 동작.

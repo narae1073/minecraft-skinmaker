@@ -124,6 +124,65 @@ main {
 
 .group label { color: var(--mc-ink); font-size: 16px; }
 
+.brushSizes { display: inline-flex; gap: 4px; }
+.brushBtn { padding: 6px 9px; font-size: 14px; }
+
+.shortcutOverlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1200;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  background: rgba(10, 8, 6, 0.78);
+}
+
+.shortcutOverlay[hidden] { display: none; }
+
+.shortcutPanel {
+  width: min(520px, 100%);
+  max-height: 80vh;
+  overflow: auto;
+  padding: 18px;
+  background: var(--mc-panel);
+  border: 2px solid var(--mc-edge);
+  box-shadow: var(--mc-bevel);
+}
+
+.shortcutHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  border-bottom: 2px solid var(--mc-edge);
+  padding-bottom: 10px;
+  margin-bottom: 12px;
+}
+
+.shortcutHeader h2 {
+  margin: 0;
+  font-size: 24px;
+  font-weight: 400;
+  text-shadow: 2px 2px 0 #000;
+}
+
+.shortcutList {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 8px 16px;
+  margin: 0;
+}
+
+.shortcutList dt {
+  color: var(--mc-gold);
+  white-space: nowrap;
+}
+
+.shortcutList dd {
+  margin: 0;
+  color: var(--mc-ink-dim);
+}
+
 button:disabled { opacity: 0.55; cursor: not-allowed; }
 
 .fileBtn {
@@ -349,6 +408,20 @@ input:focus-visible {
   #viewer { height: 58vh; min-height: 380px; }
   #atlasWrap { max-height: none; }
   .controls { max-height: none; }
+  .toolbar {
+    position: sticky;
+    top: 0;
+    z-index: 30;
+    margin: -8px -8px 8px;
+    padding: 8px;
+    background: var(--mc-bg);
+    border-bottom: 2px solid var(--mc-edge);
+  }
+}
+
+@media (max-width: 480px) {
+  .shortcutList { grid-template-columns: 1fr; gap: 2px; }
+  .shortcutList dd { margin-bottom: 8px; }
 }
 
 </style>
@@ -379,6 +452,11 @@ input:focus-visible {
         <span class="gtitle">도구</span>
         <button id="paintBtn" class="active">칠하기</button>
         <button id="eraseBtn">지우개</button>
+        <span class="brushSizes" role="group" aria-label="브러시 크기">
+          <button class="brushBtn" data-brush="1" aria-pressed="true" title="1px (키 1)">1px</button>
+          <button class="brushBtn" data-brush="2" aria-pressed="false" title="2px (키 2)">2px</button>
+          <button class="brushBtn" data-brush="4" aria-pressed="false" title="4px (키 4)">4px</button>
+        </span>
         <label><input type="checkbox" id="mirror" /> 좌우 미러</label>
       </div>
       <div class="group">
@@ -392,13 +470,14 @@ input:focus-visible {
         <button id="undoBtn" disabled title="Ctrl+Z">Undo</button>
         <button id="redoBtn" disabled title="Ctrl+Y / Ctrl+Shift+Z">Redo</button>
         <button id="resetBtn" title="모든 마스크를 절차적 seed(초기 상태)로 — 조합 설정은 유지">초기 상태로</button>
+        <button id="shortcutBtn" title="단축키 (?)" aria-label="단축키 도움말">?</button>
       </div>
     </div>
     <div id="atlasWrap"><canvas id="atlasCanvas" width="512" height="512"></canvas></div>
     <div class="legend">
       <span><span class="swatch l1"></span> L1 (\ 사선, 파랑)</span>
       <span><span class="swatch l2"></span> L2 (/ 사선, 주황)</span>
-      <span>우클릭 드래그 = 지우기 · 휠 = 확대/축소</span>
+      <span>우클릭 드래그 = 지우기 · 휠 = 확대/축소 · 1·2·4 = 브러시 크기</span>
     </div>
   </section>
   <section class="panel editor">
@@ -447,6 +526,26 @@ input:focus-visible {
 <script type="importmap">
 {"imports":{"three":"/static/vendor/three.module.js","three/addons/":"/static/vendor/"}}
 </script>
-<script type="module" src="/static/app.js?v=18"></script>
+<div id="shortcutOverlay" class="shortcutOverlay" hidden>
+  <div class="shortcutPanel" role="dialog" aria-modal="true" aria-labelledby="shortcutTitle">
+    <div class="shortcutHeader">
+      <h2 id="shortcutTitle">단축키</h2>
+      <button id="shortcutClose" class="close-btn" aria-label="단축키 닫기">✕</button>
+    </div>
+    <dl class="shortcutList">
+      <dt>1 / 2 / 4</dt><dd>브러시 크기 1px · 2px · 4px</dd>
+      <dt>좌클릭 드래그</dt><dd>칠하기</dd>
+      <dt>우클릭 드래그 · Shift</dt><dd>지우기</dd>
+      <dt>휠</dt><dd>확대 / 축소</dd>
+      <dt>3D: 좌클릭</dt><dd>칠하기 (면 단위)</dd>
+      <dt>3D: 우클릭 드래그</dt><dd>회전</dd>
+      <dt>Ctrl+Z</dt><dd>되돌리기</dd>
+      <dt>Ctrl+Y · Ctrl+Shift+Z</dt><dd>다시 실행</dd>
+      <dt>Ctrl+S</dt><dd>저장</dd>
+      <dt>?</dt><dd>이 도움말 열기 / 닫기</dd>
+    </dl>
+  </div>
+</div>
+<script type="module" src="/static/app.js?v=19"></script>
 </body>
 </html>
