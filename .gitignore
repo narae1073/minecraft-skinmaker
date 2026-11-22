@@ -16,3 +16,8 @@ opencode.jsonc
 deploy/dev/.env
 deploy/dev/authorized_keys
 backend/private/
+
+# Local-only QA scratch (see docs/handover.md "Where things live")
+docs/assets/qa/qa-overview.png
+docs/assets/qa/qa-explainer.png
+scripts/build_pack_review.py
