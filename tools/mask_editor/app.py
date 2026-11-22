@@ -232,6 +232,7 @@ async def no_store_static(request: Request, call_next):
 
 app.mount("/static", StaticFiles(directory=ROOT), name="static")
 app.mount("/out", StaticFiles(directory=OUT), name="out")
+app.mount("/fonts", StaticFiles(directory=REPO / "frontend" / "public" / "fonts"), name="fonts")
 
 
 def _migrate_draft_if_legacy() -> None:
@@ -324,6 +325,11 @@ def _defaults() -> dict:
 @app.get("/")
 def index():
     return FileResponse(ROOT / "index.html", headers={"Cache-Control": "no-store"})
+
+
+@app.get("/favicon-minecraft.svg")
+def favicon():
+    return FileResponse(REPO / "frontend" / "public" / "favicon-minecraft.svg", media_type="image/svg+xml")
 
 
 def _atlas_rects() -> dict:

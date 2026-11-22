@@ -827,7 +827,7 @@ function addJobRenderButton() {
   const link = document.createElement('a');
   link.target = '_blank';
   link.rel = 'noopener';
-  link.style.fontSize = '13px';
+  link.style.fontSize = '16px';
   btn.onclick = async () => {
     btn.disabled = true;
     try {
@@ -849,7 +849,7 @@ function addJobRenderButton() {
   };
   // Headwear for this skin only: none, a cap, or a beanie, with a colour for a hat.
   const hat = document.createElement('label');
-  hat.style.fontSize = '13px';
+  hat.style.fontSize = '16px';
   hat.append('모자 ');
   const sel = document.createElement('select');
   for (const [v, t] of [['none', '없음'], ['cap', 'cap'], ['beanie', 'beanie']]) {

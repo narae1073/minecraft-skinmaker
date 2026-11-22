@@ -764,3 +764,10 @@ S0 quality/face detection (YuNet) → S1 colour measurement (white-balance + ban
   - SVG는 `currentColor`·`aria-hidden`이라 hover 금색이 함께 적용된다.
   - 검증: CDP 1440/390에서 선택 사진 112×112, SVG가 버튼의 마지막 자식·16×16, `href`/`target`/`rel` 유지; overflow/콘솔 에러 0. lint/build green; `pytest -q` → **804 passed in 154.20s**.
   - 리스크: 좁은 화면에서 선택 사진 행이 wrap될 수 있지만 중앙 정렬·가로 스크롤 없음.
+
+- 2026-11-22 (편집기 MC 테마, `feat/editor-mc-theme`): `/edit/{id}` 마스크 편집기(`tools/mask_editor`)를 메인 앱과 같은 MC GUI 테마로 맞췄다.
+  - `index.html` 인라인 CSS 교체: NeoDunggeunmo(self-hosted), 다크 팔레트(`#14100c`/`#241f1a`), 2px 검정 테두리 + inset bevel, 모서리 반경 0. 버튼은 회색 기본·`저장`/`이 스킨 만들기` 초록 primary·active는 금색 테두리/눌린 bevel. select/checkbox/color/file 입력과 스크롤바를 다크 슬롯으로, 포커스는 금색 링.
+  - `viewer.js` 3D scene 배경 `#eef1f4` → `#17130f`; `atlas.js`는 아틀라스 배경·빈 면 veil·격자/면 테두리·라벨·hover를 다크로 (L1 파랑 / L2 주황 마스크 색은 유지); `app.js`는 job 모드에서 동적으로 붙는 링크·모자 라벨 폰트를 13 → 16px로 통일.
+  - job 모드에서 내용이 없는 `조합 미리보기` 제목을 숨기고(`#comboTitle`), 모바일 grid를 `minmax(0, 1fr)`로 바꿔 390px에서 가로 스크롤을 없앴다. `tools/mask_editor/app.py`에 `/fonts` mount와 잔디 파비콘 라우트를 추가해 standalone dev 에디터도 같은 폰트/아이콘을 쓴다.
+  - 검증: mock 생성 → `/edit/{id}` job 모드 CDP에서 body `rgb(20,16,12)`, NeoDunggeunmo 로드, panel `rgb(36,31,26)`, viewer/atlas `rgb(23,19,15)`, 저장 버튼 `rgb(47,125,79)`, 일반 버튼 `rgb(107,107,107)`, active 금색; `#comboPanel`/`#comboTitle`/`#srcBtn` hidden; 390px layout viewport 390·overflow 0·콘솔 에러 0. `node --check` 3종 + `atlas.test.mjs` 7 passed; `pytest -q` → **804 passed in 157.14s**.
+  - 리스크: 시각 변경만이라 편집 동작/마스크 색은 불변. `/edit/lib` 스크립트는 1시간 캐시되므로 배포 후 열려 있던 탭은 hard refresh가 필요할 수 있다.
