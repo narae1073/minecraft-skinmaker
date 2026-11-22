@@ -347,8 +347,8 @@ h1 {
 }
 
 .selected-photo img {
-  width: 56px;
-  height: 56px;
+  width: 112px;
+  height: 112px;
   flex-shrink: 0;
   object-fit: contain;
   background: var(--mc-panel-3);
@@ -570,16 +570,25 @@ h1 {
 }
 
 .official-skin-btn {
-  display: inline-block;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
   padding: 10px 16px;
   color: #fff;
   font-size: 16px;
+  white-space: nowrap;
   background: var(--mc-gui);
   border: 2px solid #000;
   border-radius: 0;
   box-shadow: var(--mc-bevel);
   text-shadow: 2px 2px 0 rgba(0, 0, 0, 0.75);
   text-decoration: none;
+}
+
+.official-skin-external {
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
 }
 
 .official-skin-btn:hover {

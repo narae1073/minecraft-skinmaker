@@ -759,3 +759,8 @@ S0 quality/face detection (YuNet) → S1 colour measurement (white-balance + ban
 - 2026-11-22 (새 결과창 배경 + 잔디 파비콘, `feat/grass-favicon`): 사용자 제공 `terrain_screenshot.png`(1376×768, 1.8MB)를 WebP 114KB로 변환해 기존 `terrain_screenshot.webp` 경로에 연결(160% 유지). Vite 기본 `favicon.svg`를 삭제하고, 16×16 잔디 블록 `favicon-minecraft.svg`를 추가해 `index.html`에서 `sizes=any`로 링크했다. description의 `전신`도 제거.
   - 검증: favicon 링크/200, 기존 `favicon.svg` 404; 16/32/128px 렌더 확인; 배경 `terrain_screenshot-DUC_lzYO.webp` 로드; 1440/390 overflow/콘솔 에러 0. lint/build green; `pytest -q` → **804 passed in 155.02s**.
   - 리스크: 브라우저 favicon 캐시는 새 파일명으로 회피했지만 hard refresh가 필요할 수 있다. 배경 PNG는 WebP로 최적화했다.
+
+- 2026-11-22 (선택 사진 112px + 외부 링크 아이콘, `feat/selected-photo-icon`): `.selected-photo img`를 56→112px로 2배 키웠다. `공식 스킨 관리 페이지 열기` 버튼에 16×16 외부 링크 SVG(오른쪽 위가 열린 사각형 + 대각선 화살표)를 텍스트 끝에 추가하고, 버튼을 `inline-flex`/`gap:8px`/`nowrap`으로 정렬했다.
+  - SVG는 `currentColor`·`aria-hidden`이라 hover 금색이 함께 적용된다.
+  - 검증: CDP 1440/390에서 선택 사진 112×112, SVG가 버튼의 마지막 자식·16×16, `href`/`target`/`rel` 유지; overflow/콘솔 에러 0. lint/build green; `pytest -q` → **804 passed in 154.20s**.
+  - 리스크: 좁은 화면에서 선택 사진 행이 wrap될 수 있지만 중앙 정렬·가로 스크롤 없음.
