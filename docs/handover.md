@@ -867,3 +867,11 @@ S0 quality/face detection (YuNet) → S1 colour measurement (white-balance + ban
 
 - 2026-11-22 (버튼 문구, `feat/editor-download-label`): 헤더의 `저장하고 스킨 만들기`를 **`저장하고 스킨 다운로드`**로 변경했다. 동작(저장 후 `/render`, `스킨 PNG 다운로드` 링크 표시)은 그대로며 툴팁도 `…PNG를 내려받습니다`로 맞췄다. `app.js?v=31`.
   - 검증: CDP job 모드 — 헤더 버튼이 `저장` / `저장하고 스킨 다운로드` 두 개이고 옛 문구 없음, 클릭 후 `/static/skins/{token}_e{rev}_c1.png` + download 링크 표시, 콘솔 에러 0. 스크린샷 `out/theme/115-download-label.png`. `pytest -q` → **823 passed**.
+
+- 2026-11-22 (개발자 에디터 선택 publish, `feat/editor-publish`): standalone 개발자 에디터에서 draft 전체가 아니라 **선택한 마스크 키만** 프로덕션 asset에 merge하는 기능을 추가했다.
+  - `skinmaker/mask_publish.py`(신규): `diff_masks`, `merge_masks`. 선택 키만 `assets/attribute_masks.json`에 병합하고 결과를 `AM.validate_asset`로 검증, 이전 asset을 `out/mask_editor/backup/attribute_masks.<timestamp>.json`으로 백업, `attribute_masks_approval.json`(SHA/policy/approved_by)을 갱신한다.
+  - dev editor `tools/mask_editor/app.py`: `GET /api/publish/diff`(draft/prod 키 수·added/changed/same/production_only), `POST /api/publish {keys}`. `SKINMAKER_EDITOR_ALLOW_PUBLISH=1`일 때만 동작(아니면 403). 테스트용 `SKINMAKER_MASKS_ASSET`/`SKINMAKER_MASKS_APPROVAL` 경로 override. 기존 token middleware가 `/api/*`를 보호한다.
+  - UI: standalone 헤더 `프로덕션에 반영` 버튼(job 모드에서는 제거), diff 다이얼로그. **변경된 기존 키만 기본 체크**, 새 키는 기본 해제(현재 draft 56키 vs production 5키라 실수로 51개가 들어가는 것을 방지). 반영 후 SHA/백업/키 수 표시 + “테스트 후 커밋/PR/배포” 안내. `app.js?v=32`.
+  - 프로덕션 반영은 기존처럼 커밋→PR→자동 배포로 한다(즉시 restart하는 우회 경로는 만들지 않음).
+  - 테스트: `tests/test_mask_publish.py` 4개(diff, 선택 merge, 백업, SHA/오류) + `tests/test_mask_editor.py` 1개(flag off 403, diff, 선택 merge, unknown key 400). CDP: dev editor에서 `초안 키 56 · 프로덕션 키 5 · 변경 5 · 새 키 51`, 변경 5개 기본 체크, 새 키 1개 선택 반영 → asset 5→6키, approval SHA 갱신, 백업 파일 생성, 다이얼로그/상태 문구, 콘솔 에러 0. 스크린샷 `out/theme/116-publish-dialog.png`, `117-publish-done.png`.
+  - 리스크: publish는 현재 체크아웃의 asset만 바꾸므로 배포 전까지 프로덕션에 적용되지 않는다. draft 전체를 승인하지 않도록 새 키는 기본 해제이며, 선택하지 않은 키는 건드리지 않는다.

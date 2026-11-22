@@ -293,3 +293,23 @@ without a photo:
   `out/mask_editor/access_token` (mode 600, gitignored); read it there to log in.
   The tailnet is the network boundary; the token is the application boundary. Over
   plain HTTP the token travels inside WireGuard, not TLS.
+
+## Phase 3 — selective production publish (2026-11-22)
+
+The standalone editor (`tools/mask_editor`) can promote selected draft keys into
+`assets/attribute_masks.json` instead of replacing the whole asset.
+
+- Enable it on the local dev server only:
+  `SKINMAKER_EDITOR_ALLOW_PUBLISH=1`
+  (optionally point tests at other files with `SKINMAKER_MASKS_ASSET` /
+  `SKINMAKER_MASKS_APPROVAL`).
+- Header `프로덕션에 반영` opens a diff dialog: changed keys are checked, new keys
+  start unchecked, production-only keys are shown as context.
+- `POST /api/publish` merges only the selected keys, validates the result, copies
+  the previous asset to `out/mask_editor/backup/attribute_masks.<timestamp>.json`,
+  and rewrites `attribute_masks_approval.json` with the new SHA.
+- It updates the checkout only. Run tests, commit, open a PR, and let the normal
+  deploy restart the service to make it production.
+
+`skinmaker/mask_publish.py` holds the diff/merge logic; `tests/test_mask_publish.py`
+and `tests/test_mask_editor.py` cover validation, backups and the opt-in gate.
