@@ -841,3 +841,10 @@ S0 quality/face detection (YuNet) → S1 colour measurement (white-balance + ban
   - 기준선 드리프트 수정: 속성 변경 시 `/editor`를 다시 받아 `state.masks`/`override_names`/history를 갱신하고 Undo를 비운다. 이전 baseline 시드가 가짜 override로 저장되던 문제(변경 후 5개 override) 해결, 이제 실제로 칠한 1개만 남는다. 저장 전 dirty 마스크는 속성 변경 전에 자동 저장.
   - 검증: CDP — 카테고리 5개/14 select/14 마스크 버튼, 초기 `사진 추정값 그대로`, dress 변경 → `사진: 티셔츠`·`1 변경`·헤더 1개·대상 `top_garment.dress`, 머리 행 `마스크` → 고급 열림·`hair_style.bob`, 헤어 텍셀 지우기 → `직접 칠한 마스크 (1)`·자동 저장 rev2, 고급에서 `neckwear.tie`로 이동, reset → `tee`·배지 0(칠한 마스크는 유지), 390px overflow 0, 콘솔 에러 0. `pytest -q` → **819 passed**.
   - 리스크: 속성 변경 시 마스크/Undo가 서버 기준으로 새로고침된다(속성 변경 전 dirty는 저장). `hood_fit`처럼 마스크 값이 일부뿐인 속성은 `마스크` 버튼이 유효한 첫 값(shallow)으로 폴백한다.
+
+- 2026-11-22 (편집기 속성 변경 속도 개선, `perf/editor-fast-attributes`): 속성 `select` 변경 시 1~2초 걸리던 지연을 단일 왕복(~110ms, 아틀라스 타겟 전환 3~6ms)으로 줄였다.
+  - `seed_context`를 `photo_attributes(record, index)` 기준으로 고정하고 `_BASELINE_CACHE` 키를 `(record["id"], index)`로 단순화: 속성을 바꿔도 baseline 시드가 흔들리지 않아 630ms짜리 `AS.seed_masks()` 재계산이 사라지고 가짜 override나 Undo 초기화도 불필요해졌다.
+  - `preview_png(..., masks=None)`와 `render_candidate(..., include_flat=False)`: 미리보기에서는 저장된 overlay를 바로 쓰고 안 쓰는 `flat` 스킨 렌더·검증을 생략해 렌더 시간을 절반(~78ms → ~26ms)으로 단축. `override_names`도 `effective_overlay` 키만 비교하도록 최적화.
+  - `POST /api/v1/jobs/{token}/attributes`가 `skin`(base64 PNG), `hat_mask`, `override_names`까지 한 번에 반환: 기존 3회 직렬 왕복(`POST /attributes` → `GET /editor` 673KB → `POST /preview` 673KB)과 ~1.35MB 전송을 **1회 왕복(~5KB)**으로 축소.
+  - 프론트엔드(`app.js?v=28`): `select` 변경 즉시 아틀라스 마스크 타겟을 로컬에서 0ms 전환(`setKey`/`setValue`가 job 모드에서 불필요한 `/preview`를 부르지 않게 수정)하고, `/attributes` 응답의 `skin`으로 3D 뷰어와 `baseImg`를 바로 갱신.
+  - 검증: CDP 실측 — `top_garment -> dress` 타겟 전환 **5.8ms** / 스킨 갱신 **110ms** (API 호출 1회), `hair_style -> bun` **3.9ms / 130ms** (API 1회), `headwear -> cap` **2.6ms / 136ms** (`headwear.cap` 마스크 병합 + `직접 칠한 마스크 (1)`, API 1회), 콘솔 에러 0. `pytest -q` → **821 passed**.

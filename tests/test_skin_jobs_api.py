@@ -446,3 +446,27 @@ def test_editor_payload_exposes_photo_values_and_attribute_overrides(_isolated):
     reset = owner.get(f"/api/v1/jobs/{token}/editor?index=1").json()
     assert reset["attribute_overrides"] == {}
     assert reset["combo"]["neckwear"] == base["photo_combo"]["neckwear"]
+
+
+def test_attributes_post_returns_preview_skin_and_hat_mask_in_one_round_trip(_isolated):
+    owner = TestClient(A.app)
+    token = _generate(owner).json()["data"]["job"]["id"]
+    first = owner.post(f"/api/v1/jobs/{token}/attributes",
+                       json={"attributes": {"top_garment": "tee"}, "index": 1})
+    assert first.status_code == 200, first.text
+    first_body = first.json()
+    assert first_body["skin"].startswith("data:image/png;base64,")
+    assert first_body["hat_mask"] is None
+    assert first_body["override_names"] == []
+
+    second = owner.post(f"/api/v1/jobs/{token}/attributes",
+                        json={"attributes": {"top_garment": "dress", "headwear": "cap"},
+                              "hat_color": "#ff0000", "index": 1})
+    assert second.status_code == 200, second.text
+    second_body = second.json()
+    assert second_body["skin"].startswith("data:image/png;base64,")
+    assert second_body["skin"] != first_body["skin"]
+    assert "headwear.cap" in (second_body["hat_mask"] or {})
+    assert "headwear.cap" in second_body["override_names"]
+    assert owner.post(f"/api/v1/jobs/{token}/attributes",
+                      json={"attributes": {"top_garment": "tee"}, "index": 9}).status_code == 404

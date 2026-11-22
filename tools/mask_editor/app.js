@@ -557,6 +557,24 @@ function schedulePreview(delay = SCHEDULE_DEBOUNCE_MS, throttle = false) {
   previewTimer = setTimeout(() => { previewTimer = null; preview(); }, delay);
 }
 
+function applyPreviewSkin(skinUrl, maskUrl = null) {
+  clearTimeout(previewTimer);
+  previewTimer = null;
+  const seq = ++previewSeq;
+  const stamp = Date.now();
+  const finalUrl = skinUrl.startsWith('data:') ? skinUrl : skinUrl + '?t=' + stamp;
+  // The base skin is always the final render, even in Mask view.
+  const img = new Image();
+  img.onload = () => {
+    if (seq !== previewSeq) return;
+    state.baseImg = img;
+    scheduleDraw();
+  };
+  img.src = finalUrl;
+  if (viewer) viewer.setSkin(maskUrl ? maskUrl + '?t=' + stamp : finalUrl);
+  $('#skin').src = finalUrl;
+}
+
 async function preview() {
   const seq = ++previewSeq;
   const r = await apiFetch('/api/preview', {
@@ -578,20 +596,7 @@ async function preview() {
     const warn = document.querySelector('#comboWarn');
     if (warn) warn.textContent = j.warnings.length ? ('⚠ ' + j.warnings.slice(0, 4).join(' · ')) : '';
   }
-  if (j.skin) {
-    const stamp = Date.now();
-    const finalUrl = j.skin.startsWith('data:') ? j.skin : j.skin + '?t=' + stamp;
-    // The base skin is always the final render, even in Mask view.
-    const img = new Image();
-    img.onload = () => {
-      if (seq !== previewSeq) return;
-      state.baseImg = img;
-      scheduleDraw();
-    };
-    img.src = finalUrl;
-    if (viewer) viewer.setSkin(j.mask ? j.mask + '?t=' + stamp : finalUrl);
-    $('#skin').src = finalUrl;
-  }
+  if (j.skin) applyPreviewSkin(j.skin, j.mask);
   updateStatus();
 }
 
@@ -629,21 +634,25 @@ function setKey(k) {
   if (state.key === k) return;
   state.key = k;
   state.value = state.maskable[k][0];
-  if (state.combo && state.enums[k] && state.enums[k].includes(state.value)) {
+  if (!JOB && state.combo && state.enums[k] && state.enums[k].includes(state.value)) {
     state.combo[k] = state.value; saveCombo(); syncComboUI();
   }
   renderKeyTabs();
   if (viewer) viewer.setEditableLayer(LAYERS_3D);
-  scheduleDraw(); overlayPreview(); schedulePreview(); updateStatus();
+  scheduleDraw(); overlayPreview();
+  if (!JOB) schedulePreview();
+  updateStatus();
 }
 
 function setValue(v) {
   if (state.value === v) return;
   state.value = v;
-  if (state.combo && state.enums[state.key] && state.enums[state.key].includes(v)) {
+  if (!JOB && state.combo && state.enums[state.key] && state.enums[state.key].includes(v)) {
     state.combo[state.key] = v; saveCombo(); syncComboUI();
   }
-  syncTabs(); scheduleDraw(); overlayPreview(); schedulePreview(); updateStatus();
+  syncTabs(); scheduleDraw(); overlayPreview();
+  if (!JOB) schedulePreview();
+  updateStatus();
 }
 
 function setMode(m) {
@@ -1217,6 +1226,12 @@ function buildJobAttributesPanel() {
       const j = await r.json();
       if (!r.ok) throw new Error(j.detail?.message || j.message || j.error || r.status);
       state.jobAttrOverrides = j.overrides || {};
+      if (j.hat_mask && typeof j.hat_mask === 'object') {
+        Object.assign(state.masks, j.hat_mask);
+        scheduleDraw();
+        overlayPreview();
+      }
+      if (Array.isArray(j.override_names)) updateJobMeta(j);
       syncFrom(j.attributes);
       if (j.hat_color) { color.value = j.hat_color; state.jobHatColor = j.hat_color; }
       if (j.revision != null) { state.savedRevision = j.revision; saveBadge(); }
@@ -1226,30 +1241,13 @@ function buildJobAttributesPanel() {
       state.notice = '속성 저장됨';
       const photo = state.jobPhotoCombo || {};
       const changedKeys = Object.keys(body.attributes || {}).filter((k) => photo[k] !== body.attributes[k]);
-      // Attribute changes move the procedural baseline. Reload the masks from the
-      // server so the old baseline's seeds are not mistaken for user overrides.
-      try {
-        const er = await apiFetch('/api/defaults', { cache: 'no-store' });
-        if (er.ok) {
-          const ej = await er.json();
-          state.masks = ej.masks || state.masks;
-          state.combo = sanitizeCombo(ej.combo);
-          state.jobPhotoCombo = ej.photo_combo || state.jobPhotoCombo;
-          state.jobOverrideNames = Array.isArray(ej.override_names) ? ej.override_names : [];
-          state.jobHistory = Array.isArray(ej.history) ? ej.history : [];
-          state.history.undo = [];
-          state.history.redo = [];
-          historyChanged();
-          updateJobMeta(ej);
-          syncFrom(ej.combo);
-        }
-      } catch { /* keep the current masks if the refresh fails */ }
       if (body.reset) setMaskTarget(state.key, selects[state.key]?.value || state.value);
       else if (changedKeys.length === 1 && (state.maskable[changedKeys[0]] || []).includes(body.attributes[changedKeys[0]])) {
         setMaskTarget(changedKeys[0], body.attributes[changedKeys[0]]);
       }
       updateDiff();
-      schedulePreview(0);
+      if (j.skin) applyPreviewSkin(j.skin);
+      else schedulePreview(0);
     } catch (e) {
       status.textContent = '저장 실패: ' + e.message;
       state.notice = '속성 저장 실패';
@@ -1266,7 +1264,7 @@ function buildJobAttributesPanel() {
   const currentBody = () => {
     const attributes = {};
     for (const key of JOB_ATTR_FIELDS) attributes[key] = selects[key].value;
-    const body = { attributes };
+    const body = { attributes, index: JOB_INDEX };
     if (selects.headwear.value !== 'none') body.hat_color = color.value;
     return body;
   };
@@ -1279,6 +1277,9 @@ function buildJobAttributesPanel() {
         color.disabled = sel.value === 'none';
         if (HAT_DEFAULT[sel.value] && !state.jobHatColor) color.value = HAT_DEFAULT[sel.value];
       }
+      if ((state.maskable[key] || []).includes(sel.value)) {
+        setMaskTarget(key, sel.value);
+      }
       updateDiff();
       apply(currentBody(), JOB_ATTR_LABELS[key]);
     };
@@ -1287,7 +1288,7 @@ function buildJobAttributesPanel() {
 
   reset.onclick = () => {
     state.jobHatColor = null;
-    apply({ reset: true }, '사진 추정값');
+    apply({ reset: true, index: JOB_INDEX }, '사진 추정값');
   };
 
   updateDiff();

@@ -238,7 +238,8 @@ def reset_attributes(record: dict) -> dict:
     return record
 
 
-def render_candidate(record: dict, index: int, overlay: dict | None = None):
+def render_candidate(record: dict, index: int, overlay: dict | None = None, *,
+                     include_flat: bool = True):
     """Render one candidate with the job's overlay on top of the production masks.
     Returns (image, flat_image, problems)."""
     cand = candidate(record, index)
@@ -256,8 +257,11 @@ def render_candidate(record: dict, index: int, overlay: dict | None = None):
     common = dict(noise_seed=cand["seed"], noise_level=record["noise_level"], mask_override=masks,
                   hat_on_top=hat_on_top, hat_color=record.get("hat_color"))
     canvas = R.render(observed, attrs, degrade, record["model"], **common)
-    flat = R.render(observed, attrs, degrade, record["model"], shoe_two_tone=False, **common)
     from skinmaker.validate import validate_image
+    if not include_flat:
+        problems = [str(p) for p in validate_image(canvas.image, record["model"])]
+        return canvas.image, None, problems
+    flat = R.render(observed, attrs, degrade, record["model"], shoe_two_tone=False, **common)
     problems = [str(p) for img in (canvas.image, flat.image) for p in validate_image(img, record["model"])]
     return canvas.image, flat.image, problems
 
@@ -269,12 +273,12 @@ _BASELINE_CACHE_MAX = 64
 
 
 def seed_context(record: dict, index: int) -> AS.SeedContext:
-    """Seeds for this job and candidate: the job's own observed colours and attributes."""
+    """Seeds for this job and candidate: the job's own observed colours and photo attributes."""
     cand = candidate(record, index)
     if cand is None:
         raise KeyError(index)
     observed = JC.load_dataclass(record["observed"], C.ObservedColors)
-    attrs = candidate_attributes(record, index)
+    attrs = photo_attributes(record, index)
     base = dict(attrs.values, hair_bbox=attrs.hair_bbox, hood="none")
     return AS.SeedContext(observed=observed, base=base)
 
@@ -286,7 +290,7 @@ def _normalized(entry: dict) -> dict:
 def baseline_masks(record: dict, index: int) -> dict:
     """What the editor starts from for this job: production entries where they exist,
     else the job's procedural seed. Cached per (job, candidate)."""
-    key = (record["id"], index, json.dumps(record.get("attr_overrides") or {}, sort_keys=True))
+    key = (record["id"], index)
     if key in _BASELINE_CACHE:
         return _BASELINE_CACHE[key]
     with AS.using(seed_context(record, index)):
@@ -366,10 +370,12 @@ def restore_candidate_overlay(record: dict, index: int, revision: int) -> int:
 
 def override_names(record: dict, index: int) -> list[str]:
     """Masks in this candidate that differ from its baseline (shared or own)."""
+    overlay = effective_overlay(record, index)
+    if not overlay:
+        return []
     base = baseline_masks(record, index)
-    current = effective_masks(record, index)
-    return sorted(name for name, entry in current.items()
-                  if name not in base or entry != base[name])
+    return sorted(name for name, entry in overlay.items()
+                  if name not in base or _normalized(entry) != base[name])
 
 
 def diff_against_baseline(masks: dict, record: dict, index: int) -> dict:
@@ -422,13 +428,14 @@ def _rects(layout) -> dict:
     return rects
 
 
-def preview_png(record: dict, index: int, masks: dict) -> tuple[bytes, list[str]]:
+def preview_png(record: dict, index: int, masks: dict | None = None) -> tuple[bytes, list[str]]:
     """Preview = the render that Save + render would produce: the editor's full masks
-    are converted to the overlay they differ by, then rendered the same way. PNG bytes,
+    are converted to the overlay they differ by, then rendered the same way. When
+    ``masks`` is omitted, uses the candidate's saved overlay directly. PNG bytes,
     nothing written."""
     import io
-    overlay = diff_against_baseline(masks, record, index)
-    image, _flat, problems = render_candidate(record, index, overlay)
+    overlay = None if masks is None else diff_against_baseline(masks, record, index)
+    image, _flat, problems = render_candidate(record, index, overlay, include_flat=False)
     buf = io.BytesIO()
     image.save(buf, format="PNG")
     return buf.getvalue(), problems
