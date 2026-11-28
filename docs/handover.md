@@ -893,3 +893,12 @@ S0 quality/face detection (YuNet) → S1 colour measurement (white-balance + ban
   - 손실 근거: CDP 타임아웃 5회(`EXIT=124`, 약 12분+), 동일 QA 스크립트 재작성/재실행 6회. 원인은 ① 기존 `about:blank` 타깃에 붙으면 `Page.enable`이 멈춤 ② 이전 세션 Chrome 프로세스가 포트 9337/9341을 점유(`bind() failed`) ③ QA 스크립트 문법/좌표 버그 ④ 에디터 토큰 인증 미처리.
   - 규칙: 새 타깃 생성(`PUT /json/new`) 후 `Page.enable` 응답 확인 → 본 스크립트, 실행마다 새 포트/새 프로필, 포트 PID로만 종료, 실행 전 `node --check`, 페이지 표현식은 `JSON.stringify`, 좌표 클릭 대신 앱 API(`maskEditor.paintTexel`), 반복은 관련 테스트만·머지 전 전체 `pytest`.
   - 리스크: 문서만 변경. 다음 세션의 에이전트는 이 섹션을 읽고 같은 시행착오를 반복하지 않아야 한다.
+
+- 2026-11-28 (헤어 몸통 드레이프 길이 연동, `fix/hair-drape-length`): `long_straight`/`long_wavy`/`curly`가 medium·long에서도 very_long처럼 허리까지 내려오던 문제를 고쳤다.
+  - 원인: `hairstencil.STYLE_DRAPE`가 세 스타일 모두에 참조 드레이프 (front 11, back 12)를 주고 `render`가 길이와 무관하게 그대로 사용. `reference_pack.hair_body.l1_depth`도 하나의 very_long 실루엣이라 마스크로는 자를 수만 있고 줄일 수 없었다.
+  - 수정: `style_drape(style, hair_length)`가 `min(스타일 행, LENGTH_BODY_ROWS[length])`(short 0/medium 2/long 6/very_long 10)로 캡, `cap_drape()`가 per-column 참조 캐스케이드를 그 행 수로 자르고 빈 면을 제거, `render`가 `hair_length`를 넘겨 캡 적용, `hairreport`도 같은 기대값 사용. 길이를 생략하면 기존 참조 행(11/12)을 유지한다.
+  - A/B (합성 observed, noise off): 세 스타일 모두 short 11/12→**0/0**, medium →**2/2**, long →**6/6**, very_long →**10/10**. `short`/`bob`/`ponytail`/`bun`과 머리·앞머리·L2는 불변.
+  - 골든 픽셀 베이스라인 갱신: `long` `aad4f2e43b6ed7a0→3ae4f6c3a81c3e18`, `very_long` `54bd7befaed3252e→279f327fa7961687`. `short`/`medium` 해시는 바이트 동일(폴백 스타일에 드레이프 없음).
+  - 테스트: `test_hairstencil` 3개(길이 캡, 길이 미지정 시 참조 유지, `style_body_rows` 연동), `test_render` 기존 4개를 새 정책으로 갱신, `test_hairreport` 기대값 갱신. `pytest -q` → **832 passed in 212.49s**.
+  - 스크린샷: `out/theme/119-drape-before.png`, `119-drape-after.png` (body front/back × short/medium/long/very_long).
+  - 리스크: 프로덕션 렌더 정책 변경이다. 기존 생성물은 소급 변경되지 않고, 새로 생성/재렌더할 때만 짧아진다. long·very_long의 골든 해시가 바뀌므로 이후 픽셀 회귀는 새 해시가 기준이다.

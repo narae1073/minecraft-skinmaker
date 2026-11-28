@@ -413,10 +413,14 @@ def test_style_targets_and_fallbacks():
     assert HS.style_body_rows("bob", "long", st) == 0
     assert HS.style_body_rows("ponytail", "long", st) == 0
     assert HS.style_body_rows("bun", "long", st) == 0
-    # Loose long styles share the reference drape (2026-11-01).
+    # Loose long styles share one reference drape (2026-11-01) and that
+    # silhouette is now capped by the declared length (2026-11-28): the whole
+    # 11/12 cape only applies at very_long.
     for style in HS.REF_DRAPE_STYLES:
-        assert HS.style_body_rows(style, "long", st) == 12
         assert HS.style_drape(style) == (11, 12)
+        assert HS.style_drape(style, "very_long") == (10, 10)
+        assert HS.style_body_rows(style, "long", st) == 6
+        assert HS.style_body_rows(style, "very_long", st) == 10
     assert HS.style_bangs("bob") == 5
     assert HS.style_bangs("short") == 3
 
@@ -517,3 +521,38 @@ def test_committed_l1_shape_matches_reference_skeleton():
         assert max(prof["front"][1:7]) <= 5  # eye rows 5-6 never L1 hair
     assert RP.select_l1_shape(pack, "ponytail") == RP.select_l1_shape(pack, "short")  # ears exposed
     assert RP.select_l1_shape(pack, "bob") == RP.select_l1_shape(pack, "long_wavy")
+
+
+def test_style_drape_is_capped_by_hair_length():
+    """A long style at `medium`/`long` must not drape to the waist.
+
+    The reference drape is one silhouette shared by long_straight / long_wavy /
+    curly (11 chest rows, 12 back rows). Without a length cap every long style
+    looks like very_long on the torso, which is what the editor user reported.
+    """
+    from skinmaker.hairstencil import LENGTH_BODY_ROWS
+    for style in HS.REF_DRAPE_STYLES:
+        front, back = HS.style_drape(style, "medium")
+        assert (front, back) == (LENGTH_BODY_ROWS["medium"],) * 2, style
+        front, back = HS.style_drape(style, "long")
+        assert (front, back) == (LENGTH_BODY_ROWS["long"],) * 2, style
+        front, back = HS.style_drape(style, "very_long")
+        assert (front, back) == (LENGTH_BODY_ROWS["very_long"],) * 2, style
+        # The cape never exceeds the reference silhouette.
+        assert HS.style_drape(style, "very_long") <= HS.style_drape(style)
+
+
+def test_style_drape_without_a_length_keeps_the_reference_rows():
+    """Callers that do not pass a length keep the legacy reference drape."""
+    for style in HS.REF_DRAPE_STYLES:
+        assert HS.style_drape(style) == (11, 12)
+    for style in ("short", "pixie", "bob", "ponytail", "bun"):
+        assert HS.style_drape(style, "very_long") == (0, 0), style
+
+
+def test_style_body_rows_follows_the_length_cap():
+    st = HS.rule_stencil("long")
+    assert HS.style_body_rows("long_straight", "long", st) == 6
+    assert HS.style_body_rows("long_wavy", "medium", st) == 2
+    assert HS.style_body_rows("curly", "very_long", st) == 10
+    assert HS.style_body_rows("long_straight", "short", st) == 0

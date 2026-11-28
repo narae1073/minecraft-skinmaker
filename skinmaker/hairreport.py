@@ -148,7 +148,7 @@ def analyze(image: Image.Image, *, hair: str, skin: str, hair_length: str = "sho
     )
     row3_hair = sum(fgrid[3])
     style = hair_style if hair_style in HS.STYLE_DRAPE else ""
-    expect_front, expect_back = HS.style_drape(style) if style else (0, 0)
+    expect_front, expect_back = HS.style_drape(style, hair_length) if style else (0, 0)
     # Drape length is measured on L1 (2026-11-01): L2 over the drape is a
     # sparse strand template (reference), so L2 runs no longer encode length.
     # Wider tolerance: the drape carries reference strand shading.

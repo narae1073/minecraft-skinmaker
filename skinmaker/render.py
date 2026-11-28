@@ -1464,10 +1464,14 @@ def render(
     shape = RP.select_l1_shape(pack, style) if pack else None
     if shape:
         hair_stencil = HS.reference_stencil(shape, hair_stencil)
-    front_rows, back_rows = HS.style_drape(style)
+    front_rows, back_rows = HS.style_drape(style, attrs.get("hair_length"))
     # rule stencil 의 body_rows 는 길이 규칙이지 관측 증거가 아니다.
     evidence = min(12, max(0, hair_stencil.body_rows)) if observed_stencil is not None else 0
     drape = (pack or {}).get("hair_body") if style in HS.REF_DRAPE_STYLES else None
+    if drape:
+        # The reference cape is one very-long silhouette; keep only the rows the
+        # declared length allows so long/medium are not waist-length.
+        drape = HS.cap_drape(drape, front_rows, back_rows)
     if not drape:
         # 마스크 증거는 뒤 드레이프를 최대 1행만 늘린다. 12행 전체를 덮지 않는다.
         back_rows = min(6, max(back_rows, min(evidence, back_rows + 1))) if back_rows else 0
