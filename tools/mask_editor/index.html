@@ -534,6 +534,19 @@ input:focus-visible {
 
 .mobileTabs { display: none; }
 
+/* The shared attributes panel replaces the old combo grid + mask-target tabs. */
+body:not([data-job]) #comboTitle,
+body:not([data-job]) #comboPanel,
+body:not([data-job]) #maskTargetTitle,
+body:not([data-job]) #kindTabs,
+body:not([data-job]) #valueTabs { display: none !important; }
+
+.devOptions { flex-direction: column; align-items: stretch; gap: 6px; }
+.devOptions .gtitle { margin: 0; }
+.devModel { display: flex; align-items: center; gap: 6px; }
+.devPresets { display: flex; flex-wrap: wrap; gap: 6px; }
+.devPresets button { padding: 6px 8px; font-size: 14px; }
+
 @media (max-width: 980px) {
   main { grid-template-columns: minmax(0, 1fr); }
   .atlasPanel, .editor, .controls { min-width: 0; }
@@ -721,6 +734,6 @@ input:focus-visible {
     </dl>
   </div>
 </div>
-<script type="module" src="/static/app.js?v=33"></script>
+<script type="module" src="/static/app.js?v=35"></script>
 </body>
 </html>

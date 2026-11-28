@@ -406,12 +406,23 @@ def defaults():
         {"parts": PARTS, "part_faces": PART_FACES, "faces": FACES, "dims": DIMS,
          "layers": LAYERS, "enums": COMBO_ENUMS, "defaults": DEFAULT_COMBO,
          "models": ["classic", "slim"], "combo": DEFAULT_COMBO,
+         # Photo estimate for the shared attributes panel's diff badges.
+         "photo_combo": _photo_combo(),
          "atlas": {"size": 64, "rects": _atlas_rects()},
          "slim": {"sub_faces": sorted(SLIM_FACES), "dims": {f: list(d) for f, d in SLIM_FACES.items()},
                   "atlas": {"size": 64, "rects": _slim_rects()}},
          "maskable": MASKABLE, "masks": _defaults()},
         headers={"Cache-Control": "no-store"},
     )
+
+
+def _photo_combo() -> dict:
+    """The current seed base (uploaded photo classification, else the fixture)."""
+    try:
+        base = _seed_base()
+        return {name: base.get(name) for name in COMBO_KEYS}
+    except Exception:  # noqa: BLE001 - defaults must always answer
+        return dict(DEFAULT_COMBO)
 
 
 @app.get("/api/seed-all")
