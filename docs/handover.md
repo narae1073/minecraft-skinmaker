@@ -935,3 +935,9 @@ S0 quality/face detection (YuNet) → S1 colour measurement (white-balance + ban
   - 도구: `scripts/render_photo_sheet.py` 추가 — 사진별 torso front+back을 production/draft로 나란히 렌더하고 셀별 최대 채널 차이를 표기. `out/theme/125`(수정 전), `127`(수정 후).
   - 테스트: `tests/test_attribute_masks.py`에 책임 분리·footprint 동일성 테스트 추가, `tests/test_mask_editor.py` 기대값 갱신(job 쪽 `_normalized` 회귀 포함). `pytest -q` → **839 passed in 193.93s**.
   - 리스크: hair 마스크 의미가 바뀌므로 기존 draft는 재시드해야 한다(로컬 완료). 프로덕션에는 아직 hair 마스크가 없어 영향 없음.
+
+- 2026-11-28 (헤어 마스크 프로덕션 반영, `feat/publish-hair-masks`): 개발자 에디터의 선택 publish로 헤어 마스크 12키를 프로덕션 asset에 반영했다(5 → 17키). bob 스타일 수정 포함.
+  - **함정 발견/복구**: 편집한 두 키(`hair_style.bob`, `hair_length.medium`)만 반영하면 `hair_length` 마스크가 짝이 되는 `hair_style` 클립 없이 남아 드레이프가 없는 스타일(ponytail/short/bun)의 medium이 4 → 14셀로 늘어난다. 즉시 백업으로 롤백하고 헤어 12키 전체를 반영했다. **헤어 마스크는 세트로만 배포해야 한다.**
+  - draft의 `hood.*`/`headwear.*` 5키는 전부 0으로 비어 있다(에디터가 시드하지 않음). 그대로 반영하면 후드가 지워지므로 선택 publish에서 제외해야 한다.
+  - 검증: 반영 후 `scripts/render_photo_sheet.py --asset assets/attribute_masks.json` → production vs draft **최대 채널 차이 0**, 7장 사진 × 3스타일 × 4길이 전부 일치(`out/theme/129-prod-published.png`). 후드/모자 마스크 셀 수 불변(hood.up head.front 8, hood.down L2 head.back 16, headwear.cap head.front 8). 드레이프: long_straight 4/14/30/46, bob 10/10/10/10(수정 반영), no-drape 스타일 4/4/4/4. `pytest -q` → **839 passed in 255.61s**.
+  - 백업: `out/mask_editor/backup/attribute_masks.20261128T115746644368Z.json`(반영 직전), `…20261122T130242325251Z.json`(원본 5키).
