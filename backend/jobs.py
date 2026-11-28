@@ -297,7 +297,13 @@ def seed_context(record: dict, index: int) -> AS.SeedContext:
 
 
 def _normalized(entry: dict) -> dict:
-    return AS._normalize_key(entry)
+    """Canonicalise a mask entry without inventing faces.
+
+    Hair masks split one attribute across two keys (style owns the head, length
+    owns the body), so a missing face means "no constraint". Padding it with
+    zeros would both clip the other mask and make every hair entry look edited.
+    """
+    return AS._normalize_key(entry, fill_missing=False)
 
 
 def baseline_masks(record: dict, index: int) -> dict:

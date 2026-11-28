@@ -13,8 +13,10 @@ from dataclasses import dataclass, field
 from typing import Iterator
 
 from . import attributes as A
+from . import hairstencil as HS
 from . import production_qa as Q
 from . import render as R
+from .canvas import rgba, shade
 from .format import get_layout
 
 SCHEMA = 3
@@ -116,7 +118,13 @@ def _slim_rects() -> dict:
     return rects
 
 
-def _normalize_key(src) -> dict:
+def _normalize_key(src, fill_missing: bool = True) -> dict:
+    """Normalise a mask entry to the canonical grid shape.
+
+    ``fill_missing=False`` leaves a face out when the source did not define it.
+    Hair masks rely on that: a missing face means "no constraint" for the other
+    half of the AND (style ∩ length), while an all-zero grid means "clip all".
+    """
     out = {"L1": {}, "L2": {}}
     if not isinstance(src, dict):
         return out
@@ -148,16 +156,28 @@ def _normalize_key(src) -> dict:
                     [int(bool(grid[v][u])) if v < len(grid) and u < len(grid[v]) else 0 for u in range(w)]
                     for v in range(h)
                 ]
-            else:
+            elif fill_missing:
                 out[layer][face] = _blank(face)
     return out
 
 
 def _seed_hair(key: str, value: str) -> dict:
+    """Seed a hair mask with a single responsibility.
+
+    ``hair_style.*`` describes the **head silhouette** for that style. Draping
+    styles do not constrain the body at all (a missing face = no constraint);
+    styles that never drape clip the body with an all-zero grid so the AND with
+    any length drops the cape.
+
+    ``hair_length.*`` describes **how far the torso drape reaches**, with a
+    length-matched style as the reference. It does not touch the head, so the
+    style mask stays in charge there.
+
+    Together ``AND(style, length)`` reproduces the procedural render exactly,
+    which is what the tests pin.
+    """
     if key not in ("hair_style", "hair_length"):
         return {}
-    # hair_style masks are seeded at the longest length so a later
-    # hair_length=very_long mask is not clipped by a long-baseline style mask.
     length = value if key == "hair_length" else "very_long"
     style = value if key == "hair_style" else LENGTH_STYLE.get(value, "long_straight")
     attrs = A.validate(dict(_ctx().base_values(), hair_length=length, hair_style=style))
@@ -169,10 +189,24 @@ def _seed_hair(key: str, value: str) -> dict:
     l1 = {}
     for face in ("top", "front", "right", "left", "back", "bottom"):
         f = LAYOUT.face("head", face, 0)
-        l1[f"head.{face}"] = [[1 if (face, u, v) in head_cells else 0 for u in range(f.w)] for v in range(f.h)]
-    # Body hair drape (medium/long/very_long): seed L1 and L2 from the
-    # procedural target vs a short-hair baseline. This is the body hair the
-    # editor/mask view previously missed.
+        # head_hair_out is the exact set the pipeline painted on L1 head (with
+        # the bottom face already in texture rows), so a cell it lists is hair
+        # and a cell it omits is not.
+        l1[f"head.{face}"] = [
+            [1 if (face, u, v) in head_cells else 0 for u in range(f.w)]
+            for v in range(f.h)
+        ]
+    l1 = {}
+    for face in ("top", "front", "right", "left", "back", "bottom"):
+        f = LAYOUT.face("head", face, 0)
+        # head_hair_out already carries texture rows (bottom is stored reversed),
+        # so the grid is built straight from it.
+        l1[f"head.{face}"] = [
+            [1 if (face, u, v) in head_cells else 0 for u in range(f.w)]
+            for v in range(f.h)
+        ]
+    # Body hair drape: seed L1 and L2 from the procedural target vs a
+    # short-hair baseline. This is the body hair the editor/mask view missed.
     base = dict(attrs.values)
     base["hair_style"] = "short"
     base["hair_length"] = "short"
@@ -188,17 +222,49 @@ def _seed_hair(key: str, value: str) -> dict:
                  for u in range(f.w)] for v in range(f.h)]
         if any(any(r) for r in grid):
             l2[f"head.{face}"] = grid
+    body = {}
     for face in ("front", "back", "right", "left"):
         f = LAYOUT.face("body", face, 0)
         grid1 = [[1 if target.get("body", face, u, v, 0)[:3] != baseline.get("body", face, u, v, 0)[:3] else 0
                   for u in range(f.w)] for v in range(f.h)]
         grid2 = [[1 if target.get("body", face, u, v, 1)[:3] != baseline.get("body", face, u, v, 1)[:3] else 0
                   for u in range(f.w)] for v in range(f.h)]
-        if any(any(r) for r in grid1):
-            l1[f"body.{face}"] = grid1
-        if any(any(r) for r in grid2):
-            l2[f"body.{face}"] = grid2
-    return {"L1": l1, "L2": l2}
+        body[(face, "L1")] = grid1
+        body[(face, "L2")] = grid2
+
+    if key == "hair_style":
+        # Style = head shape only. The bottom face (nape length) and body drape
+        # are length features, so they belong to hair_length.* — leaving them
+        # here would clip a short render with a very_long silhouette.
+        for face in ("head.bottom",):
+            l1.pop(face, None)
+            l2.pop(face, None)
+        drape_rows = HS.style_drape(style, length)[0]
+        if drape_rows > 0:
+            return {"L1": l1, "L2": l2}
+        # No-drape styles clip the body explicitly so any length mask intersects
+        # to nothing.
+        for face in ("front", "back", "right", "left"):
+            f = LAYOUT.face("body", face, 0)
+            l1[f"body.{face}"] = [[0] * f.w for _ in range(f.h)]
+        return {"L1": l1, "L2": l2}
+
+    # hair_length = body drape + nape length; the rest of the head belongs to
+    # the style mask.
+    out_l1 = {}
+    out_l2 = {}
+    if "head.bottom" in l1:
+        out_l1["head.bottom"] = l1["head.bottom"]
+    if "head.bottom" in l2:
+        out_l2["head.bottom"] = l2["head.bottom"]
+    for face in ("front", "back", "right", "left"):
+        g1 = body[(face, "L1")]
+        g2 = body[(face, "L2")]
+        if any(any(r) for r in g1):
+            out_l1[f"body.{face}"] = g1
+        if any(any(r) for r in g2):
+            out_l2[f"body.{face}"] = g2
+    return {"L1": out_l1, "L2": out_l2}
 
 
 def _seed_sleeve(key: str, value: str) -> dict:
@@ -326,12 +392,16 @@ def _refill_top_body(src: dict) -> dict:
 
 
 def _zero_body_back_hair(src: dict) -> dict:
-    """Hood policy: no hair masks on the body back (the hood covers it)."""
+    """Hood policy: no hair masks on the body back (the hood covers it).
+
+    The face is removed, not zeroed: hair masks are ANDed, so an all-zero back
+    would also clip the other mask's cells there.
+    """
     src = {layer: dict(src.get(layer, {}) or {}) for layer in LAYERS}
     for layer in LAYERS:
-        for face in FACES:
+        for face in list(src[layer]):
             if face.startswith("body.back"):
-                src[layer][face] = _blank(face)
+                del src[layer][face]
     return src
 
 
@@ -339,8 +409,13 @@ def _finalize_seed(key: str, value: str, src: dict) -> dict:
     """Post-process a procedural seed the same way the saved-draft defaults do."""
     if key == "top_garment" and value != "none" and isinstance(src, dict):
         src = _refill_top_body(src)
-    if key in ("hair_style", "hair_length") and isinstance(src, dict):
-        src = _zero_body_back_hair(src)
+    if key in ("hair_style", "hair_length"):
+        if isinstance(src, dict):
+            src = _zero_body_back_hair(src)
+        # Hair masks share one attribute between two keys (style owns the head,
+        # length owns the body), so a missing face must stay missing: padding it
+        # with zeros would make it clip the other mask's cells.
+        return _normalize_key(src, fill_missing=False)
     return _normalize_key(src)
 
 

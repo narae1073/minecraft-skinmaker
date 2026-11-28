@@ -384,3 +384,48 @@ express its own length fails loudly.
 it is reseeded (`사진 추정값으로` on that value, or the migration when the schema
 is bumped). Backup made before the local reseed:
 `out/mask_editor/attribute_masks.before-hair-reseed2.json`.
+
+## Hair mask split: style owns the head, length owns the drape (2026-11-28)
+
+**Symptom.** `out/theme/125-photo-sheet.png` (7 photos × 3 styles × 4 lengths)
+showed the draft masks changing 63 of 84 torso cells versus production: only
+`short` matched.
+
+**Cause.** Both `hair_style.*` and `hair_length.*` seeds carried the *whole* hair
+silhouette (head + body drape), and style seeds used a `very_long` body. The
+renderer ANDs them (`_combine_mask_grids`), so the style mask alone restored a
+waist-length cape at every length, and every entry looked "edited" to the job
+layer (which padded missing faces with zeros).
+
+**Fix — one responsibility per key:**
+
+| key | owns | leaves alone |
+|---|---|---|
+| `hair_style.*` | head silhouette (`head.top/front/left/right/back`) | body, nape |
+| `hair_length.*` | torso drape (`body.*`) + nape (`head.bottom`) | rest of the head |
+
+- A missing face means "no constraint"; only no-drape styles (`short`, `pixie`,
+  `bob`, `ponytail`, `bun`) write an all-zero body grid, so an AND with any
+  length clips the cape.
+- `_normalize_key(..., fill_missing=False)` preserves that sparseness in
+  `attribute_seeds._finalize_seed`, `tools/mask_editor._defaults` and
+  `backend.jobs._normalized`.
+- `_zero_body_back_hair` now deletes `body.back` instead of zeroing it.
+
+**Verification.** Hair masks are now an identity on the drape: the hair
+footprint (body faces) and the rendered torso depth are identical with and
+without masks for 8 styles × 4 lengths, on the fixture and on all 7 photos
+(`tests/test_attribute_masks.py::test_hair_masks_reproduce_the_procedural_coverage`).
+Remaining pixel deltas after the split are ≤16 per channel and come from the
+pre-existing "masked cells are repainted flat instead of keeping reference
+strand shading" behaviour (`apply_head_masks`), not from this change; the old
+masks had the same property.
+
+Regenerate the visual sheet with:
+
+```bash
+.venv/bin/python scripts/render_photo_sheet.py --out out/theme/photo-sheet.png
+```
+
+It prints the max per-channel delta per cell and draws a gold box when the
+production and draft body crops differ by more than 2.
