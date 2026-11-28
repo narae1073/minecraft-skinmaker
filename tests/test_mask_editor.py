@@ -41,14 +41,12 @@ def test_defaults_expose_key_value_tree_and_general_masks():
     assert "hood.up" in j["masks"] and "headwear.cap" in j["masks"]
     hair_cells = sum(sum(row) for grid in j["masks"]["hair_style.bob"]["L1"].values() for row in grid)
     assert hair_cells > 0
-    body_hair_l1 = sum(sum(row) for face, grid in j["masks"]["hair_style.long_wavy"]["L1"].items()
-                       if face.startswith("body.") for row in grid)
-    body_hair_l2 = sum(sum(row) for face, grid in j["masks"]["hair_style.long_wavy"]["L2"].items()
-                       if face.startswith("body.") for row in grid)
     head_hair_l2 = sum(sum(row) for face, grid in j["masks"]["hair_style.long_wavy"]["L2"].items()
                        if face.startswith("head.") for row in grid)
-    assert body_hair_l1 > 0 and body_hair_l2 > 0
     assert head_hair_l2 > 0
+    # Style masks own the head only; the body drape belongs to hair_length.*
+    # (2026-11-28), so a draping style must not constrain the body at all.
+    assert not [f for f in j["masks"]["hair_style.long_wavy"]["L1"] if f.startswith("body.")]
     # Saved drafts from the old seed can carry long body drape on short/medium;
     # the defaults migration must replace body faces with the length-matched seed.
     def body_l1(name):
@@ -91,7 +89,10 @@ def test_hair_length_preview_uses_matching_style():
 
     assert count(short, "body.") == 0
     assert count(very, "body.") > 0
-    assert count(short, "head.") < count(very, "head.")
+    # hair_length owns the nape (head.bottom) and the body, nothing else on the head.
+    assert set(f for f in short["L1"] if f.startswith("head.")) <= {"head.bottom"}
+    assert set(f for f in very["L1"] if f.startswith("head.")) <= {"head.bottom"}
+    assert count(very, "head.") >= count(short, "head.")
 
 
 def test_seed_endpoint_returns_current_seed():
@@ -101,7 +102,8 @@ def test_seed_endpoint_returns_current_seed():
     grid = r.json()["mask"]["L1"]
     head = sum(sum(row) for face, g in grid.items() if face.startswith("head.") for row in g)
     body = sum(sum(row) for face, g in grid.items() if face.startswith("body.") for row in g)
-    assert head > 0 and body > 0
+    # A style seed owns the head; the body drape is the length mask's job.
+    assert head > 0 and body == 0
 
 
 def test_hair_style_preview_uses_very_long_base_for_full_style():
@@ -395,7 +397,7 @@ def test_legacy_draft_hair_is_migrated_once_with_backup(tmp_path, monkeypatch):
     mod._defaults()
     assert path.read_text(encoding="utf-8") == before
     assert len(list(tmp_path.glob("attribute_masks.pre-v3-*.json"))) == 1
-    assert masks["hair_length.short"]["L1"]["head.right"] == mod._seed_masks()["hair_length.short"]["L1"]["head.right"]
+    assert "head.right" not in masks["hair_length.short"]["L1"]
 
 
 def test_slim_override_applies_only_to_slim_renders():

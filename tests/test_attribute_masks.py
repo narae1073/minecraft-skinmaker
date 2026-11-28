@@ -122,3 +122,89 @@ def test_hair_masks_never_change_the_procedural_drape_depth():
             if bare != masked:
                 bad.append((style, length, bare, masked))
     assert not bad, f"hair masks changed the drape depth: {bad}"
+
+
+NO_DRAPE_STYLES = ("short", "pixie", "bob", "ponytail", "bun")
+
+
+def _hair_seeds():
+    from skinmaker import attribute_seeds as AS
+    with AS.using(AS.fixture_context()):
+        seeds = AS.seed_masks()
+    return seeds
+
+
+def test_hair_style_masks_own_the_head_and_hair_length_masks_own_the_body():
+    """Split responsibilities so AND(style, length) is meaningful.
+
+    A style mask describes the silhouette (head); a length mask describes how far
+    the torso drape reaches. If a style mask also carried a very_long body, the
+    AND could never shorten it, and every style rendered waist-length.
+    """
+    seeds = _hair_seeds()
+    for name, entry in seeds.items():
+        if not name.startswith("hair_style."):
+            continue
+        body_faces = [f for f in entry["L1"] if f.startswith("body.")]
+        # No-drape styles must clip body hair explicitly with an all-zero grid;
+        # draping styles must not constrain the body at all.
+        style = name.split(".", 1)[1]
+        if body_faces:
+            assert all(not any(any(r) for r in entry["L1"][f]) for f in body_faces), name
+            assert style in NO_DRAPE_STYLES, f"{style} should not clip the body"
+
+    for name, entry in seeds.items():
+        if not name.startswith("hair_length."):
+            continue
+        head_faces = {f for f in entry["L1"] if f.startswith("head.")}
+        # The nape (head.bottom) is a length feature; the rest of the head is not.
+        assert head_faces <= {"head.bottom"}, f"{name} must not constrain head hair: {head_faces}"
+
+
+def test_hair_masks_reproduce_the_procedural_coverage():
+    """Applying the hair masks must not change which cells are hair.
+
+    The masks are seeded by diffing against the procedural render, so clipping to
+    them is an identity on coverage. Colours may differ slightly (a masked cell
+    is repainted flat instead of keeping the reference strand shading), so this
+    compares the hair footprint, which is what the drape policy is about.
+    """
+    from skinmaker import attributes as A
+    from skinmaker import production_qa as Q
+    from skinmaker import render as R
+    from skinmaker.canvas import rgba, shade
+
+    base = {
+        "top_garment": "tee", "bottom_garment": "jeans", "pattern": "plain",
+        "sleeve_len": "short", "hair_bbox": [200, 50, 800, 600],
+    }
+    observed = Q._observed()
+    seeds = _hair_seeds()
+    hair = {k: v for k, v in seeds.items() if k.startswith("hair_")}
+
+    def footprint(canvas):
+        """Body faces only: the drape policy is what the masks must not change.
+
+        Head faces are compared indirectly: the head masks come from the same
+        render, and `test_hair_style_masks_own_the_head_*` pins their shape.
+        """
+        cells = set()
+        for face in ("front", "back", "left", "right"):
+            ref = shade(rgba(observed.hair.hex), R.FACE_SHADE[face])[:3]
+            grid = canvas.layout.face("body", face, 0)
+            for v in range(grid.h):
+                for u in range(grid.w):
+                    px = canvas.get("body", face, u, v)[:3]
+                    if max(abs(a - b) for a, b in zip(px, ref)) <= 45:
+                        cells.add((face, u, v))
+        return cells
+
+    bad = []
+    for style in ("long_straight", "long_wavy", "curly", "bob", "ponytail", "short", "pixie", "bun"):
+        for length in ("short", "medium", "long", "very_long"):
+            attrs = A.validate(dict(base, hair_style=style, hair_length=length))
+            bare = footprint(R.render(observed, attrs, (), mask_override={}))
+            masked = footprint(R.render(observed, attrs, (), mask_override=hair))
+            if bare != masked:
+                bad.append(f"{style}+{length}: -{len(bare - masked)} +{len(masked - bare)}")
+    assert not bad, f"hair masks changed the hair footprint: {bad}"

@@ -927,3 +927,11 @@ S0 quality/face detection (YuNet) → S1 colour measurement (white-balance + ban
   - 로컬 draft 재시드 완료(`hair_length.medium`만), `hair_style.bob` 수정은 보존. 백업: `attribute_masks.before-hair-reseed2.json`.
   - `pytest -q` → **837 passed in 194.18s**.
   - 리스크: 이전에 저장된 draft는 여전히 0인 medium 마스크를 들고 있으므로 해당 값은 `사진 추정값으로`로 재시드해야 한다. 프로덕션 자산은 아직 hair 마스크가 없어 영향 없음(반영 전에 고쳐야 했던 케이스).
+
+- 2026-11-28 (헤어 마스크 책임 분리, `feat/hair-mask-split`): `hair_style.*`은 머리 실루엣, `hair_length.*`는 몸통 드레이프+목덜미만 담당하도록 시드를 분리했다. 사진 시트에서 draft 마스크가 84개 몸통 셀 중 63개를 production과 다르게 만들던 문제(short만 일치)를 고쳤다.
+  - 원인: 두 키 모두 머리+몸통 전체 실루엣을 담았고 style은 very_long 기준이었다. 렌더가 AND하므로 style 마스크가 모든 길이에서 허리까지의 케이프를 복원했고, job 레이어가 빈 면을 0으로 패딩해 모든 항목이 "편집됨"으로 보였다.
+  - 수정: `_seed_hair`에서 style은 `head.top/front/left/right/back`, length는 `body.*`+`head.bottom`(목덜미)만 저장. 드레이프 없는 스타일만 몸통에 0 그리드를 써서 어떤 길이와 AND해도 잘리게 함. `_normalize_key(fill_missing=False)`, `_zero_body_back_hair`(면 삭제), `backend/jobs._normalized`, `tools/mask_editor._defaults`도 같은 규칙 적용.
+  - 검증: 8스타일×4길이에서 마스크 유무의 몸통 footprint와 렌더 깊이가 동일(fixture + 대표 사진 7장). 남은 픽셀 차이는 채널당 ≤16으로, 마스크 셀이 참조 스트랜드 음영 대신 단색으로 다시 칠해지는 기존 동작(`apply_head_masks`)이며 이번 변경 전에도 동일했다.
+  - 도구: `scripts/render_photo_sheet.py` 추가 — 사진별 torso front+back을 production/draft로 나란히 렌더하고 셀별 최대 채널 차이를 표기. `out/theme/125`(수정 전), `127`(수정 후).
+  - 테스트: `tests/test_attribute_masks.py`에 책임 분리·footprint 동일성 테스트 추가, `tests/test_mask_editor.py` 기대값 갱신(job 쪽 `_normalized` 회귀 포함). `pytest -q` → **839 passed in 193.93s**.
+  - 리스크: hair 마스크 의미가 바뀌므로 기존 draft는 재시드해야 한다(로컬 완료). 프로덕션에는 아직 hair 마스크가 없어 영향 없음.

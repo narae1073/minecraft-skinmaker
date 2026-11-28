@@ -325,9 +325,15 @@ def _defaults() -> dict:
                 # A saved top mask can have a partial body (e.g. back=2 cells).
                 # Refill body faces; keep the user's arm/leg edits.
                 src = _refill_top_body(src)
-            if key in ("hair_style", "hair_length") and isinstance(src, dict):
-                # Hood up/down hides body-back hair in every hair mask.
-                src = _zero_body_back_hair(src)
+            if key in ("hair_style", "hair_length"):
+                if isinstance(src, dict):
+                    # Hood up/down hides body-back hair in every hair mask.
+                    src = _zero_body_back_hair(src)
+                # Hair splits one attribute across two keys (style = head,
+                # length = body); padding a missing face with zeros would clip
+                # the other mask and make every entry look edited.
+                masks[name] = _normalize_key(src, fill_missing=False)
+                continue
             masks[name] = _normalize_key(src)
     return masks
 
