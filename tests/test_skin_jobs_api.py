@@ -498,3 +498,42 @@ def test_reset_attributes_list_resets_only_the_requested_attributes(_isolated):
                       json={"reset_attributes": ["pattern"]}).status_code == 400
     assert owner.post(f"/api/v1/jobs/{token}/attributes",
                       json={"reset_attributes": ["top_garment"], "index": 9}).status_code == 404
+
+
+def _editor_local_imports() -> dict[str, set[str]]:
+    """Local ES-module imports of each editor script: {file: {module, ...}}."""
+    import re
+    editor = Path(__file__).resolve().parent.parent / "tools" / "mask_editor"
+    pattern = re.compile(r"""from\s+['"]\./([\w.-]+\.js)['"]""")
+    out = {}
+    for path in editor.glob("*.js"):
+        out[path.name] = set(pattern.findall(path.read_text(encoding="utf-8")))
+    return out
+
+
+def test_editor_lib_serves_every_imported_module(_isolated):
+    """A new editor module that app.js imports must be reachable in /edit mode.
+
+    Regression (2026-11-28): selection.js was added to app.js imports but not to
+    EDITOR_LIB_FILES, so /edit/lib/selection.js 404'd and the whole editor page
+    failed to boot — atlas and the attribute panel stayed empty.
+    """
+    owner = TestClient(A.app)
+    token = _generate(owner).json()["data"]["job"]["id"]
+    page = owner.get(f"/edit/{token}?index=1")
+    assert page.status_code == 200, page.text
+
+    imports = _editor_local_imports()
+    assert imports.get("app.js"), "app.js should import at least one local module"
+    seen: set[str] = set()
+    todo = list(imports["app.js"])
+    while todo:
+        name = todo.pop()
+        if name in seen:
+            continue
+        seen.add(name)
+        todo.extend(imports.get(name, ()))
+    missing = sorted(n for n in seen if owner.get(f"/edit/lib/{n}").status_code != 200)
+    assert not missing, f"/edit/lib 404 for imported modules: {missing}"
+    # And the page-timeline sanity: the entry module itself loads.
+    assert owner.get("/edit/lib/app.js").status_code == 200
