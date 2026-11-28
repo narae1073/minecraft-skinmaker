@@ -918,3 +918,12 @@ S0 quality/face detection (YuNet) → S1 colour measurement (white-balance + ban
   - 테스트: `panel.test.mjs` 5개(그룹/필드 중복 없음, 한국어 라벨, 헤어 경고, 모자 기본색) + pytest 래퍼. CDP: standalone — 개발자 옵션 줄·프리셋 4·model 2·속성 14행·`사진과 다른 속성 N개`·행 `↩` 동작·옛 패널 hidden. job 모드 — 속성 14행, 개발자 옵션 미노출, 아틀라스 108,817px·3D canvas 1, `머리 스타일 저장됨 · revision 1`, 실패 요청/콘솔 예외 0. `pytest -q` → **834 passed**.
   - 스크린샷: `out/theme/121-dev-standalone-panel.png`, `122-dev-standalone-reset.png`, `123-job-shared-panel.png`.
   - 리스크: standalone의 “사진 추정값” 기준은 현재 시드 베이스(업로드 사진 분류, 없으면 픽스처)다. job 모드 동작·API·저장 위치는 변경 없음.
+
+- 2026-11-28 (hair_length medium 시드 버그, `fix/hair-mask-medium-seed`): `hair_length.medium` 시드가 `bob`(몸통 드레이프 0)으로 만들어져 **모든 긴 스타일이 medium에서 몸통 0행**으로 렌더링되던 버그를 수정했다.
+  - 원인: `LENGTH_STYLE["medium"] = "bob"` → 시드 body가 전부 0인 그리드로 저장됨. `render._combine_mask_grids`가 style ∩ length로 AND하기 때문에 `long_straight ∩ medium = ∅` → 드레이프 소실. 프로덕션은 hair 마스크 자체가 없어 2행이 나와 draft와 불일치.
+  - 수정: `LENGTH_STYLE["medium"] = "long_straight"` (이미 `long`/`very_long`이 쓰던 스타일). 길이 캡(`style_drape`)이 2행을 만들고 절차적 렌더와 일치.
+  - 테스트: `tests/test_attribute_masks.py` 3개 추가 — ① 드레이프 가능한 시드 스타일인지 ② medium이 실제로 2행인지 ③ **8스타일 × 4길이 전부 마스크 유무와 무관하게 같은 몸통 깊이**인지. 수정 전 3개 모두 실패, 후 통과. `tests/test_mask_editor.py`의 medium 기대값 2건 갱신.
+  - A/B: long_straight/long_wavy/curly + medium **0 → 2행**, 나머지 조합 불변(bob/ponytail/short/pixie/bun은 전 길이 0). 24개 조합 prod/draft 완전 일치 확인.
+  - 로컬 draft 재시드 완료(`hair_length.medium`만), `hair_style.bob` 수정은 보존. 백업: `attribute_masks.before-hair-reseed2.json`.
+  - `pytest -q` → **837 passed in 194.18s**.
+  - 리스크: 이전에 저장된 draft는 여전히 0인 medium 마스크를 들고 있으므로 해당 값은 `사진 추정값으로`로 재시드해야 한다. 프로덕션 자산은 아직 hair 마스크가 없어 영향 없음(반영 전에 고쳐야 했던 케이스).

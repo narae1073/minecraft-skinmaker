@@ -55,7 +55,9 @@ def test_defaults_expose_key_value_tree_and_general_masks():
         return sum(sum(row) for face, grid in j["masks"][name]["L1"].items()
                    if face.startswith("body.") for row in grid)
     assert body_l1("hair_length.short") == 0
-    assert body_l1("hair_length.medium") == 0
+    # medium seeds with a draping style so its 2-row cap is expressible; an
+    # all-zero body mask would AND the style drape away (2026-11-28).
+    assert body_l1("hair_length.medium") > 0
     assert body_l1("hair_length.long") > 0
     assert body_l1("hair_length.very_long") > 0
     assert sum(sum(row) for grid in j["masks"]["beard.full"]["L1"].values() for row in grid) == 0
@@ -78,7 +80,8 @@ def test_hair_length_preview_uses_matching_style():
     # The old preview always used hair_style=long_straight, so short length
     # looked like long hair. Match the style to the length instead.
     assert mod._attrs_for("hair_length", "short").get("hair_style") == "short"
-    assert mod._attrs_for("hair_length", "medium").get("hair_style") == "bob"
+    # medium must preview with a draping style, matching the seed style.
+    assert mod._attrs_for("hair_length", "medium").get("hair_style") == "long_straight"
     assert mod._attrs_for("hair_length", "long").get("hair_style") == "long_straight"
     short = mod._seed_hair("hair_length", "short")
     very = mod._seed_hair("hair_length", "very_long")

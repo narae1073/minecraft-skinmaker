@@ -81,9 +81,13 @@ MASKABLE = {
 # Saved-draft schema. 2 = drafts written by this editor after the one-off
 # body migrations were retired from the load path; user body edits persist.
 SCHEMA = 3
+# Style used to seed a hair_length mask. It must be a draping style: the
+# seed is capped by the length (style_drape(style, length)), so seeding
+# `medium` with a no-drape style (bob) produced an all-zero body mask that
+# ANDed the drape away (long hair rendered 0 torso rows at medium instead of 2).
 LENGTH_STYLE = {
     "short": "short",
-    "medium": "bob",
+    "medium": "long_straight",
     "long": "long_straight",
     "very_long": "long_straight",
 }
