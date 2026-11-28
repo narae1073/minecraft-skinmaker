@@ -881,3 +881,10 @@ S0 quality/face detection (YuNet) → S1 colour measurement (white-balance + ban
   - 기본 `PUBLISH=1`로 `SKINMAKER_EDITOR_ALLOW_PUBLISH=1`을 켜서 `프로덕션에 반영` 버튼을 사용할 수 있게 한다(`PUBLISH=0`이면 끔). 포트는 `PORT`(기본 8765)로 바꿀 수 있고, 이미 사용 중이면 종료한다.
   - `AGENTS.md` 커맨드 목록에 `./scripts/editor_dev.sh`를 추가.
   - 검증: `bash -n`, 실행 후 `GET /` 200, 토큰 없이 `/api/publish/diff` 401, 토큰과 함께 `draft_keys 56 / prod_keys 5` 응답, 8765 LISTEN 확인.
+
+- 2026-11-28 (편집기 value 기억·값 단위 복원, `feat/editor-value-memory`): 마스크 편집 대상에서 key를 바꿔도 value가 첫 값으로 초기화되지 않게 하고, 현재 key/value만 사진 추정값으로 되돌리는 버튼을 추가했다.
+  - `tools/mask_editor/selection.js`(신규): `pickValue`/`rememberValue`/`resolveMaskTarget`. 순서는 ① 새 key에 현재 값이 있으면 유지(예: `short`) ② 그 key에서 마지막으로 고른 값 ③ 첫 값. `selection.test.mjs` 5개로 규칙 고정.
+  - `app.js`: `setKey`가 위 규칙 사용, `setValue`가 `state.lastValue` 기록, `setMaskTarget`이 `resolveMaskTarget`으로 폴백 시 상태줄에 `hood_fit은(는) shallow 값만 마스크가 있어 shallow로 맞췄어요` 안내. `app.js?v=33`.
+  - 값 줄 끝에 `사진 추정값으로` 버튼: 현재 `key.value` 하나만 `/api/seed`로 복원하고 Undo 1스텝. standalone 전용(job 모드는 행별 `↩` 사용).
+  - 테스트: `tests/test_mask_editor_atlas.py`에 `selection.test.mjs` 실행 추가. CDP 실측(standalone): `hair_style.curly` → `hair_length` → `hair_style` 복귀 시 `curly` 유지, `hair_length.very_long`도 유지, 공유 값 `short` 유지, `long_wavy` 칠한 뒤 복원 버튼 → 시드와 동일·다른 key 불변·Undo 1스텝, 콘솔 에러 0. `pytest -q` → **829 passed**.
+  - 헤어 몸통 드레이프 조사 결과: `_hair_mask_grid`가 style∩length로 마스크를 적용하지만, 사진 드레이프가 있는 스타일(`long_straight`/`long_wavy`/`curly`)은 `render_body`가 먼저 per-column 드레이프를 그리고 마스크로 자르기만 하므로 **마스크로 늘릴 수 없고 줄일 수는 있다**. 다만 body.back은 드레이프가 0행이라 마스크로 줄일 대상이 없고, 실제 상한은 `hairstencil.STYLE_DRAPE`(front 11/back 12)다. 이 값 변경은 렌더 정책 변경이라 paired baseline이 필요해 이번 PR에서 제외하고 `docs/attribute-masks.md`에 근거를 남겼다.

@@ -1,5 +1,6 @@
 import { initViewer } from './viewer.js';
 import { ATLAS, LAYER_STYLE, buildBoxes, boxAt, gridHasMask, bresenham, brushCells, texelAt, drawAtlas } from './atlas.js';
+import { pickValue, rememberValue, resolveMaskTarget } from './selection.js';
 
 const $ = (s) => document.querySelector(s);
 
@@ -60,6 +61,7 @@ const state = {
   mode: 'paint', viewMode: 'final', source: 'draft', mirror: false,
   brush: loadBrush(),
   zoom: 8, hover: null,
+  lastValue: {},
   painting: false, painting3d: false, stroke: 0, last: null, baseImg: null,
   history: { undo: [], redo: [] }, showBase: true,
   dirty: false, saving: false, savePromise: null, savedRevision: null, autosaveTimer: null,
@@ -621,19 +623,48 @@ function renderValueTabs() {
     b.onclick = () => setValue(value);
     vt.appendChild(b);
   }
+  // Restore just the selected key/value to the photo-derived seed.
+  const restore = document.createElement('button');
+  restore.type = 'button';
+  restore.className = 'valueRestoreBtn';
+  restore.textContent = '사진 추정값으로';
+  restore.title = `지금 선택한 ${state.key}.${state.value} 마스크만 사진 기반 시드로 되돌립니다`;
+  restore.disabled = JOB;
+  restore.onclick = () => restoreValueSeed();
+  vt.appendChild(restore);
   syncTabs();
+}
+
+// Reset one mask entry (current key/value) to its photo/seed baseline.
+async function restoreValueSeed() {
+  const name = `${state.key}.${state.value}`;
+  const r = await apiFetch(`/api/seed?key=${encodeURIComponent(state.key)}&value=${encodeURIComponent(state.value)}`);
+  const j = await r.json();
+  if (!r.ok || !j.mask) {
+    $('#status').textContent = '사진 추정값 복원 실패';
+    return;
+  }
+  snapshotChange({ ...state.masks, [name]: j.mask }, 'restore ' + name);
+  $('#status').textContent = `${name} 사진 추정값으로 복원 — Undo로 취소 가능`;
 }
 
 function syncTabs() {
   if (typeof syncMaskTargetUI === 'function') syncMaskTargetUI();
   for (const b of document.querySelectorAll('#kindTabs button')) b.classList.toggle('active', b.dataset.key === state.key);
-  for (const b of document.querySelectorAll('#valueTabs button')) b.classList.toggle('active', b.dataset.value === state.value);
+  for (const b of document.querySelectorAll('#valueTabs button[data-value]')) b.classList.toggle('active', b.dataset.value === state.value);
+  const restore = document.querySelector('#valueTabs .valueRestoreBtn');
+  if (restore) {
+    restore.title = `지금 선택한 ${state.key}.${state.value} 마스크만 사진 기반 시드로 되돌립니다`;
+  }
 }
 
 function setKey(k) {
   if (state.key === k) return;
   state.key = k;
-  state.value = state.maskable[k][0];
+  // Keep a shared value, else restore this key's last value, else the first.
+  state.value = pickValue(state.maskable[k] || [], {
+    current: state.value, key: k, lastValue: state.lastValue || {},
+  });
   if (!JOB && state.combo && state.enums[k] && state.enums[k].includes(state.value)) {
     state.combo[k] = state.value; saveCombo(); syncComboUI();
   }
@@ -647,6 +678,8 @@ function setKey(k) {
 function setValue(v) {
   if (state.value === v) return;
   state.value = v;
+  if (!state.lastValue) state.lastValue = {};
+  rememberValue(state.lastValue, state.key, v);
   if (!JOB && state.combo && state.enums[state.key] && state.enums[state.key].includes(v)) {
     state.combo[state.key] = v; saveCombo(); syncComboUI();
   }
@@ -1035,9 +1068,12 @@ function jobHairWarning(style, length) {
 function setMaskTarget(key, preferred, open = false) {
   if (!state.maskable || !state.maskable[key]) return;
   if (state.key !== key) setKey(key);
-  const values = state.maskable[key];
-  const value = values.includes(preferred) ? preferred : values[0];
-  if (state.value !== value) setValue(value);
+  const { value, fallback } = resolveMaskTarget(state.maskable[key], preferred);
+  if (fallback) {
+    // Some keys only mask a subset of their values (hood_fit.shallow).
+    state.notice = `${key}은(는) ${value} 값만 마스크가 있어 ${value}로 맞췄어요`;
+  }
+  if (value !== null && state.value !== value) setValue(value);
   syncMaskTargetUI();
   const adv = document.getElementById('jobMaskTarget');
   if (adv && open) adv.open = true;

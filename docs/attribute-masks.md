@@ -313,3 +313,39 @@ The standalone editor (`tools/mask_editor`) can promote selected draft keys into
 
 `skinmaker/mask_publish.py` holds the diff/merge logic; `tests/test_mask_publish.py`
 and `tests/test_mask_editor.py` cover validation, backups and the opt-in gate.
+
+## Value memory and per-value restore (2026-11-28)
+
+- Switching the mask **key** no longer resets the **value** to the key's first
+  entry. `tools/mask_editor/selection.js` implements the order: keep a value
+  shared by the new key (e.g. `short`), else that key's last chosen value, else
+  the first value. `selection.test.mjs` covers the rules.
+- The value row gained **`사진 추정값으로`**, which restores only the selected
+  `key.value` mask from the photo-derived seed (`GET /api/seed`) as a single
+  undoable step. It is standalone-only; per-skin `/edit/{id}` rows have their
+  own attribute `↩` instead.
+- The per-attribute `마스크` button now reports when a key only masks a subset of
+  its values (e.g. `hood_fit.shallow`) instead of switching silently.
+
+### Hair is style ∩ length, not 8 × 4 assets
+
+`render.py::_hair_mask_grid` ANDs the style mask with the length mask, for the
+head and for the body drape (`apply_body_hair_masks`). There is no per-combination
+mask, so:
+
+- editing one style affects every length of that style,
+- editing one length affects every style at that length,
+- an impossible pair (short style + very_long) is clipped by the intersection.
+
+Seeds follow the same rule: `hair_style.*` is seeded at `very_long` so it can be
+cut by any length, and `hair_length.*` is seeded with `LENGTH_STYLE`
+(`short→short, medium→bob, long/very_long→long_straight`).
+
+**Reference-drape caveat:** when a photo supplies a real drape
+(`HS.REF_DRAPE_STYLES`: `long_straight`, `long_wavy`, `curly`), `render_body`
+draws that per-column drape first and only then applies the masks, so a style
+mask cannot *extend* body hair — it can only cut it. To shorten the body drape
+for those styles the cap lives in
+`hairstencil.STYLE_DRAPE` (`body.front`, `body.back` rows), which is render
+policy, not a mask; changing it changes production for everyone and needs a
+paired baseline.
