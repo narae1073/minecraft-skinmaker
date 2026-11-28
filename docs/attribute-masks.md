@@ -429,3 +429,41 @@ Regenerate the visual sheet with:
 
 It prints the max per-channel delta per cell and draws a gold box when the
 production and draft body crops differ by more than 2.
+
+## Published: hair masks in the production asset (2026-11-28)
+
+Published 12 hair keys (8 styles + 4 lengths) via the dev editor's selective
+publish. Production went from 5 keys to 17; `hood.*`, `headwear.*` and
+`hood_fit.shallow` are byte-identical to before.
+
+**Trap found while publishing: hair masks are a matched set.** Publishing only
+the edited keys (`hair_style.bob`, `hair_length.medium`) made no-drape styles
+gain a drape — `ponytail`/`short`/`bun` at `medium` rendered 14 torso cells
+instead of 4, because a `hair_length` mask without the matching `hair_style`
+clips leaks the drape. Rolled back immediately (backup
+`out/mask_editor/backup/attribute_masks.20261122T130242325251Z.json`) and
+republished the whole hair set.
+
+**Also note:** the dev draft's copies of `hood.*` / `headwear.*` are all-zero
+(the editor never seeded them; production has the real masks). Publishing those
+would erase the hood, so they must stay out of any selective publish.
+
+**After publishing** (`out/theme/129-prod-published.png`, 7 photos × 3 styles ×
+4 lengths): max channel delta **0** between production and draft, i.e. the
+published asset renders exactly what the editor showed.
+
+Torso front hair cells with the published asset (photo 1):
+
+| style | short | medium | long | very_long |
+|---|---|---|---|---|
+| long_straight | 4 | 14 | 30 | 46 |
+| bob (edited) | 10 | 10 | 10 | 10 |
+| short / pixie / ponytail / bun | 4 | 4 | 4 | 4 |
+
+Publish command (dev editor API, token gated):
+
+```bash
+curl -X POST -H "X-Editor-Token: $TOKEN" -H 'Content-Type: application/json' \
+  -d '{"keys":["hair_style.short",...,"hair_length.very_long"]}' \
+  http://127.0.0.1:8765/api/publish
+```
