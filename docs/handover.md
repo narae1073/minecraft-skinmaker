@@ -902,3 +902,9 @@ S0 quality/face detection (YuNet) → S1 colour measurement (white-balance + ban
   - 테스트: `test_hairstencil` 3개(길이 캡, 길이 미지정 시 참조 유지, `style_body_rows` 연동), `test_render` 기존 4개를 새 정책으로 갱신, `test_hairreport` 기대값 갱신. `pytest -q` → **832 passed in 212.49s**.
   - 스크린샷: `out/theme/119-drape-before.png`, `119-drape-after.png` (body front/back × short/medium/long/very_long).
   - 리스크: 프로덕션 렌더 정책 변경이다. 기존 생성물은 소급 변경되지 않고, 새로 생성/재렌더할 때만 짧아진다. long·very_long의 골든 해시가 바뀌므로 이후 픽셀 회귀는 새 해시가 기준이다.
+
+- 2026-11-28 (핫픽스: /edit 모드 에디터 로딩 실패, `fix/editor-lib-allowlist`): 배포 후 `/edit/{id}`에서 아틀라스·속성 패널이 비어 있던 장애를 수정했다.
+  - 원인: PR #145에서 `tools/mask_editor/selection.js`를 추가하고 `app.js`가 `import ... from './selection.js'` 하도록 바꿨지만, job 모드 파일 허용 목록 `EDITOR_LIB_FILES = {"app.js","viewer.js","atlas.js"}`에 넣지 않아 `/edit/lib/selection.js`가 404. ES 모듈 그래프가 끊겨 `app.js`가 실행되지 않아 페이지 전체가 부팅 실패했다. standalone 에디터는 `StaticFiles(directory=ROOT)`로 폴더 전체를 서빙해서 영향이 없었고, 그래서 standalone QA로는 잡히지 않았다.
+  - 수정: `EDITOR_LIB_FILES`에 `selection.js` 추가. 근본 재발 방지로 `test_editor_lib_serves_every_imported_module` 추가 — `tools/mask_editor/*.js`의 `from './x.js'`를 파싱해 전이 의존 모듈까지 `/edit/lib/{name}` 200인지 검사한다. 수정 전 상태에서 이 테스트가 `['selection.js']`로 실패하는 것을 확인했다.
+  - `AGENTS.md` Browser QA 절에 “에디터 변경 배포 후 실제 `/edit/{id}`에서 import하는 모든 `/edit/lib/*.js` 200 + 콘솔 무에러 확인” 규칙 추가.
+  - 검증: 로컬 job 모드 CDP — editor booted, 속성 select 14개(`top_garment=tee`, `inner_top=none`, `sleeve_len=short`), 아틀라스 448×448에 108,817 픽셀, 3D canvas 1개, 실패 요청 0, 콘솔 예외 0. 스크린샷 `out/theme/120-editor-recovered.png`.

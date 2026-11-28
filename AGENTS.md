@@ -149,6 +149,12 @@ Getting this wrong is the biggest time sink in a session — follow the order.
 - Run the **focused** test files while iterating; run the full `pytest -q`
   (~4 min) once before merging. Budget ~10 min for CI (`test`,
   `test-windows`, `web`) plus deploy.
+- **After deploying an editor change, open the real `/edit/{id}` and check it
+  boots**: every `/edit/lib/*.js` the page imports must return 200 (the job
+  route serves an allowlist, unlike the standalone dev server), and the console
+  must be clean. A single 404 in that module graph leaves the atlas and the
+  attribute panel blank with no visible error. `npm`/standalone checks do not
+  cover this.
 
 ## Handoff
 

@@ -610,7 +610,11 @@ async def job_render(token: str, request: Request):
 
 # ---- per-skin editor page ------------------------------------------------------
 EDITOR_DIR = REPO_ROOT / "tools" / "mask_editor"
-EDITOR_LIB_FILES = {"app.js", "viewer.js", "atlas.js"}
+# The editor's own ES modules are served from the checkout, so the list has to
+# follow the imports in app.js. It used to be a hand-maintained set, and adding
+# selection.js broke every /edit/{id} page (404 on the import kills the module
+# graph). `test_editor_lib_serves_every_imported_module` now guards it.
+EDITOR_LIB_FILES = {"app.js", "viewer.js", "atlas.js", "selection.js"}
 EDITOR_VENDOR_FILES = {"three.core.js", "three.module.js", "OrbitControls.js"}
 _EDITOR_CSS = """
 body[data-job] #comboTitle, body[data-job] #comboPanel, body[data-job] #srcBtn, body[data-job] .group:has(#photoInput), body[data-job] #maskTargetTitle, body[data-job] #kindTabs, body[data-job] #valueTabs { display: none !important; }
