@@ -205,14 +205,41 @@ def front_lock_profile(rows: int) -> tuple[tuple[int, ...], ...]:
     return tuple(profile)
 
 
-def style_drape(hair_style: str) -> tuple[int, int]:
-    """(앞 chest rows, 뒤 rows). 마스크 증거는 뒤에서 +1까지만 반영한다."""
-    return STYLE_DRAPE.get(hair_style, (0, 0))
+def style_drape(hair_style: str, hair_length: str | None = None) -> tuple[int, int]:
+    """(앞 chest rows, 뒤 rows). 마스크 증거는 뒤에서 +1까지만 반영한다.
+
+    The reference drape is a single silhouette for the loose long styles, but it
+    must not out-run the declared length: at ``medium``/``long`` the torso hair
+    has to stop where that length stops, otherwise every long style looks like
+    ``very_long``. Passing no length keeps the legacy reference rows.
+    """
+    front, back = STYLE_DRAPE.get(hair_style, (0, 0))
+    if hair_length is None or (front, back) == (0, 0):
+        return (front, back)
+    cap = LENGTH_BODY_ROWS.get(hair_length, LENGTH_BODY_ROWS["very_long"])
+    return (min(front, cap), min(back, cap))
 
 
 def style_body_rows(hair_style: str, hair_length: str = "short", stencil=None) -> int:
     """뒤 드레이프 목표(하위 호환). 앞/뒤 분리는 style_drape 를 쓴다."""
-    return style_drape(hair_style)[1]
+    return style_drape(hair_style, hair_length)[1]
+
+
+def cap_drape(drape: dict, front_rows: int, back_rows: int) -> dict:
+    """Trim a reference body drape to the rows the declared length allows.
+
+    ``drape["l1_depth"]`` maps a body face to per-column row counts (front/back/
+    left/right). Rows beyond the cap are dropped, and faces left with no rows are
+    removed so the renderer does not draw an empty cape.
+    """
+    depth = (drape or {}).get("l1_depth") or {}
+    if not depth:
+        return drape
+    caps = {"front": front_rows, "back": back_rows, "left": front_rows, "right": front_rows}
+    capped = {face: [min(rows, caps.get(face, back_rows)) for rows in cols]
+              for face, cols in depth.items()}
+    capped = {face: cols for face, cols in capped.items() if any(cols)}
+    return {**drape, "l1_depth": capped}
 
 
 def style_bangs(hair_style: str) -> int:

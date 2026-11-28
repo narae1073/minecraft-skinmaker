@@ -82,3 +82,39 @@ Style (E) is checked against the `hair_style` tag; uncertain tags fall back to b
 - **Hood up:** hood covers crown/sides/back, face opening keeps both eyes and the face visible; no hair holes through the hood.
 - **Hood down:** cowl sits at the neck/shoulders; no hood shell over the head.
 - **Hood none:** no hood overlay at all.
+
+## Body drape is capped by hair length (2026-11-28)
+
+**Symptom.** `long_straight`, `long_wavy` and `curly` looked waist-length at
+`medium` and `long` — identical to `very_long`.
+
+**Cause.** `hairstencil.STYLE_DRAPE` held one reference cape `(11 front, 12 back)`
+for all three loose styles, and `render` used it for every length. The reference
+drape in `reference_pack.hair_body.l1_depth` is likewise one very-long
+silhouette, so masks could only cut it, never reshorten it.
+
+**Fix.** The cape is capped by the declared length:
+
+- `hairstencil.style_drape(style, hair_length)` → `min(style rows, LENGTH_BODY_ROWS[length])`
+  (`short 0 / medium 2 / long 6 / very_long 10`); omitting the length keeps the
+  legacy reference rows for callers/tests that need the raw silhouette.
+- `hairstencil.cap_drape(drape, front, back)` trims the per-column reference
+  cascade to those rows; faces left empty are dropped.
+- `render` passes `attrs["hair_length"]` and caps the drape before rendering.
+- `hairreport` compares against the same capped expectation.
+
+**A/B (synthetic observed, `noise_seed=None`, hair `#112233`)** — body rows actually
+painted, before → after:
+
+| style | length | front | back |
+|---|---|---|---|
+| long_straight / long_wavy / curly | short | 11 → **0** | 12 → **0** |
+| " | medium | 11 → **2** | 12 → **2** |
+| " | long | 11 → **6** | 12 → **6** |
+| " | very_long | 11 → **10** | 12 → **10** |
+
+- Unchanged: `short`, `bob`, `ponytail`, `bun` (no drape), head hair, bangs, L2.
+- Golden pixel baselines updated for `long` (`aad4f2e43b6ed7a0 → 3ae4f6c3a81c3e18`)
+  and `very_long` (`54bd7befaed3252e → 279f327fa7961687`); `short` and `medium`
+  hashes are byte-identical because their fallback styles have no drape.
+- `docs/handover.md` records the same numbers.

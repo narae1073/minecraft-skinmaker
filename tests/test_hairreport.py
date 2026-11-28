@@ -77,7 +77,9 @@ def test_report_front_hole_and_hairline_checks():
     base = canvas.image
     r = HR.analyze(base, hair="#112233", skin="#e0ac69", hair_length="long", hair_style="long_straight")
     assert r["ok"], r
-    assert r["front_body_rows"] == 11 and r["back_body_rows"] == 12  # reference drape
+    # The reference cape is capped by the declared length (2026-11-28).
+    assert r["front_body_rows"] == 6 and r["back_body_rows"] == 6
+    assert r["expected_front"] == 6 and r["expected_back"] == 6
 
     broken = base.copy()
     f = get_layout("classic").face("head", "front", 0)

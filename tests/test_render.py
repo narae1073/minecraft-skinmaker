@@ -56,8 +56,8 @@ from skinmaker import hairstencil as HS
 NOISE_OFF_GOLDEN = {
     "short": "f9d45ddc0d3b6ab1",
     "medium": "d4419820289f130a",
-    "long": "aad4f2e43b6ed7a0",
-    "very_long": "54bd7befaed3252e",
+    "long": "3ae4f6c3a81c3e18",
+    "very_long": "279f327fa7961687",
 }
 
 
@@ -247,15 +247,22 @@ def test_head_bottom_rear_is_hair_and_chin_is_skin():
 
 
 def test_long_hair_extends_body_drape_and_bangs():
-    short = R.render(observed(hair="#112233"), attrs(hair_length="short"), ())
+    short = R.render(observed(hair="#112233"), attrs(hair_length="short", hair_style="long_straight"), ())
     long = R.render(observed(hair="#112233"), attrs(hair_length="long", hair_style="long_straight"), ())
-    # Reference drape: back to the waist (u0/u7 11 rows), chest locks u0-1/u6-7.
-    for v in range(11):
+    # The reference cape is one very-long silhouette, capped by the declared
+    # length (2026-11-28): long = 6 torso rows, not the whole waist-length 11/12.
+    for v in range(6):
         assert _hairish(long.get("body", "back", 0, v), "#112233", "back"), v
-    assert not _hairish(long.get("body", "back", 0, 11), "#112233", "back")
-    for v in range(10):
+    assert not _hairish(long.get("body", "back", 0, 6), "#112233", "back")
+    for v in range(5):
         assert _hairish(long.get("body", "front", 1, v), "#112233", "front"), v
+    assert not _hairish(long.get("body", "front", 1, 6), "#112233", "front")
     assert not _hairish(long.get("body", "front", 3, 3), "#112233", "front")
+    # very_long keeps the full reference cape.
+    very = R.render(observed(hair="#112233"), attrs(hair_length="very_long", hair_style="long_straight"), ())
+    for v in range(10):
+        assert _hairish(very.get("body", "back", 0, v), "#112233", "back"), v
+    assert not _hairish(very.get("body", "back", 0, 11), "#112233", "back")
     # Head L1 hair carries reference strand shading (2026-11-01): near, not equal.
     hair_front = shade(rgba("#112233"), R.FACE_SHADE["front"])[:3]
     for u in (2, 5):
@@ -276,7 +283,7 @@ def test_hood_up_hides_back_drape_and_keeps_chest_locks():
     bare = R.render(base, attrs(hood="none", **kw), ())
     up = R.render(base, attrs(hood="up", **kw), ())
 
-    assert _hairish(bare.get("body", "back", 3, 6), base.hair.hex, "back")
+    assert _hairish(bare.get("body", "back", 3, 5), base.hair.hex, "back")
     for u in range(8):
         for v in range(12):
             assert not _hairish(up.get("body", "back", u, v), base.hair.hex, "back"), (u, v)
@@ -293,10 +300,11 @@ def test_hood_up_keeps_only_chest_facing_side_lock():
     base = observed(hair="#112233")
     up = R.render(base, attrs(top_garment="hoodie", hair_length="long",
                               hair_style="long_straight", hood="up"), ())
-    assert not _hairish(up.get("body", "right", 0, 6), base.hair.hex, "right")
-    assert _hairish(up.get("body", "right", 3, 6), base.hair.hex, "right")
-    assert not _hairish(up.get("body", "left", 3, 6), base.hair.hex, "left")
-    assert _hairish(up.get("body", "left", 0, 6), base.hair.hex, "left")
+    # chest-facing edge column keeps a short lock; the back-facing one does not.
+    assert not _hairish(up.get("body", "right", 0, 3), base.hair.hex, "right")
+    assert _hairish(up.get("body", "right", 3, 3), base.hair.hex, "right")
+    assert not _hairish(up.get("body", "left", 3, 3), base.hair.hex, "left")
+    assert _hairish(up.get("body", "left", 0, 3), base.hair.hex, "left")
 
 
 def test_hood_down_uses_head_mask_without_body_front_cowl():
@@ -985,16 +993,20 @@ def test_l2_style_signatures_are_distinct():
 
 
 def test_back_drape_caps_mask_evidence_and_no_drape_styles():
-    """Loose long styles use the reference drape length (back 12, chest 11),
-    not SCHP evidence; no-drape styles stay bare."""
+    """Loose long styles use the reference cape, capped by the declared length
+    (2026-11-28); SCHP evidence cannot extend it, no-drape styles stay bare."""
     st = dataclasses.replace(HS.rule_stencil("long"), body_rows=3)
     base = dataclasses.replace(observed(), hair_stencil=st)
     long = R.render(base, attrs(hair_length="long", hair_style="long_straight"), ())
-    for v in range(12):
+    for v in range(6):
         assert _hairish(long.get("body", "back", 3, v), base.hair.hex, "back"), v
-    for v in range(11):
+    assert not _hairish(long.get("body", "back", 3, 6), base.hair.hex, "back")
+    for v in range(5):
         assert _hairish(long.get("body", "front", 0, v), base.hair.hex, "front"), v
     assert not _hairish(long.get("body", "front", 3, 2), base.hair.hex, "front")  # shirt centre
+    very = R.render(base, attrs(hair_length="very_long", hair_style="long_straight"), ())
+    for v in range(10):
+        assert _hairish(very.get("body", "back", 3, v), base.hair.hex, "back"), v
     bob = R.render(base, attrs(hair_length="long", hair_style="bob"), ())
     assert bob.get("body", "back", 0, 0)[:3] != shade(rgba(base.hair.hex), R.FACE_SHADE["back"])[:3]
 
