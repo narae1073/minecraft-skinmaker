@@ -875,3 +875,9 @@ S0 quality/face detection (YuNet) → S1 colour measurement (white-balance + ban
   - 프로덕션 반영은 기존처럼 커밋→PR→자동 배포로 한다(즉시 restart하는 우회 경로는 만들지 않음).
   - 테스트: `tests/test_mask_publish.py` 4개(diff, 선택 merge, 백업, SHA/오류) + `tests/test_mask_editor.py` 1개(flag off 403, diff, 선택 merge, unknown key 400). CDP: dev editor에서 `초안 키 56 · 프로덕션 키 5 · 변경 5 · 새 키 51`, 변경 5개 기본 체크, 새 키 1개 선택 반영 → asset 5→6키, approval SHA 갱신, 백업 파일 생성, 다이얼로그/상태 문구, 콘솔 에러 0. 스크린샷 `out/theme/116-publish-dialog.png`, `117-publish-done.png`.
   - 리스크: publish는 현재 체크아웃의 asset만 바꾸므로 배포 전까지 프로덕션에 적용되지 않는다. draft 전체를 승인하지 않도록 새 키는 기본 해제이며, 선택하지 않은 키는 건드리지 않는다.
+
+- 2026-11-28 (개발자 에디터 실행 스크립트, `chore/editor-dev-script`): 개발자 마스크 에디터를 한 명령으로 띄우는 `scripts/editor_dev.sh`를 추가했다.
+  - 토큰은 `out/mask_editor/access_token`에서 읽고, 없으면 `secrets.token_urlsafe(24)`로 만들어 600 권한으로 저장한다. `SKINMAKER_EDITOR_TOKEN` 환경변수가 있으면 그 값을 쓴다.
+  - 기본 `PUBLISH=1`로 `SKINMAKER_EDITOR_ALLOW_PUBLISH=1`을 켜서 `프로덕션에 반영` 버튼을 사용할 수 있게 한다(`PUBLISH=0`이면 끔). 포트는 `PORT`(기본 8765)로 바꿀 수 있고, 이미 사용 중이면 종료한다.
+  - `AGENTS.md` 커맨드 목록에 `./scripts/editor_dev.sh`를 추가.
+  - 검증: `bash -n`, 실행 후 `GET /` 200, 토큰 없이 `/api/publish/diff` 401, 토큰과 함께 `draft_keys 56 / prod_keys 5` 응답, 8765 LISTEN 확인.
