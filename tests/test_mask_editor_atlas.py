@@ -25,3 +25,12 @@ def test_selection_helpers_pass_node_unit_tests():
         capture_output=True, text=True, timeout=120,
     )
     assert result.returncode == 0, result.stdout + result.stderr
+
+
+@pytest.mark.skipif(NODE is None, reason="node not installed")
+def test_panel_helpers_pass_node_unit_tests():
+    result = subprocess.run(
+        [NODE, "--test", str(ROOT / "tools" / "mask_editor" / "panel.test.mjs")],
+        capture_output=True, text=True, timeout=120,
+    )
+    assert result.returncode == 0, result.stdout + result.stderr

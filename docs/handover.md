@@ -908,3 +908,13 @@ S0 quality/face detection (YuNet) → S1 colour measurement (white-balance + ban
   - 수정: `EDITOR_LIB_FILES`에 `selection.js` 추가. 근본 재발 방지로 `test_editor_lib_serves_every_imported_module` 추가 — `tools/mask_editor/*.js`의 `from './x.js'`를 파싱해 전이 의존 모듈까지 `/edit/lib/{name}` 200인지 검사한다. 수정 전 상태에서 이 테스트가 `['selection.js']`로 실패하는 것을 확인했다.
   - `AGENTS.md` Browser QA 절에 “에디터 변경 배포 후 실제 `/edit/{id}`에서 import하는 모든 `/edit/lib/*.js` 200 + 콘솔 무에러 확인” 규칙 추가.
   - 검증: 로컬 job 모드 CDP — editor booted, 속성 select 14개(`top_garment=tee`, `inner_top=none`, `sleeve_len=short`), 아틀라스 448×448에 108,817 픽셀, 3D canvas 1개, 실패 요청 0, 콘솔 예외 0. 스크린샷 `out/theme/120-editor-recovered.png`.
+
+- 2026-11-28 (개발자 에디터도 같은 속성 패널, `feat/shared-attribute-panel`): standalone 개발자 에디터의 UI를 유저 에디터와 같은 `스킨 속성` 패널로 통일했다.
+  - `tools/mask_editor/panel.js`(신규): `ATTR_LABELS`/`ATTR_TEXT`/`ATTR_GROUPS`/`ATTR_FIELDS`/`attrText`/`hairWarning`/`HAT_DEFAULT`와 `buildAttributesPanel(opts)`. DOM·사진 diff 배지·busy 상태만 담당하고, 저장은 각 에디터가 `apply(body, label, meta)` 훅으로 주입한다. `body`는 `{attributes}`, `{reset:true}`, `{reset_attributes:[key]}` 셋.
+  - job 모드: `buildJobAttributesPanel`이 이 패널의 얇은 어댑터가 되어 `/attributes` + `index`를 호출하고, `hat_mask` 병합·revision/override 갱신·`/preview`(`skin`) 적용·마스크 대상 동기화를 그대로 유지.
+  - standalone: `addStandalonePanels()`가 `개발자 옵션` 줄(model, 프리셋 4개)과 공유 패널을 붙인다. 값 변경은 `state.combo` + `saveCombo()` + `schedulePreview()`로 즉시 반영되고, `↩`/`사진 추정값으로`는 사진 추정값으로 되돌린다.
+  - 옛 `조합 미리보기 (16 keys)`와 `마스크 편집 대상 (14 keys)` 2단 그리드는 standalone에서도 숨김(공유 패널로 대체). 프리셋·model·Draft/Production 소스·`이 값만 seed로`는 계속 사용 가능.
+  - `/api/defaults`에 `photo_combo` 추가(업로드 사진/픽스처 기준), `EDITOR_LIB_FILES`에 `panel.js` 추가. 같은 실수 방지를 위해 기존 `test_editor_lib_serves_every_imported_module`이 전이 import를 검사한다.
+  - 테스트: `panel.test.mjs` 5개(그룹/필드 중복 없음, 한국어 라벨, 헤어 경고, 모자 기본색) + pytest 래퍼. CDP: standalone — 개발자 옵션 줄·프리셋 4·model 2·속성 14행·`사진과 다른 속성 N개`·행 `↩` 동작·옛 패널 hidden. job 모드 — 속성 14행, 개발자 옵션 미노출, 아틀라스 108,817px·3D canvas 1, `머리 스타일 저장됨 · revision 1`, 실패 요청/콘솔 예외 0. `pytest -q` → **834 passed**.
+  - 스크린샷: `out/theme/121-dev-standalone-panel.png`, `122-dev-standalone-reset.png`, `123-job-shared-panel.png`.
+  - 리스크: standalone의 “사진 추정값” 기준은 현재 시드 베이스(업로드 사진 분류, 없으면 픽스처)다. job 모드 동작·API·저장 위치는 변경 없음.
