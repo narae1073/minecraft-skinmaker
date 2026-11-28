@@ -11,6 +11,7 @@ cd frontend && npm run lint            # required before frontend commits
 cd frontend && npm test                # vitest (vitest run), required before frontend commits
 cd frontend && npm run build           # production build (backend serves dist/)
 .venv/bin/python -m uvicorn backend.app:app --host 127.0.0.1 --port 8001
+./scripts/editor_dev.sh               # developer mask editor on 127.0.0.1:8765 (token in out/mask_editor/access_token)
 ```
 
 Use `.venv/bin/python` (Windows: `.venv\Scripts\python.exe`) — not `python`, not `uv`.
