@@ -349,3 +349,38 @@ for those styles the cap lives in
 `hairstencil.STYLE_DRAPE` (`body.front`, `body.back` rows), which is render
 policy, not a mask; changing it changes production for everyone and needs a
 paired baseline.
+
+## hair_length seeds must use a draping style (2026-11-28)
+
+**Symptom.** A style with body hair (long_straight / long_wavy / curly) rendered
+**0 torso rows at `medium`** once the hair masks were applied, while the
+unmasked render produced 2. It also meant the dev editor and production
+disagreed (production has no hair masks yet).
+
+**Cause.** `hair_length.medium` was seeded with `LENGTH_STYLE["medium"] = "bob"`.
+`bob` has no body drape (`STYLE_DRAPE["bob"] == (0, 0)`), so the seed stored
+**all-zero body faces**. Style and length masks are ANDed
+(`_combine_mask_grids`), so `long_straight ∩ medium = ∅` → no drape at all.
+
+An all-zero grid is *not* the same as a missing face: missing means "no
+constraint", all-zero means "clip everything".
+
+**Fix.** `LENGTH_STYLE["medium"] = "long_straight"` (already the seed style for
+`long`/`very_long`). The length cap (`style_drape(style, length)`) then produces
+2 rows, which is what the procedural render does.
+
+**A/B** — body rows (front) with the hair masks applied, per style × length:
+
+| style | short | medium | long | very_long |
+|---|---|---|---|---|
+| long_straight / long_wavy / curly | 0 | **2** (was 0) | 6 | 10 |
+| bob / ponytail / short / pixie / bun | 0 | 0 | 0 | 0 |
+
+`tests/test_attribute_masks.py` now asserts that every style × length renders the
+same torso depth with and without the hair masks, so a seed style that cannot
+express its own length fails loudly.
+
+**Draft note.** Existing drafts keep the old all-zero `hair_length.medium` until
+it is reseeded (`사진 추정값으로` on that value, or the migration when the schema
+is bumped). Backup made before the local reseed:
+`out/mask_editor/attribute_masks.before-hair-reseed2.json`.
