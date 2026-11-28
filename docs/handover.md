@@ -888,3 +888,8 @@ S0 quality/face detection (YuNet) → S1 colour measurement (white-balance + ban
   - 값 줄 끝에 `사진 추정값으로` 버튼: 현재 `key.value` 하나만 `/api/seed`로 복원하고 Undo 1스텝. standalone 전용(job 모드는 행별 `↩` 사용).
   - 테스트: `tests/test_mask_editor_atlas.py`에 `selection.test.mjs` 실행 추가. CDP 실측(standalone): `hair_style.curly` → `hair_length` → `hair_style` 복귀 시 `curly` 유지, `hair_length.very_long`도 유지, 공유 값 `short` 유지, `long_wavy` 칠한 뒤 복원 버튼 → 시드와 동일·다른 key 불변·Undo 1스텝, 콘솔 에러 0. `pytest -q` → **829 passed**.
   - 헤어 몸통 드레이프 조사 결과: `_hair_mask_grid`가 style∩length로 마스크를 적용하지만, 사진 드레이프가 있는 스타일(`long_straight`/`long_wavy`/`curly`)은 `render_body`가 먼저 per-column 드레이프를 그리고 마스크로 자르기만 하므로 **마스크로 늘릴 수 없고 줄일 수는 있다**. 다만 body.back은 드레이프가 0행이라 마스크로 줄일 대상이 없고, 실제 상한은 `hairstencil.STYLE_DRAPE`(front 11/back 12)다. 이 값 변경은 렌더 정책 변경이라 paired baseline이 필요해 이번 PR에서 제외하고 `docs/attribute-masks.md`에 근거를 남겼다.
+
+- 2026-11-28 (에이전트 브라우저 QA 규칙, `chore/agent-qa-notes`): 이번 세션에서 CDP 검증 루프가 오래 걸린 원인을 `AGENTS.md`의 `## Browser QA (headless Chrome)` 섹션으로 문서화했다(코드 변경 없음).
+  - 손실 근거: CDP 타임아웃 5회(`EXIT=124`, 약 12분+), 동일 QA 스크립트 재작성/재실행 6회. 원인은 ① 기존 `about:blank` 타깃에 붙으면 `Page.enable`이 멈춤 ② 이전 세션 Chrome 프로세스가 포트 9337/9341을 점유(`bind() failed`) ③ QA 스크립트 문법/좌표 버그 ④ 에디터 토큰 인증 미처리.
+  - 규칙: 새 타깃 생성(`PUT /json/new`) 후 `Page.enable` 응답 확인 → 본 스크립트, 실행마다 새 포트/새 프로필, 포트 PID로만 종료, 실행 전 `node --check`, 페이지 표현식은 `JSON.stringify`, 좌표 클릭 대신 앱 API(`maskEditor.paintTexel`), 반복은 관련 테스트만·머지 전 전체 `pytest`.
+  - 리스크: 문서만 변경. 다음 세션의 에이전트는 이 섹션을 읽고 같은 시행착오를 반복하지 않아야 한다.

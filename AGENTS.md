@@ -122,6 +122,34 @@ that exposes the Gemini key client-side, and keep the upload/rate limits in
 - Tests: `tests/` (contract-style; `tests/fixtures/` are committed).
 - Design history: `docs/superpowers/`, `docs/ledger/`.
 
+## Browser QA (headless Chrome)
+
+Used for editor/UI checks (`/edit/{id}`, `tools/mask_editor`, the main page).
+Getting this wrong is the biggest time sink in a session — follow the order.
+
+- **Probe first, script second.** `curl /json/version` → create a fresh target
+  with `PUT /json/new?<url>` → send `Page.enable` and wait for a reply. Only
+  then run the full script. Attaching to an existing `about:blank` tab can hang
+  `Page.enable` forever.
+- **Fresh port and fresh profile per run** (`--remote-debugging-port=93xx`,
+  `--user-data-dir=/tmp/opencode/chrome-<topic>-<n>`). Leftover Chrome causes
+  `bind() failed: Address already in use` and connections that go nowhere.
+- **Stop exactly the port's PID** (`ss -ltnp | grep :93xx`). A broad
+  `pkill -f <pattern>` also matches the shell command you are running.
+- **`node --check` the QA script before running it**, and build in-page
+  expressions with `JSON.stringify` instead of nested template literals
+  (nested backticks silently eat quotes: `ReferenceError: L1 is not defined`).
+- **Drive the app's own API instead of mouse coordinates** where possible
+  (`window.maskEditor.paintTexel`, `setMobileTab`, `setBrush`, …). Coordinates
+  break with zoom, layout and scroll.
+- Every CDP wait needs a **timeout and a name**; a script that exits 124 costs
+  as much as the bug it was meant to catch.
+- The dev mask editor requires auth: `POST /api/auth {token}`, then reload. The
+  token lives in `out/mask_editor/access_token`.
+- Run the **focused** test files while iterating; run the full `pytest -q`
+  (~4 min) once before merging. Budget ~10 min for CI (`test`,
+  `test-windows`, `web`) plus deploy.
+
 ## Handoff
 
 At the end of a session update `docs/handover.md` and put evidence (commands +
